@@ -5,9 +5,9 @@
 ## 项目概述
 
 **项目名称**: 桌游集成客户端（前端）
-**技术栈**: HTML5 + CSS3 + JavaScript (ES6+)
+**技术栈**: HTML5 + CSS3 + JavaScript (ES6+) + Vite
 **运行环境**: 现代浏览器 (Chrome 91+, Edge 91+, Safari 16.4+)
-**开发工具**: Vite 5.x (可选)
+**开发目录**: `frontend/` (使用 Vite 构建)
 
 ---
 
@@ -28,31 +28,42 @@
 ## 目录结构
 
 ```
-board-game-client/
-├── index.html              # 主入口
-├── game/                   # 核心引擎
-│   ├── engine.js          # 游戏主循环和状态管理
-│   ├── rules.js           # 通用规则验证框架
-│   ├── network.js         # WebSocket 客户端
-│   └── registry.js        # 游戏注册表
-├── games/                  # 桌游模块
-│   ├── uno/               # UNO 游戏
-│   │   ├── index.js       # 游戏类
-│   │   ├── config.json    # 配置
-│   │   ├── rules.js       # UNO 规则
-│   │   └── ui.js          # UI 组件
-│   └── werewolf/          # 狼人杀 (待开发)
-├── layout/                 # UI 组件
-│   ├── game-lobby.js      # 游戏大厅
-│   ├── game-board.js      # 游戏棋盘
-│   └── settings-panel.js  # 设置面板
-├── theme/                  # 主题
-│   ├── variables.css      # CSS 变量
-│   ├── default.css        # 默认主题
-│   └── dark.css           # 暗色主题
-└── utils/                  # 工具
-    ├── storage.js         # localStorage 封装
-    └── validators.js      # 验证工具
+frontend/                   # 项目根目录
+├── index.html              # HTML 入口
+├── package.json            # 依赖配置
+├── vite.config.js          # Vite 配置 (可选)
+└── src/                    # 源代码目录
+    ├── main.js             # 应用入口
+    ├── game/               # 核心引擎
+    │   ├── engine.js       # 游戏主循环和状态管理
+    │   ├── rules.js        # 通用规则验证框架
+    │   ├── network.js      # WebSocket 客户端
+    │   └── registry.js     # 游戏注册表
+    ├── games/              # 桌游模块
+    │   ├── uno/            # UNO 游戏 (已实现)
+    │   │   ├── index.js    # 游戏类
+    │   │   ├── config.json # 配置
+    │   │   ├── rules.js    # UNO 规则
+    │   │   └── ui.js       # UI 组件
+    │   └── werewolf/       # 狼人杀 (待开发)
+    ├── layout/             # 布局组件
+    │   ├── game-lobby.js   # 游戏大厅
+    │   ├── game-board.js   # 游戏棋盘
+    │   ├── waiting-room.js # 等待大厅
+    │   ├── settings-panel.js # 设置面板
+    │   └── game-result.js  # 结算界面
+    ├── components/         # 通用组件
+    │   ├── modal.js        # 模态框
+    │   ├── notification.js # 通知/Toast
+    │   ├── loading.js      # 加载指示器
+    │   └── player-avatar.js # 玩家头像
+    ├── theme/              # 主题
+    │   ├── variables.css   # CSS 变量
+    │   └── default.css     # 默认主题
+    └── utils/              # 工具
+        ├── storage.js      # localStorage 封装
+        ├── validators.js   # 验证工具
+        └── event-emitter.js # 事件发射器
 ```
 
 ---

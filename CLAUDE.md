@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **桌游集成客户端** - A web-based board game platform supporting single-player and LAN multiplayer modes. Built with vanilla JavaScript (frontend) and Node.js WebSocket server (backend).
 
-**Current Status**: Early development (v0.1.0), source directories are empty and ready for implementation.
+**Current Status**: Frontend implemented (v0.1.0) with UNO game, single-player AI, and online multiplayer support. Backend pending.
 
 ## Architecture
 
@@ -34,12 +34,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 demo_boardgame/
-├── web_frontend/          # Frontend source (empty, to implement)
-│   ├── game/              # Core: engine.js, rules.js, network.js, registry.js
-│   ├── games/             # Game modules: uno/, werewolf/
-│   ├── layout/            # UI: game-lobby.js, game-board.js, settings-panel.js
-│   ├── theme/             # CSS: variables.css, default.css, dark.css
-│   └── utils/             # Helpers: storage.js, validators.js
+├── frontend/              # Frontend source (Vite + vanilla JS)
+│   ├── src/
+│   │   ├── game/          # Core: engine.js, rules.js, network.js, registry.js
+│   │   ├── games/         # Game modules: uno/
+│   │   ├── layout/        # UI: game-lobby.js, game-board.js, settings-panel.js
+│   │   ├── components/    # Common UI: modal.js, notification.js, loading.js
+│   │   ├── theme/         # CSS: variables.css, default.css
+│   │   ├── utils/         # Helpers: storage.js, validators.js, event-emitter.js
+│   │   └── main.js        # Application entry point
+│   ├── index.html         # HTML entry
+│   └── package.json       # Vite + dependencies
 ├── backend/               # Backend source (empty, to implement)
 │   └── server/            # index.js, connection-manager.js, room-manager.js, message-router.js
 ├── docs/
@@ -55,19 +60,15 @@ demo_boardgame/
 
 ```bash
 # Frontend (with Vite)
+cd frontend
 npm install
 npm run dev              # Start dev server at localhost:5173
-
-# Backend
-cd server
-node index.js            # Start WebSocket server on port 7777
-
-# Testing
-npm test                 # Run all tests
-npm run test:coverage    # Coverage report
-
-# Build
 npm run build            # Production build to dist/
+
+# Backend (not yet implemented)
+cd backend/server
+npm install
+node index.js            # Start WebSocket server on port 7777
 ```
 
 ## Key Technical Details
