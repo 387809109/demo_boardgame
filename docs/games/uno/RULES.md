@@ -422,22 +422,88 @@ const UNO_ACTIONS = {
 
 ## 12. 配置选项
 
+### 12.1 配置 Schema (用于 UI 生成)
+
 ```json
 {
-  "initialCards": 7,
-  "drawPenalty": 2,
-  "stackDrawCards": false,
-  "forcePlay": false,
-  "sevenSwap": false,
-  "zeroRotate": false
+  "settingsSchema": {
+    "initialCards": {
+      "type": "number",
+      "label": "初始手牌数",
+      "description": "每位玩家开局时获得的手牌数量",
+      "default": 7,
+      "min": 3,
+      "max": 15
+    },
+    "stackDrawCards": {
+      "type": "boolean",
+      "label": "允许叠加 +2/+4",
+      "description": "当被出 +2 或 +4 时，可以出相同的牌叠加惩罚给下一位玩家",
+      "default": false
+    },
+    "forcePlay": {
+      "type": "boolean",
+      "label": "强制出牌",
+      "description": "摸到可以出的牌时必须立即出牌，不能选择保留",
+      "default": false
+    },
+    "unoPenalty": {
+      "type": "number",
+      "label": "忘喊 UNO 罚牌数",
+      "description": "玩家忘记喊 UNO 被质疑时需要摸的牌数",
+      "default": 2,
+      "min": 1,
+      "max": 4
+    },
+    "drawUntilMatch": {
+      "type": "boolean",
+      "label": "摸到能出为止",
+      "description": "没有牌可出时持续摸牌直到摸到可出的牌",
+      "default": false
+    },
+    "sevenSwap": {
+      "type": "boolean",
+      "label": "7 换牌",
+      "description": "出 7 时可以与任意一位玩家交换手牌",
+      "default": false
+    },
+    "zeroRotate": {
+      "type": "boolean",
+      "label": "0 轮转",
+      "description": "出 0 时所有玩家将手牌传给下一位玩家",
+      "default": false
+    }
+  }
 }
 ```
 
-| 选项 | 默认值 | 说明 |
-|------|--------|------|
-| `initialCards` | 7 | 初始手牌数 |
-| `drawPenalty` | 2 | 未喊 UNO 的罚牌数 |
-| `stackDrawCards` | false | 是否允许叠加 +2/+4 |
-| `forcePlay` | false | 摸到可出的牌是否必须出 |
-| `sevenSwap` | false | 出 7 是否与他人换手牌 |
-| `zeroRotate` | false | 出 0 是否轮转所有手牌 |
+### 12.2 选项说明
+
+| 选项 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `initialCards` | number | 7 | 初始手牌数 (范围: 3-15) |
+| `stackDrawCards` | boolean | false | 是否允许叠加 +2/+4 |
+| `forcePlay` | boolean | false | 摸到可出的牌是否必须出 |
+| `unoPenalty` | number | 2 | 未喊 UNO 的罚牌数 (范围: 1-4) |
+| `drawUntilMatch` | boolean | false | 是否摸到能出为止 |
+| `sevenSwap` | boolean | false | 出 7 是否与他人换手牌 |
+| `zeroRotate` | boolean | false | 出 0 是否轮转所有手牌 |
+
+### 12.3 叠加规则实现
+
+当 `stackDrawCards` 为 `true` 时：
+
+```javascript
+// 验证叠加是否合法
+if (state.drawPending > 0 && state.options.stackDrawCards) {
+  const topCard = state.discardPile[state.discardPile.length - 1];
+  const canStack =
+    (topCard.type === 'draw_two' && card.type === 'draw_two') ||
+    (topCard.type === 'wild_draw_four' && card.type === 'wild_draw_four');
+
+  if (canStack) {
+    // 允许叠加，累计 drawPending
+    newState.drawPending += effects.drawPending;
+  }
+}
+```
