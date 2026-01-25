@@ -45,7 +45,19 @@ export class UnoGame extends GameEngine {
    */
   initialize(gameConfig) {
     const { players, options = {} } = gameConfig;
-    const initialCards = options.initialCards || config.rules.initialCards;
+
+    // Merge default rules with custom options
+    const gameOptions = {
+      initialCards: options.initialCards ?? config.rules.initialCards,
+      stackDrawCards: options.stackDrawCards ?? config.rules.stackDrawCards ?? false,
+      forcePlay: options.forcePlay ?? config.rules.forcePlay ?? false,
+      unoPenalty: options.unoPenalty ?? config.rules.unoPenalty ?? 2,
+      drawUntilMatch: options.drawUntilMatch ?? false,
+      sevenSwap: options.sevenSwap ?? false,
+      zeroRotate: options.zeroRotate ?? false
+    };
+
+    const initialCards = gameOptions.initialCards;
 
     // Generate and shuffle deck
     let deck = shuffleDeck(generateDeck());
@@ -99,7 +111,8 @@ export class UnoGame extends GameEngine {
       drawPending: topCard.type === CARD_TYPES.DRAW_TWO ? 2 : 0,
       lastAction: null,
       unoCalledBy: null,
-      winner: null
+      winner: null,
+      options: gameOptions // Store game options for use during gameplay
     };
 
     return state;
@@ -134,9 +147,22 @@ export class UnoGame extends GameEngine {
           return { valid: false, error: '你没有这张牌' };
         }
 
-        // Must draw pending cards first
+        // Check if there are pending draw cards
         if (state.drawPending > 0) {
-          return { valid: false, error: `必须先摸 ${state.drawPending} 张牌` };
+          // If stacking is enabled, allow playing +2 on +2 or +4 on +4
+          if (state.options?.stackDrawCards) {
+            const topCard = state.discardPile[state.discardPile.length - 1];
+            const canStack =
+              (topCard.type === CARD_TYPES.DRAW_TWO && card.type === CARD_TYPES.DRAW_TWO) ||
+              (topCard.type === CARD_TYPES.WILD_DRAW_FOUR && card.type === CARD_TYPES.WILD_DRAW_FOUR);
+
+            if (!canStack) {
+              return { valid: false, error: `必须先摸 ${state.drawPending} 张牌，或出相同的牌叠加` };
+            }
+            // Allow stacking - continue to validate the card play
+          } else {
+            return { valid: false, error: `必须先摸 ${state.drawPending} 张牌` };
+          }
         }
 
         const topCard = state.discardPile[state.discardPile.length - 1];
@@ -228,8 +254,14 @@ export class UnoGame extends GameEngine {
           }
         }
 
-        // Set pending draws for next player
-        newState.drawPending = effects.drawPending;
+        // Handle draw stacking
+        if (newState.options?.stackDrawCards && newState.drawPending > 0 && effects.drawPending > 0) {
+          // Stack the draws
+          newState.drawPending += effects.drawPending;
+        } else {
+          // Set pending draws for next player
+          newState.drawPending = effects.drawPending;
+        }
 
         // Update player card count
         const playerIndex = newState.players.findIndex(p => p.id === playerId);
@@ -310,8 +342,8 @@ export class UnoGame extends GameEngine {
         const { targetPlayerId } = actionData;
         const targetHand = newState.hands[targetPlayerId];
 
-        // Target draws penalty cards
-        const penaltyCount = getUnoPenalty();
+        // Target draws penalty cards (use custom penalty from options)
+        const penaltyCount = getUnoPenalty(newState.options?.unoPenalty);
         for (let i = 0; i < penaltyCount; i++) {
           if (newState.deck.length === 0) {
             this._reshuffleDeck(newState);

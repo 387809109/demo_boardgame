@@ -115,10 +115,11 @@ export function forgotUno(hand, calledUno) {
 
 /**
  * Get penalty for forgetting UNO
+ * @param {number} [customPenalty] - Custom penalty amount from game options
  * @returns {number}
  */
-export function getUnoPenalty() {
-  return 2; // Draw 2 cards
+export function getUnoPenalty(customPenalty) {
+  return customPenalty ?? 2; // Default: Draw 2 cards
 }
 
 /**

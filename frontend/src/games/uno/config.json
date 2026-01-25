@@ -11,6 +11,55 @@
     "initialCards": 7,
     "drawOnMiss": 1,
     "stackDrawCards": false,
-    "jumpIn": false
+    "forcePlay": false,
+    "unoPenalty": 2
+  },
+  "settingsSchema": {
+    "initialCards": {
+      "type": "number",
+      "label": "初始手牌数",
+      "description": "每位玩家开局时获得的手牌数量",
+      "default": 7,
+      "min": 3,
+      "max": 15
+    },
+    "stackDrawCards": {
+      "type": "boolean",
+      "label": "允许叠加 +2/+4",
+      "description": "当被出 +2 或 +4 时，可以出相同的牌叠加惩罚给下一位玩家",
+      "default": false
+    },
+    "forcePlay": {
+      "type": "boolean",
+      "label": "强制出牌",
+      "description": "摸到可以出的牌时必须立即出牌，不能选择保留",
+      "default": false
+    },
+    "unoPenalty": {
+      "type": "number",
+      "label": "忘喊 UNO 罚牌数",
+      "description": "玩家忘记喊 UNO 被质疑时需要摸的牌数",
+      "default": 2,
+      "min": 1,
+      "max": 4
+    },
+    "drawUntilMatch": {
+      "type": "boolean",
+      "label": "摸到能出为止",
+      "description": "没有牌可出时持续摸牌直到摸到可出的牌",
+      "default": false
+    },
+    "sevenSwap": {
+      "type": "boolean",
+      "label": "7 换牌",
+      "description": "出 7 时可以与任意一位玩家交换手牌",
+      "default": false
+    },
+    "zeroRotate": {
+      "type": "boolean",
+      "label": "0 轮转",
+      "description": "出 0 时所有玩家将手牌传给下一位玩家",
+      "default": false
+    }
   }
 }

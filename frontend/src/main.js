@@ -18,11 +18,12 @@ import { GameResult } from './layout/game-result.js';
 import { getModal } from './components/modal.js';
 import { showNotification, showToast } from './components/notification.js';
 import { showLoading, hideLoading } from './components/loading.js';
+import { GameSettingsModal } from './components/game-settings-modal.js';
 
 import UnoGame from './games/uno/index.js';
 import { UnoUI } from './games/uno/ui.js';
 import unoConfig from './games/uno/config.json';
-import { canPlayCard, COLORS } from './games/uno/rules.js';
+import { canPlayCard, COLORS, CARD_TYPES } from './games/uno/rules.js';
 
 /**
  * Application class
@@ -116,42 +117,79 @@ class App {
       return;
     }
 
-    if (mode === 'offline') {
-      this._startOfflineGame(gameId);
-    } else {
-      this._showCreateRoomDialog(gameId);
+    // Get game config for settings
+    const gameConfig = this._getGameConfig(gameId);
+
+    // Show settings modal
+    const settingsModal = new GameSettingsModal({
+      gameConfig,
+      mode,
+      onConfirm: ({ settings, aiCount }) => {
+        if (mode === 'offline') {
+          this._startOfflineGame(gameId, settings, aiCount);
+        } else {
+          this._showCreateRoomDialog(gameId, settings);
+        }
+      },
+      onCancel: () => {
+        // User cancelled, do nothing
+      }
+    });
+
+    settingsModal.mount(document.body);
+  }
+
+  /**
+   * Get game config by ID
+   * @private
+   */
+  _getGameConfig(gameId) {
+    // For now, we only have UNO
+    if (gameId === 'uno') {
+      return unoConfig;
     }
+    return { id: gameId, name: gameId, minPlayers: 2, maxPlayers: 4 };
   }
 
   /**
    * Start offline game
    * @private
    */
-  _startOfflineGame(gameType) {
+  _startOfflineGame(gameType, settings = {}, aiCount = 1) {
     const nickname = this.config.game.defaultNickname || '玩家1';
 
-    // For offline, create AI opponents
+    // Create player list with human and AI players
     const players = [
-      { id: this.playerId, nickname, isHost: true },
-      { id: 'ai-1', nickname: 'AI 玩家 1', isHost: false },
-      { id: 'ai-2', nickname: 'AI 玩家 2', isHost: false }
+      { id: this.playerId, nickname, isHost: true }
     ];
 
-    this._startGame(gameType, players, 'offline');
+    // Add AI players based on count
+    for (let i = 1; i <= aiCount; i++) {
+      players.push({
+        id: `ai-${i}`,
+        nickname: `AI 玩家 ${i}`,
+        isHost: false
+      });
+    }
+
+    this._startGame(gameType, players, 'offline', settings);
   }
 
   /**
    * Start game with players
    * @private
    */
-  _startGame(gameType, players, mode) {
+  _startGame(gameType, players, mode, options = {}) {
     this._clearView();
 
     // Create game instance
     const game = createGame(gameType, mode);
 
-    // Start game
-    game.start({ players, gameType });
+    // Store options for replay
+    this._lastGameOptions = options;
+
+    // Start game with options
+    game.start({ players, gameType, options });
 
     this.currentGame = game;
 
@@ -257,6 +295,34 @@ class App {
 
       // Handle pending draws
       if (state.drawPending > 0) {
+        // If stacking is enabled, check if AI can stack
+        if (state.options?.stackDrawCards) {
+          const topCard = state.discardPile[state.discardPile.length - 1];
+          let stackCard = null;
+
+          if (topCard.type === CARD_TYPES.DRAW_TWO) {
+            stackCard = aiHand.find(c => c.type === CARD_TYPES.DRAW_TWO);
+          } else if (topCard.type === CARD_TYPES.WILD_DRAW_FOUR) {
+            stackCard = aiHand.find(c => c.type === CARD_TYPES.WILD_DRAW_FOUR);
+          }
+
+          if (stackCard) {
+            // AI stacks the card
+            const chosenColor = stackCard.color === null
+              ? COLORS[Math.floor(Math.random() * COLORS.length)]
+              : null;
+
+            game.executeMove({
+              actionType: 'PLAY_CARD',
+              actionData: { cardId: stackCard.id, chosenColor },
+              playerId: currentPlayer
+            });
+            setTimeout(() => this._simulateAITurn(), 500);
+            return;
+          }
+        }
+
+        // No stacking possible, must draw
         game.executeMove({
           actionType: 'DRAW_CARD',
           actionData: {},
@@ -349,7 +415,8 @@ class App {
         if (this.currentGame) {
           const gameType = this.currentGame.config.id;
           const players = this.currentGame.getState()?.players || [];
-          this._startGame(gameType, players, this.currentGame.mode);
+          const options = this._lastGameOptions || {};
+          this._startGame(gameType, players, this.currentGame.mode, options);
         }
       },
       onBackToLobby: () => {
@@ -365,7 +432,7 @@ class App {
    * Show create room dialog
    * @private
    */
-  async _showCreateRoomDialog(gameType) {
+  async _showCreateRoomDialog(gameType, settings = {}) {
     const modal = getModal();
     const content = document.createElement('div');
 
@@ -398,6 +465,8 @@ class App {
       }
 
       modal.hide();
+      // Store settings for when game starts
+      this._pendingGameSettings = settings;
       await this._connectAndCreateRoom(serverUrl, roomId, nickname, gameType);
     });
   }
@@ -542,7 +611,8 @@ class App {
     net.onMessage('GAME_STARTED', (data) => {
       showToast('游戏开始!');
       const players = this.currentRoom?.players || [];
-      this._startGame(data.gameType, players, 'online');
+      const settings = this._pendingGameSettings || {};
+      this._startGame(data.gameType, players, 'online', settings);
     });
 
     net.onMessage('GAME_STATE_UPDATE', (data) => {
