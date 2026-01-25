@@ -254,12 +254,66 @@ class NetworkClient {
 
 ---
 
+## 游戏开发前置要求 (必读)
+
+> **重要**: 在开发任何新游戏之前，必须先完成以下文档工作。
+
+### 步骤 1: 创建 AI 规则文档
+
+**位置**: `docs/games/[game-name]/RULES.md`
+
+在编写任何代码之前，先创建面向 AI Coding 的技术规则文档。此文档应包含：
+
+| 内容 | 说明 |
+|------|------|
+| 卡牌/棋子定义 | 完整的数据结构定义 (JavaScript typedef) |
+| 游戏规则 | 以算法/伪代码形式描述所有规则 |
+| 状态结构 | GameState 的完整字段定义 |
+| 操作类型 | 所有 Action Types 及其数据格式 |
+| 验证逻辑 | 每种操作的合法性判定算法 |
+| 计分规则 | 分数计算公式 |
+| 错误代码 | 所有可能的错误代码及说明 |
+
+**参考示例**: `docs/games/uno/RULES.md`
+
+### 步骤 2: 创建用户规则书
+
+**位置**: `frontend/public/rules/[game-name].html`
+
+创建面向玩家的可视化规则说明页面，应包含：
+
+- 游戏目标和概述
+- 卡牌/棋子的图形化说明
+- 分步骤的游戏流程
+- 特殊规则和技巧提示
+- 计分说明
+
+**参考示例**: `frontend/public/rules/uno.html`
+
+### 规则来源
+
+| 情况 | 处理方式 |
+|------|---------|
+| 经典游戏 (UNO, 象棋等) | AI 可自行创建规则文档 |
+| 小众/自创游戏 | 向用户请求详细规则后再创建 |
+
+---
+
 ## 游戏模块开发模板
 
-### 新游戏目录结构
+### 新游戏完整目录结构
 
 ```
-games/[game-name]/
+# 文档 (开发前创建)
+docs/games/[game-name]/
+└── RULES.md           # AI 规则文档
+
+# 用户规则书 (开发前创建)
+frontend/public/rules/
+└── [game-name].html   # 用户规则书
+
+# 代码 (文档完成后开发)
+frontend/src/games/[game-name]/
 ├── index.js       # 游戏类 (继承 BoardGame)
 ├── config.json    # 游戏配置
 ├── rules.js       # 游戏规则
@@ -492,6 +546,5 @@ npm run test:coverage # 覆盖率报告
 ## 参考文档
 
 - [WebSocket 通信协议](../../PROTOCOL.md)
-- [前端开发指南](../../FRONTEND_GUIDE.md)
-- [AI Coding 指南](../../AI_CODING_GUIDE.md)
-- [协作开发流程](../../COLLABORATION.md)
+- [AI 规则文档模板](../games/TEMPLATE.md)
+- [UNO AI 规则文档示例](../games/uno/RULES.md)
