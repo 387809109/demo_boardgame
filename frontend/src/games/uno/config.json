@@ -1,0 +1,16 @@
+{
+  "id": "uno",
+  "name": "UNO",
+  "description": "经典的 UNO 卡牌游戏，通过出牌匹配颜色或数字，最先打完手牌者获胜",
+  "minPlayers": 2,
+  "maxPlayers": 8,
+  "difficulty": "easy",
+  "estimatedTime": 30,
+  "tags": ["卡牌", "派对", "经典"],
+  "rules": {
+    "initialCards": 7,
+    "drawOnMiss": 1,
+    "stackDrawCards": false,
+    "jumpIn": false
+  }
+}
