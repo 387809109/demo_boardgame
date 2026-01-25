@@ -43,12 +43,17 @@ demo_boardgame/
 │   │   ├── theme/         # CSS: variables.css, default.css
 │   │   ├── utils/         # Helpers: storage.js, validators.js, event-emitter.js
 │   │   └── main.js        # Application entry point
+│   ├── public/
+│   │   └── rules/         # User-facing rule books (HTML)
+│   │       └── uno.html   # UNO rules for players
 │   ├── index.html         # HTML entry
 │   └── package.json       # Vite + dependencies
 ├── backend/               # Backend source (empty, to implement)
 │   └── server/            # index.js, connection-manager.js, room-manager.js, message-router.js
 ├── docs/
 │   ├── PROTOCOL.md        # WebSocket message spec (required reading)
+│   ├── games/             # Game rule documentation (AI-facing)
+│   │   └── uno/RULES.md   # UNO technical rules
 │   └── prd/
 │       ├── PRD.md         # Product requirements
 │       ├── frontend/      # Frontend PRD + task list
@@ -104,6 +109,37 @@ Each game in `games/[name]/` contains:
 - CSS Variables for all styling (see `theme/variables.css`)
 - Max 500 lines per file
 
+## Game Documentation Requirements
+
+**Before developing any new game, create the following documentation:**
+
+### 1. AI-Facing Rule Documentation (`docs/games/[game-name]/RULES.md`)
+
+Technical specification for AI Coding assistants, including:
+- Card/piece definitions with exact data structures
+- All game rules as algorithms/pseudocode
+- State machine definitions
+- Action types and validation logic
+- Scoring formulas
+- Error codes
+
+Example: `docs/games/uno/RULES.md`
+
+### 2. User-Facing Rule Book (`frontend/public/rules/[game-name].html`)
+
+Player-friendly documentation, including:
+- Game objective and overview
+- Visual card/piece explanations
+- Step-by-step gameplay instructions
+- Special rules and tips
+- Scoring explanation
+
+Example: `frontend/public/rules/uno.html`
+
+**Note:** If game rules are publicly available (e.g., UNO, Chess), create documentation independently. For custom or obscure games, request detailed rules from the user before proceeding.
+
+---
+
 ## Key Documentation References
 
 | Document | Purpose |
@@ -113,6 +149,8 @@ Each game in `games/[name]/` contains:
 | `docs/prd/frontend/TASKS.md` | Frontend task checklist (T-F001 to T-F112) |
 | `docs/prd/backend/README.md` | Backend implementation guide with templates |
 | `docs/prd/backend/TASKS.md` | Backend task checklist (T-B001 to T-B113) |
+| `docs/games/[game]/RULES.md` | Game-specific AI rule documentation |
+| `frontend/public/rules/[game].html` | User-facing rule books |
 
 ## Implementation Notes
 

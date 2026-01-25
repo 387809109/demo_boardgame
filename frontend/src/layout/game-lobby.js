@@ -170,6 +170,9 @@ export class GameLobby {
           <button class="btn btn-secondary btn-sm create-room-btn" data-game-id="${game.id}">
             创建房间
           </button>
+          <button class="btn btn-ghost btn-sm rules-btn" data-game-id="${game.id}" title="查看规则">
+            📖
+          </button>
         </div>
       </div>
     `;
@@ -228,6 +231,15 @@ export class GameLobby {
         e.stopPropagation();
         const gameId = btn.dataset.gameId;
         this.options.onSelectGame?.(gameId, 'online');
+      });
+    });
+
+    // View rules
+    this.element.querySelectorAll('.rules-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const gameId = btn.dataset.gameId;
+        window.open(`/rules/${gameId}.html`, '_blank', 'width=900,height=700');
       });
     });
 

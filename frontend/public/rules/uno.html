@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNO 游戏规则</title>
+  <style>
+    :root {
+      --uno-red: #ff5555;
+      --uno-blue: #5555ff;
+      --uno-green: #55aa55;
+      --uno-yellow: #ffaa00;
+      --uno-black: #333333;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--uno-red), var(--uno-yellow));
+      color: white;
+      padding: 40px 30px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2.5em;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      margin-bottom: 10px;
+    }
+
+    header p {
+      opacity: 0.9;
+      font-size: 1.1em;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    section {
+      margin-bottom: 30px;
+    }
+
+    h2 {
+      color: #333;
+      border-bottom: 3px solid var(--uno-blue);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      font-size: 1.5em;
+    }
+
+    h3 {
+      color: #555;
+      margin: 20px 0 10px;
+      font-size: 1.2em;
+    }
+
+    p, li {
+      margin-bottom: 10px;
+    }
+
+    ul, ol {
+      padding-left: 25px;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .card-type {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      border: 2px solid #eee;
+      transition: transform 0.2s;
+    }
+
+    .card-type:hover {
+      transform: translateY(-3px);
+    }
+
+    .card-sample {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 70px;
+      border-radius: 8px;
+      color: white;
+      font-weight: bold;
+      font-size: 1.2em;
+      margin-bottom: 10px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    }
+
+    .card-sample.red { background: var(--uno-red); }
+    .card-sample.blue { background: var(--uno-blue); }
+    .card-sample.green { background: var(--uno-green); }
+    .card-sample.yellow { background: var(--uno-yellow); color: #333; }
+    .card-sample.wild {
+      background: linear-gradient(135deg, var(--uno-red) 25%, var(--uno-blue) 25%, var(--uno-blue) 50%, var(--uno-green) 50%, var(--uno-green) 75%, var(--uno-yellow) 75%);
+    }
+
+    .card-type-name {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .card-type-desc {
+      font-size: 0.85em;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    .highlight-box {
+      background: linear-gradient(135deg, #fff3cd, #ffeeba);
+      border-left: 4px solid var(--uno-yellow);
+      padding: 15px 20px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+    }
+
+    .highlight-box.danger {
+      background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+      border-left-color: var(--uno-red);
+    }
+
+    .highlight-box.info {
+      background: linear-gradient(135deg, #d1ecf1, #bee5eb);
+      border-left-color: var(--uno-blue);
+    }
+
+    .steps {
+      counter-reset: step;
+    }
+
+    .steps li {
+      counter-increment: step;
+      position: relative;
+      padding-left: 45px;
+      margin-bottom: 15px;
+    }
+
+    .steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 30px;
+      height: 30px;
+      background: var(--uno-blue);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+    }
+
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    th {
+      background: #f8f9fa;
+      font-weight: bold;
+    }
+
+    tr:hover {
+      background: #f8f9fa;
+    }
+
+    .color-dot {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    footer {
+      background: #f8f9fa;
+      padding: 20px 30px;
+      text-align: center;
+      color: #666;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>UNO 游戏规则</h1>
+      <p>经典卡牌对战游戏 | 2-10人</p>
+    </header>
+
+    <div class="content">
+      <section>
+        <h2>游戏目标</h2>
+        <p><strong>成为第一个打出所有手牌的玩家！</strong></p>
+        <p>在你的回合，尽可能打出符合规则的牌。当你只剩下一张牌时，别忘了喊 "UNO"！</p>
+      </section>
+
+      <section>
+        <h2>卡牌类型</h2>
+
+        <h3>数字牌 (0-9)</h3>
+        <div class="card-grid">
+          <div class="card-type">
+            <div class="card-sample red">7</div>
+            <div class="card-type-name">红色数字牌</div>
+          </div>
+          <div class="card-type">
+            <div class="card-sample blue">3</div>
+            <div class="card-type-name">蓝色数字牌</div>
+          </div>
+          <div class="card-type">
+            <div class="card-sample green">5</div>
+            <div class="card-type-name">绿色数字牌</div>
+          </div>
+          <div class="card-type">
+            <div class="card-sample yellow">9</div>
+            <div class="card-type-name">黄色数字牌</div>
+          </div>
+        </div>
+
+        <h3>功能牌</h3>
+        <div class="card-grid">
+          <div class="card-type">
+            <div class="card-sample red">S</div>
+            <div class="card-type-name">跳过 (Skip)</div>
+            <div class="card-type-desc">下一位玩家失去回合</div>
+          </div>
+          <div class="card-type">
+            <div class="card-sample blue">R</div>
+            <div class="card-type-name">反转 (Reverse)</div>
+            <div class="card-type-desc">改变出牌方向</div>
+          </div>
+          <div class="card-type">
+            <div class="card-sample green">+2</div>
+            <div class="card-type-name">+2</div>
+            <div class="card-type-desc">下一位摸2张并跳过</div>
+          </div>
+        </div>
+
+        <h3>万能牌</h3>
+        <div class="card-grid">
+          <div class="card-type">
+            <div class="card-sample wild">W</div>
+            <div class="card-type-name">万能牌 (Wild)</div>
+            <div class="card-type-desc">可以随时出，并指定颜色</div>
+          </div>
+          <div class="card-type">
+            <div class="card-sample wild">+4</div>
+            <div class="card-type-name">+4 万能牌</div>
+            <div class="card-type-desc">指定颜色，下一位摸4张</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>出牌规则</h2>
+        <p>你可以打出的牌必须满足以下条件之一：</p>
+        <ul>
+          <li><strong>颜色相同</strong> - 与弃牌堆顶牌颜色一致</li>
+          <li><strong>数字/符号相同</strong> - 与弃牌堆顶牌数字或符号一致</li>
+          <li><strong>万能牌</strong> - 任何时候都可以出</li>
+        </ul>
+
+        <div class="highlight-box info">
+          <strong>示例：</strong>如果弃牌堆顶是 <span style="color: var(--uno-red);">红色 5</span>，你可以出：
+          <ul style="margin-top: 10px;">
+            <li>任何红色牌</li>
+            <li>任何颜色的 5</li>
+            <li>万能牌或 +4 万能牌</li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <h2>游戏流程</h2>
+        <ol class="steps">
+          <li>每位玩家获得 <strong>7 张</strong>手牌</li>
+          <li>翻开一张牌作为起始牌放入弃牌堆</li>
+          <li>从第一位玩家开始，顺时针轮流出牌</li>
+          <li>在你的回合，打出一张符合规则的牌，或摸一张牌</li>
+          <li>如果摸的牌可以出，你可以选择立即出或跳过</li>
+          <li>第一个打出所有手牌的玩家获胜！</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>喊 "UNO"</h2>
+        <div class="highlight-box danger">
+          <strong>重要！</strong>当你只剩下 <strong>一张牌</strong> 时，必须喊 "UNO"！
+        </div>
+        <ul>
+          <li>在打出倒数第二张牌时或之后喊 "UNO"</li>
+          <li>如果忘记喊 UNO 被其他玩家发现，你需要罚摸 <strong>2 张牌</strong></li>
+          <li>只要在下一位玩家出牌前喊 UNO，就是安全的</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>特殊牌效果详解</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>卡牌</th>
+              <th>效果</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>跳过 (Skip)</strong></td>
+              <td>下一位玩家失去回合</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><strong>反转 (Reverse)</strong></td>
+              <td>改变出牌方向</td>
+              <td>2人游戏时等同于跳过</td>
+            </tr>
+            <tr>
+              <td><strong>+2</strong></td>
+              <td>下一位摸2张牌并跳过回合</td>
+              <td>被罚玩家不能出牌</td>
+            </tr>
+            <tr>
+              <td><strong>万能牌</strong></td>
+              <td>指定接下来的颜色</td>
+              <td>任何时候都可以出</td>
+            </tr>
+            <tr>
+              <td><strong>+4 万能牌</strong></td>
+              <td>指定颜色 + 下一位摸4张</td>
+              <td>被罚玩家不能出牌</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>计分规则</h2>
+        <p>获胜者得分 = 其他所有玩家手牌分数之和</p>
+        <table>
+          <thead>
+            <tr>
+              <th>卡牌类型</th>
+              <th>分值</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>数字牌 (0-9)</td>
+              <td>面值分数</td>
+            </tr>
+            <tr>
+              <td>跳过 / 反转 / +2</td>
+              <td>20 分</td>
+            </tr>
+            <tr>
+              <td>万能牌 / +4 万能牌</td>
+              <td>50 分</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>小贴士</h2>
+        <ul>
+          <li>留意其他玩家的手牌数量，准备好质疑忘喊 UNO 的玩家</li>
+          <li>尽量保留万能牌到关键时刻使用</li>
+          <li>当对手手牌很少时，考虑用 +2 或 +4 阻止他们获胜</li>
+          <li>注意观察哪些颜色已经被大量打出，调整你的出牌策略</li>
+        </ul>
+      </section>
+    </div>
+
+    <footer>
+      UNO 是 Mattel 的注册商标。本规则仅供学习参考。
+    </footer>
+  </div>
+</body>
+</html>

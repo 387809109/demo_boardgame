@@ -82,7 +82,10 @@ export class GameBoard {
             </span>
           ` : ''}
         </div>
-        <button class="btn btn-secondary btn-sm leave-btn">退出游戏</button>
+        <div style="display: flex; gap: var(--spacing-2);">
+          <button class="btn btn-ghost btn-sm rules-btn" title="查看规则">📖 规则</button>
+          <button class="btn btn-secondary btn-sm leave-btn">退出游戏</button>
+        </div>
       </header>
 
       <div class="game-main" style="
@@ -329,6 +332,11 @@ export class GameBoard {
   _bindEvents() {
     this.element.querySelector('.leave-btn')?.addEventListener('click', () => {
       this.options.onLeave?.();
+    });
+
+    this.element.querySelector('.rules-btn')?.addEventListener('click', () => {
+      const gameId = this.game?.config?.id || 'uno';
+      window.open(`/rules/${gameId}.html`, '_blank', 'width=900,height=700');
     });
   }
 
