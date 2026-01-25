@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(git -C \"F:\\\\repos\\\\demo_boardgame\" log --oneline -10)"
+    ]
+  }
+}
