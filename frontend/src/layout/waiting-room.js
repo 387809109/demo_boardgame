@@ -15,15 +15,19 @@ export class WaitingRoom {
    * @param {string} options.room.id - Room ID
    * @param {string} options.room.gameType - Game type
    * @param {Array} options.room.players - Player list
+   * @param {number} options.room.maxPlayers - Max players allowed
+   * @param {Array} options.room.aiPlayers - AI players list
    * @param {string} options.playerId - Current player ID
    * @param {Function} options.onStartGame - Called when starting game
    * @param {Function} options.onLeave - Called when leaving room
    * @param {Function} options.onSendChat - Called when sending chat
+   * @param {Function} options.onAddAI - Called when adding AI player
+   * @param {Function} options.onRemoveAI - Called when removing AI player
    */
   constructor(options = {}) {
     this.options = options;
     this.element = null;
-    this.room = options.room || { id: '', gameType: '', players: [] };
+    this.room = options.room || { id: '', gameType: '', players: [], maxPlayers: 4, aiPlayers: [] };
     this.playerId = options.playerId || '';
     this.chatMessages = [];
     this.avatars = new Map();
@@ -57,11 +61,23 @@ export class WaitingRoom {
   }
 
   /**
+   * Get total player count (human + AI)
+   * @returns {number}
+   */
+  getTotalPlayerCount() {
+    return this.room.players.length + (this.room.aiPlayers?.length || 0);
+  }
+
+  /**
    * Render the room
    * @private
    */
   _render() {
     const isHost = this.isHost();
+    const totalPlayers = this.getTotalPlayerCount();
+    const maxPlayers = this.room.maxPlayers || 10;
+    const canAddAI = isHost && totalPlayers < maxPlayers;
+    const canRemoveAI = isHost && (this.room.aiPlayers?.length || 0) > 0;
 
     this.element.innerHTML = `
       <header style="
@@ -75,7 +91,7 @@ export class WaitingRoom {
         <div>
           <h2 style="margin: 0; font-size: var(--text-xl);">等待大厅</h2>
           <p style="margin: var(--spacing-1) 0 0 0; opacity: 0.9; font-size: var(--text-sm);">
-            房间 ID: ${this.room.id} | 游戏: ${this.room.gameType}
+            房间 ID: ${this.room.id} | 游戏: ${this.room.gameType} | 人数上限: ${maxPlayers}
           </p>
         </div>
         <button class="btn btn-secondary leave-btn">离开房间</button>
@@ -93,8 +109,18 @@ export class WaitingRoom {
       ">
         <div class="room-main">
           <div class="card" style="margin-bottom: var(--spacing-4);">
-            <div class="card-header">
-              <h3 style="margin: 0;">玩家列表 (${this.room.players.length})</h3>
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3 style="margin: 0;">玩家列表 (${totalPlayers}/${maxPlayers})</h3>
+              ${isHost ? `
+                <div style="display: flex; gap: var(--spacing-2);">
+                  <button class="btn btn-secondary btn-sm add-ai-btn" ${!canAddAI ? 'disabled' : ''} title="添加 AI 玩家">
+                    ➕ AI
+                  </button>
+                  <button class="btn btn-secondary btn-sm remove-ai-btn" ${!canRemoveAI ? 'disabled' : ''} title="移除 AI 玩家">
+                    ➖ AI
+                  </button>
+                </div>
+              ` : ''}
             </div>
             <div class="card-body players-grid" style="
               display: flex;
@@ -107,10 +133,10 @@ export class WaitingRoom {
           </div>
 
           ${isHost ? `
-            <button class="btn btn-primary btn-lg start-game-btn" style="width: 100%;" ${this.room.players.length < 2 ? 'disabled' : ''}>
+            <button class="btn btn-primary btn-lg start-game-btn" style="width: 100%;" ${totalPlayers < 2 ? 'disabled' : ''}>
               开始游戏
             </button>
-            ${this.room.players.length < 2 ? `
+            ${totalPlayers < 2 ? `
               <p style="text-align: center; color: var(--text-secondary); margin-top: var(--spacing-2);">
                 需要至少 2 名玩家才能开始
               </p>
@@ -165,8 +191,16 @@ export class WaitingRoom {
     grid.innerHTML = '';
     this.avatars.clear();
 
+    // Render human players
     this.room.players.forEach(player => {
       const avatar = new PlayerAvatar(player);
+      this.avatars.set(player.id, avatar);
+      grid.appendChild(avatar.getElement());
+    });
+
+    // Render AI players
+    (this.room.aiPlayers || []).forEach(player => {
+      const avatar = new PlayerAvatar({ ...player, isAI: true });
       this.avatars.set(player.id, avatar);
       grid.appendChild(avatar.getElement());
     });
@@ -243,6 +277,16 @@ export class WaitingRoom {
       this.options.onStartGame?.();
     });
 
+    // Add AI button
+    this.element.querySelector('.add-ai-btn')?.addEventListener('click', () => {
+      this.options.onAddAI?.();
+    });
+
+    // Remove AI button
+    this.element.querySelector('.remove-ai-btn')?.addEventListener('click', () => {
+      this.options.onRemoveAI?.();
+    });
+
     // Chat input
     const chatInput = this.element.querySelector('.chat-input');
     const sendBtn = this.element.querySelector('.send-chat-btn');
@@ -276,13 +320,37 @@ export class WaitingRoom {
    */
   updatePlayers(players) {
     this.room.players = players;
-    this._renderPlayers();
+    this._render();
+  }
 
-    // Update start button state
-    const startBtn = this.element.querySelector('.start-game-btn');
-    if (startBtn && this.isHost()) {
-      startBtn.disabled = players.length < 2;
-    }
+  /**
+   * Update AI players
+   * @param {Array} aiPlayers - AI player list
+   */
+  updateAIPlayers(aiPlayers) {
+    this.room.aiPlayers = aiPlayers;
+    this._render();
+  }
+
+  /**
+   * Add an AI player
+   * @param {Object} aiPlayer - AI player info
+   */
+  addAIPlayer(aiPlayer) {
+    if (!this.room.aiPlayers) this.room.aiPlayers = [];
+    this.room.aiPlayers.push(aiPlayer);
+    this._render();
+  }
+
+  /**
+   * Remove last AI player
+   * @returns {Object|null} Removed AI player
+   */
+  removeLastAIPlayer() {
+    if (!this.room.aiPlayers || this.room.aiPlayers.length === 0) return null;
+    const removed = this.room.aiPlayers.pop();
+    this._render();
+    return removed;
   }
 
   /**

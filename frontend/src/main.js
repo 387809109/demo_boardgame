@@ -179,7 +179,7 @@ class App {
    * Start game with players
    * @private
    */
-  _startGame(gameType, players, mode, options = {}) {
+  _startGame(gameType, players, mode, options = {}, initialState = null) {
     this._clearView();
 
     // Create game instance
@@ -190,6 +190,11 @@ class App {
 
     // Start game with options
     game.start({ players, gameType, options });
+
+    // If initialState provided (from network), apply it instead of using generated state
+    if (initialState) {
+      game.applyStateUpdate(initialState);
+    }
 
     this.currentGame = game;
 
@@ -240,10 +245,29 @@ class App {
 
     // Note: invalidMove errors are handled in _handleGameAction, no need for separate listener
 
-    // Start AI if offline
-    if (mode === 'offline') {
+    // Start AI simulation if offline, or if online and host with AI players
+    const shouldSimulateAI = mode === 'offline' ||
+      (mode === 'online' && this._isHost() && this._aiPlayers?.length > 0);
+
+    if (shouldSimulateAI) {
       setTimeout(() => this._simulateAITurn(), 500);
     }
+  }
+
+  /**
+   * Check if current player is the host
+   * @private
+   */
+  _isHost() {
+    return this.currentRoom?.players?.find(p => p.id === this.playerId)?.isHost || false;
+  }
+
+  /**
+   * Check if a player is AI
+   * @private
+   */
+  _isAIPlayer(playerId) {
+    return playerId?.startsWith('ai-') || this._aiPlayers?.some(p => p.id === playerId);
   }
 
   /**
@@ -310,7 +334,32 @@ class App {
   }
 
   /**
-   * Simulate AI turn for offline mode
+   * Execute AI move (works for both offline and online modes)
+   * @private
+   */
+  _executeAIMove(actionType, actionData, playerId) {
+    const game = this.currentGame;
+    if (!game || !game.isRunning) return;
+
+    // Execute move locally
+    game.executeMove({
+      actionType,
+      actionData,
+      playerId
+    });
+
+    // In online mode, broadcast to other players
+    if (this.currentGame?.mode === 'online' && this.network?.isConnected()) {
+      this.network.send('GAME_ACTION', {
+        actionType,
+        actionData,
+        playerId // Include AI player ID
+      });
+    }
+  }
+
+  /**
+   * Simulate AI turn for offline/online mode
    * @private
    */
   _simulateAITurn() {
@@ -320,8 +369,18 @@ class App {
     const state = game.getState();
     const currentPlayer = state.currentPlayer;
 
-    // Skip if it's the human player's turn
-    if (currentPlayer === this.playerId) return;
+    // Skip if it's a human player's turn (not AI)
+    const isAI = this._isAIPlayer(currentPlayer);
+    const isHumanTurn = currentPlayer === this.playerId;
+
+    // In offline mode: skip human turn
+    // In online mode: only host simulates AI, skip if not AI player
+    if (game.mode === 'offline') {
+      if (isHumanTurn) return;
+    } else {
+      // Online mode - only host simulates AI turns
+      if (!this._isHost() || !isAI) return;
+    }
 
     // Delay AI move for better UX
     setTimeout(() => {
@@ -348,22 +407,14 @@ class App {
               ? COLORS[Math.floor(Math.random() * COLORS.length)]
               : null;
 
-            game.executeMove({
-              actionType: 'PLAY_CARD',
-              actionData: { cardId: stackCard.id, chosenColor },
-              playerId: currentPlayer
-            });
+            this._executeAIMove('PLAY_CARD', { cardId: stackCard.id, chosenColor }, currentPlayer);
             setTimeout(() => this._simulateAITurn(), 500);
             return;
           }
         }
 
         // No stacking possible, must draw
-        game.executeMove({
-          actionType: 'DRAW_CARD',
-          actionData: {},
-          playerId: currentPlayer
-        });
+        this._executeAIMove('DRAW_CARD', {}, currentPlayer);
         setTimeout(() => this._simulateAITurn(), 500);
         return;
       }
@@ -380,18 +431,10 @@ class App {
           ? COLORS[Math.floor(Math.random() * COLORS.length)]
           : null;
 
-        game.executeMove({
-          actionType: 'PLAY_CARD',
-          actionData: { cardId: card.id, chosenColor },
-          playerId: currentPlayer
-        });
+        this._executeAIMove('PLAY_CARD', { cardId: card.id, chosenColor }, currentPlayer);
       } else {
         // Draw a card
-        game.executeMove({
-          actionType: 'DRAW_CARD',
-          actionData: {},
-          playerId: currentPlayer
-        });
+        this._executeAIMove('DRAW_CARD', {}, currentPlayer);
 
         // Check if can play after drawing
         const newState = game.getState();
@@ -399,11 +442,7 @@ class App {
           // Still current player's turn - skip
           setTimeout(() => {
             if (game.isRunning && newState.currentPlayer === currentPlayer) {
-              game.executeMove({
-                actionType: 'SKIP_TURN',
-                actionData: {},
-                playerId: currentPlayer
-              });
+              this._executeAIMove('SKIP_TURN', {}, currentPlayer);
               setTimeout(() => this._simulateAITurn(), 500);
             }
           }, 300);
@@ -485,6 +524,18 @@ class App {
         <label class="input-label">你的昵称</label>
         <input type="text" class="input nickname-input" value="${this.config.game.defaultNickname}" placeholder="昵称">
       </div>
+      <div class="input-group" style="margin-bottom: var(--spacing-4);">
+        <label class="input-label">玩家上限</label>
+        <select class="input max-players-select">
+          <option value="2">2 人</option>
+          <option value="3">3 人</option>
+          <option value="4" selected>4 人</option>
+          <option value="5">5 人</option>
+          <option value="6">6 人</option>
+          <option value="8">8 人</option>
+          <option value="10">10 人</option>
+        </select>
+      </div>
       <button class="btn btn-primary create-btn" style="width: 100%;">创建房间</button>
     `;
 
@@ -494,6 +545,7 @@ class App {
       const serverUrl = content.querySelector('.server-input').value.trim();
       const roomId = content.querySelector('.room-input').value.trim();
       const nickname = content.querySelector('.nickname-input').value.trim();
+      const maxPlayers = parseInt(content.querySelector('.max-players-select').value, 10);
 
       if (!serverUrl || !roomId || !nickname) {
         showToast('请填写所有字段');
@@ -503,7 +555,7 @@ class App {
       modal.hide();
       // Store settings for when game starts
       this._pendingGameSettings = settings;
-      await this._connectAndCreateRoom(serverUrl, roomId, nickname, gameType);
+      await this._connectAndCreateRoom(serverUrl, roomId, nickname, gameType, maxPlayers);
     });
   }
 
@@ -552,7 +604,7 @@ class App {
    * Connect and create room
    * @private
    */
-  async _connectAndCreateRoom(serverUrl, roomId, nickname, gameType) {
+  async _connectAndCreateRoom(serverUrl, roomId, nickname, gameType, maxPlayers = 4) {
     showLoading('连接服务器...');
 
     try {
@@ -568,7 +620,9 @@ class App {
       this.currentRoom = {
         id: roomId,
         gameType,
-        players: [{ id: this.playerId, nickname, isHost: true }]
+        maxPlayers,
+        players: [{ id: this.playerId, nickname, isHost: true }],
+        aiPlayers: [] // AI players managed by host
       };
 
       hideLoading();
@@ -646,17 +700,27 @@ class App {
 
     net.onMessage('GAME_STARTED', (data) => {
       showToast('游戏开始!');
-      const players = this.currentRoom?.players || [];
+      // Get players from initial state (includes AI players)
+      const players = data.initialState?.players || this.currentRoom?.players || [];
+      // Store AI players info for simulation
+      this._aiPlayers = data.aiPlayers || [];
       const settings = this._pendingGameSettings || {};
-      this._startGame(data.gameType, players, 'online', settings);
+      // Use initialState from host if provided
+      this._startGame(data.gameType, players, 'online', settings, data.initialState);
     });
 
     net.onMessage('GAME_STATE_UPDATE', (data) => {
       if (this.currentGame && data.lastAction) {
-        // Apply the action from another player
+        // Apply the action from another player (or AI)
         const action = data.lastAction;
-        if (action.playerId !== this.playerId) {
+        const isAI = this._isAIPlayer(action.playerId);
+        // Execute if not from self (for human players) or not from local AI simulation
+        if (action.playerId !== this.playerId && !isAI) {
           this.currentGame.executeMove(action);
+        }
+        // Trigger AI simulation if host and game has AI players
+        if (this._isHost() && this._aiPlayers?.length > 0) {
+          setTimeout(() => this._simulateAITurn(), 500);
         }
       }
     });
@@ -693,7 +757,21 @@ class App {
       playerId: this.playerId,
       onStartGame: () => {
         if (this.network?.isConnected()) {
-          this.network.startGame(this.currentRoom.gameType, {});
+          // Host initializes the game and sends initial state to all players
+          const gameType = this.currentRoom.gameType;
+          // Combine human players and AI players
+          const humanPlayers = this.currentRoom.players || [];
+          const aiPlayers = this.currentRoom.aiPlayers || [];
+          const allPlayers = [...humanPlayers, ...aiPlayers];
+          const settings = this._pendingGameSettings || {};
+
+          // Create temporary game to generate initial state
+          const tempGame = createGame(gameType, 'online');
+          tempGame.start({ players: allPlayers, gameType, options: settings });
+          const initialState = tempGame.getState();
+
+          // Send START_GAME with initial state and AI player info
+          this.network.startGame(gameType, { initialState, aiPlayers });
         }
       },
       onLeave: () => {
@@ -707,6 +785,44 @@ class App {
       onSendChat: (message) => {
         if (this.network?.isConnected()) {
           this.network.sendChat(message);
+        }
+      },
+      onAddAI: () => {
+        const totalPlayers = (this.currentRoom.players?.length || 0) + (this.currentRoom.aiPlayers?.length || 0);
+        const maxPlayers = this.currentRoom.maxPlayers || 10;
+
+        if (totalPlayers >= maxPlayers) {
+          showToast('已达到人数上限');
+          return;
+        }
+
+        const aiCount = (this.currentRoom.aiPlayers?.length || 0) + 1;
+        const aiPlayer = {
+          id: `ai-${Date.now()}-${aiCount}`,
+          nickname: `AI 玩家 ${aiCount}`,
+          isHost: false,
+          isAI: true
+        };
+
+        if (!this.currentRoom.aiPlayers) this.currentRoom.aiPlayers = [];
+        this.currentRoom.aiPlayers.push(aiPlayer);
+
+        if (this.currentView instanceof WaitingRoom) {
+          this.currentView.addAIPlayer(aiPlayer);
+          this.currentView.addSystemMessage(`AI 玩家 ${aiCount} 已加入`);
+        }
+      },
+      onRemoveAI: () => {
+        if (!this.currentRoom.aiPlayers || this.currentRoom.aiPlayers.length === 0) {
+          showToast('没有 AI 玩家可移除');
+          return;
+        }
+
+        const removed = this.currentRoom.aiPlayers.pop();
+
+        if (this.currentView instanceof WaitingRoom) {
+          this.currentView.removeLastAIPlayer();
+          this.currentView.addSystemMessage(`${removed.nickname} 已移除`);
         }
       }
     });

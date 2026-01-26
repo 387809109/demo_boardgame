@@ -87,6 +87,22 @@ export class PlayerAvatar {
             font-size: 10px;
           ">👑</span>
         ` : ''}
+        ${this.player.isAI ? `
+          <span style="
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            width: 18px;
+            height: 18px;
+            background: var(--neutral-600);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: white;
+          ">🤖</span>
+        ` : ''}
         ${this.isOnline ? `
           <span style="
             position: absolute;

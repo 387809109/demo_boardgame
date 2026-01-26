@@ -166,6 +166,7 @@ Example: `frontend/public/rules/uno.html`
 
 | Document | Purpose |
 |----------|---------|
+| `PROGRESS.md` | **项目进度报告** (当前状态、测试覆盖率、下一步计划) |
 | `docs/dev_rules/README.md` | **开发规范总览** (必读) |
 | `docs/dev_rules/DEVELOPMENT_PRINCIPLES.md` | SOLID/DRY/KISS 原则详解 |
 | `docs/dev_rules/CODE_STYLE_GUIDE.md` | 代码风格、命名、格式规范 |
