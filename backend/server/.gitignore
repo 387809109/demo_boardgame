@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Coverage reports
+coverage/
+
+# Lock files (optional, can be committed if needed)
+package-lock.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
