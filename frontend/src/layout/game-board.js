@@ -25,6 +25,7 @@ export class GameBoard {
     this.state = null;
     this.gameUI = null;
     this.avatars = new Map();
+    this._lastUnoCalledBy = null; // Track UNO call changes
 
     this._create();
   }
@@ -197,6 +198,8 @@ export class GameBoard {
     // Update direction indicator
     this._updateDirectionIndicator(direction);
 
+    const unoCalledBy = state?.unoCalledBy;
+
     orderedPlayers.forEach((player, index) => {
       const avatar = new PlayerAvatar(player);
       avatar.setCurrentTurn(player.id === currentPlayerId);
@@ -222,6 +225,30 @@ export class GameBoard {
       orderBadge.textContent = String(index + 1);
       element.style.position = 'relative';
       element.appendChild(orderBadge);
+
+      // Add UNO badge if player called UNO
+      if (player.id === unoCalledBy) {
+        const unoBadge = document.createElement('span');
+        unoBadge.className = 'uno-badge';
+        unoBadge.style.cssText = `
+          position: absolute;
+          bottom: -4px;
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 2px 6px;
+          background: linear-gradient(135deg, var(--uno-red) 0%, var(--error-600) 100%);
+          color: white;
+          border-radius: var(--radius-sm);
+          font-size: 9px;
+          font-weight: var(--font-bold);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          animation: unoPulse 1s ease-in-out infinite;
+        `;
+        unoBadge.textContent = 'UNO!';
+        element.appendChild(unoBadge);
+      }
 
       this.avatars.set(player.id, avatar);
       container.appendChild(element);
@@ -422,7 +449,16 @@ export class GameBoard {
    * @param {Object} state - New game state
    */
   updateState(state) {
+    const prevUnoCalledBy = this._lastUnoCalledBy;
     this.state = state;
+
+    // Check if someone just called UNO
+    if (state.unoCalledBy && state.unoCalledBy !== prevUnoCalledBy) {
+      const player = state.players?.find(p => p.id === state.unoCalledBy);
+      const playerName = state.unoCalledBy === this.playerId ? '你' : (player?.nickname || '玩家');
+      this._showUnoNotification(playerName);
+    }
+    this._lastUnoCalledBy = state.unoCalledBy;
 
     // Update players
     this._renderPlayers(state.players || [], state.currentPlayer);
@@ -452,6 +488,82 @@ export class GameBoard {
     if (this.gameUI?.updateState) {
       this.gameUI.updateState(state);
     }
+  }
+
+  /**
+   * Show prominent UNO notification in center of screen
+   * @private
+   */
+  _showUnoNotification(playerName) {
+    // Remove any existing UNO notification
+    const existing = document.querySelector('.uno-center-notification');
+    if (existing) existing.remove();
+
+    const notification = document.createElement('div');
+    notification.className = 'uno-center-notification';
+    notification.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      z-index: var(--z-modal);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--spacing-2);
+      animation: unoPopIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      pointer-events: none;
+    `;
+
+    notification.innerHTML = `
+      <div style="
+        font-size: 72px;
+        font-weight: 900;
+        color: white;
+        text-shadow:
+          0 0 20px var(--uno-red),
+          0 0 40px var(--uno-red),
+          0 4px 8px rgba(0,0,0,0.5);
+        letter-spacing: 4px;
+        animation: unoShake 0.5s ease-in-out;
+      ">UNO!</div>
+      <div style="
+        font-size: var(--text-lg);
+        color: white;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        background: rgba(0,0,0,0.6);
+        padding: var(--spacing-2) var(--spacing-4);
+        border-radius: var(--radius-full);
+      ">${playerName} 喊出了 UNO!</div>
+    `;
+
+    // Add backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'uno-notification-backdrop';
+    backdrop.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle, rgba(239,68,68,0.3) 0%, rgba(0,0,0,0.5) 100%);
+      z-index: calc(var(--z-modal) - 1);
+      animation: fadeIn 0.2s ease-out forwards;
+      pointer-events: none;
+    `;
+
+    document.body.appendChild(backdrop);
+    document.body.appendChild(notification);
+
+    // Remove after animation
+    setTimeout(() => {
+      notification.style.animation = 'unoPopOut 0.3s ease-in forwards';
+      backdrop.style.animation = 'fadeOut 0.3s ease-out forwards';
+      setTimeout(() => {
+        notification.remove();
+        backdrop.remove();
+      }, 300);
+    }, 1500);
   }
 
   /**

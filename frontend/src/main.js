@@ -209,10 +209,11 @@ class App {
     this.currentView.mount(this.root);
     this.currentView.updateState(visibleState);
 
-    // Set up game-specific UI
+    // Set up game-specific UI (store instance for reuse on state updates)
+    let gameUI = null;
     if (gameType === 'uno') {
-      const unoUI = new UnoUI();
-      this.currentView.setGameUI(unoUI);
+      gameUI = new UnoUI();
+      this.currentView.setGameUI(gameUI);
     }
 
     // Listen for game events
@@ -222,10 +223,14 @@ class App {
         : state;
       this.currentView.updateState(visible);
 
-      // Re-render game UI
-      if (gameType === 'uno') {
-        const unoUI = new UnoUI();
-        this.currentView.setGameUI(unoUI);
+      // Re-render game UI (reuse existing instance)
+      if (gameUI) {
+        this.currentView.setGameUI(gameUI);
+      }
+
+      // Auto-draw when no playable cards (only for human player's turn)
+      if (gameType === 'uno' && visible.currentPlayer === this.playerId) {
+        this._checkAutoDraw(visible);
       }
     });
 
@@ -233,9 +238,7 @@ class App {
       this._showGameResult(result);
     });
 
-    game.on('invalidMove', ({ error }) => {
-      showToast(error);
-    });
+    // Note: invalidMove errors are handled in _handleGameAction, no need for separate listener
 
     // Start AI if offline
     if (mode === 'offline') {
@@ -270,6 +273,39 @@ class App {
     // Simulate AI moves for offline mode
     if (this.currentGame.mode === 'offline') {
       setTimeout(() => this._simulateAITurn(), 500);
+    }
+  }
+
+  /**
+   * Check if player should auto-draw (no playable cards)
+   * @private
+   */
+  _checkAutoDraw(state) {
+    // Don't auto-draw if there are pending draws (player must click to draw those)
+    if (state.drawPending > 0) return;
+
+    // Don't auto-draw if player just drew (they might be able to play or skip)
+    if (state.lastAction?.type === 'drew' && state.lastAction?.playerId === this.playerId) return;
+
+    // Check if player has any playable cards
+    const myHand = state.myHand || [];
+    const topCard = state.topCard;
+    const hasPlayableCard = myHand.some(card =>
+      canPlayCard(card, topCard, state.currentColor)
+    );
+
+    // Auto-draw if no playable cards
+    if (!hasPlayableCard && myHand.length > 0) {
+      // Small delay for better UX
+      setTimeout(() => {
+        if (this.currentGame?.isRunning && this.currentGame.getState()?.currentPlayer === this.playerId) {
+          showToast('无牌可出，自动摸牌');
+          this._handleGameAction({
+            actionType: 'DRAW_CARD',
+            actionData: {}
+          });
+        }
+      }, 300);
     }
   }
 

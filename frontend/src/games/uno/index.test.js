@@ -263,6 +263,59 @@ describe('UnoGame', () => {
         expect(result.valid).toBe(true);
       });
 
+      it('should accept Skip card on Skip card with different color', () => {
+        // Top card is blue Skip, current color is blue
+        // Player wants to play red Skip - should be allowed (same action card type)
+        const state = createTestState({
+          currentColor: 'blue',
+          discardPile: [createCard(CARD_TYPES.SKIP, 'blue', null, 'top-blue-skip')]
+        });
+        const move = {
+          actionType: UNO_ACTIONS.PLAY_CARD,
+          actionData: { cardId: 'p1-red-skip' },
+          playerId: 'player1'
+        };
+
+        const result = game.validateMove(move, state);
+        expect(result.valid).toBe(true);
+      });
+
+      it('should accept Reverse card on Reverse card with different color', () => {
+        // Top card is green Reverse, current color is green
+        // Player 2 wants to play yellow Reverse
+        const state = createTestState({
+          currentColor: 'green',
+          currentPlayer: 'player2',
+          currentPlayerIndex: 1,
+          discardPile: [createCard(CARD_TYPES.REVERSE, 'green', null, 'top-green-reverse')]
+        });
+        const move = {
+          actionType: UNO_ACTIONS.PLAY_CARD,
+          actionData: { cardId: 'p2-yellow-reverse' },
+          playerId: 'player2'
+        };
+
+        const result = game.validateMove(move, state);
+        expect(result.valid).toBe(true);
+      });
+
+      it('should accept Draw Two card on Draw Two card with different color', () => {
+        // Top card is blue Draw Two, current color is blue
+        // Player wants to play green Draw Two
+        const state = createTestState({
+          currentColor: 'blue',
+          discardPile: [createCard(CARD_TYPES.DRAW_TWO, 'blue', null, 'top-blue-draw2')]
+        });
+        const move = {
+          actionType: UNO_ACTIONS.PLAY_CARD,
+          actionData: { cardId: 'p1-green-draw2' },
+          playerId: 'player1'
+        };
+
+        const result = game.validateMove(move, state);
+        expect(result.valid).toBe(true);
+      });
+
       it('should reject play when drawPending > 0 (no stacking)', () => {
         const state = createTestState({ drawPending: 2 });
         const move = {
