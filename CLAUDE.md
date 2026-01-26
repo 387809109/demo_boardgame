@@ -101,9 +101,11 @@ Server → Client: `PLAYER_JOINED`, `PLAYER_LEFT`, `GAME_STARTED`, `GAME_STATE_U
 
 Each game in `games/[name]/` contains:
 - `index.js` - Game class extending BoardGame (initialize, processMove, checkGameEnd)
-- `config.json` - Metadata (id, name, minPlayers, maxPlayers)
+- `config.json` - Metadata (id, name, minPlayers, maxPlayers, **supportsAI**)
 - `rules.js` - Game-specific validation
 - `ui.js` - Rendering components
+
+**AI Support**: Games can optionally support AI players. Set `"supportsAI": true` in config.json to enable AI features. AI logic is an **optional, non-priority** development item - focus on core game rules and multiplayer first.
 
 ### Code Style
 

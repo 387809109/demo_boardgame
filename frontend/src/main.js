@@ -128,7 +128,7 @@ class App {
         if (mode === 'offline') {
           this._startOfflineGame(gameId, settings, aiCount);
         } else {
-          this._showCreateRoomDialog(gameId, settings);
+          this._showCreateRoomDialog(gameId, settings, gameConfig.supportsAI !== false);
         }
       },
       onCancel: () => {
@@ -507,7 +507,7 @@ class App {
    * Show create room dialog
    * @private
    */
-  async _showCreateRoomDialog(gameType, settings = {}) {
+  async _showCreateRoomDialog(gameType, settings = {}, supportsAI = true) {
     const modal = getModal();
     const content = document.createElement('div');
 
@@ -555,7 +555,7 @@ class App {
       modal.hide();
       // Store settings for when game starts
       this._pendingGameSettings = settings;
-      await this._connectAndCreateRoom(serverUrl, roomId, nickname, gameType, maxPlayers);
+      await this._connectAndCreateRoom(serverUrl, roomId, nickname, gameType, maxPlayers, supportsAI);
     });
   }
 
@@ -604,7 +604,7 @@ class App {
    * Connect and create room
    * @private
    */
-  async _connectAndCreateRoom(serverUrl, roomId, nickname, gameType, maxPlayers = 4) {
+  async _connectAndCreateRoom(serverUrl, roomId, nickname, gameType, maxPlayers = 4, supportsAI = true) {
     showLoading('连接服务器...');
 
     try {
@@ -621,6 +621,7 @@ class App {
         id: roomId,
         gameType,
         maxPlayers,
+        supportsAI,
         players: [{ id: this.playerId, nickname, isHost: true }],
         aiPlayers: [] // AI players managed by host
       };

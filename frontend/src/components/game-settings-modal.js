@@ -121,7 +121,7 @@ export class GameSettingsModal {
             </p>
           `}
 
-          ${this.mode === 'offline' ? `
+          ${this.mode === 'offline' && this.gameConfig.supportsAI !== false ? `
             <div style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);">
               <label style="display: block; margin-bottom: var(--spacing-2); font-weight: var(--font-medium);">
                 AI 玩家数量
@@ -136,6 +136,13 @@ export class GameSettingsModal {
                   border-radius: var(--radius-sm);
                 ">1 个</span>
               </div>
+            </div>
+          ` : ''}
+          ${this.mode === 'offline' && this.gameConfig.supportsAI === false ? `
+            <div style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);">
+              <p style="color: var(--text-tertiary); font-size: var(--text-sm); text-align: center;">
+                ⚠️ 此游戏暂不支持 AI 玩家，请创建房间进行联机游戏
+              </p>
             </div>
           ` : ''}
         </div>

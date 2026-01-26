@@ -17,6 +17,7 @@ export class WaitingRoom {
    * @param {Array} options.room.players - Player list
    * @param {number} options.room.maxPlayers - Max players allowed
    * @param {Array} options.room.aiPlayers - AI players list
+   * @param {boolean} options.room.supportsAI - Whether game supports AI players
    * @param {string} options.playerId - Current player ID
    * @param {Function} options.onStartGame - Called when starting game
    * @param {Function} options.onLeave - Called when leaving room
@@ -76,8 +77,9 @@ export class WaitingRoom {
     const isHost = this.isHost();
     const totalPlayers = this.getTotalPlayerCount();
     const maxPlayers = this.room.maxPlayers || 10;
-    const canAddAI = isHost && totalPlayers < maxPlayers;
-    const canRemoveAI = isHost && (this.room.aiPlayers?.length || 0) > 0;
+    const supportsAI = this.room.supportsAI !== false;
+    const canAddAI = isHost && supportsAI && totalPlayers < maxPlayers;
+    const canRemoveAI = isHost && supportsAI && (this.room.aiPlayers?.length || 0) > 0;
 
     this.element.innerHTML = `
       <header style="
@@ -111,7 +113,7 @@ export class WaitingRoom {
           <div class="card" style="margin-bottom: var(--spacing-4);">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <h3 style="margin: 0;">玩家列表 (${totalPlayers}/${maxPlayers})</h3>
-              ${isHost ? `
+              ${isHost && supportsAI ? `
                 <div style="display: flex; gap: var(--spacing-2);">
                   <button class="btn btn-secondary btn-sm add-ai-btn" ${!canAddAI ? 'disabled' : ''} title="添加 AI 玩家">
                     ➕ AI
@@ -120,6 +122,11 @@ export class WaitingRoom {
                     ➖ AI
                   </button>
                 </div>
+              ` : ''}
+              ${isHost && !supportsAI ? `
+                <span style="font-size: var(--text-xs); color: var(--text-tertiary);" title="此游戏暂不支持 AI">
+                  🤖 ❌
+                </span>
               ` : ''}
             </div>
             <div class="card-body players-grid" style="

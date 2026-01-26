@@ -146,6 +146,7 @@ export class GameLobby {
           <div style="display: flex; gap: var(--spacing-4); color: var(--text-tertiary); font-size: var(--text-sm);">
             <span>👥 ${game.minPlayers}-${game.maxPlayers}人</span>
             <span>⏱️ ${game.estimatedTime || 30}分钟</span>
+            ${game.supportsAI ? '<span title="支持 AI 对战">🤖 AI</span>' : ''}
           </div>
 
           ${game.tags ? `

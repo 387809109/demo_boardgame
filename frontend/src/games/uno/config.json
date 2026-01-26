@@ -7,6 +7,7 @@
   "difficulty": "easy",
   "estimatedTime": 30,
   "tags": ["卡牌", "派对", "经典"],
+  "supportsAI": true,
   "rules": {
     "initialCards": 7,
     "drawOnMiss": 1,
