@@ -359,6 +359,55 @@ describe('UnoGame', () => {
         const result = game.validateMove(move, state);
         expect(result.valid).toBe(false);
       });
+
+      it('should allow stacking +4 on +2 when stackDrawCards is enabled', () => {
+        const state = createTestState({
+          drawPending: 2,
+          discardPile: [createCard(CARD_TYPES.DRAW_TWO, 'blue', null, 'top-draw2')],
+          options: { ...createTestState().options, stackDrawCards: true }
+        });
+        const move = {
+          actionType: UNO_ACTIONS.PLAY_CARD,
+          actionData: { cardId: 'p1-wild4', chosenColor: 'red' },
+          playerId: 'player1'
+        };
+
+        const result = game.validateMove(move, state);
+        expect(result.valid).toBe(true);
+      });
+
+      it('should reject stacking +2 on +4 (lower cannot stack on higher)', () => {
+        const state = createTestState({
+          drawPending: 4,
+          discardPile: [createCard(CARD_TYPES.WILD_DRAW_FOUR, null, null, 'top-wild4')],
+          options: { ...createTestState().options, stackDrawCards: true }
+        });
+        const move = {
+          actionType: UNO_ACTIONS.PLAY_CARD,
+          actionData: { cardId: 'p1-green-draw2' },
+          playerId: 'player1'
+        };
+
+        const result = game.validateMove(move, state);
+        expect(result.valid).toBe(false);
+      });
+
+      it('should allow stacking +4 on +4 when stackDrawCards is enabled', () => {
+        const state = createTestState({
+          drawPending: 4,
+          currentColor: 'blue',
+          discardPile: [createCard(CARD_TYPES.WILD_DRAW_FOUR, null, null, 'top-wild4')],
+          options: { ...createTestState().options, stackDrawCards: true }
+        });
+        const move = {
+          actionType: UNO_ACTIONS.PLAY_CARD,
+          actionData: { cardId: 'p1-wild4', chosenColor: 'green' },
+          playerId: 'player1'
+        };
+
+        const result = game.validateMove(move, state);
+        expect(result.valid).toBe(true);
+      });
     });
 
     describe('DRAW_CARD', () => {
@@ -964,10 +1013,48 @@ describe('UnoGame', () => {
       expect(result).toEqual([]);
     });
 
-    it('should return empty when drawPending > 0', () => {
-      game.state = createTestState({ drawPending: 2 });
+    it('should return empty when drawPending > 0 and stacking disabled', () => {
+      game.state = createTestState({
+        drawPending: 2,
+        discardPile: [createCard(CARD_TYPES.DRAW_TWO, 'red', null, 'top-draw2')],
+        options: { ...createTestState().options, stackDrawCards: false }
+      });
       const result = game.getPlayableCards('player1');
       expect(result).toEqual([]);
+    });
+
+    it('should return +2 and +4 cards when drawPending > 0 from +2 and stacking enabled', () => {
+      game.state = createTestState({
+        drawPending: 2,
+        discardPile: [createCard(CARD_TYPES.DRAW_TWO, 'blue', null, 'top-draw2')],
+        options: { ...createTestState().options, stackDrawCards: true }
+      });
+      const result = game.getPlayableCards('player1');
+
+      // Should include both +2 and +4 cards (player1 has p1-green-draw2 and p1-wild4)
+      expect(result.some(c => c.id === 'p1-green-draw2')).toBe(true);
+      expect(result.some(c => c.id === 'p1-wild4')).toBe(true);
+
+      // Should NOT include other cards
+      expect(result.some(c => c.id === 'p1-red-5')).toBe(false);
+      expect(result.some(c => c.id === 'p1-wild')).toBe(false);
+    });
+
+    it('should return only +4 cards when drawPending > 0 from +4 and stacking enabled', () => {
+      game.state = createTestState({
+        drawPending: 4,
+        currentColor: 'blue',
+        discardPile: [createCard(CARD_TYPES.WILD_DRAW_FOUR, null, null, 'top-wild4')],
+        options: { ...createTestState().options, stackDrawCards: true }
+      });
+      const result = game.getPlayableCards('player1');
+
+      // Should only include +4 cards
+      expect(result.some(c => c.id === 'p1-wild4')).toBe(true);
+
+      // Should NOT include +2 or other cards
+      expect(result.some(c => c.id === 'p1-green-draw2')).toBe(false);
+      expect(result.some(c => c.id === 'p1-red-5')).toBe(false);
     });
 
     it('should return playable cards', () => {

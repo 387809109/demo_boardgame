@@ -149,15 +149,17 @@ export class UnoGame extends GameEngine {
 
         // Check if there are pending draw cards
         if (state.drawPending > 0) {
-          // If stacking is enabled, allow playing +2 on +2 or +4 on +4
+          // If stacking is enabled, allow playing draw cards to stack
           if (state.options?.stackDrawCards) {
             const topCard = state.discardPile[state.discardPile.length - 1];
+            // Allow stacking: +2 on +2, +4 on +4, or +4 on +2 (higher can respond to lower)
             const canStack =
               (topCard.type === CARD_TYPES.DRAW_TWO && card.type === CARD_TYPES.DRAW_TWO) ||
+              (topCard.type === CARD_TYPES.DRAW_TWO && card.type === CARD_TYPES.WILD_DRAW_FOUR) ||
               (topCard.type === CARD_TYPES.WILD_DRAW_FOUR && card.type === CARD_TYPES.WILD_DRAW_FOUR);
 
             if (!canStack) {
-              return { valid: false, error: `必须先摸 ${state.drawPending} 张牌，或出相同的牌叠加` };
+              return { valid: false, error: `必须先摸 ${state.drawPending} 张牌，或出 +2/+4 牌叠加` };
             }
             // Allow stacking - continue to validate the card play
           } else {
@@ -482,10 +484,25 @@ export class UnoGame extends GameEngine {
     const state = this.state;
     if (!state || state.currentPlayer !== playerId) return [];
 
-    if (state.drawPending > 0) return [];
-
     const hand = state.hands[playerId];
     const topCard = state.discardPile[state.discardPile.length - 1];
+
+    // If there are pending draws, check for stackable cards
+    if (state.drawPending > 0) {
+      if (state.options?.stackDrawCards) {
+        // Return cards that can stack: +2 on +2, +4 on +4, or +4 on +2
+        return hand.filter(card => {
+          if (topCard.type === CARD_TYPES.DRAW_TWO) {
+            return card.type === CARD_TYPES.DRAW_TWO || card.type === CARD_TYPES.WILD_DRAW_FOUR;
+          }
+          if (topCard.type === CARD_TYPES.WILD_DRAW_FOUR) {
+            return card.type === CARD_TYPES.WILD_DRAW_FOUR;
+          }
+          return false;
+        });
+      }
+      return [];
+    }
 
     return hand.filter(card => canPlayCard(card, topCard, state.currentColor));
   }

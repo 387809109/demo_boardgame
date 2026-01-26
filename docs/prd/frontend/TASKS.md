@@ -501,3 +501,47 @@ T-F030 → T-F040 → T-F041 → T-F042 → T-F054
 2. 监听服务器响应
 3. 错误处理
 ```
+
+---
+
+## Phase 6: 可选功能 (Optional)
+
+> 以下功能为可选扩展，不影响核心游戏体验。
+
+### 6.1 桌面应用打包
+
+- [ ] **T-F120** Electron 桌面应用打包
+  - 将前端 + 后端打包为独立可执行文件
+  - 用户无需安装编程环境即可运行
+  - 支持 Windows (.exe)、macOS (.app)、Linux (.AppImage)
+
+  **技术方案：**
+  | 方案 | 打包大小 | 说明 |
+  |------|---------|------|
+  | Electron (推荐) | ~150MB+ | 成熟稳定，可同时打包前后端 |
+  | Tauri | ~10-20MB | 轻量，需 Rust 环境 |
+  | Neutralino | ~5-10MB | 极轻量，功能有限 |
+
+  **实现步骤：**
+  1. 初始化 Electron 项目结构
+  2. 主进程启动后端 WebSocket 服务器
+  3. 创建浏览器窗口加载前端页面
+  4. 使用 electron-builder 打包
+
+  **目录结构：**
+  ```
+  electron-app/
+  ├── main.js          # Electron 主进程
+  ├── preload.js       # 预加载脚本
+  ├── package.json     # Electron 依赖
+  ├── frontend/        # Vite 构建产物
+  └── backend/         # 后端服务器代码
+  ```
+
+- [ ] **T-F121** 自动更新功能
+  - 集成 electron-updater
+  - 支持自动检查和下载更新
+
+- [ ] **T-F122** 系统托盘支持
+  - 最小化到系统托盘
+  - 托盘菜单快捷操作

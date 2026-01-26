@@ -491,14 +491,22 @@ const UNO_ACTIONS = {
 
 ### 12.3 叠加规则实现
 
-当 `stackDrawCards` 为 `true` 时：
+当 `stackDrawCards` 为 `true` 时，玩家可以用摸牌卡响应摸牌卡：
+
+**叠加规则：**
+- +2 可以叠加在 +2 上
+- +4 可以叠加在 +4 上
+- +4 可以叠加在 +2 上（更高可以响应较低）
+- +2 **不能** 叠加在 +4 上（较低不能响应更高）
 
 ```javascript
 // 验证叠加是否合法
 if (state.drawPending > 0 && state.options.stackDrawCards) {
   const topCard = state.discardPile[state.discardPile.length - 1];
+  // +2 on +2, +4 on +4, or +4 on +2 (higher can respond to lower)
   const canStack =
     (topCard.type === 'draw_two' && card.type === 'draw_two') ||
+    (topCard.type === 'draw_two' && card.type === 'wild_draw_four') ||
     (topCard.type === 'wild_draw_four' && card.type === 'wild_draw_four');
 
   if (canStack) {
@@ -507,3 +515,7 @@ if (state.drawPending > 0 && state.options.stackDrawCards) {
   }
 }
 ```
+
+**示例：**
+1. 玩家 A 出蓝色 +2 → 玩家 B 可以出任意颜色 +2 或 +4
+2. 玩家 A 出 +4 → 玩家 B 只能出 +4，不能用 +2 响应
