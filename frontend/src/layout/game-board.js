@@ -37,10 +37,11 @@ export class GameBoard {
     this.element = document.createElement('div');
     this.element.className = 'game-board';
     this.element.style.cssText = `
-      min-height: 100vh;
+      height: 100vh;
       background: var(--bg-secondary);
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     `;
 
     this._render();
@@ -94,16 +95,25 @@ export class GameBoard {
         overflow: hidden;
       ">
         <aside class="players-sidebar" style="
-          width: 160px;
+          width: 180px;
           background: var(--bg-primary);
           border-right: 1px solid var(--border-light);
           padding: var(--spacing-4);
           display: flex;
           flex-direction: column;
-          gap: var(--spacing-4);
+          gap: var(--spacing-3);
           overflow-y: auto;
         ">
-          <h4 style="margin: 0; font-size: var(--text-sm); color: var(--text-secondary);">玩家</h4>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h4 style="margin: 0; font-size: var(--text-sm); color: var(--text-secondary);">玩家</h4>
+            <span class="direction-indicator" style="
+              font-size: var(--text-xs);
+              color: var(--text-tertiary);
+              display: flex;
+              align-items: center;
+              gap: 2px;
+            "></span>
+          </div>
           <div class="players-list" style="display: flex; flex-direction: column; gap: var(--spacing-3);"></div>
         </aside>
 
@@ -144,13 +154,13 @@ export class GameBoard {
           padding: var(--spacing-4);
           display: flex;
           flex-direction: column;
-          height: 100%;
-          min-height: 0;
+          overflow: hidden;
         ">
           <h4 style="margin: 0 0 var(--spacing-3) 0; font-size: var(--text-sm); color: var(--text-secondary); flex-shrink: 0;">历史记录</h4>
           <div class="history-list" style="
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
             font-size: var(--text-sm);
             color: var(--text-secondary);
             min-height: 0;
@@ -166,7 +176,7 @@ export class GameBoard {
   }
 
   /**
-   * Render players list
+   * Render players list in turn order
    * @private
    */
   _renderPlayers(players, currentPlayerId) {
@@ -177,12 +187,79 @@ export class GameBoard {
     this.avatars.forEach(a => a.destroy());
     this.avatars.clear();
 
-    players.forEach(player => {
+    const state = this.state || this.game?.getState();
+    const direction = state?.direction ?? 1;
+    const currentIndex = state?.currentPlayerIndex ?? 0;
+
+    // Sort players in turn order starting from current player
+    const orderedPlayers = this._getPlayersInTurnOrder(players, currentIndex, direction);
+
+    // Update direction indicator
+    this._updateDirectionIndicator(direction);
+
+    orderedPlayers.forEach((player, index) => {
       const avatar = new PlayerAvatar(player);
       avatar.setCurrentTurn(player.id === currentPlayerId);
+
+      // Add turn order number
+      const element = avatar.getElement();
+      const orderBadge = document.createElement('span');
+      orderBadge.style.cssText = `
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 16px;
+        height: 16px;
+        background: ${index === 0 ? 'var(--primary-500)' : 'var(--neutral-300)'};
+        color: ${index === 0 ? 'white' : 'var(--text-secondary)'};
+        border-radius: 50%;
+        font-size: 10px;
+        font-weight: var(--font-bold);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      `;
+      orderBadge.textContent = String(index + 1);
+      element.style.position = 'relative';
+      element.appendChild(orderBadge);
+
       this.avatars.set(player.id, avatar);
-      container.appendChild(avatar.getElement());
+      container.appendChild(element);
     });
+  }
+
+  /**
+   * Get players ordered by turn sequence
+   * @private
+   */
+  _getPlayersInTurnOrder(players, currentIndex, direction) {
+    if (!players || players.length === 0) return [];
+
+    const count = players.length;
+    const ordered = [];
+
+    for (let i = 0; i < count; i++) {
+      const index = ((currentIndex + i * direction) % count + count) % count;
+      ordered.push(players[index]);
+    }
+
+    return ordered;
+  }
+
+  /**
+   * Update direction indicator
+   * @private
+   */
+  _updateDirectionIndicator(direction) {
+    const indicator = this.element.querySelector('.direction-indicator');
+    if (!indicator) return;
+
+    const isClockwise = direction === 1;
+    indicator.innerHTML = `
+      <span style="font-size: 14px;">${isClockwise ? '↓' : '↑'}</span>
+      <span>${isClockwise ? '顺时针' : '逆时针'}</span>
+    `;
+    indicator.title = isClockwise ? '行动顺序：从上到下' : '行动顺序：从下到上';
   }
 
   /**

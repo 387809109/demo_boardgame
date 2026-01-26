@@ -18,6 +18,29 @@ const COLOR_CSS = {
 };
 
 /**
+ * Color sort order for hand sorting
+ */
+const COLOR_SORT_ORDER = {
+  red: 0,
+  yellow: 1,
+  green: 2,
+  blue: 3,
+  null: 4 // Wild cards at the end
+};
+
+/**
+ * Card type sort order (within same color)
+ */
+const TYPE_SORT_ORDER = {
+  number: 0,
+  skip: 1,
+  reverse: 2,
+  draw_two: 3,
+  wild: 0,
+  wild_draw_four: 1
+};
+
+/**
  * UNO UI Component
  */
 export class UnoUI {
@@ -27,6 +50,8 @@ export class UnoUI {
     this.onAction = null;
     this.selectedCard = null;
     this.showColorPicker = false;
+    this.sortHand = false; // Whether to display sorted hand
+    this._container = null; // Reference to rendered container for re-rendering
   }
 
   /**
@@ -52,6 +77,7 @@ export class UnoUI {
       gap: var(--spacing-6);
       align-items: center;
     `;
+    this._container = container;
 
     // Game info
     container.appendChild(this._renderGameInfo());
@@ -187,6 +213,30 @@ export class UnoUI {
    * @private
    */
   _renderHand() {
+    const container = document.createElement('div');
+    container.className = 'player-hand-container';
+    container.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-2);
+      align-items: center;
+      width: 100%;
+    `;
+
+    // Sort toggle button
+    const sortBtn = document.createElement('button');
+    sortBtn.className = 'btn btn-ghost btn-sm';
+    sortBtn.style.cssText = `
+      font-size: var(--text-xs);
+      padding: var(--spacing-1) var(--spacing-2);
+    `;
+    sortBtn.textContent = this.sortHand ? '恢复原顺序' : '整理手牌';
+    sortBtn.addEventListener('click', () => {
+      this.sortHand = !this.sortHand;
+      this._rerender();
+    });
+    container.appendChild(sortBtn);
+
     const div = document.createElement('div');
     div.className = 'player-hand';
     div.style.cssText = `
@@ -195,6 +245,7 @@ export class UnoUI {
       gap: var(--spacing-2);
       justify-content: center;
       padding: var(--spacing-4);
+      padding-top: var(--spacing-6);
       background: var(--bg-tertiary);
       border-radius: var(--radius-lg);
       min-height: 150px;
@@ -205,13 +256,17 @@ export class UnoUI {
     const isMyTurn = this.state.currentPlayer === this.playerId;
     const topCard = this.state.topCard;
 
-    hand.forEach(card => {
+    // Get display order (either original or sorted)
+    const displayOrder = this._getHandDisplayOrder(hand);
+
+    displayOrder.forEach(({ card }) => {
       const playable = isMyTurn &&
                        this.state.drawPending === 0 &&
                        canPlayCard(card, topCard, this.state.currentColor);
 
       const cardEl = this._renderCard(card, {
         disabled: !playable,
+        playable, // Pass playable state for elevation
         onClick: playable ? () => this._selectCard(card) : null,
         selected: this.selectedCard?.id === card.id
       });
@@ -223,7 +278,48 @@ export class UnoUI {
       div.innerHTML = '<p style="color: var(--text-tertiary);">没有手牌</p>';
     }
 
-    return div;
+    container.appendChild(div);
+    return container;
+  }
+
+  /**
+   * Get hand display order (visual only, preserves original array)
+   * @private
+   * @param {Array} hand - Original hand array
+   * @returns {Array} Array of { card, originalIndex } in display order
+   */
+  _getHandDisplayOrder(hand) {
+    // Create indexed array
+    const indexed = hand.map((card, index) => ({ card, originalIndex: index }));
+
+    if (!this.sortHand) {
+      return indexed;
+    }
+
+    // Sort by color, then by type/value
+    return indexed.slice().sort((a, b) => {
+      const cardA = a.card;
+      const cardB = b.card;
+
+      // First sort by color
+      const colorA = COLOR_SORT_ORDER[cardA.color] ?? 99;
+      const colorB = COLOR_SORT_ORDER[cardB.color] ?? 99;
+      if (colorA !== colorB) {
+        return colorA - colorB;
+      }
+
+      // Then by type
+      const typeA = TYPE_SORT_ORDER[cardA.type] ?? 99;
+      const typeB = TYPE_SORT_ORDER[cardB.type] ?? 99;
+      if (typeA !== typeB) {
+        return typeA - typeB;
+      }
+
+      // Finally by value (for number cards)
+      const valueA = cardA.value ?? 99;
+      const valueB = cardB.value ?? 99;
+      return valueA - valueB;
+    });
   }
 
   /**
@@ -231,7 +327,10 @@ export class UnoUI {
    * @private
    */
   _renderCard(card, options = {}) {
-    const { disabled, onClick, selected, large } = options;
+    const { disabled, playable, onClick, selected, large } = options;
+
+    // Playable cards are elevated by default to distinguish from unplayable ones
+    const defaultElevation = playable && !large ? 'translateY(-6px)' : '';
 
     const div = document.createElement('div');
     div.className = 'uno-card';
@@ -247,10 +346,11 @@ export class UnoUI {
       font-size: ${large ? 'var(--text-2xl)' : 'var(--text-xl)'};
       font-weight: var(--font-bold);
       cursor: ${disabled ? 'default' : 'pointer'};
-      box-shadow: ${selected ? '0 0 0 3px var(--primary-500)' : 'var(--shadow-sm)'};
+      box-shadow: ${selected ? '0 0 0 3px var(--primary-500)' : playable ? 'var(--shadow-md)' : 'var(--shadow-sm)'};
       transition: all var(--transition-fast);
       opacity: ${disabled && !large ? '0.5' : '1'};
       position: relative;
+      transform: ${defaultElevation};
       ${card.color === null ? `
         background: linear-gradient(135deg, var(--uno-red) 25%, var(--uno-blue) 25%, var(--uno-blue) 50%, var(--uno-green) 50%, var(--uno-green) 75%, var(--uno-yellow) 75%);
       ` : ''}
@@ -273,12 +373,12 @@ export class UnoUI {
 
     if (!disabled && onClick) {
       div.addEventListener('mouseenter', () => {
-        div.style.transform = 'translateY(-8px)';
+        div.style.transform = 'translateY(-12px)'; // Further elevation on hover
         div.style.boxShadow = 'var(--shadow-lg)';
       });
       div.addEventListener('mouseleave', () => {
-        div.style.transform = '';
-        div.style.boxShadow = selected ? '0 0 0 3px var(--primary-500)' : 'var(--shadow-sm)';
+        div.style.transform = defaultElevation;
+        div.style.boxShadow = selected ? '0 0 0 3px var(--primary-500)' : playable ? 'var(--shadow-md)' : 'var(--shadow-sm)';
       });
       div.addEventListener('click', onClick);
     }
@@ -475,12 +575,28 @@ export class UnoUI {
   }
 
   /**
-   * Trigger rerender
+   * Trigger rerender of the UI
    * @private
    */
   _rerender() {
-    // This would trigger a rerender in the parent component
-    // For now, we'll handle color picker visibility through state
+    if (!this._container) return;
+
+    // Clear and re-render the container
+    this._container.innerHTML = '';
+
+    // Game info
+    this._container.appendChild(this._renderGameInfo());
+
+    // Discard pile and deck
+    this._container.appendChild(this._renderTable());
+
+    // Player's hand
+    this._container.appendChild(this._renderHand());
+
+    // Color picker (if needed)
+    if (this.showColorPicker) {
+      this._container.appendChild(this._renderColorPicker());
+    }
   }
 }
 

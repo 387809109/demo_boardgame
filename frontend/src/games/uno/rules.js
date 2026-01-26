@@ -77,17 +77,19 @@ export function applyCardEffect(card, state, chosenColor = null) {
 
     case CARD_TYPES.DRAW_TWO:
       changes.drawPending = 2;
-      changes.skipNext = true;
+      // Note: skipNext is false - the next player must draw cards first,
+      // then they are skipped after drawing (handled in processMove)
       break;
 
     case CARD_TYPES.WILD:
-      changes.currentColor = chosenColor;
+      changes.currentColor = chosenColor || state.currentColor;
       break;
 
     case CARD_TYPES.WILD_DRAW_FOUR:
-      changes.currentColor = chosenColor;
+      changes.currentColor = chosenColor || state.currentColor;
       changes.drawPending = 4;
-      changes.skipNext = true;
+      // Note: skipNext is false - the next player must draw cards first,
+      // then they are skipped after drawing (handled in processMove)
       break;
   }
 

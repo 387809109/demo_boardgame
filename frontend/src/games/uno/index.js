@@ -422,6 +422,18 @@ export class UnoGame extends GameEngine {
       }
     }
 
+    if (actionType === UNO_ACTIONS.DRAW_CARD) {
+      // Calculate how many cards will be drawn
+      const drawCount = state.drawPending > 0 ? state.drawPending : 1;
+      return {
+        ...move,
+        actionData: {
+          ...actionData,
+          count: drawCount
+        }
+      };
+    }
+
     return move;
   }
 

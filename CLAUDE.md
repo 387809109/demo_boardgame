@@ -52,6 +52,10 @@ demo_boardgame/
 │   └── server/            # index.js, connection-manager.js, room-manager.js, message-router.js
 ├── docs/
 │   ├── PROTOCOL.md        # WebSocket message spec (required reading)
+│   ├── dev_rules/         # Development standards (MUST READ)
+│   │   ├── README.md              # Overview and quick start
+│   │   ├── DEVELOPMENT_PRINCIPLES.md  # SOLID, DRY, KISS principles
+│   │   └── CODE_STYLE_GUIDE.md    # Naming, formatting, comments
 │   ├── games/             # Game rule documentation (AI-facing)
 │   │   └── uno/RULES.md   # UNO technical rules
 │   └── prd/
@@ -103,11 +107,29 @@ Each game in `games/[name]/` contains:
 
 ### Code Style
 
+> **详细规范参见**: `docs/dev_rules/CODE_STYLE_GUIDE.md`
+
 - ES6 modules (`import`/`export`)
-- Classes: PascalCase, functions/variables: camelCase
+- Classes: PascalCase, functions/variables: camelCase, constants: UPPER_SNAKE_CASE
 - JSDoc comments on all public functions
 - CSS Variables for all styling (see `theme/variables.css`)
-- Max 500 lines per file
+- Max 1000 lines per file (prefer < 500)
+- 2-space indentation, max 100 chars per line
+
+### Development Principles
+
+> **详细规范参见**: `docs/dev_rules/DEVELOPMENT_PRINCIPLES.md`
+
+**SOLID 原则**:
+- **S**ingle Responsibility: 每个类/模块只有一个职责
+- **O**pen/Closed: 对扩展开放，对修改关闭
+- **L**iskov Substitution: 子类可替换父类
+- **I**nterface Segregation: 接口小而专注
+- **D**ependency Inversion: 依赖抽象而非具体实现
+
+**DRY 原则**: 避免重复代码，提取公共逻辑
+
+**KISS 原则**: 保持简单，避免过度设计
 
 ## Game Documentation Requirements
 
@@ -144,6 +166,9 @@ Example: `frontend/public/rules/uno.html`
 
 | Document | Purpose |
 |----------|---------|
+| `docs/dev_rules/README.md` | **开发规范总览** (必读) |
+| `docs/dev_rules/DEVELOPMENT_PRINCIPLES.md` | SOLID/DRY/KISS 原则详解 |
+| `docs/dev_rules/CODE_STYLE_GUIDE.md` | 代码风格、命名、格式规范 |
 | `docs/PROTOCOL.md` | WebSocket message specification |
 | `docs/prd/frontend/README.md` | Frontend implementation guide with templates |
 | `docs/prd/frontend/TASKS.md` | Frontend task checklist (T-F001 to T-F112) |
@@ -154,8 +179,10 @@ Example: `frontend/public/rules/uno.html`
 
 ## Implementation Notes
 
-1. **Start with backend** - Implement message routing first (Phase 1 tasks)
-2. **Backend does NOT validate game moves** - Just forwards GAME_ACTION to all room players
-3. **Frontend owns game state** - All rules, validation, and state calculation happens client-side
-4. **Storage**: localStorage for config, sessionStorage for game session
-5. **Heartbeat**: Client sends PING every 30s, server responds with PONG
+1. **Follow dev_rules** - All code must comply with `docs/dev_rules/` standards
+2. **Start with backend** - Implement message routing first (Phase 1 tasks)
+3. **Backend does NOT validate game moves** - Just forwards GAME_ACTION to all room players
+4. **Frontend owns game state** - All rules, validation, and state calculation happens client-side
+5. **Storage**: localStorage for config, sessionStorage for game session
+6. **Heartbeat**: Client sends PING every 30s, server responds with PONG
+7. **Code Review Checklist** - Use checklist in `docs/dev_rules/README.md` before committing
