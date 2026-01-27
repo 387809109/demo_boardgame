@@ -5,7 +5,7 @@
 
 import './theme/default.css';
 
-import { registerGame, createGame, hasGame, getGameConfig } from './game/registry.js';
+import { registerGame, createGame, hasGame } from './game/registry.js';
 import { NetworkClient } from './game/network.js';
 import { loadConfig, saveSessionData, loadSessionData } from './utils/storage.js';
 
@@ -23,9 +23,6 @@ import { GameSettingsModal } from './components/game-settings-modal.js';
 import UnoGame from './games/uno/index.js';
 import { UnoUI } from './games/uno/ui.js';
 import unoConfig from './games/uno/config.json';
-import WerewolfGame from './games/werewolf/index.js';
-import { WerewolfUI } from './games/werewolf/ui.js';
-import werewolfConfig from './games/werewolf/config.json';
 import { canPlayCard, COLORS, CARD_TYPES } from './games/uno/rules.js';
 
 /**
@@ -64,7 +61,6 @@ class App {
   _init() {
     // Register games
     registerGame('uno', UnoGame, unoConfig);
-    registerGame('werewolf', WerewolfGame, werewolfConfig);
 
     // Generate or load player ID
     this.playerId = loadSessionData('playerId') || this._generatePlayerId();
@@ -148,8 +144,10 @@ class App {
    * @private
    */
   _getGameConfig(gameId) {
-    const config = getGameConfig(gameId);
-    if (config) return config;
+    // For now, we only have UNO
+    if (gameId === 'uno') {
+      return unoConfig;
+    }
     return { id: gameId, name: gameId, minPlayers: 2, maxPlayers: 4 };
   }
 
@@ -221,9 +219,6 @@ class App {
     let gameUI = null;
     if (gameType === 'uno') {
       gameUI = new UnoUI();
-      this.currentView.setGameUI(gameUI);
-    } else if (gameType === 'werewolf') {
-      gameUI = new WerewolfUI();
       this.currentView.setGameUI(gameUI);
     }
 
