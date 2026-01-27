@@ -7,6 +7,7 @@
 
 import { validateMessage, validateRoomId, validateNickname } from './utils/validator.js';
 import { debug, info, warn, error } from './utils/logger.js';
+import { Broadcaster } from './broadcaster.js';
 
 export class MessageRouter {
   /**
@@ -16,6 +17,7 @@ export class MessageRouter {
   constructor(roomManager, connectionManager) {
     this.roomManager = roomManager;
     this.connectionManager = connectionManager;
+    this.broadcaster = new Broadcaster(roomManager, connectionManager);
   }
 
   /**
@@ -359,23 +361,7 @@ export class MessageRouter {
    * @param {string} [excludePlayerId] - Player to exclude
    */
   broadcast(roomId, message, excludePlayerId = null) {
-    const players = this.roomManager.getPlayers(roomId);
-    const messageStr = JSON.stringify(message);
-
-    for (const player of players) {
-      if (player.id === excludePlayerId) {
-        continue;
-      }
-
-      const ws = this.connectionManager.getConnection(player.id);
-      if (ws && ws.readyState === 1) { // WebSocket.OPEN
-        try {
-          ws.send(messageStr);
-        } catch (err) {
-          error('Failed to send message to player', { playerId: player.id, error: err.message });
-        }
-      }
-    }
+    this.broadcaster.broadcast(roomId, message, excludePlayerId);
   }
 
   /**
