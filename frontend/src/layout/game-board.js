@@ -16,6 +16,7 @@ export class GameBoard {
    * @param {string} options.playerId - Current player ID
    * @param {Function} options.onAction - Called when player takes action
    * @param {Function} options.onLeave - Called when leaving game
+   * @param {Function} [options.onRestart] - Called when restarting game (local only)
    */
   constructor(options = {}) {
     this.options = options;
@@ -57,6 +58,8 @@ export class GameBoard {
     const players = state?.players || [];
     const isMyTurn = state?.currentPlayer === this.playerId;
 
+    const isOffline = this.game?.mode === 'offline';
+
     this.element.innerHTML = `
       <header class="game-header" style="
         background: var(--bg-primary);
@@ -85,6 +88,7 @@ export class GameBoard {
           ` : ''}
         </div>
         <div style="display: flex; gap: var(--spacing-2);">
+          ${isOffline ? '<button class="btn btn-secondary btn-sm restart-btn">重新开始</button>' : ''}
           <button class="btn btn-ghost btn-sm rules-btn" title="查看规则">📖 规则</button>
           <button class="btn btn-secondary btn-sm leave-btn">退出游戏</button>
         </div>
@@ -444,6 +448,10 @@ export class GameBoard {
   _bindEvents() {
     this.element.querySelector('.leave-btn')?.addEventListener('click', () => {
       this.options.onLeave?.();
+    });
+
+    this.element.querySelector('.restart-btn')?.addEventListener('click', () => {
+      this.options.onRestart?.();
     });
 
     this.element.querySelector('.rules-btn')?.addEventListener('click', () => {

@@ -183,7 +183,7 @@
 
 ## 测试覆盖率
 
-### 前端测试统计 (395 tests passing)
+### 前端测试统计 (400 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -195,7 +195,9 @@
 | validators.test.js | 75 | ✅ |
 | uno/index.test.js | 77 | ✅ |
 | uno/rules.test.js | 49 | ✅ |
-| **总计** | **395** | ✅ |
+| uno/ui.test.js | 3 | ✅ |
+| layout/game-board.test.js | 2 | ✅ |
+| **总计** | **400** | ✅ |
 
 ### 后端测试统计 (107 tests passing)
 
@@ -255,6 +257,15 @@
 ## 最近完成的任务
 
 ### 2026-01-27
+
+- ✅ UNO 叠加出牌 UI 修复与测试
+  - `frontend/src/games/uno/ui.js` 允许 +4 在叠加模式响应 +2
+  - `frontend/src/games/uno/ui.test.js` 覆盖叠加出牌可用性
+
+- ✅ 本地局快速重开按钮
+  - `frontend/src/layout/game-board.js` 增加“重新开始”按钮
+  - `frontend/src/layout/game-board.test.js` 验证本地/联机显示逻辑
+  - 前端测试环境新增 jsdom 依赖
 
 - ✅ T-F111 工具函数单元测试 (109 tests)
   - `storage.test.js` - 存储工具测试 (34 tests)

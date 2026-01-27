@@ -208,7 +208,8 @@ class App {
       game,
       playerId: this.playerId,
       onAction: (action) => this._handleGameAction(action),
-      onLeave: () => this._handleLeaveGame()
+      onLeave: () => this._handleLeaveGame(),
+      onRestart: () => this._restartLocalGame()
     });
 
     this.currentView.mount(this.root);
@@ -475,6 +476,23 @@ class App {
 
       this.showLobby();
     }
+  }
+
+  /**
+   * Restart local game with the same settings
+   * @private
+   */
+  _restartLocalGame() {
+    if (!this.currentGame || this.currentGame.mode !== 'offline') return;
+
+    const gameType = this.currentGame.config.gameType;
+    const players = this.currentGame.getState()?.players || [];
+    const options = this._lastGameOptions || {};
+
+    this.currentGame.end();
+    this.currentGame = null;
+
+    this._startGame(gameType, players, 'offline', options);
   }
 
   /**
