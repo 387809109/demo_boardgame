@@ -13,6 +13,7 @@ import {
   createRolePool,
   getRoleDefinition,
   getTeamCounts,
+  isDayPhase,
   isNightPhase
 } from './rules.js';
 import config from './config.json';
@@ -47,6 +48,11 @@ export class WerewolfGame extends GameEngine {
       ...config.rules,
       ...options
     };
+    if (gameOptions.roleCounts) {
+      const enabled = new Set(gameOptions.enabledRoles || []);
+      Object.keys(gameOptions.roleCounts).forEach(roleId => enabled.add(roleId));
+      gameOptions.enabledRoles = Array.from(enabled);
+    }
 
     const rolePool = shuffle(createRolePool(players.length, gameOptions));
     const assignedPlayers = players.map((player, index) => {
@@ -75,28 +81,46 @@ export class WerewolfGame extends GameEngine {
       nightActions: {
         wolfKill: null,
         doctorProtect: null,
+        bodyguardProtect: null,
         seerCheck: null,
+        sheriffCheck: null,
+        vigilanteKill: null,
         witchSave: false,
-        witchPoison: null
+        witchPoison: null,
+        piperCharm: null
       },
       nightActionsDone: {
         wolfKill: false,
         doctorProtect: false,
+        bodyguardProtect: false,
         seerCheck: false,
-        witchDone: false
+        sheriffCheck: false,
+        vigilanteKill: false,
+        witchDone: false,
+        piperCharm: false,
+        cupidLink: false
       },
       votes: {},
       dayVoteResult: null,
       deaths: [],
+      links: {
+        lovers: []
+      },
+      charmed: [],
       roleStates: {
         witchSaveUsed: false,
         witchPoisonUsed: false,
-        lastDoctorProtectTarget: null
+        lastDoctorProtectTarget: null,
+        lastBodyguardProtectTarget: null
       },
       seerResults: {},
+      sheriffResults: {},
       pendingHunterShot: null,
       lastAction: null,
       winner: null,
+      winReason: null,
+      captainId: null,
+      captainRevealed: false,
       currentPlayer: players[0]?.id || null,
       turnNumber: 1,
       direction: 1,
@@ -134,6 +158,19 @@ export class WerewolfGame extends GameEngine {
     if (actionType === WEREWOLF_ACTIONS.DAY_VOTE || actionType === WEREWOLF_ACTIONS.DAY_SKIP_VOTE) {
       if (state.phase !== PHASES.DAY_VOTE) {
         return { valid: false, error: '当前不在投票阶段' };
+      }
+      return { valid: true };
+    }
+
+    if (actionType === WEREWOLF_ACTIONS.DAY_REVEAL_CAPTAIN) {
+      if (!isDayPhase(state.phase)) {
+        return { valid: false, error: '当前不在白天阶段' };
+      }
+      if (player.roleId !== 'captain') {
+        return { valid: false, error: '非队长无法公开身份' };
+      }
+      if (state.captainRevealed) {
+        return { valid: false, error: '队长身份已公开' };
       }
       return { valid: true };
     }
@@ -178,6 +215,33 @@ export class WerewolfGame extends GameEngine {
       return { valid: true };
     }
 
+    if (actionType === WEREWOLF_ACTIONS.NIGHT_CUPID_LINK) {
+      if (!isNightPhase(state.phase)) {
+        return { valid: false, error: '当前不是夜晚阶段' };
+      }
+      if (player.roleId !== 'cupid') {
+        return { valid: false, error: '非丘比特无法连结' };
+      }
+      if (state.links?.lovers?.length) {
+        return { valid: false, error: '丘比特已完成连结' };
+      }
+      if (state.round > 1) {
+        return { valid: false, error: '丘比特仅首夜可行动' };
+      }
+      const targets = actionData?.targetIds || [];
+      if (!Array.isArray(targets) || targets.length !== 2) {
+        return { valid: false, error: '请选择两名目标' };
+      }
+      const [a, b] = targets;
+      if (!a || !b || a === b) {
+        return { valid: false, error: '目标不合法' };
+      }
+      if (!state.playerMap[a]?.alive || !state.playerMap[b]?.alive) {
+        return { valid: false, error: '目标已死亡' };
+      }
+      return { valid: true };
+    }
+
     if (actionType === WEREWOLF_ACTIONS.HUNTER_SHOOT) {
       if (state.pendingHunterShot !== playerId) {
         return { valid: false, error: '当前无法开枪' };
@@ -211,6 +275,14 @@ export class WerewolfGame extends GameEngine {
           return { valid: false, error: '不能连续守护同一人' };
         }
       }
+      if (actionType === WEREWOLF_ACTIONS.NIGHT_BODYGUARD_PROTECT) {
+        if (!state.options?.allowDoctorSelfProtect && targetId === playerId) {
+          return { valid: false, error: '守卫不能自守' };
+        }
+        if (!state.options?.allowRepeatedProtect && state.roleStates.lastBodyguardProtectTarget === targetId) {
+          return { valid: false, error: '不能连续守护同一人' };
+        }
+      }
     }
 
     return { valid: true };
@@ -237,6 +309,11 @@ export class WerewolfGame extends GameEngine {
         newState.nightActionsDone.doctorProtect = true;
         newState.roleStates.lastDoctorProtectTarget = actionData?.targetId || null;
         break;
+      case WEREWOLF_ACTIONS.NIGHT_BODYGUARD_PROTECT:
+        newState.nightActions.bodyguardProtect = actionData?.targetId || null;
+        newState.nightActionsDone.bodyguardProtect = true;
+        newState.roleStates.lastBodyguardProtectTarget = actionData?.targetId || null;
+        break;
       case WEREWOLF_ACTIONS.NIGHT_SEER_CHECK: {
         const targetId = actionData?.targetId || null;
         if (targetId) {
@@ -250,6 +327,23 @@ export class WerewolfGame extends GameEngine {
         newState.nightActionsDone.seerCheck = true;
         break;
       }
+      case WEREWOLF_ACTIONS.NIGHT_SHERIFF_CHECK: {
+        const targetId = actionData?.targetId || null;
+        if (targetId) {
+          const target = newState.playerMap[targetId];
+          newState.sheriffResults[playerId] = {
+            targetId,
+            suspicion: target?.team === TEAMS.WEREWOLF ? 'suspicious' : 'innocent'
+          };
+        }
+        newState.nightActions.sheriffCheck = actionData?.targetId || null;
+        newState.nightActionsDone.sheriffCheck = true;
+        break;
+      }
+      case WEREWOLF_ACTIONS.NIGHT_VIGILANTE_KILL:
+        newState.nightActions.vigilanteKill = actionData?.targetId || null;
+        newState.nightActionsDone.vigilanteKill = true;
+        break;
       case WEREWOLF_ACTIONS.NIGHT_WITCH_SAVE:
         newState.nightActions.witchSave = true;
         newState.roleStates.witchSaveUsed = true;
@@ -260,12 +354,25 @@ export class WerewolfGame extends GameEngine {
         newState.roleStates.witchPoisonUsed = true;
         newState.nightActionsDone.witchDone = true;
         break;
+      case WEREWOLF_ACTIONS.NIGHT_PIPER_CHARM:
+        newState.nightActions.piperCharm = actionData?.targetId || null;
+        newState.nightActionsDone.piperCharm = true;
+        break;
+      case WEREWOLF_ACTIONS.NIGHT_CUPID_LINK:
+        newState.links = newState.links || { lovers: [] };
+        newState.links.lovers = [...(actionData?.targetIds || [])];
+        newState.nightActionsDone.cupidLink = true;
+        break;
       case WEREWOLF_ACTIONS.NIGHT_SKIP:
         this._markNightDone(newState, player);
         break;
       case WEREWOLF_ACTIONS.HUNTER_SHOOT:
         this._applyDeaths(newState, [actionData?.targetId], { [actionData?.targetId]: 'hunter' });
         newState.pendingHunterShot = null;
+        break;
+      case WEREWOLF_ACTIONS.DAY_REVEAL_CAPTAIN:
+        newState.captainId = playerId;
+        newState.captainRevealed = true;
         break;
       case WEREWOLF_ACTIONS.DAY_VOTE:
         newState.votes[playerId] = actionData?.targetId || null;
@@ -297,9 +404,10 @@ export class WerewolfGame extends GameEngine {
 
   _resolveVotes(state) {
     const tally = {};
-    for (const targetId of Object.values(state.votes)) {
+    for (const [voterId, targetId] of Object.entries(state.votes)) {
       if (!targetId) continue;
-      tally[targetId] = (tally[targetId] || 0) + 1;
+      const weight = state.captainRevealed && voterId === state.captainId ? 2 : 1;
+      tally[targetId] = (tally[targetId] || 0) + weight;
     }
     const entries = Object.entries(tally).sort((a, b) => b[1] - a[1]);
     if (entries.length === 0) return { targetId: null, tally };
@@ -317,20 +425,34 @@ export class WerewolfGame extends GameEngine {
 
   _resolveNight(state) {
     const killTarget = state.nightActions.wolfKill;
-    const protectedTarget = state.nightActions.doctorProtect;
+    const protectedTargets = new Set([state.nightActions.doctorProtect, state.nightActions.bodyguardProtect].filter(Boolean));
+    const vigilanteTarget = state.nightActions.vigilanteKill;
     const poisonTarget = state.nightActions.witchPoison;
+    const charmTarget = state.nightActions.piperCharm;
 
     const deaths = [];
     const causes = {};
 
-    if (killTarget && killTarget !== protectedTarget) {
+    const isProtected = targetId => protectedTargets.has(targetId);
+    if (killTarget && !isProtected(killTarget)) {
       deaths.push(killTarget);
       causes[killTarget] = 'wolf';
     }
 
-    if (poisonTarget && poisonTarget !== protectedTarget) {
+    if (vigilanteTarget && !isProtected(vigilanteTarget)) {
+      deaths.push(vigilanteTarget);
+      causes[vigilanteTarget] = 'vigilante';
+    }
+
+    if (poisonTarget && !isProtected(poisonTarget)) {
       deaths.push(poisonTarget);
       causes[poisonTarget] = 'poison';
+    }
+
+    if (charmTarget && state.playerMap[charmTarget]?.alive) {
+      const next = new Set(state.charmed || []);
+      next.add(charmTarget);
+      state.charmed = Array.from(next);
     }
 
     const uniqueDeaths = Array.from(new Set(deaths));
@@ -338,15 +460,24 @@ export class WerewolfGame extends GameEngine {
     state.nightActions = {
       wolfKill: null,
       doctorProtect: null,
+      bodyguardProtect: null,
       seerCheck: null,
+      sheriffCheck: null,
+      vigilanteKill: null,
       witchSave: false,
-      witchPoison: null
+      witchPoison: null,
+      piperCharm: null
     };
     state.nightActionsDone = {
       wolfKill: false,
       doctorProtect: false,
+      bodyguardProtect: false,
       seerCheck: false,
-      witchDone: false
+      sheriffCheck: false,
+      vigilanteKill: false,
+      witchDone: false,
+      piperCharm: false,
+      cupidLink: state.links?.lovers?.length ? true : false
     };
     state.votes = {};
     state.dayVoteResult = null;
@@ -355,6 +486,14 @@ export class WerewolfGame extends GameEngine {
   _resolveExecution(state) {
     const targetId = state.dayVoteResult?.targetId || null;
     if (targetId && state.playerMap[targetId]) {
+      if (state.playerMap[targetId].roleId === 'idiot') {
+        this._applyDeaths(state, [targetId], { [targetId]: 'vote' });
+        state.status = 'ended';
+        state.phase = PHASES.ENDED;
+        state.winner = TEAMS.NEUTRAL;
+        state.winReason = 'idiot_vote';
+        return;
+      }
       this._applyDeaths(state, [targetId], { [targetId]: 'vote' });
     } else {
       state.deaths = [];
@@ -364,12 +503,23 @@ export class WerewolfGame extends GameEngine {
   }
 
   _applyDeaths(state, deaths, causes = {}) {
-    const unique = Array.from(new Set(deaths)).filter(Boolean);
+    const expanded = new Set(deaths.filter(Boolean));
+    const lovers = state.links?.lovers || [];
+    if (lovers.length === 2) {
+      const [a, b] = lovers;
+      if (expanded.has(a) && !expanded.has(b)) expanded.add(b);
+      if (expanded.has(b) && !expanded.has(a)) expanded.add(a);
+    }
+    const unique = Array.from(expanded);
     state.deaths = unique;
     for (const id of unique) {
       const target = state.playerMap[id];
       if (!target) continue;
       target.alive = false;
+      if (state.captainId === id) {
+        state.captainId = null;
+        state.captainRevealed = false;
+      }
       if (target.roleId === 'hunter') {
         const cause = causes[id];
         if (cause === 'poison' && !state.options?.hunterShootOnPoison) {
@@ -405,11 +555,14 @@ export class WerewolfGame extends GameEngine {
         break;
     }
 
+    if (state.status === 'ended') return;
+
     const endCheck = this.checkGameEnd(state);
     if (endCheck.ended) {
       state.status = 'ended';
       state.phase = PHASES.ENDED;
       state.winner = endCheck.winner;
+      state.winReason = endCheck.reason || null;
     }
   }
 
@@ -422,11 +575,26 @@ export class WerewolfGame extends GameEngine {
       case 'doctor':
         state.nightActionsDone.doctorProtect = true;
         break;
+      case 'bodyguard':
+        state.nightActionsDone.bodyguardProtect = true;
+        break;
       case 'seer':
         state.nightActionsDone.seerCheck = true;
         break;
+      case 'sheriff':
+        state.nightActionsDone.sheriffCheck = true;
+        break;
+      case 'vigilante':
+        state.nightActionsDone.vigilanteKill = true;
+        break;
       case 'witch':
         state.nightActionsDone.witchDone = true;
+        break;
+      case 'piper':
+        state.nightActionsDone.piperCharm = true;
+        break;
+      case 'cupid':
+        state.nightActionsDone.cupidLink = true;
         break;
       default:
         break;
@@ -437,20 +605,54 @@ export class WerewolfGame extends GameEngine {
     const aliveRoles = state.players.filter(p => p.alive).map(p => p.roleId);
     const needsWolf = aliveRoles.includes('werewolf');
     const needsDoctor = aliveRoles.includes('doctor');
+    const needsBodyguard = aliveRoles.includes('bodyguard');
     const needsSeer = aliveRoles.includes('seer');
+    const needsSheriff = aliveRoles.includes('sheriff');
+    const needsVigilante = aliveRoles.includes('vigilante');
     const needsWitch = aliveRoles.includes('witch');
+    const needsPiper = aliveRoles.includes('piper');
+    const needsCupid = aliveRoles.includes('cupid') && state.round === 1 && !(state.links?.lovers?.length);
 
     if (state.pendingHunterShot) return;
 
     if (needsWolf && !state.nightActionsDone.wolfKill) return;
     if (needsDoctor && !state.nightActionsDone.doctorProtect) return;
+    if (needsBodyguard && !state.nightActionsDone.bodyguardProtect) return;
     if (needsSeer && !state.nightActionsDone.seerCheck) return;
+    if (needsSheriff && !state.nightActionsDone.sheriffCheck) return;
+    if (needsVigilante && !state.nightActionsDone.vigilanteKill) return;
     if (needsWitch && !state.nightActionsDone.witchDone) return;
+    if (needsPiper && !state.nightActionsDone.piperCharm) return;
+    if (needsCupid && !state.nightActionsDone.cupidLink) return;
 
     this._advancePhase(state);
   }
 
   checkGameEnd(state) {
+    if (state.status === 'ended' && state.winner) {
+      return { ended: true, winner: state.winner, reason: state.winReason || '' };
+    }
+
+    const lovers = state.links?.lovers || [];
+    if (lovers.length === 2) {
+      const aliveIds = Object.values(state.playerMap).filter(p => p.alive).map(p => p.id);
+      if (aliveIds.length === 2 && lovers.every(id => aliveIds.includes(id))) {
+        return { ended: true, winner: TEAMS.NEUTRAL, reason: 'lovers_last_alive' };
+      }
+    }
+
+    const alivePlayers = Object.values(state.playerMap).filter(p => p.alive);
+    const piperAlive = alivePlayers.some(p => p.roleId === 'piper');
+    if (piperAlive) {
+      const charmed = new Set(state.charmed || []);
+      const allCharmed = alivePlayers
+        .filter(p => p.roleId !== 'piper')
+        .every(p => charmed.has(p.id));
+      if (allCharmed) {
+        return { ended: true, winner: TEAMS.NEUTRAL, reason: 'piper_charm' };
+      }
+    }
+
     const counts = getTeamCounts(state.playerMap);
     if (counts.werewolf === 0) {
       return { ended: true, winner: TEAMS.VILLAGE };
@@ -497,7 +699,9 @@ export class WerewolfGame extends GameEngine {
       playerMap: undefined,
       myRole: me ? { roleId: me.roleId, team: me.team } : null,
       rolesVisible: visibleRoles,
-      seerResult: state.seerResults[playerId] || null
+      seerResult: state.seerResults[playerId] || null,
+      sheriffResult: state.sheriffResults[playerId] || null,
+      charmedVisible: me?.roleId === 'piper' ? state.charmed : null
     };
   }
 }

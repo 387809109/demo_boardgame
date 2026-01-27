@@ -92,6 +92,55 @@ export const ROLE_DEFINITIONS = {
     team: TEAMS.VILLAGE,
     priority: 'P0',
     actionTypes: [ACTION_TYPES.NIGHT_WITCH_SAVE, ACTION_TYPES.NIGHT_WITCH_POISON]
+  },
+  bodyguard: {
+    id: 'bodyguard',
+    name: '守卫',
+    team: TEAMS.VILLAGE,
+    priority: 'P1',
+    actionTypes: [ACTION_TYPES.NIGHT_BODYGUARD_PROTECT]
+  },
+  cupid: {
+    id: 'cupid',
+    name: '丘比特',
+    team: TEAMS.NEUTRAL,
+    priority: 'P1',
+    actionTypes: [ACTION_TYPES.NIGHT_CUPID_LINK]
+  },
+  sheriff: {
+    id: 'sheriff',
+    name: '警长',
+    team: TEAMS.VILLAGE,
+    priority: 'P1',
+    actionTypes: [ACTION_TYPES.NIGHT_SHERIFF_CHECK]
+  },
+  vigilante: {
+    id: 'vigilante',
+    name: '私刑者',
+    team: TEAMS.VILLAGE,
+    priority: 'P1',
+    actionTypes: [ACTION_TYPES.NIGHT_VIGILANTE_KILL]
+  },
+  idiot: {
+    id: 'idiot',
+    name: '白痴',
+    team: TEAMS.NEUTRAL,
+    priority: 'P1',
+    actionTypes: []
+  },
+  piper: {
+    id: 'piper',
+    name: '魔笛手',
+    team: TEAMS.NEUTRAL,
+    priority: 'P1',
+    actionTypes: [ACTION_TYPES.NIGHT_PIPER_CHARM]
+  },
+  captain: {
+    id: 'captain',
+    name: '队长',
+    team: TEAMS.VILLAGE,
+    priority: 'P1',
+    actionTypes: [ACTION_TYPES.DAY_REVEAL_CAPTAIN]
   }
 };
 
@@ -132,7 +181,14 @@ export function canRoleAct(roleId, actionType, phase) {
 export function buildDistribution(playerCount, options) {
   const preset = ROLE_PRESETS.find(p => playerCount >= p.min && playerCount <= p.max);
   if (!preset) {
-    return { werewolf: Math.max(1, Math.floor(playerCount / 4)), villager: Math.max(0, playerCount - 1) };
+    const baseCounts = {
+      werewolf: Math.max(1, Math.floor(playerCount / 4)),
+      villager: Math.max(0, playerCount - 1)
+    };
+    if (options?.roleCounts) {
+      return { ...baseCounts, ...options.roleCounts };
+    }
+    return baseCounts;
   }
 
   const roleCounts = { werewolf: preset.wolves };
