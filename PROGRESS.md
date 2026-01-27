@@ -68,8 +68,8 @@
 
 | 任务 ID | 描述 | 状态 |
 |---------|------|------|
-| T-F-DOC-004 | 狼人杀 AI 规则文档模板 | ✅ |
-| T-F-DOC-005 | 狼人杀用户规则书模板 | ✅ |
+| T-F-DOC-004 | 狼人杀 AI 规则文档 | ✅ |
+| T-F-DOC-005 | 狼人杀用户规则书 | ✅ |
 | T-F-DOC-006 | 狼人杀开发计划 | ✅ |
 | T-F070 | 狼人杀配置 | ⬜ |
 | T-F071 | 狼人杀游戏类 | ⬜ |
@@ -255,10 +255,11 @@
 ### 2026-01-27
 
 - ✅ 狼人杀开发准备
-  - `docs/games/werewolf/RULES.md` - AI 规则文档模板
+  - `docs/games/werewolf/RULES.md` - AI 规则文档 (27+ 角色, 完整规则)
   - `docs/games/werewolf/PLAN.md` - 开发计划
-  - `frontend/public/rules/werewolf.html` - 用户规则书模板
+  - `frontend/public/rules/werewolf.html` - 用户规则书 (完整内容)
   - 更新 CLAUDE.md 集成 `docs/games/TEMPLATE.md` 引用
+  - 整合 werewolf_ref/ 参考资料并删除
 
 - ✅ T-F110 前端核心模块单元测试 (160 tests)
   - `registry.test.js` - 游戏注册表测试 (22 tests)
