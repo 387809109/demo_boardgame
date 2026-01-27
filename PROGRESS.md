@@ -166,9 +166,9 @@
 
 | 任务 ID | 描述 | 状态 |
 |---------|------|------|
-| T-B100 | 广播器 | ✅ |
-| T-B101 | 排除发送者广播 | ✅ |
-| T-B102 | 消息队列 | ✅ |
+| T-B100 | 广播器 | ⬜ |
+| T-B101 | 排除发送者广播 | ⬜ |
+| T-B102 | 消息队列 | ⬜ |
 
 ### Phase 6: 监控与日志 ⬜ 未开始
 
@@ -199,16 +199,15 @@
 | layout/game-board.test.js | 2 | ✅ |
 | **总计** | **400** | ✅ |
 
-### 后端测试统计 (110 tests passing)
+### 后端测试统计 (107 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
 | connection-manager.test.js | 22 | ✅ |
 | room-manager.test.js | 26 | ✅ |
 | message-router.test.js | 45 | ✅ |
-| broadcaster.test.js | 3 | ✅ |
 | server.integration.test.js | 14 | ✅ |
-| **总计** | **110** | ✅ |
+| **总计** | **107** | ✅ |
 
 ### 代码覆盖率
 
@@ -258,11 +257,6 @@
 ## 最近完成的任务
 
 ### 2026-01-27
-
-- ✅ T-B100–T-B102 广播优化
-  - `backend/server/broadcaster.js` 新增广播器与消息队列
-  - `backend/server/message-router.js` 使用广播器并支持排除发送者
-  - `backend/server/tests/broadcaster.test.js` 新增单元测试
 
 - ✅ UNO 叠加出牌 UI 修复与测试
   - `frontend/src/games/uno/ui.js` 允许 +4 在叠加模式响应 +2
