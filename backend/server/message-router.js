@@ -14,11 +14,10 @@ export class MessageRouter {
    * @param {import('./room-manager.js').RoomManager} roomManager
    * @param {import('./connection-manager.js').ConnectionManager} connectionManager
    */
-  constructor(roomManager, connectionManager, metrics = null) {
+  constructor(roomManager, connectionManager) {
     this.roomManager = roomManager;
     this.connectionManager = connectionManager;
-    this.metrics = metrics;
-    this.broadcaster = new Broadcaster(roomManager, connectionManager, { metrics });
+    this.broadcaster = new Broadcaster(roomManager, connectionManager);
   }
 
   /**
@@ -35,8 +34,6 @@ export class MessageRouter {
     }
 
     const { type, playerId, data } = message;
-    this.metrics?.inc('messagesReceived', 1);
-    this.metrics?.incMessageType(type);
 
     // Bind player to connection on first message
     this.connectionManager.bindPlayer(connId, playerId);
@@ -392,7 +389,6 @@ export class MessageRouter {
    * @param {string} severity - Error severity
    */
   sendError(connId, playerId, code, message, severity = 'error') {
-    this.metrics?.inc('errors', 1);
     const ws = this.connectionManager.getWebSocket(connId);
     if (ws && ws.readyState === 1) {
       const errorMessage = {

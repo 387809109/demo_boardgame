@@ -10,42 +10,34 @@
  * All game rules and validation happen on the frontend.
  */
 
-import http from 'http';
 import { WebSocketServer } from 'ws';
 import { config } from './config.js';
 import { ConnectionManager } from './connection-manager.js';
 import { RoomManager } from './room-manager.js';
 import { MessageRouter } from './message-router.js';
-import Metrics from './metrics.js';
-import { setLogLevel, setLogFormat, setLogFile, info, warn, error } from './utils/logger.js';
+import { setLogLevel, info, warn, error } from './utils/logger.js';
 
 export class GameServer {
   constructor(port = config.port) {
     this.port = port;
     this.wss = null;
-    this.httpServer = null;
     this.heartbeatTimer = null;
 
     // Initialize managers
-    this.metrics = new Metrics();
     this.connectionManager = new ConnectionManager();
     this.roomManager = new RoomManager();
-    this.messageRouter = new MessageRouter(this.roomManager, this.connectionManager, this.metrics);
+    this.messageRouter = new MessageRouter(this.roomManager, this.connectionManager);
 
     // Set log level
     setLogLevel(config.logLevel);
-    setLogFormat(config.logFormat);
-    setLogFile(config.logFilePath);
   }
 
   /**
    * Start the WebSocket server
    */
   start() {
-    this.httpServer = http.createServer((req, res) => this.handleHttpRequest(req, res));
-
     this.wss = new WebSocketServer({
-      server: this.httpServer,
+      port: this.port,
       maxPayload: config.maxMessageSize
     });
 
@@ -63,10 +55,8 @@ export class GameServer {
     // Start heartbeat checker
     this.startHeartbeatChecker();
 
-    this.httpServer.listen(this.port, () => {
-      info(`WebSocket server started on port ${this.port}`);
-      console.log(`\n🎮 Board Game Server running on ws://localhost:${this.port}\n`);
-    });
+    info(`WebSocket server started on port ${this.port}`);
+    console.log(`\n🎮 Board Game Server running on ws://localhost:${this.port}\n`);
   }
 
   /**
@@ -118,7 +108,6 @@ export class GameServer {
   handleConnection(ws, req) {
     const clientIp = req.socket.remoteAddress;
     const connId = this.connectionManager.addConnection(ws);
-    this.metrics.inc('connectionsTotal', 1);
 
     info('Client connected', { connId, ip: clientIp });
 
@@ -152,7 +141,6 @@ export class GameServer {
     try {
       message = JSON.parse(data.toString());
     } catch (err) {
-      this.metrics.inc('errors', 1);
       const ws = this.connectionManager.getWebSocket(connId);
       if (ws && ws.readyState === 1) {
         const errorMsg = {
@@ -190,46 +178,6 @@ export class GameServer {
   }
 
   /**
-   * Handle HTTP requests (health/stats)
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
-   */
-  handleHttpRequest(req, res) {
-    const url = req.url || '/';
-    if (url === '/health') {
-      this.writeJson(res, 200, {
-        status: 'ok',
-        timestamp: Date.now(),
-        ...this.getStats()
-      });
-      return;
-    }
-
-    if (url === '/stats') {
-      this.writeJson(res, 200, {
-        status: 'ok',
-        timestamp: Date.now(),
-        ...this.getStats()
-      });
-      return;
-    }
-
-    this.writeJson(res, 404, { status: 'not_found' });
-  }
-
-  /**
-   * Write JSON response
-   * @param {http.ServerResponse} res
-   * @param {number} status
-   * @param {object} body
-   */
-  writeJson(res, status, body) {
-    res.statusCode = status;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(body));
-  }
-
-  /**
    * Setup graceful shutdown handlers
    */
   setupGracefulShutdown() {
@@ -263,37 +211,28 @@ export class GameServer {
       this.heartbeatTimer = null;
     }
 
-    if (!this.wss && !this.httpServer) {
+    if (!this.wss) {
       return;
     }
 
     info('Stopping server...');
 
-    if (this.wss) {
-      // Close all connections
-      this.wss.clients.forEach((ws) => {
-        if (ws.readyState === 1) {
-          ws.close(1001, 'Server shutting down');
-        }
-      });
-      this.wss.close();
-      this.wss = null;
-    }
+    // Close all connections
+    this.wss.clients.forEach((ws) => {
+      if (ws.readyState === 1) {
+        ws.close(1001, 'Server shutting down');
+      }
+    });
 
-    if (this.httpServer) {
-      this.httpServer.close((err) => {
-        if (err) {
-          error('Error closing server', { error: err.message });
-        } else {
-          info('Server stopped');
-        }
-        process.exit(0);
-      });
-      return;
-    }
-
-    info('Server stopped');
-    process.exit(0);
+    // Close server
+    this.wss.close((err) => {
+      if (err) {
+        error('Error closing server', { error: err.message });
+      } else {
+        info('Server stopped');
+      }
+      process.exit(0);
+    });
   }
 
   /**
@@ -305,8 +244,7 @@ export class GameServer {
       connections: this.connectionManager.getActiveConnections(),
       players: this.connectionManager.getBoundPlayers(),
       rooms: this.roomManager.getRoomCount(),
-      playersInRooms: this.roomManager.getTotalPlayers(),
-      metrics: this.metrics.snapshot()
+      playersInRooms: this.roomManager.getTotalPlayers()
     };
   }
 }

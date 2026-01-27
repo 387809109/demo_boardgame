@@ -174,10 +174,10 @@
 
 | 任务 ID | 描述 | 状态 |
 |---------|------|------|
-| T-B110 | 统计信息收集 | ✅ |
-| T-B111 | 健康检查端点 | ✅ |
-| T-B112 | 结构化日志 | ✅ |
-| T-B113 | 日志文件输出 | ✅ |
+| T-B110 | 统计信息收集 | ⬜ |
+| T-B111 | 健康检查端点 | ⬜ |
+| T-B112 | 结构化日志 | ⬜ |
+| T-B113 | 日志文件输出 | ⬜ |
 
 ---
 
@@ -199,7 +199,7 @@
 | layout/game-board.test.js | 2 | ✅ |
 | **总计** | **400** | ✅ |
 
-### 后端测试统计 (112 tests passing)
+### 后端测试统计 (110 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -207,8 +207,8 @@
 | room-manager.test.js | 26 | ✅ |
 | message-router.test.js | 45 | ✅ |
 | broadcaster.test.js | 3 | ✅ |
-| server.integration.test.js | 16 | ✅ |
-| **总计** | **112** | ✅ |
+| server.integration.test.js | 14 | ✅ |
+| **总计** | **110** | ✅ |
 
 ### 代码覆盖率
 
@@ -258,12 +258,6 @@
 ## 最近完成的任务
 
 ### 2026-01-27
-
-- ✅ T-B110–T-B113 监控与日志
-  - `backend/server/metrics.js` 新增统计信息收集
-  - `backend/server/index.js` 增加 /health 与 /stats HTTP 端点
-  - `backend/server/utils/logger.js` 支持 JSON 结构化日志与文件输出
-  - `backend/server/tests/server.integration.test.js` 增加健康检查测试
 
 - ✅ T-B100–T-B102 广播优化
   - `backend/server/broadcaster.js` 新增广播器与消息队列

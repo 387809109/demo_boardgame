@@ -8,13 +8,12 @@ export class Broadcaster {
   /**
    * @param {import('./room-manager.js').RoomManager} roomManager
    * @param {import('./connection-manager.js').ConnectionManager} connectionManager
-   * @param {{ queueDelayMs?: number, metrics?: import('./metrics.js').Metrics }} options
+   * @param {{ queueDelayMs?: number }} options
    */
   constructor(roomManager, connectionManager, options = {}) {
     this.roomManager = roomManager;
     this.connectionManager = connectionManager;
     this.queueDelayMs = options.queueDelayMs ?? 0;
-    this.metrics = options.metrics || null;
 
     /** @type {Map<string, { messages: Array<{ messageStr: string, excludePlayerId: string|null }>, scheduled: boolean }>} */
     this.queues = new Map();
@@ -27,7 +26,6 @@ export class Broadcaster {
    * @param {string|null} [excludePlayerId]
    */
   broadcast(roomId, message, excludePlayerId = null) {
-    this.metrics?.inc('broadcasts', 1);
     const entry = {
       messageStr: JSON.stringify(message),
       excludePlayerId
@@ -83,7 +81,6 @@ export class Broadcaster {
 
         try {
           ws.send(entry.messageStr);
-          this.metrics?.inc('messagesSent', 1);
         } catch (err) {
           error('Failed to send message to player', { playerId: player.id, error: err.message });
         }
