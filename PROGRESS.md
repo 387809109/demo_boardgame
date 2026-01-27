@@ -71,10 +71,10 @@
 | T-F-DOC-004 | 狼人杀 AI 规则文档 | ✅ |
 | T-F-DOC-005 | 狼人杀用户规则书 | ✅ |
 | T-F-DOC-006 | 狼人杀开发计划 | ✅ |
-| T-F070 | 狼人杀配置 | ⬜ |
-| T-F071 | 狼人杀游戏类 | ⬜ |
-| T-F072 | 狼人杀规则 | ⬜ |
-| T-F073 | 狼人杀 UI | ⬜ |
+| T-F070 | 狼人杀配置 | ✅ |
+| T-F071 | 狼人杀游戏类 | ✅ |
+| T-F072 | 狼人杀规则 | ✅ |
+| T-F073 | 狼人杀 UI | ✅ |
 
 ### Phase 4: 联机功能 ✅ 完成
 
@@ -183,7 +183,7 @@
 
 ## 测试覆盖率
 
-### 前端测试统计 (400 tests passing)
+### 前端测试统计 (404 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -197,7 +197,8 @@
 | uno/rules.test.js | 49 | ✅ |
 | uno/ui.test.js | 3 | ✅ |
 | layout/game-board.test.js | 2 | ✅ |
-| **总计** | **400** | ✅ |
+| werewolf/index.test.js | 4 | ✅ |
+| **总计** | **404** | ✅ |
 
 ### 后端测试统计 (112 tests passing)
 
@@ -258,6 +259,13 @@
 ## 最近完成的任务
 
 ### 2026-01-27
+
+- ✅ T-F070–T-F073 狼人杀基础实现
+  - `frontend/src/games/werewolf/config.json` 游戏配置与选项
+  - `frontend/src/games/werewolf/rules.js` 角色/阶段/动作规则
+  - `frontend/src/games/werewolf/index.js` 核心流程与阶段推进
+  - `frontend/src/games/werewolf/ui.js` 基础 UI 与行动面板
+  - `frontend/src/games/werewolf/index.test.js` 单元测试 (4 tests)
 
 - ✅ T-B110–T-B113 监控与日志
   - `backend/server/metrics.js` 新增统计信息收集

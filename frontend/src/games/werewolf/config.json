@@ -1,0 +1,76 @@
+{
+  "id": "werewolf",
+  "name": "狼人杀",
+  "description": "经典社交推理游戏，夜晚行动、白天讨论投票，找出狼人阵营",
+  "minPlayers": 6,
+  "maxPlayers": 20,
+  "difficulty": "medium",
+  "estimatedTime": 40,
+  "tags": ["社交", "推理", "派对"],
+  "supportsAI": false,
+  "rules": {
+    "enabledRoles": ["villager", "werewolf", "seer", "doctor", "hunter", "witch"],
+    "roleCounts": {
+      "werewolf": 2,
+      "seer": 1,
+      "doctor": 1,
+      "witch": 1,
+      "hunter": 1
+    },
+    "revealRolesOnDeath": true,
+    "allowDoctorSelfProtect": true,
+    "allowRepeatedProtect": false,
+    "hunterShootOnPoison": false,
+    "dayVoteMajority": true,
+    "witchCanSaveSelf": true,
+    "witchSaveFirstNightOnly": false,
+    "nightActionTime": 30,
+    "discussionTime": 300,
+    "voteTime": 30,
+    "lastWordsTime": 30
+  },
+  "settingsSchema": {
+    "revealRolesOnDeath": {
+      "type": "boolean",
+      "label": "死亡公开身份",
+      "description": "玩家死亡时是否公开角色身份",
+      "default": true
+    },
+    "allowDoctorSelfProtect": {
+      "type": "boolean",
+      "label": "医生可自救",
+      "description": "医生夜晚是否可以保护自己",
+      "default": true
+    },
+    "allowRepeatedProtect": {
+      "type": "boolean",
+      "label": "允许连守同一人",
+      "description": "医生/守卫是否可以连续守护同一人",
+      "default": false
+    },
+    "hunterShootOnPoison": {
+      "type": "boolean",
+      "label": "猎人毒杀可开枪",
+      "description": "猎人被女巫毒死时是否可以开枪",
+      "default": false
+    },
+    "dayVoteMajority": {
+      "type": "boolean",
+      "label": "投票需过半",
+      "description": "白天放逐是否需要超过半数票",
+      "default": true
+    },
+    "witchCanSaveSelf": {
+      "type": "boolean",
+      "label": "女巫可自救",
+      "description": "女巫是否可以自救",
+      "default": true
+    },
+    "witchSaveFirstNightOnly": {
+      "type": "boolean",
+      "label": "女巫仅首夜可救",
+      "description": "女巫救人是否仅限首夜",
+      "default": false
+    }
+  }
+}
