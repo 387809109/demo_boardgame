@@ -103,15 +103,15 @@
 
     .role-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 15px;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
       margin: 20px 0;
     }
 
     .role-card {
       background: #f8f9fa;
       border-radius: 12px;
-      padding: 15px;
+      padding: 12px;
       text-align: center;
       border: 2px solid #eee;
       transition: transform 0.2s, box-shadow 0.2s;
@@ -137,15 +137,21 @@
       background: linear-gradient(135deg, #fffcf5, #fff5e5);
     }
 
+    .role-card.neutral {
+      border-color: var(--wolf-purple);
+      background: linear-gradient(135deg, #faf5ff, #f0e5ff);
+    }
+
     .role-icon {
-      width: 60px;
-      height: 60px;
+      width: 50px;
+      height: 50px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 10px;
-      font-size: 1.8em;
+      margin: 0 auto 8px;
+      font-size: 1.5em;
+      font-weight: bold;
     }
 
     .role-card.werewolf .role-icon {
@@ -163,14 +169,19 @@
       color: white;
     }
 
+    .role-card.neutral .role-icon {
+      background: var(--wolf-purple);
+      color: white;
+    }
+
     .role-name {
       font-weight: bold;
-      font-size: 1.1em;
-      margin-bottom: 5px;
+      font-size: 1em;
+      margin-bottom: 4px;
     }
 
     .role-desc {
-      font-size: 0.85em;
+      font-size: 0.8em;
       color: #666;
     }
 
@@ -178,8 +189,8 @@
       display: inline-block;
       padding: 2px 8px;
       border-radius: 10px;
-      font-size: 0.75em;
-      margin-bottom: 8px;
+      font-size: 0.7em;
+      margin-bottom: 6px;
     }
 
     .team-label.wolf {
@@ -189,6 +200,11 @@
 
     .team-label.good {
       background: var(--wolf-blue);
+      color: white;
+    }
+
+    .team-label.third {
+      background: var(--wolf-purple);
       color: white;
     }
 
@@ -213,20 +229,27 @@
       border-left: 4px solid var(--wolf-blue);
     }
 
+    .highlight-box.success {
+      background: linear-gradient(135deg, #d4edda, #c3e6cb);
+      border-left: 4px solid var(--wolf-green);
+    }
+
     .phase-flow {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
       margin: 20px 0;
+      justify-content: center;
     }
 
     .phase-item {
       flex: 1;
-      min-width: 150px;
-      padding: 15px;
+      min-width: 120px;
+      max-width: 180px;
+      padding: 15px 10px;
       border-radius: 8px;
       text-align: center;
-      position: relative;
+      font-weight: bold;
     }
 
     .phase-item.night {
@@ -237,22 +260,6 @@
     .phase-item.day {
       background: linear-gradient(135deg, #ffeaa7, #fdcb6e);
       color: #333;
-    }
-
-    .phase-item::after {
-      content: '';
-      position: absolute;
-      right: -15px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 0;
-      height: 0;
-      border-left: 10px solid transparent;
-      border-right: 10px solid transparent;
-    }
-
-    .phase-item:last-child::after {
-      display: none;
     }
 
     table {
@@ -303,6 +310,15 @@
       font-weight: bold;
     }
 
+    .config-table {
+      font-size: 0.9em;
+    }
+
+    .config-table th {
+      background: var(--wolf-dark);
+      color: white;
+    }
+
     footer {
       background: #f8f9fa;
       padding: 20px 30px;
@@ -310,45 +326,23 @@
       color: #666;
       font-size: 0.9em;
     }
-
-    .todo-notice {
-      background: #fff3cd;
-      border: 2px dashed #ffc107;
-      border-radius: 8px;
-      padding: 20px;
-      text-align: center;
-      margin: 20px 0;
-    }
-
-    .todo-notice h3 {
-      color: #856404;
-      margin-bottom: 10px;
-    }
-
-    .todo-notice p {
-      color: #856404;
-      margin: 0;
-    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <h1>狼人杀 游戏规则</h1>
-      <p>经典社交推理游戏 | 6-12人</p>
+      <p>经典社交推理游戏 | 6-20人</p>
     </header>
 
     <div class="content">
-      <div class="todo-notice">
-        <h3>规则文档待完善</h3>
-        <p>此文档为模板结构，具体规则内容将在开发前补充完整。</p>
-      </div>
-
       <section>
         <h2>游戏目标</h2>
+        <div class="highlight-box danger">
+          <p><strong>狼人阵营:</strong> 在不暴露身份的情况下，每晚击杀好人。当狼人数量达到或超过好人数量时获胜。</p>
+        </div>
         <div class="highlight-box info">
-          <p><strong>狼人阵营:</strong> 在不暴露身份的情况下，消灭所有好人。</p>
-          <p><strong>好人阵营:</strong> 通过讨论和投票，找出并消灭所有狼人。</p>
+          <p><strong>好人阵营:</strong> 通过白天的讨论和投票，识别并消灭所有狼人即可获胜。</p>
         </div>
       </section>
 
@@ -361,30 +355,39 @@
             <div class="role-icon">W</div>
             <span class="team-label wolf">狼人</span>
             <div class="role-name">狼人</div>
-            <div class="role-desc">每晚可以与同伴一起选择杀害一名玩家</div>
+            <div class="role-desc">每晚与同伴合议选择一名玩家击杀</div>
           </div>
-          <!-- TODO: 添加更多狼人阵营角色 -->
         </div>
 
-        <h3>好人阵营</h3>
+        <h3>好人阵营 - 普通村民</h3>
         <div class="role-grid">
           <div class="role-card villager">
             <div class="role-icon">V</div>
             <span class="team-label good">好人</span>
             <div class="role-name">村民</div>
-            <div class="role-desc">普通村民，没有特殊能力，依靠推理找出狼人</div>
+            <div class="role-desc">没有特殊能力，依靠推理找出狼人</div>
           </div>
+        </div>
+
+        <h3>好人阵营 - 神职角色</h3>
+        <div class="role-grid">
           <div class="role-card special">
             <div class="role-icon">S</div>
             <span class="team-label good">好人</span>
             <div class="role-name">预言家</div>
-            <div class="role-desc">每晚可以查验一名玩家的身份</div>
+            <div class="role-desc">每晚查验一名玩家的阵营身份</div>
+          </div>
+          <div class="role-card special">
+            <div class="role-icon">D</div>
+            <span class="team-label good">好人</span>
+            <div class="role-name">医生</div>
+            <div class="role-desc">每晚保护一名玩家免受狼人袭击</div>
           </div>
           <div class="role-card special">
             <div class="role-icon">Wi</div>
             <span class="team-label good">好人</span>
             <div class="role-name">女巫</div>
-            <div class="role-desc">拥有一瓶解药和一瓶毒药，各只能使用一次</div>
+            <div class="role-desc">拥有一瓶解药和一瓶毒药，各只能用一次</div>
           </div>
           <div class="role-card special">
             <div class="role-icon">H</div>
@@ -396,7 +399,29 @@
             <div class="role-icon">G</div>
             <span class="team-label good">好人</span>
             <div class="role-name">守卫</div>
-            <div class="role-desc">每晚可以守护一名玩家免受狼人袭击</div>
+            <div class="role-desc">每晚守护一人，不能连续守护同一人</div>
+          </div>
+        </div>
+
+        <h3>中立阵营 (可选)</h3>
+        <div class="role-grid">
+          <div class="role-card neutral">
+            <div class="role-icon">C</div>
+            <span class="team-label third">中立</span>
+            <div class="role-name">丘比特</div>
+            <div class="role-desc">首夜连结两名恋人，一人死亡另一人殉情</div>
+          </div>
+          <div class="role-card neutral">
+            <div class="role-icon">T</div>
+            <span class="team-label third">中立</span>
+            <div class="role-name">小偷</div>
+            <div class="role-desc">首夜可与额外角色牌交换</div>
+          </div>
+          <div class="role-card neutral">
+            <div class="role-icon">P</div>
+            <span class="team-label third">中立</span>
+            <div class="role-name">魔笛手</div>
+            <div class="role-desc">每晚魅惑玩家，魅惑全体即可获胜</div>
           </div>
         </div>
       </section>
@@ -406,29 +431,31 @@
 
         <h3>阶段概览</h3>
         <div class="phase-flow">
-          <div class="phase-item night">夜晚</div>
-          <div class="phase-item day">白天讨论</div>
+          <div class="phase-item night">夜晚行动</div>
+          <div class="phase-item day">公布死亡</div>
+          <div class="phase-item day">讨论发言</div>
           <div class="phase-item day">投票放逐</div>
         </div>
 
         <h3>夜晚阶段</h3>
         <ol class="steps">
           <li>所有玩家闭眼</li>
-          <li>守卫选择守护一名玩家</li>
-          <li>预言家选择查验一名玩家</li>
+          <li>守卫/医生选择守护一名玩家</li>
+          <li>预言家选择查验一名玩家，获知其阵营</li>
           <li>狼人睁眼，商议并选择击杀目标</li>
-          <li>女巫查看被杀玩家，决定是否使用解药或毒药</li>
+          <li>女巫查看被杀玩家，决定是否使用解药救人或毒药杀人</li>
           <li>天亮，所有人睁眼</li>
         </ol>
 
         <h3>白天阶段</h3>
         <ol class="steps">
-          <li>公布昨晚死亡情况</li>
+          <li>公布昨晚死亡情况（可选择是否公开角色）</li>
           <li>死亡玩家发表遗言</li>
+          <li>触发死亡技能（如猎人开枪）</li>
           <li>存活玩家依次发言讨论</li>
           <li>投票选出要放逐的玩家</li>
-          <li>被放逐玩家发表遗言</li>
-          <li>进入下一个夜晚</li>
+          <li>被放逐玩家发表遗言后出局</li>
+          <li>检查胜利条件，未结束则进入下一夜</li>
         </ol>
       </section>
 
@@ -448,7 +475,7 @@
               <td><strong>狼人</strong></td>
               <td>击杀</td>
               <td>每晚</td>
-              <td>所有狼人共同选择一个目标</td>
+              <td>所有狼人互相认识，共同选择目标</td>
             </tr>
             <tr>
               <td><strong>预言家</strong></td>
@@ -457,22 +484,34 @@
               <td>得知目标是好人还是狼人</td>
             </tr>
             <tr>
+              <td><strong>医生</strong></td>
+              <td>保护</td>
+              <td>每晚</td>
+              <td>可自保（可配置），可连保（可配置）</td>
+            </tr>
+            <tr>
               <td><strong>女巫</strong></td>
               <td>解药/毒药</td>
               <td>每晚</td>
-              <td>各只能使用一次</td>
+              <td>各一瓶，用完即失去能力</td>
             </tr>
             <tr>
               <td><strong>猎人</strong></td>
               <td>开枪</td>
               <td>死亡时</td>
-              <td>TODO: 确认被毒死是否能开枪</td>
+              <td>被毒死时能否开枪（可配置）</td>
             </tr>
             <tr>
               <td><strong>守卫</strong></td>
               <td>守护</td>
               <td>每晚</td>
               <td>不能连续两晚守护同一人</td>
+            </tr>
+            <tr>
+              <td><strong>丘比特</strong></td>
+              <td>连结恋人</td>
+              <td>仅首夜</td>
+              <td>恋人一死另一人殉情</td>
             </tr>
           </tbody>
         </table>
@@ -481,27 +520,112 @@
       <section>
         <h2>胜利条件</h2>
         <div class="highlight-box danger">
-          <p><strong>狼人胜利:</strong> 当狼人数量 >= 好人数量</p>
+          <p><strong>狼人胜利:</strong> 当场上狼人数量 <strong>>= 好人数量</strong> 时</p>
         </div>
-        <div class="highlight-box info">
-          <p><strong>好人胜利:</strong> 所有狼人被消灭</p>
+        <div class="highlight-box success">
+          <p><strong>好人胜利:</strong> 当场上 <strong>所有狼人</strong> 被消灭时</p>
         </div>
+        <div class="highlight-box warning">
+          <p><strong>特殊胜利:</strong> 恋人同时存活到最后 / 魔笛手魅惑所有存活玩家</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>推荐配置</h2>
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>玩家数</th>
+              <th>狼人</th>
+              <th>村民</th>
+              <th>神职角色</th>
+              <th>中立</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>6-7人</td>
+              <td>2</td>
+              <td>2</td>
+              <td>预言家 + 医生</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td>8-9人</td>
+              <td>2</td>
+              <td>3</td>
+              <td>预言家 + 医生 + 女巫</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td>10-11人</td>
+              <td>3</td>
+              <td>3</td>
+              <td>预言家 + 医生 + 女巫</td>
+              <td>小偷</td>
+            </tr>
+            <tr>
+              <td>12-14人</td>
+              <td>3</td>
+              <td>4</td>
+              <td>预言家 + 医生 + 女巫 + 猎人</td>
+              <td>小偷 + 魔笛手</td>
+            </tr>
+            <tr>
+              <td>15-20人</td>
+              <td>4</td>
+              <td>5</td>
+              <td>预言家 + 医生 + 女巫 + 猎人 + 守卫</td>
+              <td>小偷 + 丘比特 + 魔笛手</td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       <section>
         <h2>游戏小贴士</h2>
         <ul>
-          <li>仔细聆听每个人的发言，寻找逻辑漏洞</li>
-          <li>注意观察其他玩家的表情和反应</li>
-          <li>作为好人，不要轻易暴露自己的角色</li>
-          <li>作为狼人，学会伪装和误导</li>
-          <li>投票时要有明确的理由</li>
+          <li><strong>仔细聆听:</strong> 注意每个人的发言，寻找逻辑漏洞和矛盾之处</li>
+          <li><strong>观察反应:</strong> 关注其他玩家的表情和行为变化</li>
+          <li><strong>保护身份:</strong> 作为神职，不要轻易暴露自己的角色</li>
+          <li><strong>善于伪装:</strong> 作为狼人，学会模仿好人的发言模式</li>
+          <li><strong>理性投票:</strong> 投票时要有明确的理由，避免盲目跟票</li>
+          <li><strong>记录信息:</strong> 记住每个人的发言和行为，建立推理链</li>
+          <li><strong>团队协作:</strong> 好人之间要学会配合，狼人之间要互相掩护</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>特殊规则说明</h2>
+
+        <h3>恋人规则</h3>
+        <ul>
+          <li>丘比特在首夜连结两名玩家成为恋人</li>
+          <li>恋人互相知道对方身份，无论原本阵营</li>
+          <li>恋人中任意一人死亡，另一人立即殉情</li>
+          <li>如果恋人分属不同阵营，他们的共同目标变为成为最后存活的两人</li>
+        </ul>
+
+        <h3>女巫用药规则</h3>
+        <ul>
+          <li>女巫在狼人行动后得知被杀者是谁</li>
+          <li>解药可以救活当晚被杀的玩家（是否能自救可配置）</li>
+          <li>毒药可以毒杀任意一名玩家</li>
+          <li>同一晚可以同时使用解药和毒药</li>
+        </ul>
+
+        <h3>猎人开枪规则</h3>
+        <ul>
+          <li>被狼人杀死：可以开枪</li>
+          <li>被投票处决：可以开枪</li>
+          <li>被女巫毒死：通常不能开枪（可配置）</li>
+          <li>因恋人殉情死亡：可以开枪</li>
         </ul>
       </section>
     </div>
 
     <footer>
-      狼人杀规则仅供游戏参考。
+      狼人杀规则仅供游戏参考。基于经典 Werewolves of Miller's Hollow 规则。
     </footer>
   </div>
 </body>
