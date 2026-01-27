@@ -91,7 +91,7 @@
 | T-F100 | 渲染性能优化 | ✅ |
 | T-F101 | 网络性能优化 | ⬜ |
 | T-F102 | 资源加载优化 | ⬜ |
-| T-F110 | 核心模块单元测试 | ⬜ |
+| T-F110 | 核心模块单元测试 (160 tests) | ✅ |
 | T-F111 | 工具函数测试 | ⬜ |
 | T-F112 | 集成测试 | ⬜ |
 
@@ -180,6 +180,18 @@
 
 ## 测试覆盖率
 
+### 前端测试统计 (286 tests passing)
+
+| 测试套件 | 测试数 | 状态 |
+|----------|--------|------|
+| registry.test.js | 22 | ✅ |
+| rules.test.js | 36 | ✅ |
+| engine.test.js | 47 | ✅ |
+| network.test.js | 55 | ✅ |
+| uno/index.test.js | 77 | ✅ |
+| uno/rules.test.js | 49 | ✅ |
+| **总计** | **286** | ✅ |
+
 ### 后端测试统计 (107 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
@@ -214,7 +226,7 @@
 
 ### 高优先级
 
-1. **前端核心模块测试** - engine.js, rules.js, network.js (T-F110)
+1. **工具函数测试** - storage.js, validators.js (T-F111)
 2. **网络性能优化** - 消息压缩、批量发送 (T-F101)
 
 ### 中优先级
@@ -238,6 +250,13 @@
 ## 最近完成的任务
 
 ### 2026-01-27
+
+- ✅ T-F110 前端核心模块单元测试 (160 tests)
+  - `registry.test.js` - 游戏注册表测试 (22 tests)
+  - `rules.test.js` - 规则引擎测试 (36 tests)
+  - `engine.test.js` - 游戏引擎基类测试 (47 tests)
+  - `network.test.js` - WebSocket 客户端测试 (55 tests)
+  - 包含 WebSocket 模拟、定时器模拟、事件测试
 
 - ✅ T-F100 渲染性能优化
   - 新增 `render-scheduler.js` 工具 (scheduleRender, debounce, throttle)
