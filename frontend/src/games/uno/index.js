@@ -272,6 +272,14 @@ export class UnoGame extends GameEngine {
         // Reset UNO call
         newState.unoCalledBy = null;
 
+        // Calculate who will be skipped (if any) before advancing
+        let skippedPlayerId = null;
+        if (effects.skipNext) {
+          const playerCount = newState.players.length;
+          const nextIndex = (newState.currentPlayerIndex + newState.direction + playerCount) % playerCount;
+          skippedPlayerId = newState.players[nextIndex].id;
+        }
+
         // Move to next player
         this._advancePlayer(newState, effects.skipNext);
 
@@ -279,7 +287,8 @@ export class UnoGame extends GameEngine {
           type: 'played',
           playerId,
           card,
-          chosenColor
+          chosenColor,
+          skippedPlayerId
         };
 
         break;
@@ -414,11 +423,23 @@ export class UnoGame extends GameEngine {
       const card = hand?.find(c => c.id === actionData.cardId);
 
       if (card) {
+        // Calculate if this card will skip someone
+        let skippedPlayerId = null;
+        const willSkip = card.type === CARD_TYPES.SKIP ||
+          (card.type === CARD_TYPES.REVERSE && state.players.length === 2);
+
+        if (willSkip) {
+          const playerCount = state.players.length;
+          const nextIndex = (state.currentPlayerIndex + state.direction + playerCount) % playerCount;
+          skippedPlayerId = state.players[nextIndex].id;
+        }
+
         return {
           ...move,
           actionData: {
             ...actionData,
-            card: { ...card } // Store a copy of the card
+            card: { ...card }, // Store a copy of the card
+            skippedPlayerId
           }
         };
       }

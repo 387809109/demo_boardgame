@@ -343,6 +343,9 @@ export class GameBoard {
       case 'PLAY_CARD': {
         const card = actionData?.card || this._findCardById(actionData?.cardId);
         if (card) {
+          const skippedName = actionData?.skippedPlayerId
+            ? this._getPlayerName(actionData.skippedPlayerId)
+            : null;
           return `
             <div style="display: flex; align-items: center; gap: var(--spacing-2);">
               <span>出牌</span>
@@ -351,6 +354,11 @@ export class GameBoard {
                 <span style="font-size: var(--text-xs);">→ ${getColorName(actionData.chosenColor)}</span>
               ` : ''}
             </div>
+            ${skippedName ? `
+              <div style="color: var(--warning-600); font-size: var(--text-xs); margin-top: 2px;">
+                跳过 ${skippedName}
+              </div>
+            ` : ''}
           `;
         }
         return '<div>出牌</div>';
