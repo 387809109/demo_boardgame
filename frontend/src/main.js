@@ -488,7 +488,8 @@ class App {
       onPlayAgain: () => {
         // Start new game with same settings
         if (this.currentGame) {
-          const gameType = this.currentGame.config.id;
+          // Note: config.gameType is used because start() overwrites config with runtime config
+          const gameType = this.currentGame.config.gameType;
           const players = this.currentGame.getState()?.players || [];
           const options = this._lastGameOptions || {};
           this._startGame(gameType, players, this.currentGame.mode, options);
