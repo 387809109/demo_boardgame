@@ -18,5 +18,7 @@ export const config = {
   maxMessageSize: 64 * 1024, // 64 KB
 
   // Logging
-  logLevel: process.env.LOG_LEVEL || 'info'
+  logLevel: process.env.LOG_LEVEL || 'info',
+  logFormat: process.env.LOG_FORMAT || 'json',
+  logFilePath: process.env.LOG_FILE || null
 };

@@ -1,7 +1,9 @@
 /**
- * Simple logger utility
- * Format: [LEVEL] ISO_TIME message [data]
+ * Logger utility with optional JSON output and file sink
  */
+
+import fs from 'fs';
+import path from 'path';
 
 const LOG_LEVELS = {
   debug: 0,
@@ -11,6 +13,8 @@ const LOG_LEVELS = {
 };
 
 let currentLevel = LOG_LEVELS.info;
+let currentFormat = 'json';
+let logFileStream = null;
 
 /**
  * Set the logging level
@@ -23,6 +27,35 @@ export function setLogLevel(level) {
 }
 
 /**
+ * Set log output format
+ * @param {'pretty'|'json'} format - Log format
+ */
+export function setLogFormat(format) {
+  if (format === 'pretty' || format === 'json') {
+    currentFormat = format;
+  }
+}
+
+/**
+ * Set log file output path
+ * @param {string|null} filePath - Log file path
+ */
+export function setLogFile(filePath) {
+  if (logFileStream) {
+    logFileStream.end();
+    logFileStream = null;
+  }
+
+  if (!filePath) {
+    return;
+  }
+
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  logFileStream = fs.createWriteStream(filePath, { flags: 'a' });
+}
+
+/**
  * Format a log message
  * @param {string} level - Log level
  * @param {string} message - Log message
@@ -31,6 +64,18 @@ export function setLogLevel(level) {
  */
 function formatMessage(level, message, data) {
   const timestamp = new Date().toISOString();
+  if (currentFormat === 'json') {
+    const payload = {
+      level,
+      timestamp,
+      message
+    };
+    if (data !== undefined) {
+      payload.data = data;
+    }
+    return JSON.stringify(payload);
+  }
+
   const levelStr = level.toUpperCase().padEnd(5);
   let output = `[${levelStr}] ${timestamp} ${message}`;
   if (data !== undefined) {
@@ -40,13 +85,28 @@ function formatMessage(level, message, data) {
 }
 
 /**
+ * Write a log message to console and optional file
+ * @param {string} level
+ * @param {string} message
+ * @param {*} [data]
+ * @param {Function} consoleFn
+ */
+function writeLog(level, message, data, consoleFn) {
+  const line = formatMessage(level, message, data);
+  consoleFn(line);
+  if (logFileStream) {
+    logFileStream.write(line + '\n');
+  }
+}
+
+/**
  * Log at debug level
  * @param {string} message - Log message
  * @param {*} [data] - Optional data
  */
 export function debug(message, data) {
   if (currentLevel <= LOG_LEVELS.debug) {
-    console.log(formatMessage('debug', message, data));
+    writeLog('debug', message, data, console.log);
   }
 }
 
@@ -57,7 +117,7 @@ export function debug(message, data) {
  */
 export function info(message, data) {
   if (currentLevel <= LOG_LEVELS.info) {
-    console.log(formatMessage('info', message, data));
+    writeLog('info', message, data, console.log);
   }
 }
 
@@ -68,7 +128,7 @@ export function info(message, data) {
  */
 export function warn(message, data) {
   if (currentLevel <= LOG_LEVELS.warn) {
-    console.warn(formatMessage('warn', message, data));
+    writeLog('warn', message, data, console.warn);
   }
 }
 
@@ -79,12 +139,14 @@ export function warn(message, data) {
  */
 export function error(message, data) {
   if (currentLevel <= LOG_LEVELS.error) {
-    console.error(formatMessage('error', message, data));
+    writeLog('error', message, data, console.error);
   }
 }
 
 export default {
   setLogLevel,
+  setLogFormat,
+  setLogFile,
   debug,
   info,
   warn,

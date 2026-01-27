@@ -49,6 +49,11 @@ describe('GameServer Integration', () => {
           server.wss.close(resolve);
         });
       }
+      if (server.httpServer) {
+        await new Promise((resolve) => {
+          server.httpServer.close(resolve);
+        });
+      }
       server = null;
     }
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -478,6 +483,27 @@ describe('GameServer Integration', () => {
       expect(stats.playersInRooms).toBe(1);
 
       client.close();
+    });
+  });
+
+  describe('Health Endpoints', () => {
+    it('should return ok from /health', async () => {
+      const res = await fetch(`http://localhost:${TEST_PORT}/health`);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.status).toBe('ok');
+      expect(body.metrics).toBeDefined();
+    });
+
+    it('should return stats from /stats', async () => {
+      const res = await fetch(`http://localhost:${TEST_PORT}/stats`);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.status).toBe('ok');
+      expect(body.metrics).toBeDefined();
+      expect(body.metrics.counters).toBeDefined();
     });
   });
 });
