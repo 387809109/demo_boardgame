@@ -77,5 +77,8 @@ describe('WerewolfGame', () => {
 
     expect(visibleWolfIds.length).toBeGreaterThan(0);
     expect(visibleWolfIds).toContain(wolf.id);
+    const hiddenPlayer = visible.players.find(p => p.id !== wolf.id);
+    expect(hiddenPlayer.roleId).toBeUndefined();
+    expect(hiddenPlayer.team).toBeUndefined();
   });
 });
