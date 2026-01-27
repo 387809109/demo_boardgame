@@ -57,7 +57,11 @@ demo_boardgame/
 │   │   ├── DEVELOPMENT_PRINCIPLES.md  # SOLID, DRY, KISS principles
 │   │   └── CODE_STYLE_GUIDE.md    # Naming, formatting, comments
 │   ├── games/             # Game rule documentation (AI-facing)
-│   │   └── uno/RULES.md   # UNO technical rules
+│   │   ├── TEMPLATE.md    # Template for new game rules
+│   │   ├── uno/RULES.md   # UNO technical rules
+│   │   └── werewolf/      # Werewolf (in development)
+│   │       ├── RULES.md   # Technical rules (template)
+│   │       └── PLAN.md    # Development plan
 │   └── prd/
 │       ├── PRD.md         # Product requirements
 │       ├── frontend/      # Frontend PRD + task list
@@ -139,13 +143,17 @@ Each game in `games/[name]/` contains:
 
 ### 1. AI-Facing Rule Documentation (`docs/games/[game-name]/RULES.md`)
 
-Technical specification for AI Coding assistants, including:
-- Card/piece definitions with exact data structures
-- All game rules as algorithms/pseudocode
-- State machine definitions
+Technical specification for AI Coding assistants. **Use the template:** `docs/games/TEMPLATE.md`
+
+Required sections:
+- Game overview and metadata
+- Game elements with exact data structures
+- Game rules as algorithms/pseudocode
 - Action types and validation logic
+- Game state structure
 - Scoring formulas
 - Error codes
+- Configuration options
 
 Example: `docs/games/uno/RULES.md`
 
@@ -159,6 +167,16 @@ Player-friendly documentation, including:
 - Scoring explanation
 
 Example: `frontend/public/rules/uno.html`
+
+### 3. Development Plan (Optional: `docs/games/[game-name]/PLAN.md`)
+
+For complex games, create a development plan including:
+- Implementation phases and tasks
+- Technical challenges and solutions
+- File structure
+- Risk assessment
+
+Example: `docs/games/werewolf/PLAN.md`
 
 **Note:** If game rules are publicly available (e.g., UNO, Chess), create documentation independently. For custom or obscure games, request detailed rules from the user before proceeding.
 
@@ -177,7 +195,9 @@ Example: `frontend/public/rules/uno.html`
 | `docs/prd/frontend/TASKS.md` | Frontend task checklist (T-F001 to T-F112) |
 | `docs/prd/backend/README.md` | Backend implementation guide with templates |
 | `docs/prd/backend/TASKS.md` | Backend task checklist (T-B001 to T-B113) |
+| `docs/games/TEMPLATE.md` | **Template for new game rule docs** |
 | `docs/games/[game]/RULES.md` | Game-specific AI rule documentation |
+| `docs/games/[game]/PLAN.md` | Game development plan (optional) |
 | `frontend/public/rules/[game].html` | User-facing rule books |
 
 ## Implementation Notes

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>狼人杀 游戏规则</title>
+  <style>
+    :root {
+      --wolf-dark: #2c3e50;
+      --wolf-red: #c0392b;
+      --wolf-blue: #2980b9;
+      --wolf-green: #27ae60;
+      --wolf-gold: #f39c12;
+      --wolf-purple: #8e44ad;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--wolf-dark), #1a252f);
+      color: white;
+      padding: 40px 30px;
+      text-align: center;
+      position: relative;
+    }
+
+    header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"/></svg>');
+      background-size: 100px;
+      opacity: 0.3;
+    }
+
+    header h1 {
+      font-size: 2.5em;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+      margin-bottom: 10px;
+      position: relative;
+    }
+
+    header p {
+      opacity: 0.9;
+      font-size: 1.1em;
+      position: relative;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    section {
+      margin-bottom: 30px;
+    }
+
+    h2 {
+      color: var(--wolf-dark);
+      border-bottom: 3px solid var(--wolf-red);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      font-size: 1.5em;
+    }
+
+    h3 {
+      color: #555;
+      margin: 20px 0 10px;
+      font-size: 1.2em;
+    }
+
+    p, li {
+      margin-bottom: 10px;
+    }
+
+    ul, ol {
+      padding-left: 25px;
+    }
+
+    .role-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .role-card {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      border: 2px solid #eee;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .role-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .role-card.werewolf {
+      border-color: var(--wolf-red);
+      background: linear-gradient(135deg, #fff5f5, #ffe5e5);
+    }
+
+    .role-card.villager {
+      border-color: var(--wolf-blue);
+      background: linear-gradient(135deg, #f5f9ff, #e5efff);
+    }
+
+    .role-card.special {
+      border-color: var(--wolf-gold);
+      background: linear-gradient(135deg, #fffcf5, #fff5e5);
+    }
+
+    .role-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px;
+      font-size: 1.8em;
+    }
+
+    .role-card.werewolf .role-icon {
+      background: var(--wolf-red);
+      color: white;
+    }
+
+    .role-card.villager .role-icon {
+      background: var(--wolf-blue);
+      color: white;
+    }
+
+    .role-card.special .role-icon {
+      background: var(--wolf-gold);
+      color: white;
+    }
+
+    .role-name {
+      font-weight: bold;
+      font-size: 1.1em;
+      margin-bottom: 5px;
+    }
+
+    .role-desc {
+      font-size: 0.85em;
+      color: #666;
+    }
+
+    .team-label {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75em;
+      margin-bottom: 8px;
+    }
+
+    .team-label.wolf {
+      background: var(--wolf-red);
+      color: white;
+    }
+
+    .team-label.good {
+      background: var(--wolf-blue);
+      color: white;
+    }
+
+    .highlight-box {
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+
+    .highlight-box.warning {
+      background: linear-gradient(135deg, #fff3cd, #ffeeba);
+      border-left: 4px solid var(--wolf-gold);
+    }
+
+    .highlight-box.danger {
+      background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+      border-left: 4px solid var(--wolf-red);
+    }
+
+    .highlight-box.info {
+      background: linear-gradient(135deg, #d1ecf1, #bee5eb);
+      border-left: 4px solid var(--wolf-blue);
+    }
+
+    .phase-flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .phase-item {
+      flex: 1;
+      min-width: 150px;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      position: relative;
+    }
+
+    .phase-item.night {
+      background: linear-gradient(135deg, #1a1a2e, #2c3e50);
+      color: white;
+    }
+
+    .phase-item.day {
+      background: linear-gradient(135deg, #ffeaa7, #fdcb6e);
+      color: #333;
+    }
+
+    .phase-item::after {
+      content: '';
+      position: absolute;
+      right: -15px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+    }
+
+    .phase-item:last-child::after {
+      display: none;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+    }
+
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    th {
+      background: #f8f9fa;
+      font-weight: bold;
+    }
+
+    tr:hover {
+      background: #f8f9fa;
+    }
+
+    .steps {
+      counter-reset: step;
+    }
+
+    .steps li {
+      counter-increment: step;
+      position: relative;
+      padding-left: 45px;
+      margin-bottom: 15px;
+    }
+
+    .steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 30px;
+      height: 30px;
+      background: var(--wolf-dark);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+
+    footer {
+      background: #f8f9fa;
+      padding: 20px 30px;
+      text-align: center;
+      color: #666;
+      font-size: 0.9em;
+    }
+
+    .todo-notice {
+      background: #fff3cd;
+      border: 2px dashed #ffc107;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .todo-notice h3 {
+      color: #856404;
+      margin-bottom: 10px;
+    }
+
+    .todo-notice p {
+      color: #856404;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>狼人杀 游戏规则</h1>
+      <p>经典社交推理游戏 | 6-12人</p>
+    </header>
+
+    <div class="content">
+      <div class="todo-notice">
+        <h3>规则文档待完善</h3>
+        <p>此文档为模板结构，具体规则内容将在开发前补充完整。</p>
+      </div>
+
+      <section>
+        <h2>游戏目标</h2>
+        <div class="highlight-box info">
+          <p><strong>狼人阵营:</strong> 在不暴露身份的情况下，消灭所有好人。</p>
+          <p><strong>好人阵营:</strong> 通过讨论和投票，找出并消灭所有狼人。</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>角色介绍</h2>
+
+        <h3>狼人阵营</h3>
+        <div class="role-grid">
+          <div class="role-card werewolf">
+            <div class="role-icon">W</div>
+            <span class="team-label wolf">狼人</span>
+            <div class="role-name">狼人</div>
+            <div class="role-desc">每晚可以与同伴一起选择杀害一名玩家</div>
+          </div>
+          <!-- TODO: 添加更多狼人阵营角色 -->
+        </div>
+
+        <h3>好人阵营</h3>
+        <div class="role-grid">
+          <div class="role-card villager">
+            <div class="role-icon">V</div>
+            <span class="team-label good">好人</span>
+            <div class="role-name">村民</div>
+            <div class="role-desc">普通村民，没有特殊能力，依靠推理找出狼人</div>
+          </div>
+          <div class="role-card special">
+            <div class="role-icon">S</div>
+            <span class="team-label good">好人</span>
+            <div class="role-name">预言家</div>
+            <div class="role-desc">每晚可以查验一名玩家的身份</div>
+          </div>
+          <div class="role-card special">
+            <div class="role-icon">Wi</div>
+            <span class="team-label good">好人</span>
+            <div class="role-name">女巫</div>
+            <div class="role-desc">拥有一瓶解药和一瓶毒药，各只能使用一次</div>
+          </div>
+          <div class="role-card special">
+            <div class="role-icon">H</div>
+            <span class="team-label good">好人</span>
+            <div class="role-name">猎人</div>
+            <div class="role-desc">死亡时可以开枪带走一名玩家</div>
+          </div>
+          <div class="role-card special">
+            <div class="role-icon">G</div>
+            <span class="team-label good">好人</span>
+            <div class="role-name">守卫</div>
+            <div class="role-desc">每晚可以守护一名玩家免受狼人袭击</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>游戏流程</h2>
+
+        <h3>阶段概览</h3>
+        <div class="phase-flow">
+          <div class="phase-item night">夜晚</div>
+          <div class="phase-item day">白天讨论</div>
+          <div class="phase-item day">投票放逐</div>
+        </div>
+
+        <h3>夜晚阶段</h3>
+        <ol class="steps">
+          <li>所有玩家闭眼</li>
+          <li>守卫选择守护一名玩家</li>
+          <li>预言家选择查验一名玩家</li>
+          <li>狼人睁眼，商议并选择击杀目标</li>
+          <li>女巫查看被杀玩家，决定是否使用解药或毒药</li>
+          <li>天亮，所有人睁眼</li>
+        </ol>
+
+        <h3>白天阶段</h3>
+        <ol class="steps">
+          <li>公布昨晚死亡情况</li>
+          <li>死亡玩家发表遗言</li>
+          <li>存活玩家依次发言讨论</li>
+          <li>投票选出要放逐的玩家</li>
+          <li>被放逐玩家发表遗言</li>
+          <li>进入下一个夜晚</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>角色技能详解</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>角色</th>
+              <th>技能</th>
+              <th>使用时机</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>狼人</strong></td>
+              <td>击杀</td>
+              <td>每晚</td>
+              <td>所有狼人共同选择一个目标</td>
+            </tr>
+            <tr>
+              <td><strong>预言家</strong></td>
+              <td>查验身份</td>
+              <td>每晚</td>
+              <td>得知目标是好人还是狼人</td>
+            </tr>
+            <tr>
+              <td><strong>女巫</strong></td>
+              <td>解药/毒药</td>
+              <td>每晚</td>
+              <td>各只能使用一次</td>
+            </tr>
+            <tr>
+              <td><strong>猎人</strong></td>
+              <td>开枪</td>
+              <td>死亡时</td>
+              <td>TODO: 确认被毒死是否能开枪</td>
+            </tr>
+            <tr>
+              <td><strong>守卫</strong></td>
+              <td>守护</td>
+              <td>每晚</td>
+              <td>不能连续两晚守护同一人</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>胜利条件</h2>
+        <div class="highlight-box danger">
+          <p><strong>狼人胜利:</strong> 当狼人数量 >= 好人数量</p>
+        </div>
+        <div class="highlight-box info">
+          <p><strong>好人胜利:</strong> 所有狼人被消灭</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>游戏小贴士</h2>
+        <ul>
+          <li>仔细聆听每个人的发言，寻找逻辑漏洞</li>
+          <li>注意观察其他玩家的表情和反应</li>
+          <li>作为好人，不要轻易暴露自己的角色</li>
+          <li>作为狼人，学会伪装和误导</li>
+          <li>投票时要有明确的理由</li>
+        </ul>
+      </section>
+    </div>
+
+    <footer>
+      狼人杀规则仅供游戏参考。
+    </footer>
+  </div>
+</body>
+</html>
