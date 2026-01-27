@@ -95,7 +95,7 @@
 | T-F101 | 网络性能优化 | ⬜ |
 | T-F102 | 资源加载优化 | ⬜ |
 | T-F110 | 核心模块单元测试 (160 tests) | ✅ |
-| T-F111 | 工具函数测试 | ⬜ |
+| T-F111 | 工具函数测试 (109 tests) | ✅ |
 | T-F112 | 集成测试 | ⬜ |
 
 ### Phase 6: 可选功能 ⬜ 未开始
@@ -183,7 +183,7 @@
 
 ## 测试覆盖率
 
-### 前端测试统计 (286 tests passing)
+### 前端测试统计 (395 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -191,9 +191,11 @@
 | rules.test.js | 36 | ✅ |
 | engine.test.js | 47 | ✅ |
 | network.test.js | 55 | ✅ |
+| storage.test.js | 34 | ✅ |
+| validators.test.js | 75 | ✅ |
 | uno/index.test.js | 77 | ✅ |
 | uno/rules.test.js | 49 | ✅ |
-| **总计** | **286** | ✅ |
+| **总计** | **395** | ✅ |
 
 ### 后端测试统计 (107 tests passing)
 
@@ -229,8 +231,8 @@
 
 ### 高优先级
 
-1. **工具函数测试** - storage.js, validators.js (T-F111)
-2. **网络性能优化** - 消息压缩、批量发送 (T-F101)
+1. **网络性能优化** - 消息压缩、批量发送 (T-F101)
+2. **集成测试** - 端到端测试 (T-F112)
 
 ### 中优先级
 
@@ -253,6 +255,11 @@
 ## 最近完成的任务
 
 ### 2026-01-27
+
+- ✅ T-F111 工具函数单元测试 (109 tests)
+  - `storage.test.js` - 存储工具测试 (34 tests)
+  - `validators.test.js` - 验证工具测试 (75 tests)
+  - 包含 localStorage/sessionStorage 模拟、FileReader 模拟
 
 - ✅ 狼人杀开发准备
   - `docs/games/werewolf/RULES.md` - AI 规则文档 (27+ 角色, 完整规则)
