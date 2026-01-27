@@ -265,7 +265,6 @@
   - 增加猎人开枪、女巫救人限制、医生连守限制
   - UI 增加确认/跳过与猎人开枪面板
   - 信息可见性收敛（隐藏非公开身份）
-  - 新增 NIGHT_SKIP 夜晚跳过动作
 
 - ✅ T-F070–T-F073 狼人杀基础实现
   - `frontend/src/games/werewolf/config.json` 游戏配置与选项
