@@ -5,6 +5,7 @@
 
 import { getGameList } from '../game/registry.js';
 import { loadConfig } from '../utils/storage.js';
+import { debounce } from '../utils/render-scheduler.js';
 
 /**
  * Game Lobby - Main menu for selecting and starting games
@@ -22,6 +23,10 @@ export class GameLobby {
     this.games = [];
     this.searchTerm = '';
     this.selectedTags = [];
+    this._debouncedSearch = debounce((term) => {
+      this.searchTerm = term;
+      this._updateGameGrid();
+    }, 150);
 
     this._create();
   }
@@ -206,15 +211,92 @@ export class GameLobby {
   }
 
   /**
+   * Update only the game grid without full re-render
+   * @private
+   */
+  _updateGameGrid() {
+    const grid = this.element.querySelector('.game-grid');
+    if (!grid) return;
+
+    const filteredGames = this._filterGames();
+
+    grid.innerHTML = filteredGames.length > 0
+      ? filteredGames.map(game => this._renderGameCard(game)).join('')
+      : `
+        <div style="
+          grid-column: 1 / -1;
+          text-align: center;
+          padding: var(--spacing-12);
+          color: var(--text-secondary);
+        ">
+          <p style="font-size: var(--text-xl); margin-bottom: var(--spacing-2);">暂无游戏</p>
+          <p>游戏模块正在开发中...</p>
+        </div>
+      `;
+
+    this._bindCardEvents();
+  }
+
+  /**
+   * Bind events only to game cards (after grid update)
+   * @private
+   */
+  _bindCardEvents() {
+    // Play offline
+    this.element.querySelectorAll('.play-offline-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const gameId = btn.dataset.gameId;
+        this.options.onSelectGame?.(gameId, 'offline');
+      });
+    });
+
+    // Create room
+    this.element.querySelectorAll('.create-room-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const gameId = btn.dataset.gameId;
+        this.options.onSelectGame?.(gameId, 'online');
+      });
+    });
+
+    // View rules
+    this.element.querySelectorAll('.rules-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const gameId = btn.dataset.gameId;
+        window.open(`/rules/${gameId}.html`, '_blank', 'width=900,height=700');
+      });
+    });
+
+    // Card click
+    this.element.querySelectorAll('.game-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const gameId = card.dataset.gameId;
+        this.options.onSelectGame?.(gameId, 'offline');
+      });
+
+      // Hover effect
+      card.addEventListener('mouseenter', () => {
+        card.style.transform = 'translateY(-4px)';
+        card.style.boxShadow = 'var(--shadow-lg)';
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.transform = '';
+        card.style.boxShadow = '';
+      });
+    });
+  }
+
+  /**
    * Bind event handlers
    * @private
    */
   _bindEvents() {
-    // Search
+    // Search (debounced)
     const searchInput = this.element.querySelector('.search-input');
     searchInput?.addEventListener('input', (e) => {
-      this.searchTerm = e.target.value;
-      this._render();
+      this._debouncedSearch(e.target.value);
     });
 
     // Play offline
@@ -285,6 +367,7 @@ export class GameLobby {
    * Unmount from DOM
    */
   unmount() {
+    this._debouncedSearch.cancel();
     this.element?.remove();
   }
 

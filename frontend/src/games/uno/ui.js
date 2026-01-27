@@ -5,6 +5,7 @@
 
 import { COLORS, CARD_TYPES, canPlayCard, getCardDisplayText, getColorName } from './rules.js';
 import { UNO_ACTIONS } from './index.js';
+import { scheduleRender } from '../../utils/render-scheduler.js';
 
 /**
  * Card color CSS values
@@ -50,8 +51,14 @@ export class UnoUI {
     this.onAction = null;
     this.selectedCard = null;
     this.showColorPicker = false;
-    this.sortHand = false; // Whether to display sorted hand
-    this._container = null; // Reference to rendered container for re-rendering
+    this.sortHand = false;
+    this._container = null;
+    this._cardDataMap = new Map();
+    this._handContainer = null;
+    this._gameInfoEl = null;
+    this._tableEl = null;
+    this._colorPickerEl = null;
+    this._boundHandleCardClick = this._handleCardClick.bind(this);
   }
 
   /**
@@ -66,6 +73,7 @@ export class UnoUI {
     this.playerId = playerId;
     this.onAction = onAction;
     this.selectedCard = null;
+    this._cardDataMap.clear();
 
     const container = document.createElement('div');
     container.className = 'uno-game';
@@ -80,17 +88,21 @@ export class UnoUI {
     this._container = container;
 
     // Game info
-    container.appendChild(this._renderGameInfo());
+    this._gameInfoEl = this._renderGameInfo();
+    container.appendChild(this._gameInfoEl);
 
     // Discard pile and deck
-    container.appendChild(this._renderTable());
+    this._tableEl = this._renderTable();
+    container.appendChild(this._tableEl);
 
     // Player's hand
-    container.appendChild(this._renderHand());
+    const handWrapper = this._renderHand();
+    container.appendChild(handWrapper);
 
     // Color picker (if needed)
     if (this.showColorPicker) {
-      container.appendChild(this._renderColorPicker());
+      this._colorPickerEl = this._renderColorPicker();
+      container.appendChild(this._colorPickerEl);
     }
 
     return container;
@@ -110,8 +122,17 @@ export class UnoUI {
       font-size: var(--text-sm);
     `;
 
+    this._updateGameInfoContent(div);
+    return div;
+  }
+
+  /**
+   * Update game info content without recreating the element
+   * @private
+   */
+  _updateGameInfoContent(el) {
     const currentColor = this.state.currentColor || 'none';
-    div.innerHTML = `
+    el.innerHTML = `
       <span>当前颜色:</span>
       <span style="
         width: 24px;
@@ -139,8 +160,6 @@ export class UnoUI {
         ">逆时针</span>
       ` : ''}
     `;
-
-    return div;
   }
 
   /**
@@ -233,7 +252,7 @@ export class UnoUI {
     sortBtn.textContent = this.sortHand ? '恢复原顺序' : '整理手牌';
     sortBtn.addEventListener('click', () => {
       this.sortHand = !this.sortHand;
-      this._rerender();
+      this._scheduleUpdate('hand');
     });
     container.appendChild(sortBtn);
 
@@ -251,35 +270,78 @@ export class UnoUI {
       min-height: 150px;
       max-width: 100%;
     `;
+    this._handContainer = div;
+
+    // Event delegation for card clicks
+    div.addEventListener('click', this._boundHandleCardClick);
+
+    this._updateHandContent();
+
+    container.appendChild(div);
+    return container;
+  }
+
+  /**
+   * Handle delegated card click events
+   * @private
+   */
+  _handleCardClick(e) {
+    const cardEl = e.target.closest('.uno-card[data-card-id]');
+    if (!cardEl) return;
+
+    const cardId = cardEl.dataset.cardId;
+    const isPlayable = cardEl.dataset.playable === 'true';
+
+    if (!isPlayable) return;
+
+    const card = this._cardDataMap.get(cardId);
+    if (card) {
+      this._selectCard(card);
+    }
+  }
+
+  /**
+   * Update hand content without recreating the container
+   * @private
+   */
+  _updateHandContent() {
+    if (!this._handContainer) return;
 
     const hand = this.state.myHand || [];
     const isMyTurn = this.state.currentPlayer === this.playerId;
     const topCard = this.state.topCard;
 
+    this._cardDataMap.clear();
+    this._handContainer.innerHTML = '';
+
+    if (hand.length === 0) {
+      this._handContainer.innerHTML = '<p style="color: var(--text-tertiary);">没有手牌</p>';
+      return;
+    }
+
     // Get display order (either original or sorted)
     const displayOrder = this._getHandDisplayOrder(hand);
+
+    const fragment = document.createDocumentFragment();
 
     displayOrder.forEach(({ card }) => {
       const playable = isMyTurn &&
                        this.state.drawPending === 0 &&
                        canPlayCard(card, topCard, this.state.currentColor);
 
+      // Store card data for event delegation
+      this._cardDataMap.set(card.id, card);
+
       const cardEl = this._renderCard(card, {
         disabled: !playable,
-        playable, // Pass playable state for elevation
-        onClick: playable ? () => this._selectCard(card) : null,
+        playable,
         selected: this.selectedCard?.id === card.id
       });
 
-      div.appendChild(cardEl);
+      fragment.appendChild(cardEl);
     });
 
-    if (hand.length === 0) {
-      div.innerHTML = '<p style="color: var(--text-tertiary);">没有手牌</p>';
-    }
-
-    container.appendChild(div);
-    return container;
+    this._handContainer.appendChild(fragment);
   }
 
   /**
@@ -323,65 +385,50 @@ export class UnoUI {
   }
 
   /**
-   * Render a card
+   * Render a card using CSS classes
    * @private
    */
   _renderCard(card, options = {}) {
-    const { disabled, playable, onClick, selected, large } = options;
-
-    // Playable cards are elevated by default to distinguish from unplayable ones
-    const defaultElevation = playable && !large ? 'translateY(-6px)' : '';
+    const { disabled, playable, selected, large } = options;
 
     const div = document.createElement('div');
-    div.className = 'uno-card';
-    div.style.cssText = `
-      width: ${large ? '80px' : '60px'};
-      height: ${large ? '120px' : '90px'};
-      background: ${COLOR_CSS[card.color] || COLOR_CSS[null]};
-      border-radius: var(--radius-base);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: ${large ? 'var(--text-2xl)' : 'var(--text-xl)'};
-      font-weight: var(--font-bold);
-      cursor: ${disabled ? 'default' : 'pointer'};
-      box-shadow: ${selected ? '0 0 0 3px var(--primary-500)' : playable ? 'var(--shadow-md)' : 'var(--shadow-sm)'};
-      transition: all var(--transition-fast);
-      opacity: ${disabled && !large ? '0.5' : '1'};
-      position: relative;
-      transform: ${defaultElevation};
-      ${card.color === null ? `
-        background: linear-gradient(135deg, var(--uno-red) 25%, var(--uno-blue) 25%, var(--uno-blue) 50%, var(--uno-green) 50%, var(--uno-green) 75%, var(--uno-yellow) 75%);
-      ` : ''}
-    `;
+
+    // Build class list
+    const classes = ['uno-card'];
+
+    // Color class
+    if (card.color === null) {
+      classes.push('uno-card--wild');
+    } else if (card.color) {
+      classes.push(`uno-card--${card.color}`);
+    }
+
+    // State classes
+    if (large) {
+      classes.push('uno-card--large');
+    } else if (playable) {
+      classes.push('uno-card--playable');
+    } else if (disabled) {
+      classes.push('uno-card--disabled');
+    }
+
+    if (selected) {
+      classes.push('uno-card--selected');
+    }
+
+    div.className = classes.join(' ');
+
+    // Data attributes for event delegation (only for hand cards)
+    if (!large) {
+      div.dataset.cardId = card.id;
+      div.dataset.playable = String(!!playable);
+    }
 
     // Card content
     const content = document.createElement('span');
-    content.style.cssText = `
-      background: rgba(255,255,255,0.9);
-      color: ${COLOR_CSS[card.color] || 'black'};
-      width: 70%;
-      height: 70%;
-      border-radius: var(--radius-sm);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    `;
+    content.className = 'uno-card__content';
     content.textContent = getCardDisplayText(card);
     div.appendChild(content);
-
-    if (!disabled && onClick) {
-      div.addEventListener('mouseenter', () => {
-        div.style.transform = 'translateY(-12px)'; // Further elevation on hover
-        div.style.boxShadow = 'var(--shadow-lg)';
-      });
-      div.addEventListener('mouseleave', () => {
-        div.style.transform = defaultElevation;
-        div.style.boxShadow = selected ? '0 0 0 3px var(--primary-500)' : playable ? 'var(--shadow-md)' : 'var(--shadow-sm)';
-      });
-      div.addEventListener('click', onClick);
-    }
 
     return div;
   }
@@ -446,7 +493,7 @@ export class UnoUI {
     backdrop.addEventListener('click', () => {
       this.showColorPicker = false;
       this.selectedCard = null;
-      this._rerender();
+      this._scheduleUpdate('colorPicker');
     });
 
     const container = document.createElement('div');
@@ -521,7 +568,7 @@ export class UnoUI {
     if (card.type === CARD_TYPES.WILD || card.type === CARD_TYPES.WILD_DRAW_FOUR) {
       this.selectedCard = card;
       this.showColorPicker = true;
-      this._rerender();
+      this._scheduleUpdate('all');
     } else {
       this._playCard(card);
     }
@@ -575,7 +622,67 @@ export class UnoUI {
   }
 
   /**
-   * Trigger rerender of the UI
+   * Schedule a targeted update using requestAnimationFrame
+   * @private
+   * @param {string} section - Section to update: 'gameInfo', 'table', 'hand', 'colorPicker', 'all'
+   */
+  _scheduleUpdate(section) {
+    scheduleRender(() => this._performUpdate(section), `uno-${section}`);
+  }
+
+  /**
+   * Perform targeted update
+   * @private
+   */
+  _performUpdate(section) {
+    if (!this._container) return;
+
+    switch (section) {
+      case 'gameInfo':
+        if (this._gameInfoEl) {
+          this._updateGameInfoContent(this._gameInfoEl);
+        }
+        break;
+
+      case 'table':
+        if (this._tableEl) {
+          const newTable = this._renderTable();
+          this._tableEl.replaceWith(newTable);
+          this._tableEl = newTable;
+        }
+        break;
+
+      case 'hand':
+        this._updateHandContent();
+        // Update sort button text
+        const sortBtn = this._container.querySelector('.player-hand-container .btn');
+        if (sortBtn) {
+          sortBtn.textContent = this.sortHand ? '恢复原顺序' : '整理手牌';
+        }
+        break;
+
+      case 'colorPicker':
+        // Remove existing color picker if present
+        if (this._colorPickerEl) {
+          this._colorPickerEl.remove();
+          this._colorPickerEl = null;
+        }
+        // Add new one if needed
+        if (this.showColorPicker) {
+          this._colorPickerEl = this._renderColorPicker();
+          this._container.appendChild(this._colorPickerEl);
+        }
+        break;
+
+      case 'all':
+      default:
+        this._rerender();
+        break;
+    }
+  }
+
+  /**
+   * Trigger full rerender of the UI
    * @private
    */
   _rerender() {
@@ -583,19 +690,24 @@ export class UnoUI {
 
     // Clear and re-render the container
     this._container.innerHTML = '';
+    this._cardDataMap.clear();
 
     // Game info
-    this._container.appendChild(this._renderGameInfo());
+    this._gameInfoEl = this._renderGameInfo();
+    this._container.appendChild(this._gameInfoEl);
 
     // Discard pile and deck
-    this._container.appendChild(this._renderTable());
+    this._tableEl = this._renderTable();
+    this._container.appendChild(this._tableEl);
 
     // Player's hand
-    this._container.appendChild(this._renderHand());
+    const handWrapper = this._renderHand();
+    this._container.appendChild(handWrapper);
 
     // Color picker (if needed)
     if (this.showColorPicker) {
-      this._container.appendChild(this._renderColorPicker());
+      this._colorPickerEl = this._renderColorPicker();
+      this._container.appendChild(this._colorPickerEl);
     }
   }
 }
