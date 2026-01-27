@@ -1,7 +1,7 @@
 # 狼人杀游戏开发计划
 
 > 创建日期: 2026-01-27
-> 状态: 进行中（P0/P1 已完成，P2+ 待实现）
+> 状态: 待开始
 
 ---
 
@@ -11,64 +11,28 @@
 
 在编写代码前，需要完成以下文档:
 
-- [x] **RULES.md** - 补充完整的游戏规则细节
-  - [x] 确认支持的角色列表及能力
-  - [x] 定义夜间行动优先级顺序
-  - [x] 明确特殊规则处理 (同守同救、平票等)
-  - [x] 定义玩家数量与角色配置表
+- [ ] **RULES.md** - 补充完整的游戏规则细节
+  - [ ] 确认支持的角色列表及能力
+  - [ ] 定义夜间行动优先级顺序
+  - [ ] 明确特殊规则处理 (同守同救、平票等)
+  - [ ] 定义玩家数量与角色配置表
 
-- [x] **werewolf.html** - 补充用户规则书内容
-  - [x] 完善角色介绍
-  - [x] 添加游戏示例
-  - [x] 补充策略提示
+- [ ] **werewolf.html** - 补充用户规则书内容
+  - [ ] 完善角色介绍
+  - [ ] 添加游戏示例
+  - [ ] 补充策略提示
 
 ---
 
 ## 开发阶段
 
-### 角色实现进度（按 RULES.md 优先级）
-
-- **P0（基础角色）**：✅ 已完成
-  - T-F-R001 villager（村民）
-  - T-F-R002 werewolf（狼人）
-  - T-F-R003 seer（预言家）
-  - T-F-R004 doctor（医生）
-  - T-F-R005 hunter（猎人）
-  - T-F-R006 witch（女巫）
-- **P1（进阶角色）**：✅ 已完成
-  - T-F-R101 bodyguard（守卫）
-  - T-F-R102 cupid（丘比特）
-  - T-F-R103 sheriff（警长）
-  - T-F-R104 vigilante（私刑者）
-  - T-F-R105 idiot（白痴）
-  - T-F-R106 piper（魔笛手）
-  - T-F-R107 captain（队长）
-- **P2（高级角色）**：⏳ 待实现
-  - T-F-R201 guardian_angel（守护天使）
-  - T-F-R202 jailer（狱卒）
-  - T-F-R203 thief（小偷）
-  - T-F-R204 detective（侦探）
-  - T-F-R205 bomb（炸弹人）
-  - T-F-R206 little_girl（小女孩）
-  - T-F-R207 tracker（追踪者）
-  - T-F-R208 watcher（守望者）
-  - T-F-R209 oracle（先知）
-  - T-F-R210 mason（共济会）
-  - T-F-R211 roleblocker（酒保/阻止者）
-- **P3（扩展角色）**：⏳ 待实现
-  - T-F-R301 miller（磨坊主）
-  - T-F-R302 godfather（教父）
-  - T-F-R303 alpha_werewolf（狼王）
-  - T-F-R304 bus_driver（司机）
-  - T-F-R305 cult_leader（邪教领袖）
-
 ### Phase 1: 游戏核心 (P0)
 
-| 任务 ID | 描述 | 依赖 | 预估工作量 | 状态 |
-|---------|------|------|-----------|------|
-| T-F070 | 创建 `games/werewolf/config.json` | RULES.md | 小 | ✅ |
-| T-F071 | 创建 `games/werewolf/index.js` 游戏类 | T-F070 | 大 | ✅ |
-| T-F072 | 创建 `games/werewolf/rules.js` 规则验证 | T-F071 | 中 | ✅ |
+| 任务 ID | 描述 | 依赖 | 预估工作量 |
+|---------|------|------|-----------|
+| T-F070 | 创建 `games/werewolf/config.json` | RULES.md | 小 |
+| T-F071 | 创建 `games/werewolf/index.js` 游戏类 | T-F070 | 大 |
+| T-F072 | 创建 `games/werewolf/rules.js` 规则验证 | T-F071 | 中 |
 
 **T-F070: config.json**
 ```
@@ -98,9 +62,9 @@
 
 ### Phase 2: UI 实现 (P0)
 
-| 任务 ID | 描述 | 依赖 | 预估工作量 | 状态 |
-|---------|------|------|-----------|------|
-| T-F073 | 创建 `games/werewolf/ui.js` | T-F071 | 大 | ✅ |
+| 任务 ID | 描述 | 依赖 | 预估工作量 |
+|---------|------|------|-----------|
+| T-F073 | 创建 `games/werewolf/ui.js` | T-F071 | 大 |
 
 **T-F073: ui.js (WerewolfUI 类)**
 ```
@@ -115,10 +79,10 @@
 
 ### Phase 3: 测试 (P1)
 
-| 任务 ID | 描述 | 依赖 | 预估工作量 | 状态 |
-|---------|------|------|-----------|------|
-| T-F074 | 单元测试 | T-F072 | 中 | ✅（index.test.js 4 tests） |
-| T-F075 | 集成测试 | T-F073 | 中 | ✅（integration.test.js） |
+| 任务 ID | 描述 | 依赖 | 预估工作量 |
+|---------|------|------|-----------|
+| T-F074 | 单元测试 | T-F072 | 中 |
+| T-F075 | 集成测试 | T-F073 | 中 |
 
 ---
 
@@ -215,8 +179,7 @@ frontend/src/games/werewolf/
 ├── index.js         # WerewolfGame 类
 ├── rules.js         # 规则定义和验证
 ├── ui.js            # UI 组件
-├── index.test.js    # 单元测试
-└── integration.test.js # 集成测试
+└── index.test.js    # 单元测试
 ```
 
 ---
@@ -233,5 +196,7 @@ frontend/src/games/werewolf/
 
 ## 下一步行动
 
-1. **补齐 P2 角色能力** - guardian_angel / jailer / thief / detective / bomb / little_girl / tracker / watcher / oracle / mason / roleblocker
-2. **补齐 P3 角色能力** - miller / godfather / alpha_werewolf / bus_driver / cult_leader
+1. **获取/确认详细规则** - 与用户确认具体的规则细节
+2. **完善 RULES.md** - 补充所有 TODO 项
+3. **完善 werewolf.html** - 补充用户规则内容
+4. **开始 Phase 1 开发** - 从 config.json 开始
