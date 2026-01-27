@@ -12,7 +12,6 @@ export class WerewolfUI {
     this.playerId = null;
     this.onAction = null;
     this.selectedTarget = null;
-    this.selectedAction = null;
     this._container = null;
   }
 
@@ -21,7 +20,6 @@ export class WerewolfUI {
     this.playerId = playerId;
     this.onAction = onAction;
     this.selectedTarget = null;
-    this.selectedAction = null;
 
     const container = document.createElement('div');
     container.className = 'werewolf-game';
@@ -120,12 +118,10 @@ export class WerewolfUI {
         border: 1px solid var(--border-light);
         font-size: var(--text-sm);
       `;
-      const visibleRole = this.state.rolesVisible?.[player.id];
-      const roleText = visibleRole ? ` - ${this._getRoleLabel(visibleRole.roleId)}` : '';
       card.innerHTML = `
         <div style="font-weight: var(--font-semibold);">${player.nickname}</div>
         <div style="color: var(--text-tertiary); font-size: var(--text-xs);">
-          ${player.alive ? '存活' : '死亡'}${roleText}
+          ${player.alive ? '存活' : '死亡'}
         </div>
       `;
       div.appendChild(card);
@@ -148,8 +144,6 @@ export class WerewolfUI {
 
     if (this.state.phase === PHASES.NIGHT) {
       div.appendChild(this._renderNightPanel());
-    } else if (this.state.pendingHunterShot === this.playerId) {
-      div.appendChild(this._renderHunterShot());
     } else if (this.state.phase === PHASES.DAY_ANNOUNCE) {
       div.appendChild(this._renderDayAnnounce());
     } else if (this.state.phase === PHASES.DAY_VOTE) {
@@ -181,13 +175,6 @@ export class WerewolfUI {
       return container;
     }
 
-    if (this.state.seerResult && roleId === 'seer') {
-      const result = document.createElement('div');
-      result.style.cssText = 'color: var(--text-secondary); font-size: var(--text-sm);';
-      result.textContent = `查验结果：${this.state.seerResult.targetId} => ${this._getTeamLabel(this.state.seerResult.team)}`;
-      container.appendChild(result);
-    }
-
     const list = document.createElement('div');
     list.style.cssText = 'display: flex; flex-wrap: wrap; gap: var(--spacing-2);';
 
@@ -198,36 +185,17 @@ export class WerewolfUI {
       btn.textContent = player.nickname;
       btn.addEventListener('click', () => {
         this.selectedTarget = player.id;
-        this.selectedAction = roleId;
-        this._renderSelectionHint(container);
+        this._submitNightAction(roleId);
       });
       list.appendChild(btn);
     });
 
     container.appendChild(list);
 
-    const actionsRow = document.createElement('div');
-    actionsRow.style.cssText = 'display: flex; gap: var(--spacing-2); margin-top: var(--spacing-2);';
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'btn btn-primary btn-sm';
-    confirmBtn.textContent = '确认行动';
-    confirmBtn.addEventListener('click', () => {
-      this._submitNightAction(roleId);
-    });
-    actionsRow.appendChild(confirmBtn);
-
-    const skipBtn = document.createElement('button');
-    skipBtn.className = 'btn btn-ghost btn-sm';
-    skipBtn.textContent = '跳过行动';
-    skipBtn.addEventListener('click', () => {
-      this.onAction?.({ actionType: ACTION_TYPES.NIGHT_SKIP, actionData: {} });
-    });
-    actionsRow.appendChild(skipBtn);
-
-    container.appendChild(actionsRow);
-
     if (roleId === 'witch') {
+      const actionsRow = document.createElement('div');
+      actionsRow.style.cssText = 'display: flex; gap: var(--spacing-2); margin-top: var(--spacing-2);';
+
       const saveBtn = document.createElement('button');
       saveBtn.className = 'btn btn-secondary btn-sm';
       saveBtn.textContent = '使用解药';
@@ -236,6 +204,7 @@ export class WerewolfUI {
       });
 
       actionsRow.appendChild(saveBtn);
+      container.appendChild(actionsRow);
     }
 
     return container;
@@ -251,44 +220,6 @@ export class WerewolfUI {
       </div>
     `;
     return div;
-  }
-
-  _renderHunterShot() {
-    const container = document.createElement('div');
-    container.innerHTML = `
-      <div style="font-weight: var(--font-semibold);">猎人开枪</div>
-      <div style="color: var(--text-secondary); font-size: var(--text-sm);">请选择一名目标</div>
-    `;
-
-    const list = document.createElement('div');
-    list.style.cssText = 'display: flex; flex-wrap: wrap; gap: var(--spacing-2); margin-top: var(--spacing-2);';
-
-    this._alivePlayers().forEach(player => {
-      if (player.id === this.playerId) return;
-      const btn = document.createElement('button');
-      btn.className = 'btn btn-secondary btn-sm';
-      btn.textContent = player.nickname;
-      btn.addEventListener('click', () => {
-        this.selectedTarget = player.id;
-        this._renderSelectionHint(container);
-      });
-      list.appendChild(btn);
-    });
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'btn btn-primary btn-sm';
-    confirmBtn.textContent = '确认开枪';
-    confirmBtn.addEventListener('click', () => {
-      if (!this.selectedTarget) return;
-      this.onAction?.({
-        actionType: ACTION_TYPES.HUNTER_SHOOT,
-        actionData: { targetId: this.selectedTarget }
-      });
-    });
-
-    container.appendChild(list);
-    container.appendChild(confirmBtn);
-    return container;
   }
 
   _renderVotePanel() {
@@ -307,23 +238,13 @@ export class WerewolfUI {
       btn.className = 'btn btn-secondary btn-sm';
       btn.textContent = player.nickname;
       btn.addEventListener('click', () => {
-        this.selectedTarget = player.id;
-        this._renderSelectionHint(container);
+        this.onAction?.({
+          actionType: ACTION_TYPES.DAY_VOTE,
+          actionData: { targetId: player.id }
+        });
       });
       list.appendChild(btn);
     });
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'btn btn-primary btn-sm';
-    confirmBtn.textContent = '确认投票';
-    confirmBtn.addEventListener('click', () => {
-      if (!this.selectedTarget) return;
-      this.onAction?.({
-        actionType: ACTION_TYPES.DAY_VOTE,
-        actionData: { targetId: this.selectedTarget }
-      });
-    });
-    list.appendChild(confirmBtn);
 
     const skipBtn = document.createElement('button');
     skipBtn.className = 'btn btn-ghost btn-sm';
@@ -377,27 +298,8 @@ export class WerewolfUI {
     this.onAction?.({ actionType, actionData: { targetId: this.selectedTarget } });
   }
 
-  _renderSelectionHint(container) {
-    const hintId = 'werewolf-selection-hint';
-    const existing = container.querySelector(`#${hintId}`);
-    if (existing) {
-      existing.textContent = `已选择：${this._getNickname(this.selectedTarget)}`;
-      return;
-    }
-    const hint = document.createElement('div');
-    hint.id = hintId;
-    hint.style.cssText = 'color: var(--text-secondary); font-size: var(--text-sm); margin-top: var(--spacing-2);';
-    hint.textContent = `已选择：${this._getNickname(this.selectedTarget)}`;
-    container.appendChild(hint);
-  }
-
   _alivePlayers() {
     return this.state.players.filter(p => p.alive);
-  }
-
-  _getNickname(playerId) {
-    const player = this.state.players.find(p => p.id === playerId);
-    return player ? player.nickname : playerId;
   }
 
   _getPhaseLabel(phase) {

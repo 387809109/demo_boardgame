@@ -79,22 +79,14 @@ export class WerewolfGame extends GameEngine {
         witchSave: false,
         witchPoison: null
       },
-      nightActionsDone: {
-        wolfKill: false,
-        doctorProtect: false,
-        seerCheck: false,
-        witchDone: false
-      },
       votes: {},
       dayVoteResult: null,
       deaths: [],
       roleStates: {
         witchSaveUsed: false,
-        witchPoisonUsed: false,
-        lastDoctorProtectTarget: null
+        witchPoisonUsed: false
       },
       seerResults: {},
-      pendingHunterShot: null,
       lastAction: null,
       winner: null,
       currentPlayer: players[0]?.id || null,
@@ -125,9 +117,6 @@ export class WerewolfGame extends GameEngine {
       if (!isHost) {
         return { valid: false, error: '只有房主可以推进阶段' };
       }
-      if (state.pendingHunterShot) {
-        return { valid: false, error: '猎人需要开枪后才能推进阶段' };
-      }
       return { valid: true };
     }
 
@@ -151,65 +140,12 @@ export class WerewolfGame extends GameEngine {
       if (actionType === WEREWOLF_ACTIONS.NIGHT_WITCH_POISON && state.roleStates.witchPoisonUsed) {
         return { valid: false, error: '女巫毒药已用完' };
       }
-      if (actionType === WEREWOLF_ACTIONS.NIGHT_WITCH_SAVE) {
-        if (!state.nightActions.wolfKill) {
-          return { valid: false, error: '当前没有需要拯救的目标' };
-        }
-        if (!state.options?.witchCanSaveSelf && state.nightActions.wolfKill === playerId) {
-          return { valid: false, error: '女巫不能自救' };
-        }
-        if (state.options?.witchSaveFirstNightOnly && state.round > 1) {
-          return { valid: false, error: '女巫仅首夜可救' };
-        }
-      }
-      if (actionType === WEREWOLF_ACTIONS.NIGHT_WITCH_POISON) {
-        const target = actionData?.targetId;
-        if (!target || !state.playerMap[target]?.alive) {
-          return { valid: false, error: '无效的目标' };
-        }
-      }
-      return { valid: true };
-    }
-
-    if (actionType === WEREWOLF_ACTIONS.NIGHT_SKIP) {
-      if (!isNightPhase(state.phase)) {
-        return { valid: false, error: '当前不是夜晚阶段' };
-      }
-      return { valid: true };
-    }
-
-    if (actionType === WEREWOLF_ACTIONS.HUNTER_SHOOT) {
-      if (state.pendingHunterShot !== playerId) {
-        return { valid: false, error: '当前无法开枪' };
-      }
-      const targetId = actionData?.targetId;
-      if (!targetId || !state.playerMap[targetId]?.alive) {
-        return { valid: false, error: '无效的目标' };
-      }
       return { valid: true };
     }
 
     if (actionType.startsWith('NIGHT_')) {
       if (!canRoleAct(player.roleId, actionType, state.phase)) {
         return { valid: false, error: '当前角色无法执行该行动' };
-      }
-      const targetId = actionData?.targetId;
-      if (targetId && !state.playerMap[targetId]?.alive) {
-        return { valid: false, error: '目标已死亡' };
-      }
-      if (actionType === WEREWOLF_ACTIONS.NIGHT_WOLF_KILL) {
-        const target = state.playerMap[targetId];
-        if (target?.team === TEAMS.WEREWOLF) {
-          return { valid: false, error: '不能击杀狼人同伴' };
-        }
-      }
-      if (actionType === WEREWOLF_ACTIONS.NIGHT_DOCTOR_PROTECT) {
-        if (!state.options?.allowDoctorSelfProtect && targetId === playerId) {
-          return { valid: false, error: '医生不能自救' };
-        }
-        if (!state.options?.allowRepeatedProtect && state.roleStates.lastDoctorProtectTarget === targetId) {
-          return { valid: false, error: '不能连续守护同一人' };
-        }
       }
     }
 
@@ -230,12 +166,9 @@ export class WerewolfGame extends GameEngine {
     switch (actionType) {
       case WEREWOLF_ACTIONS.NIGHT_WOLF_KILL:
         newState.nightActions.wolfKill = actionData?.targetId || null;
-        newState.nightActionsDone.wolfKill = true;
         break;
       case WEREWOLF_ACTIONS.NIGHT_DOCTOR_PROTECT:
         newState.nightActions.doctorProtect = actionData?.targetId || null;
-        newState.nightActionsDone.doctorProtect = true;
-        newState.roleStates.lastDoctorProtectTarget = actionData?.targetId || null;
         break;
       case WEREWOLF_ACTIONS.NIGHT_SEER_CHECK: {
         const targetId = actionData?.targetId || null;
@@ -247,25 +180,15 @@ export class WerewolfGame extends GameEngine {
           };
         }
         newState.nightActions.seerCheck = actionData?.targetId || null;
-        newState.nightActionsDone.seerCheck = true;
         break;
       }
       case WEREWOLF_ACTIONS.NIGHT_WITCH_SAVE:
         newState.nightActions.witchSave = true;
         newState.roleStates.witchSaveUsed = true;
-        newState.nightActionsDone.witchDone = true;
         break;
       case WEREWOLF_ACTIONS.NIGHT_WITCH_POISON:
         newState.nightActions.witchPoison = actionData?.targetId || null;
         newState.roleStates.witchPoisonUsed = true;
-        newState.nightActionsDone.witchDone = true;
-        break;
-      case WEREWOLF_ACTIONS.NIGHT_SKIP:
-        this._markNightDone(newState, player);
-        break;
-      case WEREWOLF_ACTIONS.HUNTER_SHOOT:
-        this._applyDeaths(newState, [actionData?.targetId], { [actionData?.targetId]: 'hunter' });
-        newState.pendingHunterShot = null;
         break;
       case WEREWOLF_ACTIONS.DAY_VOTE:
         newState.votes[playerId] = actionData?.targetId || null;
@@ -284,9 +207,6 @@ export class WerewolfGame extends GameEngine {
     }
 
     newState.lastAction = { type: actionType, playerId, actionData };
-    if (newState.phase === PHASES.NIGHT) {
-      this._checkNightAutoAdvance(newState);
-    }
     return newState;
   }
 
@@ -321,32 +241,28 @@ export class WerewolfGame extends GameEngine {
     const poisonTarget = state.nightActions.witchPoison;
 
     const deaths = [];
-    const causes = {};
 
     if (killTarget && killTarget !== protectedTarget) {
       deaths.push(killTarget);
-      causes[killTarget] = 'wolf';
     }
 
     if (poisonTarget && poisonTarget !== protectedTarget) {
       deaths.push(poisonTarget);
-      causes[poisonTarget] = 'poison';
     }
 
-    const uniqueDeaths = Array.from(new Set(deaths));
-    this._applyDeaths(state, uniqueDeaths, causes);
+    for (const id of new Set(deaths)) {
+      if (state.playerMap[id]) {
+        state.playerMap[id].alive = false;
+      }
+    }
+
+    state.deaths = Array.from(new Set(deaths));
     state.nightActions = {
       wolfKill: null,
       doctorProtect: null,
       seerCheck: null,
       witchSave: false,
       witchPoison: null
-    };
-    state.nightActionsDone = {
-      wolfKill: false,
-      doctorProtect: false,
-      seerCheck: false,
-      witchDone: false
     };
     state.votes = {};
     state.dayVoteResult = null;
@@ -355,29 +271,13 @@ export class WerewolfGame extends GameEngine {
   _resolveExecution(state) {
     const targetId = state.dayVoteResult?.targetId || null;
     if (targetId && state.playerMap[targetId]) {
-      this._applyDeaths(state, [targetId], { [targetId]: 'vote' });
+      state.playerMap[targetId].alive = false;
+      state.deaths = [targetId];
     } else {
       state.deaths = [];
     }
     state.votes = {};
     state.dayVoteResult = null;
-  }
-
-  _applyDeaths(state, deaths, causes = {}) {
-    const unique = Array.from(new Set(deaths)).filter(Boolean);
-    state.deaths = unique;
-    for (const id of unique) {
-      const target = state.playerMap[id];
-      if (!target) continue;
-      target.alive = false;
-      if (target.roleId === 'hunter') {
-        const cause = causes[id];
-        if (cause === 'poison' && !state.options?.hunterShootOnPoison) {
-          continue;
-        }
-        state.pendingHunterShot = id;
-      }
-    }
   }
 
   _advancePhase(state) {
@@ -413,43 +313,6 @@ export class WerewolfGame extends GameEngine {
     }
   }
 
-  _markNightDone(state, player) {
-    if (!player) return;
-    switch (player.roleId) {
-      case 'werewolf':
-        state.nightActionsDone.wolfKill = true;
-        break;
-      case 'doctor':
-        state.nightActionsDone.doctorProtect = true;
-        break;
-      case 'seer':
-        state.nightActionsDone.seerCheck = true;
-        break;
-      case 'witch':
-        state.nightActionsDone.witchDone = true;
-        break;
-      default:
-        break;
-    }
-  }
-
-  _checkNightAutoAdvance(state) {
-    const aliveRoles = state.players.filter(p => p.alive).map(p => p.roleId);
-    const needsWolf = aliveRoles.includes('werewolf');
-    const needsDoctor = aliveRoles.includes('doctor');
-    const needsSeer = aliveRoles.includes('seer');
-    const needsWitch = aliveRoles.includes('witch');
-
-    if (state.pendingHunterShot) return;
-
-    if (needsWolf && !state.nightActionsDone.wolfKill) return;
-    if (needsDoctor && !state.nightActionsDone.doctorProtect) return;
-    if (needsSeer && !state.nightActionsDone.seerCheck) return;
-    if (needsWitch && !state.nightActionsDone.witchDone) return;
-
-    this._advancePhase(state);
-  }
-
   checkGameEnd(state) {
     const counts = getTeamCounts(state.playerMap);
     if (counts.werewolf === 0) {
@@ -482,18 +345,8 @@ export class WerewolfGame extends GameEngine {
       }
     }
 
-    const players = state.players.map(player => {
-      const visibleRole = visibleRoles[player.id];
-      if (visibleRole) {
-        return { ...player };
-      }
-      const { roleId, team, ...rest } = player;
-      return { ...rest };
-    });
-
     return {
       ...state,
-      players,
       playerMap: undefined,
       myRole: me ? { roleId: me.roleId, team: me.team } : null,
       rolesVisible: visibleRoles,
