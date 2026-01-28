@@ -95,7 +95,7 @@ const TEAMS = {
 | 魔笛手 | `piper` | neutral | NIGHT_PIPER_CHARM | 夜晚魅惑玩家，魅惑全体则胜 |
 | 队长 | `captain` | village | DAY_REVEAL_CAPTAIN | 白天公开后获得加倍票权 |
 
-### 3.4 高级角色 (P2/P3 - 后续扩展)
+### 3.4 高级角色 (P2 - 扩展)
 
 | 角色 | ID | 阵营 | 优先级 | 简述 |
 |------|-----|------|--------|------|
@@ -110,6 +110,11 @@ const TEAMS = {
 | 先知 | `oracle` | village | P2 | 死亡时公开其最后目标身份 |
 | 共济会 | `mason` | village | P2 | Mason 彼此认识并确认同阵营 |
 | 酒保 | `roleblocker` | neutral | P2 | 夜晚阻止目标执行夜晚行动 |
+
+### 3.5 高级角色 (P3 - 后续扩展)
+
+| 角色 | ID | 阵营 | 优先级 | 简述 |
+|------|-----|------|--------|------|
 | 磨坊主 | `miller` | village | P3 | 村民但在查验中显示为邪恶 |
 | 教父 | `godfather` | werewolf | P3 | 查验时显示为无辜 |
 | 狼王 | `alpha_werewolf` | werewolf | P3 | 查验时不显示为狼人 |
@@ -132,7 +137,7 @@ const TEAMS = {
 | 影子 | `shadow` | neutral | P3 | 夜晚跟随目标，复制其夜晚行动 |
 | 替身 | `decoy` | village | P3 | 夜晚可吸引一次针对目标的击杀 |
 
-### 3.5 角色 JSON Schema
+### 3.6 角色 JSON Schema
 
 ```javascript
 {
@@ -411,6 +416,8 @@ const ACTION_TYPES = {
 
 ### 6.3 操作效果
 
+#### 6.3.1 击杀与伤害
+
 | 操作 | 效果 | 条件 |
 |------|------|------|
 | NIGHT_WOLF_KILL | 目标进入夜晚死亡队列（Kill） | 仅狼人队伍，夜晚阶段 |
@@ -419,8 +426,12 @@ const ACTION_TYPES = {
 | NIGHT_SERIAL_KILL | 目标进入夜晚死亡队列（Kill） | 仅 Serial Killer，夜晚阶段 |
 | NIGHT_WITCH_POISON | 目标进入夜晚死亡队列（Poison，默认绕过保护，见 10.4.8） | Witch 毒药未用过 |
 | NIGHT_WOLF_WITCH_POISON | 目标进入夜晚死亡队列（Poison/Effect） | 仅 `wolf_witch`，能力未用过（可选） |
-| NIGHT_ARSONIST_DOUSE | 给目标添加 `OILED` 状态（可多夜累计） | 仅 Arsonist，夜晚阶段 |
 | NIGHT_ARSONIST_IGNITE | 所有 `OILED` 玩家进入死亡队列（Effect Kill，通常不视为“普通击杀”） | 仅 Arsonist，夜晚阶段 |
+
+#### 6.3.2 侦查与信息
+
+| 操作 | 效果 | 条件 |
+|------|------|------|
 | NIGHT_SEER_CHECK | 返回目标阵营 (village/werewolf) | 仅 Seer，夜晚阶段 |
 | NIGHT_WOLF_SEER_CHECK | 返回目标阵营/身份（按实现约定） | 仅 `wolf_seer`，夜晚阶段（可选） |
 | NIGHT_SHERIFF_CHECK | 返回"可疑/无辜" | 仅 Sheriff，夜晚阶段 |
@@ -428,12 +439,22 @@ const ACTION_TYPES = {
 | NIGHT_TRACK | 返回目标当夜访问了谁（若无访问则为空） | 仅 Tracker，夜晚阶段 |
 | NIGHT_WATCH | 返回当夜访问目标的玩家列表 | 仅 Watcher，夜晚阶段 |
 | NIGHT_LITTLE_GIRL_PEEK | 获取狼人击杀的“部分信息”（按实现） | 仅 Little Girl，夜晚阶段 |
+
+#### 6.3.3 保护与治疗
+
+| 操作 | 效果 | 条件 |
+|------|------|------|
 | NIGHT_DOCTOR_PROTECT | 阻止一次普通击杀导致的死亡（按 10.4 判定） | 仅 Doctor，夜晚阶段 |
 | NIGHT_BODYGUARD_PROTECT | 拦截一次普通击杀并替死（按 10.4 判定） | 仅 Bodyguard，夜晚阶段 |
 | NIGHT_GUARDIAN_ANGEL_PROTECT | 阻止一次普通击杀导致的死亡（按 10.4 判定） | 仅 Guardian Angel（常见版），夜晚阶段 |
 | NIGHT_WOLF_GUARD_PROTECT | 保护目标免于一次普通击杀（通常仅允许保护狼人） | 仅 `wolf_guard`（可选） |
 | NIGHT_WARDER_WARD | 为目标添加一次性护符：抵挡一次致死事件（Kill 或 Effect，按实现） | 仅 `warder`，夜晚阶段 |
 | NIGHT_WITCH_SAVE | 阻止一次死亡事件（仅对女巫选定的原始目标，未处于死亡状态则失效） | Witch 救人药水未用过 |
+
+#### 6.3.4 控制与状态
+
+| 操作 | 效果 | 条件 |
+|------|------|------|
 | NIGHT_JAILER_JAIL | 目标进入 `JAILED`：当夜被保护且其夜晚行动被阻止 | 仅 Jailer，夜晚阶段 |
 | NIGHT_ROLEBLOCK | 阻止目标夜晚行动（不移除其状态） | 仅 Roleblocker，夜晚阶段 |
 | NIGHT_BUS_DRIVER_SWAP | 交换两名玩家当夜“被指向”的目标（目标重映射） | 仅 Bus Driver，夜晚阶段 |
@@ -444,12 +465,23 @@ const ACTION_TYPES = {
 | NIGHT_RECRUIT | 将目标加入邪教阵营或转换阵营（按实现） | 仅 Cult Leader，夜晚阶段 |
 | NIGHT_SILENCER_SILENCE | 给目标添加 `SILENCED`：次日禁止发言/投票（按实现） | 仅 Silencer，夜晚阶段 |
 | NIGHT_PRIEST_CLEANSE | 清除目标的负面状态（如 `POISONED`/`CHARMED`/`OILED` 等，按实现） | 仅 Priest，夜晚阶段 |
+| NIGHT_ARSONIST_DOUSE | 给目标添加 `OILED` 状态（可多夜累计） | 仅 Arsonist，夜晚阶段 |
+
+#### 6.3.5 白天与流程
+
+| 操作 | 效果 | 条件 |
+|------|------|------|
 | DAY_REVEAL_CAPTAIN | 公布队长身份并获得加倍票权 | 仅 Captain，白天阶段 |
 | DAY_VOTE | 计票处决候选人 | 白天阶段 |
 | DAY_SKIP_VOTE | 放弃投票 | 白天阶段 |
+| LAST_WORDS | 允许被处决者在规则允许时发言（可选实现） | 通常仅白天处决触发 |
+
+#### 6.3.6 被动/触发
+
+| 操作 | 效果 | 条件 |
+|------|------|------|
 | HUNTER_SHOOT | 带走一名玩家（立即或结算后，按实现） | Hunter 死亡触发 |
 | AVENGER_TRIGGER_KILL | 对“杀手”生成一次反击击杀（可为延迟事件） | Avenger 死亡触发（按实现） |
-| LAST_WORDS | 允许被处决者在规则允许时发言（可选实现） | 通常仅白天处决触发 |
 
 
 ---
