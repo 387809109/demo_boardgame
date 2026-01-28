@@ -11,6 +11,7 @@
  */
 
 import { WebSocketServer } from 'ws';
+import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { ConnectionManager } from './connection-manager.js';
 import { RoomManager } from './room-manager.js';
@@ -250,7 +251,8 @@ export class GameServer {
 }
 
 // Start server if run directly (not imported)
-const isMainModule = import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`;
+const __filename = fileURLToPath(import.meta.url);
+const isMainModule = process.argv[1] === __filename;
 if (isMainModule) {
   const server = new GameServer();
   server.start();
