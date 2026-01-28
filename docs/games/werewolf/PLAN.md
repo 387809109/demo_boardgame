@@ -1,26 +1,28 @@
 # 狼人杀游戏开发计划
 
 > 创建日期: 2026-01-27
-> 状态: 待开始
+> 最后更新: 2026-01-28
+> 状态: 文档完成，待开发
 
 ---
 
 ## 开发前准备
 
-### 文档完善 (必须)
+### 文档完善 ✅ 已完成
 
-在编写代码前，需要完成以下文档:
+- [x] **RULES.md** - 完整的游戏规则细节
+  - [x] 支持的角色列表及能力 (P0-P3 共 30+ 角色)
+  - [x] 定义夜间行动优先级顺序 (12 级优先级)
+  - [x] 明确特殊规则处理 (保护限制规则 10.4、遗言规则 10.5 等)
+  - [x] 定义玩家数量与角色配置表
+  - [x] 白天发言与投票秩序规则
+  - [x] Leader 机制
+  - [x] 日间投票多数规则 (dayVoteMajority)
 
-- [ ] **RULES.md** - 补充完整的游戏规则细节
-  - [ ] 确认支持的角色列表及能力
-  - [ ] 定义夜间行动优先级顺序
-  - [ ] 明确特殊规则处理 (同守同救、平票等)
-  - [ ] 定义玩家数量与角色配置表
-
-- [ ] **werewolf.html** - 补充用户规则书内容
-  - [ ] 完善角色介绍
-  - [ ] 添加游戏示例
-  - [ ] 补充策略提示
+- [x] **werewolf.html** - 用户规则书内容
+  - [x] 完善角色介绍
+  - [x] 添加游戏流程说明
+  - [x] 补充策略提示
 
 ---
 
@@ -124,12 +126,20 @@ getVisibleState(playerId) {
 WAITING -> NIGHT -> DAY_DISCUSSION -> DAY_VOTE -> [LAST_WORDS] -> NIGHT/ENDED
 ```
 
-夜晚子阶段按优先级执行:
+夜晚子阶段按优先级执行 (参见 RULES.md 4.2):
 ```
-GUARD_PROTECT (优先级 1)
-  -> SEER_CHECK (优先级 2)
-  -> WEREWOLF_KILL (优先级 3)
-  -> WITCH_ACTION (优先级 4)
+1. Cupid (连结恋人，仅首夜)
+2. Thief (交换角色，仅首夜)
+3. Jailer (监禁目标)
+4. Roleblocker (阻止目标行动)
+5. Seer/Sheriff/Detective (查验)
+6. Tracker/Watcher (追踪/监视)
+7. Doctor/Bodyguard/Guardian Angel (保护)
+8. Werewolf (击杀)
+9. Vigilante/Serial Killer (射杀/击杀)
+10. Witch (救人/毒杀)
+11. Piper (魅惑)
+12. Oracle (标记)
 ```
 
 ### 3. 行动收集与结算
@@ -196,7 +206,7 @@ frontend/src/games/werewolf/
 
 ## 下一步行动
 
-1. **获取/确认详细规则** - 与用户确认具体的规则细节
-2. **完善 RULES.md** - 补充所有 TODO 项
-3. **完善 werewolf.html** - 补充用户规则内容
+1. ~~**获取/确认详细规则** - 与用户确认具体的规则细节~~ ✅ 已完成
+2. ~~**完善 RULES.md** - 补充所有 TODO 项~~ ✅ 已完成
+3. ~~**完善 werewolf.html** - 补充用户规则内容~~ ✅ 已完成
 4. **开始 Phase 1 开发** - 从 config.json 开始

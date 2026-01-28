@@ -403,6 +403,28 @@
           </div>
         </div>
 
+        <h3>好人阵营 - 进阶神职 (可选)</h3>
+        <div class="role-grid">
+          <div class="role-card special">
+            <div class="role-icon">Sh</div>
+            <span class="team-label good">好人</span>
+            <div class="role-name">警长</div>
+            <div class="role-desc">每晚查验返回"可疑/无辜"</div>
+          </div>
+          <div class="role-card special">
+            <div class="role-icon">Vi</div>
+            <span class="team-label good">好人</span>
+            <div class="role-name">私刑者</div>
+            <div class="role-desc">每晚可射杀一名玩家</div>
+          </div>
+          <div class="role-card special">
+            <div class="role-icon">Ca</div>
+            <span class="team-label good">好人</span>
+            <div class="role-name">队长</div>
+            <div class="role-desc">白天公开身份后获得加倍票权</div>
+          </div>
+        </div>
+
         <h3>中立阵营 (可选)</h3>
         <div class="role-grid">
           <div class="role-card neutral">
@@ -422,6 +444,12 @@
             <span class="team-label third">中立</span>
             <div class="role-name">魔笛手</div>
             <div class="role-desc">每晚魅惑玩家，魅惑全体即可获胜</div>
+          </div>
+          <div class="role-card neutral">
+            <div class="role-icon">Id</div>
+            <span class="team-label third">中立</span>
+            <div class="role-name">白痴</div>
+            <div class="role-desc">仅当被投票处决时获胜</div>
           </div>
         </div>
       </section>
@@ -450,13 +478,19 @@
         <h3>白天阶段</h3>
         <ol class="steps">
           <li>公布昨晚死亡情况（可选择是否公开角色）</li>
-          <li>死亡玩家发表遗言</li>
+          <li>第一天进行领袖选举（若启用 Leader 机制）</li>
+          <li>死亡玩家发表遗言（遗言名额可配置）</li>
           <li>触发死亡技能（如猎人开枪）</li>
-          <li>存活玩家依次发言讨论</li>
-          <li>投票选出要放逐的玩家</li>
+          <li>存活玩家按顺序依次发言讨论（发言时其他人不可插话）</li>
+          <li>进入投票环节（投票时禁止发言）</li>
+          <li>若平票，候选人复盘发言后进行二次投票</li>
           <li>被放逐玩家发表遗言后出局</li>
           <li>检查胜利条件，未结束则进入下一夜</li>
         </ol>
+
+        <div class="highlight-box info">
+          <p><strong>发言顺序:</strong> 默认从昨夜受害者开始，按逆时针顺序进行。若启用领袖机制且领袖存活，由领袖决定起点和方向。</p>
+        </div>
       </section>
 
       <section>
@@ -512,6 +546,30 @@
               <td>连结恋人</td>
               <td>仅首夜</td>
               <td>恋人一死另一人殉情</td>
+            </tr>
+            <tr>
+              <td><strong>警长</strong></td>
+              <td>查验</td>
+              <td>每晚</td>
+              <td>返回"可疑"或"无辜"</td>
+            </tr>
+            <tr>
+              <td><strong>私刑者</strong></td>
+              <td>射杀</td>
+              <td>每晚</td>
+              <td>独立于狼人的击杀能力</td>
+            </tr>
+            <tr>
+              <td><strong>队长</strong></td>
+              <td>加倍票权</td>
+              <td>白天公开后</td>
+              <td>投票权重 x2</td>
+            </tr>
+            <tr>
+              <td><strong>魔笛手</strong></td>
+              <td>魅惑</td>
+              <td>每晚</td>
+              <td>魅惑全体存活玩家即可获胜</td>
             </tr>
           </tbody>
         </table>
@@ -620,6 +678,37 @@
           <li>被投票处决：可以开枪</li>
           <li>被女巫毒死：通常不能开枪（可配置）</li>
           <li>因恋人殉情死亡：可以开枪</li>
+        </ul>
+
+        <h3>领袖机制 (可选)</h3>
+        <ul>
+          <li>游戏第一天通过投票产生领袖</li>
+          <li>领袖存活时可决定讨论/投票的起点和方向（顺/逆时针）</li>
+          <li>若昨夜多人死亡，领袖选择其中一人作为起点</li>
+          <li>领袖若不是最后发言者，讨论结束后可额外发言一次</li>
+        </ul>
+
+        <h3>投票规则</h3>
+        <ul>
+          <li><strong>多数规则:</strong> 得票须严格大于弃票数才可处决（可配置）</li>
+          <li><strong>平票处理:</strong> 若首轮平票，候选人复盘发言后二次投票</li>
+          <li><strong>二次平票:</strong> 若二次投票仍平票，当日无人被处决</li>
+        </ul>
+
+        <h3>保护规则</h3>
+        <ul>
+          <li><strong>医生/守护天使:</strong> 阻止一次普通击杀导致的死亡</li>
+          <li><strong>守卫:</strong> 拦截击杀并替死（保护目标存活，守卫死亡）</li>
+          <li><strong>女巫解药:</strong> 阻止一次死亡事件，仅对指定目标生效</li>
+          <li><strong>毒杀优先:</strong> 女巫毒药默认绕过所有保护</li>
+          <li><strong>保护不叠加:</strong> 多重保护不能防御多次击杀</li>
+        </ul>
+
+        <h3>遗言规则 (可配置)</h3>
+        <ul>
+          <li><strong>无遗言:</strong> 所有死亡玩家不发遗言</li>
+          <li><strong>全部有遗言:</strong> 所有死亡玩家都可发遗言</li>
+          <li><strong>限额遗言 (默认):</strong> 遗言名额 = 初始狼人数量</li>
         </ul>
       </section>
     </div>

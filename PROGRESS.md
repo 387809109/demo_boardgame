@@ -260,6 +260,11 @@
   - `backend/server/index.js` 主模块检测路径格式错误
   - 使用 `fileURLToPath` 替代手动路径拼接，实现跨平台兼容
 
+- ✅ 狼人杀规则文档完善
+  - `docs/games/werewolf/RULES.md` 完整规则 (30+ 角色、12 级夜间优先级、保护规则详解)
+  - `docs/games/werewolf/PLAN.md` 更新状态为"文档完成，待开发"
+  - `frontend/public/rules/werewolf.html` 新增进阶角色、领袖机制、投票规则、保护规则说明
+
 ### 2026-01-27
 
 - ✅ T-F111 工具函数单元测试 (109 tests)
