@@ -1,8 +1,0 @@
-- make .claude/ git ignored
-- ~~fix "add ai player" button adding 2 players per click~~ (fixed: AI_PLAYER_UPDATE was missing from validator)
-- found a bug re +4 stacking +2: player A played red +2, B drew 2 pass, C played yellow +2, D drew 2 pass, then E somehow were not allowed to play +4
-- add public chatting in game
-- fix #### 不同网络 session in readme, and add a detailed guide for connecting via public web\
-- room owner should be able to edit game rules in the waiting room, not only when creating the room
-- add this as a dev criterion of this project: for single player board game (may come later), disable multiple player mode; for multiple player board game without AI support, disable simgle player mode; allow both single mode and multiple mode only when a multiple player board game with AI support
-- make P0, P1, P2, P3 werewolf roles their own task id so that it can better track the progress and allow low priority roles to be developed later. udpate docs to integrate this into the project framework
