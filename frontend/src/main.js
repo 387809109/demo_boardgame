@@ -207,6 +207,8 @@ class App {
     this.currentView = new GameBoard({
       game,
       playerId: this.playerId,
+      gameConfig: this._getGameConfig(gameType),
+      gameSettings: options,
       onAction: (action) => this._handleGameAction(action),
       onLeave: () => this._handleLeaveGame(),
       onSendChat: (message) => {
@@ -559,8 +561,9 @@ class App {
       }
 
       modal.hide();
-      // Store settings for when game starts
+      // Store settings and config for when game starts
       this._pendingGameSettings = settings;
+      this._pendingGameConfig = this._getGameConfig(gameType);
       await this._connectAndCreateRoom(serverUrl, roomId, nickname, gameType, maxPlayers, supportsAI);
     });
   }
@@ -629,7 +632,9 @@ class App {
         maxPlayers,
         supportsAI,
         players: [{ id: this.playerId, nickname, isHost: true }],
-        aiPlayers: [] // AI players managed by host
+        aiPlayers: [], // AI players managed by host
+        gameConfig: this._pendingGameConfig || this._getGameConfig(gameType),
+        gameSettings: this._pendingGameSettings || {}
       };
 
       hideLoading();
@@ -684,7 +689,8 @@ class App {
       this.currentRoom = {
         ...this.currentRoom,
         players: data.players,
-        aiPlayers: data.aiPlayers || this.currentRoom?.aiPlayers || []
+        aiPlayers: data.aiPlayers || this.currentRoom?.aiPlayers || [],
+        gameSettings: data.gameSettings || this.currentRoom?.gameSettings || {}
       };
 
       if (!this.currentView || !(this.currentView instanceof WaitingRoom)) {
@@ -694,6 +700,10 @@ class App {
         // Sync AI players if provided
         if (data.aiPlayers) {
           this.currentView.updateAIPlayers(data.aiPlayers);
+        }
+        // Sync game settings if provided
+        if (data.gameSettings) {
+          this.currentView.updateGameSettings(data.gameSettings);
         }
         this.currentView.addSystemMessage(`${data.nickname} 加入了房间`);
       }
@@ -734,13 +744,27 @@ class App {
       }
     });
 
+    net.onMessage('GAME_SETTINGS_UPDATE', (data) => {
+      const gameSettings = data.gameSettings || {};
+      if (this.currentRoom) {
+        this.currentRoom.gameSettings = gameSettings;
+      }
+
+      if (this.currentView instanceof WaitingRoom) {
+        this.currentView.updateGameSettings(gameSettings);
+      }
+    });
+
     net.onMessage('GAME_STARTED', (data) => {
       showToast('游戏开始!');
       // Get players from initial state (includes AI players)
       const players = data.initialState?.players || this.currentRoom?.players || [];
       // Store AI players info for simulation
       this._aiPlayers = data.aiPlayers || [];
-      const settings = this._pendingGameSettings || {};
+      // Use gameSettings from host if provided, otherwise use local pending settings
+      const settings = data.gameSettings || this._pendingGameSettings || {};
+      // Store for display in GameBoard
+      this._currentGameSettings = settings;
       // Use initialState from host if provided
       this._startGame(data.gameType, players, 'online', settings, data.initialState);
     });
@@ -801,15 +825,16 @@ class App {
           const humanPlayers = this.currentRoom.players || [];
           const aiPlayers = this.currentRoom.aiPlayers || [];
           const allPlayers = [...humanPlayers, ...aiPlayers];
-          const settings = this._pendingGameSettings || {};
+          // Get settings from WaitingRoom (includes any edits made)
+          const settings = this.currentView.getGameSettings();
 
           // Create temporary game to generate initial state
           const tempGame = createGame(gameType, 'online');
           tempGame.start({ players: allPlayers, gameType, options: settings });
           const initialState = tempGame.getState();
 
-          // Send START_GAME with initial state and AI player info
-          this.network.startGame(gameType, { initialState, aiPlayers });
+          // Send START_GAME with initial state, AI players, and game settings
+          this.network.startGame(gameType, { initialState, aiPlayers, gameSettings: settings });
         }
       },
       onLeave: () => {
@@ -882,6 +907,16 @@ class App {
         if (this.network?.isConnected()) {
           this.network.send('AI_PLAYER_UPDATE', {
             aiPlayers: this.currentRoom.aiPlayers || []
+          });
+        }
+      },
+      onSettingsChange: (settings) => {
+        // Update local room settings
+        this.currentRoom.gameSettings = settings;
+        // Sync to server for other players
+        if (this.network?.isConnected()) {
+          this.network.send('GAME_SETTINGS_UPDATE', {
+            gameSettings: settings
           });
         }
       }

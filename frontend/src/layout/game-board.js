@@ -4,6 +4,7 @@
  */
 
 import { PlayerAvatar } from '../components/player-avatar.js';
+import { GameSettingsPanel } from '../components/game-settings-panel.js';
 import { getCardDisplayText, getColorName, CARD_TYPES } from '../games/uno/rules.js';
 
 /**
@@ -14,6 +15,8 @@ export class GameBoard {
    * @param {Object} options
    * @param {Object} options.game - Game instance
    * @param {string} options.playerId - Current player ID
+   * @param {Object} options.gameConfig - Game configuration with settingsSchema
+   * @param {Object} options.gameSettings - Current game settings
    * @param {Function} options.onAction - Called when player takes action
    * @param {Function} options.onLeave - Called when leaving game
    * @param {Function} options.onSendChat - Called when sending chat message
@@ -23,12 +26,15 @@ export class GameBoard {
     this.element = null;
     this.game = options.game;
     this.playerId = options.playerId || '';
+    this.gameConfig = options.gameConfig || {};
+    this.gameSettings = options.gameSettings || {};
     this.state = null;
     this.gameUI = null;
     this.avatars = new Map();
     this._lastUnoCalledBy = null; // Track UNO call changes
     this.chatMessages = [];
-    this.activeTab = 'history'; // 'history' or 'chat'
+    this.activeTab = 'history'; // 'history', 'chat', or 'settings'
+    this.settingsPanel = null;
 
     this._create();
   }
@@ -188,6 +194,18 @@ export class GameBoard {
               border-bottom: 2px solid ${this.activeTab === 'chat' ? 'var(--primary-500)' : 'transparent'};
               transition: all 0.2s;
             ">聊天</button>
+            <button class="sidebar-tab ${this.activeTab === 'settings' ? 'active' : ''}" data-tab="settings" style="
+              flex: 1;
+              padding: var(--spacing-3);
+              border: none;
+              background: ${this.activeTab === 'settings' ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
+              color: ${this.activeTab === 'settings' ? 'var(--primary-500)' : 'var(--text-secondary)'};
+              font-size: var(--text-sm);
+              font-weight: var(--font-medium);
+              cursor: pointer;
+              border-bottom: 2px solid ${this.activeTab === 'settings' ? 'var(--primary-500)' : 'transparent'};
+              transition: all 0.2s;
+            ">设置</button>
           </div>
 
           <div class="tab-content history-panel" style="
@@ -237,11 +255,28 @@ export class GameBoard {
               <button class="btn btn-primary btn-sm send-chat-btn">发送</button>
             </div>
           </div>
+
+          <div class="tab-content settings-panel" style="
+            flex: 1;
+            display: ${this.activeTab === 'settings' ? 'flex' : 'none'};
+            flex-direction: column;
+            overflow: hidden;
+            padding: var(--spacing-3);
+          ">
+            <div class="settings-container" style="
+              flex: 1;
+              overflow-y: auto;
+              min-height: 0;
+            ">
+              <!-- Settings panel will be mounted here -->
+            </div>
+          </div>
         </aside>
       </div>
     `;
 
     this._renderPlayers(players, state?.currentPlayer);
+    this._renderSettingsPanel();
     this._bindEvents();
   }
 
@@ -470,6 +505,30 @@ export class GameBoard {
   }
 
   /**
+   * Render settings panel
+   * @private
+   */
+  _renderSettingsPanel() {
+    const container = this.element.querySelector('.settings-container');
+    if (!container) return;
+
+    // Clean up old panel
+    if (this.settingsPanel) {
+      this.settingsPanel.destroy();
+      this.settingsPanel = null;
+    }
+
+    this.settingsPanel = new GameSettingsPanel({
+      gameConfig: this.gameConfig,
+      settings: this.gameSettings,
+      editable: false, // Always read-only in game
+      compact: true
+    });
+
+    container.appendChild(this.settingsPanel.getElement());
+  }
+
+  /**
    * Render a history action with details
    * @private
    */
@@ -633,8 +692,10 @@ export class GameBoard {
     // Show/hide panels
     const historyPanel = this.element.querySelector('.history-panel');
     const chatPanel = this.element.querySelector('.chat-panel');
+    const settingsPanel = this.element.querySelector('.settings-panel');
     if (historyPanel) historyPanel.style.display = this.activeTab === 'history' ? 'flex' : 'none';
     if (chatPanel) chatPanel.style.display = this.activeTab === 'chat' ? 'flex' : 'none';
+    if (settingsPanel) settingsPanel.style.display = this.activeTab === 'settings' ? 'flex' : 'none';
 
     // Scroll chat to bottom when switching to chat tab
     if (this.activeTab === 'chat') {
@@ -825,6 +886,10 @@ export class GameBoard {
   unmount() {
     this.avatars.forEach(a => a.destroy());
     this.avatars.clear();
+    if (this.settingsPanel) {
+      this.settingsPanel.destroy();
+      this.settingsPanel = null;
+    }
     this.element?.remove();
   }
 

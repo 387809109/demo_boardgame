@@ -57,6 +57,9 @@ export class MessageRouter {
       case 'AI_PLAYER_UPDATE':
         this.handleAIPlayerUpdate(connId, playerId, data);
         break;
+      case 'GAME_SETTINGS_UPDATE':
+        this.handleGameSettingsUpdate(connId, playerId, data);
+        break;
       case 'PING':
         this.handlePing(connId, playerId);
         break;
@@ -102,6 +105,7 @@ export class MessageRouter {
     // Broadcast PLAYER_JOINED to all players in room
     const players = this.roomManager.getPlayers(roomId);
     const aiPlayers = this.roomManager.getAIPlayers(roomId);
+    const gameSettings = this.roomManager.getGameSettings(roomId);
     this.broadcast(roomId, {
       type: 'PLAYER_JOINED',
       timestamp: Date.now(),
@@ -114,7 +118,8 @@ export class MessageRouter {
           nickname: p.nickname,
           isHost: p.isHost
         })),
-        aiPlayers
+        aiPlayers,
+        gameSettings
       }
     });
   }
@@ -267,6 +272,54 @@ export class MessageRouter {
       playerId: 'server',
       data: {
         aiPlayers
+      }
+    });
+  }
+
+  /**
+   * Handle GAME_SETTINGS_UPDATE message
+   * Only host can update game settings
+   * @param {string} connId - Connection ID
+   * @param {string} playerId - Player ID
+   * @param {object} data - Message data
+   */
+  handleGameSettingsUpdate(connId, playerId, data) {
+    const roomId = this.roomManager.findPlayerRoom(playerId);
+    if (!roomId) {
+      this.sendError(connId, playerId, 'GAME_NOT_FOUND', 'Player not in any room', 'warning');
+      return;
+    }
+
+    // Only host can update game settings
+    if (!this.roomManager.isHost(roomId, playerId)) {
+      this.sendError(connId, playerId, 'PERMISSION_DENIED', 'Only host can change game settings', 'error');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(roomId);
+    if (room.gameStarted) {
+      this.sendError(connId, playerId, 'INVALID_ACTION', 'Cannot change settings after game started', 'warning');
+      return;
+    }
+
+    const { gameSettings } = data || {};
+    if (!gameSettings || typeof gameSettings !== 'object') {
+      this.sendError(connId, playerId, 'INVALID_MESSAGE_FORMAT', 'gameSettings must be an object', 'error');
+      return;
+    }
+
+    // Update game settings in room
+    this.roomManager.setGameSettings(roomId, gameSettings);
+
+    info('Game settings updated', { roomId, playerId });
+
+    // Broadcast to all players in room (including sender for confirmation)
+    this.broadcast(roomId, {
+      type: 'GAME_SETTINGS_UPDATE',
+      timestamp: Date.now(),
+      playerId: 'server',
+      data: {
+        gameSettings
       }
     });
   }

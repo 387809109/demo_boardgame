@@ -48,6 +48,7 @@ export class RoomManager {
       host: hostId,
       players: [],
       aiPlayers: [],
+      gameSettings: {},
       createdAt: Date.now(),
       gameStarted: false
     };
@@ -274,6 +275,32 @@ export class RoomManager {
     }
     room.aiPlayers = aiPlayers || [];
     debug('AI players updated', { roomId, count: room.aiPlayers.length });
+    return true;
+  }
+
+  /**
+   * Get game settings for a room
+   * @param {string} roomId - Room ID
+   * @returns {Object} Game settings
+   */
+  getGameSettings(roomId) {
+    const room = this.rooms.get(roomId);
+    return room ? { ...room.gameSettings } : {};
+  }
+
+  /**
+   * Set game settings for a room
+   * @param {string} roomId - Room ID
+   * @param {Object} gameSettings - Game settings object
+   * @returns {boolean} Success
+   */
+  setGameSettings(roomId, gameSettings) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return false;
+    }
+    room.gameSettings = gameSettings || {};
+    debug('Game settings updated', { roomId });
     return true;
   }
 }

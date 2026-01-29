@@ -4,6 +4,7 @@
  */
 
 import { PlayerAvatar } from '../components/player-avatar.js';
+import { GameSettingsPanel } from '../components/game-settings-panel.js';
 
 /**
  * Waiting Room - Pre-game lobby for multiplayer
@@ -18,12 +19,15 @@ export class WaitingRoom {
    * @param {number} options.room.maxPlayers - Max players allowed
    * @param {Array} options.room.aiPlayers - AI players list
    * @param {boolean} options.room.supportsAI - Whether game supports AI players
+   * @param {Object} options.room.gameConfig - Game configuration with settingsSchema
+   * @param {Object} options.room.gameSettings - Current game settings
    * @param {string} options.playerId - Current player ID
    * @param {Function} options.onStartGame - Called when starting game
    * @param {Function} options.onLeave - Called when leaving room
    * @param {Function} options.onSendChat - Called when sending chat
    * @param {Function} options.onAddAI - Called when adding AI player
    * @param {Function} options.onRemoveAI - Called when removing AI player
+   * @param {Function} options.onSettingsChange - Called when settings change (host only)
    */
   constructor(options = {}) {
     this.options = options;
@@ -32,6 +36,7 @@ export class WaitingRoom {
     this.playerId = options.playerId || '';
     this.chatMessages = [];
     this.avatars = new Map();
+    this.settingsPanel = null;
 
     this._create();
   }
@@ -139,6 +144,20 @@ export class WaitingRoom {
             </div>
           </div>
 
+          <div class="card" style="margin-bottom: var(--spacing-4);">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3 style="margin: 0;">游戏设置</h3>
+              ${!isHost ? `
+                <span style="font-size: var(--text-xs); color: var(--text-tertiary);">
+                  仅房主可修改
+                </span>
+              ` : ''}
+            </div>
+            <div class="card-body settings-container">
+              <!-- Settings panel will be mounted here -->
+            </div>
+          </div>
+
           ${isHost ? `
             <button class="btn btn-primary btn-lg start-game-btn" style="width: 100%;" ${totalPlayers < 2 ? 'disabled' : ''}>
               开始游戏
@@ -183,8 +202,43 @@ export class WaitingRoom {
     `;
 
     this._renderPlayers();
+    this._renderSettings();
     this._bindEvents();
     this._scrollChatToBottom();
+  }
+
+  /**
+   * Render game settings panel
+   * @private
+   */
+  _renderSettings() {
+    const container = this.element.querySelector('.settings-container');
+    if (!container) return;
+
+    // Clean up old panel
+    if (this.settingsPanel) {
+      this.settingsPanel.destroy();
+      this.settingsPanel = null;
+    }
+
+    const gameConfig = this.room.gameConfig;
+    const gameSettings = this.room.gameSettings || {};
+    const isHost = this.isHost();
+
+    this.settingsPanel = new GameSettingsPanel({
+      gameConfig,
+      settings: gameSettings,
+      editable: isHost,
+      compact: true,
+      onChange: (key, value, allSettings) => {
+        // Update local room settings
+        this.room.gameSettings = allSettings;
+        // Notify parent
+        this.options.onSettingsChange?.(allSettings);
+      }
+    });
+
+    container.appendChild(this.settingsPanel.getElement());
   }
 
   /**
@@ -340,6 +394,25 @@ export class WaitingRoom {
   }
 
   /**
+   * Update game settings
+   * @param {Object} settings - New game settings
+   */
+  updateGameSettings(settings) {
+    this.room.gameSettings = settings;
+    if (this.settingsPanel) {
+      this.settingsPanel.updateSettings(settings);
+    }
+  }
+
+  /**
+   * Get current game settings
+   * @returns {Object}
+   */
+  getGameSettings() {
+    return this.settingsPanel?.getSettings() || this.room.gameSettings || {};
+  }
+
+  /**
    * Add an AI player
    * @param {Object} aiPlayer - AI player info
    */
@@ -400,6 +473,10 @@ export class WaitingRoom {
   unmount() {
     this.avatars.forEach(avatar => avatar.destroy());
     this.avatars.clear();
+    if (this.settingsPanel) {
+      this.settingsPanel.destroy();
+      this.settingsPanel = null;
+    }
     this.element?.remove();
   }
 
