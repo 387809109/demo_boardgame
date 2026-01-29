@@ -1,8 +1,8 @@
 # 狼人杀游戏开发计划
 
 > 创建日期: 2026-01-27
-> 最后更新: 2026-01-28
-> 状态: 文档完成，待开发
+> 最后更新: 2026-01-30
+> 状态: Phase 1 开发中
 
 ---
 
@@ -32,7 +32,7 @@
 
 | 任务 ID | 描述 | 依赖 | 优先级 | 状态 |
 |---------|------|------|--------|------|
-| T-F070 | 创建 `games/werewolf/config.json` | RULES.md | P0 | 待开发 |
+| T-F070 | 创建 `games/werewolf/config.json` | RULES.md | P0 | ✅ 已完成 |
 | T-F071 | 创建 `games/werewolf/index.js` 游戏类 | T-F070 | P0 | 待开发 |
 | T-F072 | 创建 `games/werewolf/rules.js` 规则基础框架 | T-F071 | P0 | 待开发 |
 | T-F073 | 创建 `games/werewolf/ui.js` UI 框架 | T-F071 | P0 | 待开发 |

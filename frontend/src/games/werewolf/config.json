@@ -1,0 +1,399 @@
+{
+  "id": "werewolf",
+  "name": "狼人杀",
+  "description": "经典社交推理游戏，村民需要找出隐藏的狼人，而狼人则试图在不暴露身份的情况下消灭村民",
+  "minPlayers": 6,
+  "maxPlayers": 20,
+  "difficulty": "medium",
+  "estimatedTime": 45,
+  "tags": ["社交推理", "派对", "阵营"],
+  "gameType": "multiplayer",
+  "supportsAI": false,
+
+  "roles": {
+    "p0": {
+      "villager": {
+        "id": "villager",
+        "name": "村民",
+        "team": "village",
+        "priority": "P0",
+        "actionTypes": [],
+        "description": "普通村民，依靠白天讨论与投票找出狼人",
+        "winCondition": "消灭所有狼人"
+      },
+      "werewolf": {
+        "id": "werewolf",
+        "name": "狼人",
+        "team": "werewolf",
+        "priority": "P0",
+        "actionTypes": ["NIGHT_WOLF_KILL"],
+        "description": "夜晚与其他狼人合议击杀一人",
+        "winCondition": "狼人数量达到或超过村民"
+      },
+      "seer": {
+        "id": "seer",
+        "name": "预言家",
+        "team": "village",
+        "priority": "P0",
+        "actionTypes": ["NIGHT_SEER_CHECK"],
+        "description": "每晚可以查看一名玩家的阵营",
+        "winCondition": "消灭所有狼人"
+      },
+      "doctor": {
+        "id": "doctor",
+        "name": "医生",
+        "team": "village",
+        "priority": "P0",
+        "actionTypes": ["NIGHT_DOCTOR_PROTECT"],
+        "description": "每晚可以保护一名玩家免于狼人击杀",
+        "winCondition": "消灭所有狼人"
+      },
+      "hunter": {
+        "id": "hunter",
+        "name": "猎人",
+        "team": "village",
+        "priority": "P0",
+        "actionTypes": ["HUNTER_SHOOT"],
+        "description": "死亡时可以带走一名玩家",
+        "winCondition": "消灭所有狼人"
+      },
+      "witch": {
+        "id": "witch",
+        "name": "女巫",
+        "team": "village",
+        "priority": "P0",
+        "actionTypes": ["NIGHT_WITCH_SAVE", "NIGHT_WITCH_POISON"],
+        "description": "拥有一瓶救人药水和一瓶毒药，各只能使用一次",
+        "winCondition": "消灭所有狼人"
+      }
+    },
+    "p1": {
+      "bodyguard": {
+        "id": "bodyguard",
+        "name": "守卫",
+        "team": "village",
+        "priority": "P1",
+        "actionTypes": ["NIGHT_BODYGUARD_PROTECT"],
+        "description": "保护目标免于夜晚击杀，但会替死",
+        "winCondition": "消灭所有狼人"
+      },
+      "cupid": {
+        "id": "cupid",
+        "name": "丘比特",
+        "team": "neutral",
+        "priority": "P1",
+        "actionTypes": ["NIGHT_CUPID_LINK"],
+        "description": "首夜连结两名玩家成为恋人",
+        "winCondition": "恋人存活到最后"
+      },
+      "sheriff": {
+        "id": "sheriff",
+        "name": "警长",
+        "team": "village",
+        "priority": "P1",
+        "actionTypes": ["NIGHT_SHERIFF_CHECK"],
+        "description": "夜晚查验返回可疑或无辜",
+        "winCondition": "消灭所有狼人"
+      },
+      "vigilante": {
+        "id": "vigilante",
+        "name": "私刑者",
+        "team": "village",
+        "priority": "P1",
+        "actionTypes": ["NIGHT_VIGILANTE_KILL"],
+        "description": "夜晚可以射杀一人",
+        "winCondition": "消灭所有狼人"
+      },
+      "idiot": {
+        "id": "idiot",
+        "name": "白痴",
+        "team": "neutral",
+        "priority": "P1",
+        "actionTypes": [],
+        "description": "被投票处决时胜利",
+        "winCondition": "被村民投票处决"
+      },
+      "piper": {
+        "id": "piper",
+        "name": "魔笛手",
+        "team": "neutral",
+        "priority": "P1",
+        "actionTypes": ["NIGHT_PIPER_CHARM"],
+        "description": "每晚魅惑玩家，当所有存活玩家都被魅惑时胜利",
+        "winCondition": "魅惑所有存活玩家"
+      },
+      "captain": {
+        "id": "captain",
+        "name": "队长",
+        "team": "village",
+        "priority": "P1",
+        "actionTypes": ["DAY_REVEAL_CAPTAIN"],
+        "description": "白天公开身份后获得加倍票权",
+        "winCondition": "消灭所有狼人"
+      }
+    },
+    "p2": {
+      "guardian_angel": {
+        "id": "guardian_angel",
+        "name": "守护天使",
+        "team": "village",
+        "priority": "P2",
+        "actionTypes": ["NIGHT_GUARDIAN_ANGEL_PROTECT"],
+        "description": "保护他人，防止夜晚攻击",
+        "winCondition": "消灭所有狼人"
+      },
+      "jailer": {
+        "id": "jailer",
+        "name": "狱卒",
+        "team": "village",
+        "priority": "P2",
+        "actionTypes": ["NIGHT_JAILER_JAIL"],
+        "description": "监禁保护目标并阻止其夜晚行动",
+        "winCondition": "消灭所有狼人"
+      },
+      "thief": {
+        "id": "thief",
+        "name": "小偷",
+        "team": "neutral",
+        "priority": "P2",
+        "actionTypes": ["NIGHT_THIEF_STEAL"],
+        "description": "首夜可与额外牌交换并继承其角色",
+        "winCondition": "取决于继承的角色"
+      },
+      "detective": {
+        "id": "detective",
+        "name": "侦探",
+        "team": "village",
+        "priority": "P2",
+        "actionTypes": ["NIGHT_DETECTIVE_COMPARE"],
+        "description": "夜晚比较两名玩家是否同阵营",
+        "winCondition": "消灭所有狼人"
+      },
+      "bomb": {
+        "id": "bomb",
+        "name": "炸弹人",
+        "team": "neutral",
+        "priority": "P2",
+        "actionTypes": [],
+        "description": "被夜晚击杀时反杀攻击者",
+        "winCondition": "存活到游戏结束"
+      },
+      "little_girl": {
+        "id": "little_girl",
+        "name": "小女孩",
+        "team": "village",
+        "priority": "P2",
+        "actionTypes": ["NIGHT_LITTLE_GIRL_PEEK"],
+        "description": "可偷看狼人行动，被发现会死亡",
+        "winCondition": "消灭所有狼人"
+      },
+      "tracker": {
+        "id": "tracker",
+        "name": "追踪者",
+        "team": "village",
+        "priority": "P2",
+        "actionTypes": ["NIGHT_TRACK"],
+        "description": "夜晚得知目标访问了谁",
+        "winCondition": "消灭所有狼人"
+      },
+      "watcher": {
+        "id": "watcher",
+        "name": "守望者",
+        "team": "village",
+        "priority": "P2",
+        "actionTypes": ["NIGHT_WATCH"],
+        "description": "夜晚得知谁访问了目标",
+        "winCondition": "消灭所有狼人"
+      },
+      "oracle": {
+        "id": "oracle",
+        "name": "先知",
+        "team": "village",
+        "priority": "P2",
+        "actionTypes": [],
+        "description": "死亡时公开其最后目标身份",
+        "winCondition": "消灭所有狼人"
+      },
+      "mason": {
+        "id": "mason",
+        "name": "共济会",
+        "team": "village",
+        "priority": "P2",
+        "actionTypes": [],
+        "description": "共济会成员彼此认识并确认同阵营",
+        "winCondition": "消灭所有狼人"
+      },
+      "roleblocker": {
+        "id": "roleblocker",
+        "name": "酒保",
+        "team": "neutral",
+        "priority": "P2",
+        "actionTypes": ["NIGHT_ROLEBLOCK"],
+        "description": "夜晚阻止目标执行夜晚行动",
+        "winCondition": "存活到游戏结束"
+      }
+    },
+    "p3": {
+      "miller": { "id": "miller", "name": "磨坊主", "team": "village", "priority": "P3" },
+      "godfather": { "id": "godfather", "name": "教父", "team": "werewolf", "priority": "P3" },
+      "alpha_werewolf": { "id": "alpha_werewolf", "name": "狼王", "team": "werewolf", "priority": "P3" },
+      "serial_killer": { "id": "serial_killer", "name": "连环杀手", "team": "neutral", "priority": "P3" },
+      "bus_driver": { "id": "bus_driver", "name": "司机", "team": "neutral", "priority": "P3" },
+      "cult_leader": { "id": "cult_leader", "name": "邪教领袖", "team": "neutral", "priority": "P3" },
+      "werewolf_leader": { "id": "werewolf_leader", "name": "狼人首领", "team": "werewolf", "priority": "P3" },
+      "wolf_witch": { "id": "wolf_witch", "name": "狼人巫师", "team": "werewolf", "priority": "P3" },
+      "wolf_seer": { "id": "wolf_seer", "name": "狼人先知", "team": "werewolf", "priority": "P3" },
+      "wolf_guard": { "id": "wolf_guard", "name": "狼人守卫", "team": "werewolf", "priority": "P3" },
+      "dealer": { "id": "dealer", "name": "黑市商人", "team": "neutral", "priority": "P3" },
+      "arsonist": { "id": "arsonist", "name": "纵火犯", "team": "neutral", "priority": "P3" },
+      "exile": { "id": "exile", "name": "放逐者", "team": "neutral", "priority": "P3" },
+      "trickster": { "id": "trickster", "name": "骗子", "team": "neutral", "priority": "P3" },
+      "avenger": { "id": "avenger", "name": "复仇者", "team": "village", "priority": "P3" },
+      "scapegoat": { "id": "scapegoat", "name": "替罪羊", "team": "village", "priority": "P3" },
+      "priest": { "id": "priest", "name": "牧师", "team": "village", "priority": "P3" },
+      "warder": { "id": "warder", "name": "护符师", "team": "village", "priority": "P3" },
+      "silencer": { "id": "silencer", "name": "沉默者", "team": "werewolf", "priority": "P3" },
+      "shadow": { "id": "shadow", "name": "影子", "team": "neutral", "priority": "P3" },
+      "decoy": { "id": "decoy", "name": "替身", "team": "village", "priority": "P3" }
+    }
+  },
+
+  "nightActionPriority": [
+    { "priority": 1, "roles": ["cupid"], "description": "连结恋人 (仅首夜)" },
+    { "priority": 2, "roles": ["thief"], "description": "交换角色 (仅首夜)" },
+    { "priority": 3, "roles": ["jailer"], "description": "监禁目标" },
+    { "priority": 4, "roles": ["roleblocker"], "description": "阻止目标行动" },
+    { "priority": 5, "roles": ["seer", "sheriff", "detective"], "description": "查验" },
+    { "priority": 6, "roles": ["tracker", "watcher"], "description": "追踪/监视" },
+    { "priority": 7, "roles": ["doctor", "bodyguard", "guardian_angel"], "description": "保护" },
+    { "priority": 8, "roles": ["werewolf"], "description": "击杀" },
+    { "priority": 9, "roles": ["vigilante", "serial_killer"], "description": "射杀/击杀" },
+    { "priority": 10, "roles": ["witch"], "description": "救人/毒杀" },
+    { "priority": 11, "roles": ["piper"], "description": "魅惑" },
+    { "priority": 12, "roles": ["oracle"], "description": "标记" }
+  ],
+
+  "defaultRoleCounts": {
+    "6-7": { "werewolf": 2, "villager": 2, "seer": 1, "doctor": 1 },
+    "8-9": { "werewolf": 2, "villager": 3, "seer": 1, "doctor": 1, "witch": 1 },
+    "10-11": { "werewolf": 3, "villager": 3, "seer": 1, "doctor": 1, "witch": 1, "thief": 1 },
+    "12-14": { "werewolf": 3, "villager": 4, "seer": 1, "doctor": 1, "witch": 1, "hunter": 1, "thief": 1, "piper": 1 },
+    "15-20": { "werewolf": 4, "villager": 5, "seer": 1, "doctor": 1, "witch": 1, "hunter": 1, "bodyguard": 1, "thief": 1, "cupid": 1, "piper": 1 }
+  },
+
+  "rules": {
+    "revealRolesOnDeath": true,
+    "allowDoctorSelfProtect": true,
+    "allowRepeatedProtect": false,
+    "hunterShootOnPoison": false,
+    "dayVoteMajority": true,
+    "leaderEnabled": true,
+    "lastWordsMode": "limit_by_initial_wolves",
+    "lastWordsScope": "day_only",
+    "witchCanSaveSelf": true,
+    "witchSaveFirstNightOnly": false,
+    "protectAgainstPoison": false,
+    "protectAgainstVigilante": true
+  },
+
+  "timing": {
+    "nightActionTime": 30,
+    "discussionTime": 300,
+    "voteTime": 30,
+    "lastWordsTime": 30
+  },
+
+  "settingsSchema": {
+    "revealRolesOnDeath": {
+      "type": "boolean",
+      "label": "死亡公开角色",
+      "description": "玩家死亡时是否公开其角色身份",
+      "default": true
+    },
+    "allowDoctorSelfProtect": {
+      "type": "boolean",
+      "label": "医生可自保",
+      "description": "医生是否可以保护自己",
+      "default": true
+    },
+    "allowRepeatedProtect": {
+      "type": "boolean",
+      "label": "允许连续保护",
+      "description": "是否允许连续两晚保护同一人",
+      "default": false
+    },
+    "hunterShootOnPoison": {
+      "type": "boolean",
+      "label": "猎人被毒可开枪",
+      "description": "猎人被女巫毒死时是否能开枪",
+      "default": false
+    },
+    "dayVoteMajority": {
+      "type": "boolean",
+      "label": "多数票处决",
+      "description": "是否要求得票数严格大于弃票数才可处决",
+      "default": true
+    },
+    "leaderEnabled": {
+      "type": "boolean",
+      "label": "启用领袖机制",
+      "description": "是否启用 Leader 机制决定发言顺序",
+      "default": true
+    },
+    "lastWordsMode": {
+      "type": "select",
+      "label": "遗言名额",
+      "description": "遗言名额规则",
+      "default": "limit_by_initial_wolves",
+      "options": [
+        { "value": "none", "label": "无人有遗言" },
+        { "value": "all", "label": "所有死亡玩家" },
+        { "value": "limit_by_initial_wolves", "label": "等于初始狼人数" }
+      ]
+    },
+    "witchCanSaveSelf": {
+      "type": "boolean",
+      "label": "女巫可自救",
+      "description": "女巫是否可以用救人药水救自己",
+      "default": true
+    },
+    "witchSaveFirstNightOnly": {
+      "type": "boolean",
+      "label": "女巫仅首夜可救",
+      "description": "女巫的救人药水是否仅首夜可使用",
+      "default": false
+    },
+    "nightActionTime": {
+      "type": "number",
+      "label": "夜间行动时间",
+      "description": "每个角色夜间行动的时间限制（秒）",
+      "default": 30,
+      "min": 15,
+      "max": 60
+    },
+    "discussionTime": {
+      "type": "number",
+      "label": "白天讨论时间",
+      "description": "白天讨论阶段的时间限制（秒）",
+      "default": 300,
+      "min": 60,
+      "max": 600
+    },
+    "voteTime": {
+      "type": "number",
+      "label": "投票时间",
+      "description": "投票阶段的时间限制（秒）",
+      "default": 30,
+      "min": 15,
+      "max": 60
+    },
+    "lastWordsTime": {
+      "type": "number",
+      "label": "遗言时间",
+      "description": "遗言发表的时间限制（秒）",
+      "default": 30,
+      "min": 15,
+      "max": 60
+    }
+  }
+}
