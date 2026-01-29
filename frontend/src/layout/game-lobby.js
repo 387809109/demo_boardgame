@@ -130,8 +130,17 @@ export class GameLobby {
       hard: '困难'
     };
 
+    // Determine available modes based on gameType and supportsAI
+    // - singleplayer games: only single player mode
+    // - multiplayer without AI: only multiplayer mode
+    // - multiplayer with AI: both modes
+    const gameType = game.gameType || 'multiplayer';
+    const supportsAI = game.supportsAI !== false;
+    const canPlayOffline = gameType === 'singleplayer' || (gameType === 'multiplayer' && supportsAI);
+    const canPlayOnline = gameType === 'multiplayer';
+
     return `
-      <div class="game-card card" data-game-id="${game.id}" style="cursor: pointer; transition: all var(--transition-fast);">
+      <div class="game-card card" data-game-id="${game.id}" data-can-offline="${canPlayOffline}" style="cursor: pointer; transition: all var(--transition-fast);">
         <div class="card-body">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--spacing-3);">
             <h3 style="margin: 0; font-size: var(--text-xl);">${game.name || game.id}</h3>
@@ -151,7 +160,7 @@ export class GameLobby {
           <div style="display: flex; gap: var(--spacing-4); color: var(--text-tertiary); font-size: var(--text-sm);">
             <span>👥 ${game.minPlayers}-${game.maxPlayers}人</span>
             <span>⏱️ ${game.estimatedTime || 30}分钟</span>
-            ${game.supportsAI ? '<span title="支持 AI 对战">🤖 AI</span>' : ''}
+            ${supportsAI ? '<span title="支持 AI 对战">🤖 AI</span>' : ''}
           </div>
 
           ${game.tags ? `
@@ -170,12 +179,16 @@ export class GameLobby {
         </div>
 
         <div class="card-footer" style="display: flex; gap: var(--spacing-2);">
-          <button class="btn btn-primary btn-sm play-offline-btn" style="flex: 1;" data-game-id="${game.id}">
-            单机游戏
-          </button>
-          <button class="btn btn-secondary btn-sm create-room-btn" data-game-id="${game.id}">
-            创建房间
-          </button>
+          ${canPlayOffline ? `
+            <button class="btn btn-primary btn-sm play-offline-btn" style="flex: 1;" data-game-id="${game.id}">
+              ${gameType === 'singleplayer' ? '开始游戏' : '单机游戏'}
+            </button>
+          ` : ''}
+          ${canPlayOnline ? `
+            <button class="btn ${canPlayOffline ? 'btn-secondary' : 'btn-primary'} btn-sm create-room-btn" style="${canPlayOffline ? '' : 'flex: 1;'}" data-game-id="${game.id}">
+              创建房间
+            </button>
+          ` : ''}
           <button class="btn btn-ghost btn-sm rules-btn" data-game-id="${game.id}" title="查看规则">
             📖
           </button>
@@ -269,11 +282,14 @@ export class GameLobby {
       });
     });
 
-    // Card click
+    // Card click - use default mode based on availability
     this.element.querySelectorAll('.game-card').forEach(card => {
       card.addEventListener('click', () => {
         const gameId = card.dataset.gameId;
-        this.options.onSelectGame?.(gameId, 'offline');
+        const canOffline = card.dataset.canOffline === 'true';
+        // Default to offline if available, otherwise online
+        const mode = canOffline ? 'offline' : 'online';
+        this.options.onSelectGame?.(gameId, mode);
       });
 
       // Hover effect
@@ -326,11 +342,14 @@ export class GameLobby {
       });
     });
 
-    // Card click
+    // Card click - use default mode based on availability
     this.element.querySelectorAll('.game-card').forEach(card => {
       card.addEventListener('click', () => {
         const gameId = card.dataset.gameId;
-        this.options.onSelectGame?.(gameId, 'offline');
+        const canOffline = card.dataset.canOffline === 'true';
+        // Default to offline if available, otherwise online
+        const mode = canOffline ? 'offline' : 'online';
+        this.options.onSelectGame?.(gameId, mode);
       });
 
       // Hover effect

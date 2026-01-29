@@ -105,9 +105,25 @@ Server → Client: `PLAYER_JOINED`, `PLAYER_LEFT`, `GAME_STARTED`, `GAME_STATE_U
 
 Each game in `games/[name]/` contains:
 - `index.js` - Game class extending BoardGame (initialize, processMove, checkGameEnd)
-- `config.json` - Metadata (id, name, minPlayers, maxPlayers, **supportsAI**)
+- `config.json` - Metadata (id, name, minPlayers, maxPlayers, **supportsAI**, **gameType**)
 - `rules.js` - Game-specific validation
 - `ui.js` - Rendering components
+
+### Game Mode Availability Rules
+
+Game modes (single-player vs multiplayer) are determined by `gameType` and `supportsAI` in config.json:
+
+| gameType | supportsAI | Single Player | Multiplayer | Example |
+|----------|------------|---------------|-------------|---------|
+| `"singleplayer"` | N/A | ✅ | ❌ | Solitaire, Puzzle |
+| `"multiplayer"` | `false` | ❌ | ✅ | Werewolf |
+| `"multiplayer"` | `true` | ✅ (vs AI) | ✅ | UNO, Chess |
+
+**Config fields:**
+- `gameType`: `"singleplayer"` or `"multiplayer"` (default: `"multiplayer"`)
+- `supportsAI`: `true` or `false` - whether AI opponents are implemented
+
+**Implementation rule**: The game lobby must enforce these rules - hide or disable unavailable modes based on game config.
 
 **AI Support**: Games can optionally support AI players. Set `"supportsAI": true` in config.json to enable AI features. AI logic is an **optional, non-priority** development item - focus on core game rules and multiplayer first.
 
