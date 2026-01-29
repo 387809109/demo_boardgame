@@ -14,6 +14,19 @@
 | Phase 4: 联机功能 | ✅ 完成 | 房间管理、游戏同步 |
 | Phase 5: 优化与测试 | 🔶 部分完成 | 性能优化、测试 |
 
+### 狼人杀开发进度
+
+| 任务 ID | 描述 | 优先级 | 状态 |
+|---------|------|--------|------|
+| T-F070~073 | 核心框架 (config/index/rules/ui) | P0 | ⬜ 待开发 |
+| T-F076 | P0 基础角色 (6 角色) | P0 | ⬜ 待开发 |
+| T-F077 | P1 进阶角色 (7 角色) | P1 | ⬜ 待开发 |
+| T-F078 | P2 高级角色 (11 角色) | P2 | ⬜ 待开发 |
+| T-F079 | P3 扩展角色 (21 角色) | P3 | ⬜ 待开发 |
+| T-F074~075 | 测试 | P1 | ⬜ 待开发 |
+
+> 详细计划见: `docs/games/werewolf/PLAN.md`
+
 ---
 
 ## Phase 1: 核心框架 (P0)
@@ -308,20 +321,54 @@
 
 ### 3.2 狼人杀游戏 (待开发)
 
-> 注：开发前需先创建 `docs/games/werewolf/RULES.md` AI 规则文档和 `frontend/public/rules/werewolf.html` 用户规则书
+> **文档状态**: ✅ 已完成 (RULES.md + werewolf.html)
+> **详细开发计划**: 见 `docs/games/werewolf/PLAN.md`
+
+#### 核心框架 (P0)
 
 - [ ] **T-F070** 创建狼人杀配置 `games/werewolf/config.json`
+  - 游戏元数据、gameType: "multiplayer"、supportsAI: false
+  - 基础角色配置、settingsSchema
 
 - [ ] **T-F071** 创建狼人杀游戏类 `games/werewolf/index.js`
-  - 角色分配
-  - 夜晚/白天阶段
-  - 投票机制
+  - WerewolfGame extends GameEngine
+  - 阶段管理 (夜晚/白天/投票)
+  - getVisibleState() 信息隐藏
 
-- [ ] **T-F072** 创建狼人杀规则 `games/werewolf/rules.js`
-  - 角色技能
-  - 胜利条件
+- [ ] **T-F072** 创建狼人杀规则基础框架 `games/werewolf/rules.js`
+  - 角色基类和工厂方法
+  - 通用行动/投票验证逻辑
 
 - [ ] **T-F073** 创建狼人杀 UI `games/werewolf/ui.js`
+  - WerewolfUI 类
+  - 夜晚/白天/投票界面
+
+#### 角色实现 (按优先级分批)
+
+- [ ] **T-F076** 实现 P0 基础角色 (6 角色) - **必须首先完成**
+  - 村民 `villager`、狼人 `werewolf`、预言家 `seer`
+  - 医生 `doctor`、猎人 `hunter`、女巫 `witch`
+  - 验收: 基础游戏流程完整、胜利条件正确
+
+- [ ] **T-F077** 实现 P1 进阶角色 (7 角色)
+  - 守卫 `bodyguard`、丘比特 `cupid`、警长 `sheriff`
+  - 私刑者 `vigilante`、白痴 `idiot`、魔笛手 `piper`、队长 `captain`
+  - 验收: 恋人机制、中立阵营胜利条件
+
+- [ ] **T-F078** 实现 P2 高级角色 (11 角色)
+  - 守护天使、狱卒、小偷、侦探、炸弹人、小女孩
+  - 追踪者、守望者、先知、共济会、酒保
+  - 验收: 复杂交互正确
+
+- [ ] **T-F079** 实现 P3 扩展角色 (21 角色)
+  - 磨坊主、教父、狼王、连环杀手、司机、邪教领袖等
+  - 狼人阵营扩展角色 (狼人首领/巫师/先知/守卫)
+  - 验收: 所有角色可用
+
+#### 测试
+
+- [ ] **T-F074** P0 角色单元测试 (依赖 T-F076)
+- [ ] **T-F075** 集成测试 - 完整游戏流程 (依赖 T-F073)
 
 ---
 

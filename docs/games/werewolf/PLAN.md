@@ -28,20 +28,21 @@
 
 ## 开发阶段
 
-### Phase 1: 游戏核心 (P0)
+### Phase 1: 游戏核心框架
 
-| 任务 ID | 描述 | 依赖 | 预估工作量 |
-|---------|------|------|-----------|
-| T-F070 | 创建 `games/werewolf/config.json` | RULES.md | 小 |
-| T-F071 | 创建 `games/werewolf/index.js` 游戏类 | T-F070 | 大 |
-| T-F072 | 创建 `games/werewolf/rules.js` 规则验证 | T-F071 | 中 |
+| 任务 ID | 描述 | 依赖 | 优先级 | 状态 |
+|---------|------|------|--------|------|
+| T-F070 | 创建 `games/werewolf/config.json` | RULES.md | P0 | 待开发 |
+| T-F071 | 创建 `games/werewolf/index.js` 游戏类 | T-F070 | P0 | 待开发 |
+| T-F072 | 创建 `games/werewolf/rules.js` 规则基础框架 | T-F071 | P0 | 待开发 |
+| T-F073 | 创建 `games/werewolf/ui.js` UI 框架 | T-F071 | P0 | 待开发 |
 
 **T-F070: config.json**
 ```
 - 游戏元数据 (id, name, minPlayers, maxPlayers)
-- 角色配置
+- gameType: "multiplayer", supportsAI: false
 - settingsSchema (游戏选项)
-- supportsAI: false (初期不支持)
+- 基础角色配置 (P0 角色)
 ```
 
 **T-F071: index.js (WerewolfGame 类)**
@@ -50,41 +51,153 @@
 - processMove(move, state) - 处理各类行动
 - checkGameEnd(state) - 胜利条件检查
 - validateMove(move, state) - 行动合法性验证
-- getVisibleState(playerId) - 玩家可见状态 (隐藏其他玩家角色)
+- getVisibleState(playerId) - 玩家可见状态
 - 阶段管理 (夜晚/白天/投票)
 ```
 
-**T-F072: rules.js**
+**T-F072: rules.js 基础框架**
 ```
-- 角色定义和能力
-- 行动验证逻辑
+- 角色基类和工厂方法
+- 通用行动验证逻辑
 - 死亡结算逻辑
 - 投票计算逻辑
 ```
 
-### Phase 2: UI 实现 (P0)
-
-| 任务 ID | 描述 | 依赖 | 预估工作量 |
-|---------|------|------|-----------|
-| T-F073 | 创建 `games/werewolf/ui.js` | T-F071 | 大 |
-
 **T-F073: ui.js (WerewolfUI 类)**
 ```
 - render(state, playerId, onAction) - 主渲染
-- renderNightPhase() - 夜晚界面 (角色行动)
-- renderDayPhase() - 白天界面 (讨论/投票)
-- renderRoleInfo() - 角色信息展示
-- renderPlayerList() - 玩家列表 (存活/死亡状态)
-- renderVotePanel() - 投票面板
-- renderActionPanel() - 角色行动面板
+- renderNightPhase() - 夜晚界面
+- renderDayPhase() - 白天界面
+- renderRoleInfo() / renderPlayerList()
+- renderVotePanel() / renderActionPanel()
 ```
 
-### Phase 3: 测试 (P1)
+---
 
-| 任务 ID | 描述 | 依赖 | 预估工作量 |
-|---------|------|------|-----------|
-| T-F074 | 单元测试 | T-F072 | 中 |
-| T-F075 | 集成测试 | T-F073 | 中 |
+### Phase 2: 角色实现 (按优先级分批)
+
+#### P0 角色 - 基础必备 (6 角色)
+
+| 任务 ID | 描述 | 依赖 | 状态 |
+|---------|------|------|------|
+| T-F076 | 实现 P0 基础角色 | T-F072 | 待开发 |
+
+**T-F076 包含角色:**
+| 角色 | ID | 阵营 | 能力 |
+|------|-----|------|------|
+| 村民 | `villager` | village | 无特殊能力 |
+| 狼人 | `werewolf` | werewolf | 夜晚合议击杀 |
+| 预言家 | `seer` | village | 夜晚查验身份 |
+| 医生 | `doctor` | village | 夜晚保护一人 |
+| 猎人 | `hunter` | village | 死亡时反杀 |
+| 女巫 | `witch` | village | 救人/毒杀各一次 |
+
+**验收标准:**
+- [ ] 6 个 P0 角色全部可用
+- [ ] 基础游戏流程完整 (夜晚→白天→投票→循环)
+- [ ] 胜利条件正确判定
+- [ ] 单元测试覆盖所有 P0 角色
+
+---
+
+#### P1 角色 - 进阶扩展 (7 角色)
+
+| 任务 ID | 描述 | 依赖 | 状态 |
+|---------|------|------|------|
+| T-F077 | 实现 P1 进阶角色 | T-F076 | 待开发 |
+
+**T-F077 包含角色:**
+| 角色 | ID | 阵营 | 能力 |
+|------|-----|------|------|
+| 守卫 | `bodyguard` | village | 保护目标免于击杀 |
+| 丘比特 | `cupid` | neutral | 首夜连结恋人 |
+| 警长 | `sheriff` | village | 查验返回可疑/无辜 |
+| 私刑者 | `vigilante` | village | 夜晚射杀一人 |
+| 白痴 | `idiot` | neutral | 被投票处决时胜利 |
+| 魔笛手 | `piper` | neutral | 魅惑全体则胜 |
+| 队长 | `captain` | village | 加倍票权 |
+
+**验收标准:**
+- [ ] 7 个 P1 角色全部可用
+- [ ] 恋人机制正确实现
+- [ ] 中立阵营胜利条件正确
+- [ ] 单元测试覆盖所有 P1 角色
+
+---
+
+#### P2 角色 - 高级扩展 (11 角色)
+
+| 任务 ID | 描述 | 依赖 | 状态 |
+|---------|------|------|------|
+| T-F078 | 实现 P2 高级角色 | T-F077 | 待开发 |
+
+**T-F078 包含角色:**
+| 角色 | ID | 阵营 | 能力 |
+|------|-----|------|------|
+| 守护天使 | `guardian_angel` | village | 保护防止攻击 |
+| 狱卒 | `jailer` | village | 监禁并阻止行动 |
+| 小偷 | `thief` | neutral | 首夜交换角色 |
+| 侦探 | `detective` | village | 比较两人阵营 |
+| 炸弹人 | `bomb` | neutral | 被击杀时反杀 |
+| 小女孩 | `little_girl` | village | 偷看狼人 |
+| 追踪者 | `tracker` | village | 得知目标访问了谁 |
+| 守望者 | `watcher` | village | 得知谁访问了目标 |
+| 先知 | `oracle` | village | 死亡时公开目标身份 |
+| 共济会 | `mason` | village | 互相认识 |
+| 酒保 | `roleblocker` | neutral | 阻止目标行动 |
+
+**验收标准:**
+- [ ] 11 个 P2 角色全部可用
+- [ ] 复杂交互正确 (监禁+阻止、追踪+守望)
+- [ ] 单元测试覆盖所有 P2 角色
+
+---
+
+#### P3 角色 - 后续扩展 (17 角色)
+
+| 任务 ID | 描述 | 依赖 | 状态 |
+|---------|------|------|------|
+| T-F079 | 实现 P3 扩展角色 | T-F078 | 待开发 |
+
+**T-F079 包含角色:**
+| 角色 | ID | 阵营 |
+|------|-----|------|
+| 磨坊主 | `miller` | village |
+| 教父 | `godfather` | werewolf |
+| 狼王 | `alpha_werewolf` | werewolf |
+| 连环杀手 | `serial_killer` | neutral |
+| 司机 | `bus_driver` | neutral |
+| 邪教领袖 | `cult_leader` | neutral |
+| 狼人首领 | `werewolf_leader` | werewolf |
+| 狼人巫师 | `wolf_witch` | werewolf |
+| 狼人先知 | `wolf_seer` | werewolf |
+| 狼人守卫 | `wolf_guard` | werewolf |
+| 黑市商人 | `dealer` | neutral |
+| 纵火犯 | `arsonist` | neutral |
+| 放逐者 | `exile` | neutral |
+| 骗子 | `trickster` | neutral |
+| 复仇者 | `avenger` | village |
+| 替罪羊 | `scapegoat` | village |
+| 牧师 | `priest` | village |
+| 护符师 | `warder` | village |
+| 沉默者 | `silencer` | werewolf |
+| 影子 | `shadow` | neutral |
+| 替身 | `decoy` | village |
+
+**验收标准:**
+- [ ] 所有 P3 角色可用
+- [ ] 复杂阵营交互正确
+- [ ] 单元测试覆盖
+
+---
+
+### Phase 3: 测试与优化
+
+| 任务 ID | 描述 | 依赖 | 优先级 | 状态 |
+|---------|------|------|--------|------|
+| T-F074 | P0 角色单元测试 | T-F076 | P0 | 待开发 |
+| T-F075 | 集成测试 (完整游戏流程) | T-F073 | P1 | 待开发 |
+| T-F080 | P1-P3 角色单元测试 | T-F077+ | P2 | 待开发 |
 
 ---
 
