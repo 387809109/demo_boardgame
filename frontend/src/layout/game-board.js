@@ -16,6 +16,7 @@ export class GameBoard {
    * @param {string} options.playerId - Current player ID
    * @param {Function} options.onAction - Called when player takes action
    * @param {Function} options.onLeave - Called when leaving game
+   * @param {Function} options.onSendChat - Called when sending chat message
    */
   constructor(options = {}) {
     this.options = options;
@@ -26,6 +27,8 @@ export class GameBoard {
     this.gameUI = null;
     this.avatars = new Map();
     this._lastUnoCalledBy = null; // Track UNO call changes
+    this.chatMessages = [];
+    this.activeTab = 'history'; // 'history' or 'chat'
 
     this._create();
   }
@@ -148,25 +151,91 @@ export class GameBoard {
           </div>
         </main>
 
-        <aside class="history-sidebar" style="
-          width: 220px;
+        <aside class="right-sidebar" style="
+          width: 240px;
           background: var(--bg-primary);
           border-left: 1px solid var(--border-light);
-          padding: var(--spacing-4);
           display: flex;
           flex-direction: column;
           overflow: hidden;
         ">
-          <h4 style="margin: 0 0 var(--spacing-3) 0; font-size: var(--text-sm); color: var(--text-secondary); flex-shrink: 0;">历史记录</h4>
-          <div class="history-list" style="
-            flex: 1;
-            overflow-y: auto;
-            overflow-x: hidden;
-            font-size: var(--text-sm);
-            color: var(--text-secondary);
-            min-height: 0;
+          <div class="sidebar-tabs" style="
+            display: flex;
+            border-bottom: 1px solid var(--border-light);
+            flex-shrink: 0;
           ">
-            ${this._renderHistory()}
+            <button class="sidebar-tab ${this.activeTab === 'history' ? 'active' : ''}" data-tab="history" style="
+              flex: 1;
+              padding: var(--spacing-3);
+              border: none;
+              background: ${this.activeTab === 'history' ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
+              color: ${this.activeTab === 'history' ? 'var(--primary-500)' : 'var(--text-secondary)'};
+              font-size: var(--text-sm);
+              font-weight: var(--font-medium);
+              cursor: pointer;
+              border-bottom: 2px solid ${this.activeTab === 'history' ? 'var(--primary-500)' : 'transparent'};
+              transition: all 0.2s;
+            ">历史</button>
+            <button class="sidebar-tab ${this.activeTab === 'chat' ? 'active' : ''}" data-tab="chat" style="
+              flex: 1;
+              padding: var(--spacing-3);
+              border: none;
+              background: ${this.activeTab === 'chat' ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
+              color: ${this.activeTab === 'chat' ? 'var(--primary-500)' : 'var(--text-secondary)'};
+              font-size: var(--text-sm);
+              font-weight: var(--font-medium);
+              cursor: pointer;
+              border-bottom: 2px solid ${this.activeTab === 'chat' ? 'var(--primary-500)' : 'transparent'};
+              transition: all 0.2s;
+            ">聊天</button>
+          </div>
+
+          <div class="tab-content history-panel" style="
+            flex: 1;
+            display: ${this.activeTab === 'history' ? 'flex' : 'none'};
+            flex-direction: column;
+            overflow: hidden;
+            padding: var(--spacing-3);
+          ">
+            <div class="history-list" style="
+              flex: 1;
+              overflow-y: auto;
+              overflow-x: hidden;
+              font-size: var(--text-sm);
+              color: var(--text-secondary);
+              min-height: 0;
+            ">
+              ${this._renderHistory()}
+            </div>
+          </div>
+
+          <div class="tab-content chat-panel" style="
+            flex: 1;
+            display: ${this.activeTab === 'chat' ? 'flex' : 'none'};
+            flex-direction: column;
+            overflow: hidden;
+          ">
+            <div class="chat-messages" style="
+              flex: 1;
+              overflow-y: auto;
+              padding: var(--spacing-3);
+              display: flex;
+              flex-direction: column;
+              gap: var(--spacing-2);
+              min-height: 0;
+            ">
+              ${this._renderChatMessages()}
+            </div>
+            <div class="chat-input-area" style="
+              padding: var(--spacing-3);
+              border-top: 1px solid var(--border-light);
+              display: flex;
+              gap: var(--spacing-2);
+              flex-shrink: 0;
+            ">
+              <input type="text" class="input chat-input" placeholder="发送消息..." style="flex: 1; font-size: var(--text-sm);">
+              <button class="btn btn-primary btn-sm send-chat-btn">发送</button>
+            </div>
           </div>
         </aside>
       </div>
@@ -333,6 +402,74 @@ export class GameBoard {
   }
 
   /**
+   * Render chat messages
+   * @private
+   */
+  _renderChatMessages() {
+    if (this.chatMessages.length === 0) {
+      return '<p style="color: var(--text-tertiary); text-align: center; font-size: var(--text-sm);">暂无消息</p>';
+    }
+
+    return this.chatMessages.map(msg => this._renderChatMessage(msg)).join('');
+  }
+
+  /**
+   * Render a single chat message
+   * @private
+   */
+  _renderChatMessage(msg) {
+    const isSystem = msg.playerId === 'system';
+    const isSelf = msg.playerId === this.playerId;
+
+    if (isSystem) {
+      return `
+        <div style="text-align: center; color: var(--text-tertiary); font-size: var(--text-xs);">
+          ${this._escapeHtml(msg.message)}
+        </div>
+      `;
+    }
+
+    return `
+      <div style="${isSelf ? 'text-align: right;' : ''}">
+        <span style="font-size: var(--text-xs); color: var(--text-secondary);">
+          ${msg.nickname || this._getPlayerName(msg.playerId)}
+        </span>
+        <div style="
+          display: inline-block;
+          padding: var(--spacing-2) var(--spacing-3);
+          background: ${isSelf ? 'var(--primary-500)' : 'var(--bg-tertiary)'};
+          color: ${isSelf ? 'white' : 'var(--text-primary)'};
+          border-radius: var(--radius-base);
+          max-width: 180px;
+          word-break: break-word;
+          font-size: var(--text-sm);
+        ">${this._escapeHtml(msg.message)}</div>
+      </div>
+    `;
+  }
+
+  /**
+   * Escape HTML to prevent XSS
+   * @private
+   */
+  _escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  /**
+   * Scroll chat to bottom
+   * @private
+   */
+  _scrollChatToBottom() {
+    const container = this.element.querySelector('.chat-messages');
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+
+  /**
    * Render a history action with details
    * @private
    */
@@ -450,6 +587,59 @@ export class GameBoard {
       const gameId = this.game?.config?.id || 'uno';
       window.open(`/rules/${gameId}.html`, '_blank', 'width=900,height=700');
     });
+
+    // Tab switching
+    this.element.querySelectorAll('.sidebar-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabName = tab.dataset.tab;
+        if (tabName && tabName !== this.activeTab) {
+          this.activeTab = tabName;
+          this._updateTabs();
+        }
+      });
+    });
+
+    // Chat input
+    const chatInput = this.element.querySelector('.chat-input');
+    const sendBtn = this.element.querySelector('.send-chat-btn');
+
+    const sendMessage = () => {
+      const message = chatInput?.value.trim();
+      if (message) {
+        this.options.onSendChat?.(message);
+        chatInput.value = '';
+      }
+    };
+
+    sendBtn?.addEventListener('click', sendMessage);
+    chatInput?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+  }
+
+  /**
+   * Update tab UI without full re-render
+   * @private
+   */
+  _updateTabs() {
+    // Update tab buttons
+    this.element.querySelectorAll('.sidebar-tab').forEach(tab => {
+      const isActive = tab.dataset.tab === this.activeTab;
+      tab.style.background = isActive ? 'var(--bg-primary)' : 'var(--bg-secondary)';
+      tab.style.color = isActive ? 'var(--primary-500)' : 'var(--text-secondary)';
+      tab.style.borderBottom = `2px solid ${isActive ? 'var(--primary-500)' : 'transparent'}`;
+    });
+
+    // Show/hide panels
+    const historyPanel = this.element.querySelector('.history-panel');
+    const chatPanel = this.element.querySelector('.chat-panel');
+    if (historyPanel) historyPanel.style.display = this.activeTab === 'history' ? 'flex' : 'none';
+    if (chatPanel) chatPanel.style.display = this.activeTab === 'chat' ? 'flex' : 'none';
+
+    // Scroll chat to bottom when switching to chat tab
+    if (this.activeTab === 'chat') {
+      this._scrollChatToBottom();
+    }
   }
 
   /**
@@ -636,6 +826,36 @@ export class GameBoard {
     this.avatars.forEach(a => a.destroy());
     this.avatars.clear();
     this.element?.remove();
+  }
+
+  /**
+   * Add a chat message
+   * @param {Object} msg - Chat message with playerId, nickname, message
+   */
+  addChatMessage(msg) {
+    this.chatMessages.push(msg);
+
+    const container = this.element.querySelector('.chat-messages');
+    if (container) {
+      // Remove "no messages" placeholder if exists
+      if (this.chatMessages.length === 1) {
+        container.innerHTML = '';
+      }
+      container.insertAdjacentHTML('beforeend', this._renderChatMessage(msg));
+      this._scrollChatToBottom();
+    }
+  }
+
+  /**
+   * Add a system message to chat
+   * @param {string} message
+   */
+  addSystemMessage(message) {
+    this.addChatMessage({
+      playerId: 'system',
+      message,
+      timestamp: Date.now()
+    });
   }
 
   /**

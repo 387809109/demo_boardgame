@@ -208,7 +208,12 @@ class App {
       game,
       playerId: this.playerId,
       onAction: (action) => this._handleGameAction(action),
-      onLeave: () => this._handleLeaveGame()
+      onLeave: () => this._handleLeaveGame(),
+      onSendChat: (message) => {
+        if (this.network?.isConnected()) {
+          this.network.sendChat(message);
+        }
+      }
     });
 
     this.currentView.mount(this.root);
@@ -758,6 +763,8 @@ class App {
 
     net.onMessage('CHAT_MESSAGE_BROADCAST', (data) => {
       if (this.currentView instanceof WaitingRoom) {
+        this.currentView.addChatMessage(data);
+      } else if (this.currentView instanceof GameBoard) {
         this.currentView.addChatMessage(data);
       }
     });
