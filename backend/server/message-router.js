@@ -54,6 +54,9 @@ export class MessageRouter {
       case 'CHAT_MESSAGE':
         this.handleChatMessage(connId, playerId, data);
         break;
+      case 'AI_PLAYER_UPDATE':
+        this.handleAIPlayerUpdate(connId, playerId, data);
+        break;
       case 'PING':
         this.handlePing(connId, playerId);
         break;
@@ -98,6 +101,7 @@ export class MessageRouter {
 
     // Broadcast PLAYER_JOINED to all players in room
     const players = this.roomManager.getPlayers(roomId);
+    const aiPlayers = this.roomManager.getAIPlayers(roomId);
     this.broadcast(roomId, {
       type: 'PLAYER_JOINED',
       timestamp: Date.now(),
@@ -109,7 +113,8 @@ export class MessageRouter {
           id: p.id,
           nickname: p.nickname,
           isHost: p.isHost
-        }))
+        })),
+        aiPlayers
       }
     });
   }
@@ -225,6 +230,48 @@ export class MessageRouter {
   }
 
   /**
+   * Handle AI_PLAYER_UPDATE message
+   * Only host can update AI players
+   * @param {string} connId - Connection ID
+   * @param {string} playerId - Player ID
+   * @param {object} data - Message data
+   */
+  handleAIPlayerUpdate(connId, playerId, data) {
+    const roomId = this.roomManager.findPlayerRoom(playerId);
+    if (!roomId) {
+      this.sendError(connId, playerId, 'GAME_NOT_FOUND', 'Player not in any room', 'warning');
+      return;
+    }
+
+    // Only host can update AI players
+    if (!this.roomManager.isHost(roomId, playerId)) {
+      this.sendError(connId, playerId, 'PERMISSION_DENIED', 'Only host can manage AI players', 'error');
+      return;
+    }
+
+    const { aiPlayers } = data || {};
+    if (!Array.isArray(aiPlayers)) {
+      this.sendError(connId, playerId, 'INVALID_MESSAGE_FORMAT', 'aiPlayers must be an array', 'error');
+      return;
+    }
+
+    // Update AI players in room
+    this.roomManager.setAIPlayers(roomId, aiPlayers);
+
+    info('AI players updated', { roomId, playerId, count: aiPlayers.length });
+
+    // Broadcast to all players in room (including sender for confirmation)
+    this.broadcast(roomId, {
+      type: 'AI_PLAYER_UPDATE',
+      timestamp: Date.now(),
+      playerId: 'server',
+      data: {
+        aiPlayers
+      }
+    });
+  }
+
+  /**
    * Handle CHAT_MESSAGE
    * @param {string} connId - Connection ID
    * @param {string} playerId - Player ID
@@ -317,10 +364,34 @@ export class MessageRouter {
       return;
     }
 
+    // If host left, destroy the room and kick everyone
+    if (result.wasHost) {
+      const players = this.roomManager.getPlayers(roomId);
+
+      // Broadcast ROOM_DESTROYED to all remaining players
+      this.broadcast(roomId, {
+        type: 'ROOM_DESTROYED',
+        timestamp: Date.now(),
+        playerId: 'server',
+        data: {
+          reason: 'host_left',
+          message: '房主已离开，房间已解散'
+        }
+      });
+
+      // Remove all remaining players and delete the room
+      for (const player of players) {
+        this.roomManager.removePlayer(roomId, player.id);
+      }
+
+      info('Room destroyed due to host leaving', { roomId });
+      return;
+    }
+
     // Get remaining players
     const players = this.roomManager.getPlayers(roomId);
 
-    // Broadcast PLAYER_LEFT
+    // Broadcast PLAYER_LEFT (for non-host players leaving)
     this.broadcast(roomId, {
       type: 'PLAYER_LEFT',
       timestamp: Date.now(),
@@ -332,24 +403,9 @@ export class MessageRouter {
           id: p.id,
           nickname: p.nickname,
           isHost: p.isHost
-        })),
-        newHost: result.newHost || null
+        }))
       }
     });
-
-    // If host disconnected during game, end the game
-    if (result.wasHost && wasGameStarted) {
-      this.broadcast(roomId, {
-        type: 'GAME_ENDED',
-        timestamp: Date.now(),
-        playerId: 'server',
-        data: {
-          reason: 'host_disconnected',
-          winner: null,
-          rankings: []
-        }
-      });
-    }
   }
 
   /**

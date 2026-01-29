@@ -8,6 +8,7 @@ const VALID_MESSAGE_TYPES = [
   'START_GAME',
   'GAME_ACTION',
   'CHAT_MESSAGE',
+  'AI_PLAYER_UPDATE',
   'PING'
 ];
 

@@ -678,13 +678,18 @@ class App {
     net.onMessage('PLAYER_JOINED', (data) => {
       this.currentRoom = {
         ...this.currentRoom,
-        players: data.players
+        players: data.players,
+        aiPlayers: data.aiPlayers || this.currentRoom?.aiPlayers || []
       };
 
       if (!this.currentView || !(this.currentView instanceof WaitingRoom)) {
         this._showWaitingRoom();
       } else {
         this.currentView.updatePlayers(data.players);
+        // Sync AI players if provided
+        if (data.aiPlayers) {
+          this.currentView.updateAIPlayers(data.aiPlayers);
+        }
         this.currentView.addSystemMessage(`${data.nickname} 加入了房间`);
       }
     });
@@ -697,6 +702,30 @@ class App {
       if (this.currentView instanceof WaitingRoom) {
         this.currentView.updatePlayers(data.players);
         this.currentView.addSystemMessage(`玩家离开了房间`);
+      }
+    });
+
+    net.onMessage('ROOM_DESTROYED', (data) => {
+      const message = data.message || '房间已解散';
+      showToast(message, 'warning');
+
+      // Disconnect and return to lobby
+      if (this.network) {
+        this.network.disconnect();
+      }
+      this.currentRoom = null;
+      this.currentGame = null;
+      this.showLobby();
+    });
+
+    net.onMessage('AI_PLAYER_UPDATE', (data) => {
+      const aiPlayers = data.aiPlayers || [];
+      if (this.currentRoom) {
+        this.currentRoom.aiPlayers = aiPlayers;
+      }
+
+      if (this.currentView instanceof WaitingRoom) {
+        this.currentView.updateAIPlayers(aiPlayers);
       }
     });
 
@@ -806,12 +835,22 @@ class App {
           isAI: true
         };
 
-        if (!this.currentRoom.aiPlayers) this.currentRoom.aiPlayers = [];
-        this.currentRoom.aiPlayers.push(aiPlayer);
-
+        // WaitingRoom.addAIPlayer handles adding to the room's aiPlayers array
+        // (room object is shared by reference)
         if (this.currentView instanceof WaitingRoom) {
           this.currentView.addAIPlayer(aiPlayer);
           this.currentView.addSystemMessage(`AI 玩家 ${aiCount} 已加入`);
+        } else {
+          // Fallback for non-WaitingRoom contexts
+          if (!this.currentRoom.aiPlayers) this.currentRoom.aiPlayers = [];
+          this.currentRoom.aiPlayers.push(aiPlayer);
+        }
+
+        // Sync AI players to server for other players
+        if (this.network?.isConnected()) {
+          this.network.send('AI_PLAYER_UPDATE', {
+            aiPlayers: this.currentRoom.aiPlayers || []
+          });
         }
       },
       onRemoveAI: () => {
@@ -820,11 +859,23 @@ class App {
           return;
         }
 
-        const removed = this.currentRoom.aiPlayers.pop();
-
+        // WaitingRoom.removeLastAIPlayer handles removing from the room's aiPlayers array
+        // (room object is shared by reference)
         if (this.currentView instanceof WaitingRoom) {
-          this.currentView.removeLastAIPlayer();
-          this.currentView.addSystemMessage(`${removed.nickname} 已移除`);
+          const removed = this.currentView.removeLastAIPlayer();
+          if (removed) {
+            this.currentView.addSystemMessage(`${removed.nickname} 已移除`);
+          }
+        } else {
+          // Fallback for non-WaitingRoom contexts
+          this.currentRoom.aiPlayers.pop();
+        }
+
+        // Sync AI players to server for other players
+        if (this.network?.isConnected()) {
+          this.network.send('AI_PLAYER_UPDATE', {
+            aiPlayers: this.currentRoom.aiPlayers || []
+          });
         }
       }
     });

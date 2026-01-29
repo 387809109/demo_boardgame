@@ -47,6 +47,7 @@ export class RoomManager {
       gameType,
       host: hostId,
       players: [],
+      aiPlayers: [],
       createdAt: Date.now(),
       gameStarted: false
     };
@@ -248,6 +249,32 @@ export class RoomManager {
    */
   getTotalPlayers() {
     return this.playerRooms.size;
+  }
+
+  /**
+   * Get AI players in a room
+   * @param {string} roomId - Room ID
+   * @returns {Array} Array of AI players
+   */
+  getAIPlayers(roomId) {
+    const room = this.rooms.get(roomId);
+    return room ? [...room.aiPlayers] : [];
+  }
+
+  /**
+   * Set AI players for a room
+   * @param {string} roomId - Room ID
+   * @param {Array} aiPlayers - AI players array
+   * @returns {boolean} Success
+   */
+  setAIPlayers(roomId, aiPlayers) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return false;
+    }
+    room.aiPlayers = aiPlayers || [];
+    debug('AI players updated', { roomId, count: room.aiPlayers.length });
+    return true;
   }
 }
 
