@@ -25,6 +25,10 @@ import { UnoUI } from './games/uno/ui.js';
 import unoConfig from './games/uno/config.json';
 import { canPlayCard, COLORS, CARD_TYPES } from './games/uno/rules.js';
 
+import WerewolfGame from './games/werewolf/index.js';
+import werewolfConfig from './games/werewolf/config.json';
+import { WerewolfUI } from './games/werewolf/ui.js';
+
 /**
  * Application class
  */
@@ -61,6 +65,7 @@ class App {
   _init() {
     // Register games
     registerGame('uno', UnoGame, unoConfig);
+    registerGame('werewolf', WerewolfGame, werewolfConfig);
 
     // Generate or load player ID
     this.playerId = loadSessionData('playerId') || this._generatePlayerId();
@@ -144,11 +149,8 @@ class App {
    * @private
    */
   _getGameConfig(gameId) {
-    // For now, we only have UNO
-    if (gameId === 'uno') {
-      return unoConfig;
-    }
-    return { id: gameId, name: gameId, minPlayers: 2, maxPlayers: 4 };
+    const configs = { uno: unoConfig, werewolf: werewolfConfig };
+    return configs[gameId] || { id: gameId, name: gameId, minPlayers: 2, maxPlayers: 4 };
   }
 
   /**
@@ -225,6 +227,9 @@ class App {
     let gameUI = null;
     if (gameType === 'uno') {
       gameUI = new UnoUI();
+      this.currentView.setGameUI(gameUI);
+    } else if (gameType === 'werewolf') {
+      gameUI = new WerewolfUI();
       this.currentView.setGameUI(gameUI);
     }
 
