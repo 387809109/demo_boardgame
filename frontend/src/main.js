@@ -133,7 +133,7 @@ class App {
         if (mode === 'offline') {
           this._startOfflineGame(gameId, settings, aiCount);
         } else {
-          this._showCreateRoomDialog(gameId, settings, gameConfig.supportsAI !== false);
+          this._showCreateRoomDialog(gameId, settings, gameConfig);
         }
       },
       onCancel: () => {
@@ -520,9 +520,34 @@ class App {
    * Show create room dialog
    * @private
    */
-  async _showCreateRoomDialog(gameType, settings = {}, supportsAI = true) {
+  async _showCreateRoomDialog(gameType, settings = {}, gameConfig = {}) {
     const modal = getModal();
     const content = document.createElement('div');
+
+    const minP = gameConfig.minPlayers || 2;
+    const maxP = gameConfig.maxPlayers || 10;
+    const hasRoleSetup = !!gameConfig.defaultRoleCounts;
+
+    // For role-setup games, compute maxPlayers from roleCounts sum
+    let roleTotal = 0;
+    if (hasRoleSetup && settings.roleCounts) {
+      roleTotal = Object.values(settings.roleCounts).reduce((s, v) => s + v, 0);
+    }
+
+    const playerCountHtml = hasRoleSetup
+      ? `<div class="input" style="background: var(--bg-tertiary); cursor: default;">
+           ${roleTotal || minP} 人（由角色配置决定）
+         </div>`
+      : (() => {
+          const playerOptions = Array.from(
+            { length: maxP - minP + 1 },
+            (_, i) => {
+              const n = minP + i;
+              return `<option value="${n}" ${n === minP ? 'selected' : ''}>${n} 人</option>`;
+            }
+          ).join('');
+          return `<select class="input max-players-select">${playerOptions}</select>`;
+        })();
 
     content.innerHTML = `
       <div class="input-group" style="margin-bottom: var(--spacing-4);">
@@ -538,16 +563,8 @@ class App {
         <input type="text" class="input nickname-input" value="${this.config.game.defaultNickname}" placeholder="昵称">
       </div>
       <div class="input-group" style="margin-bottom: var(--spacing-4);">
-        <label class="input-label">玩家上限</label>
-        <select class="input max-players-select">
-          <option value="2">2 人</option>
-          <option value="3">3 人</option>
-          <option value="4" selected>4 人</option>
-          <option value="5">5 人</option>
-          <option value="6">6 人</option>
-          <option value="8">8 人</option>
-          <option value="10">10 人</option>
-        </select>
+        <label class="input-label">玩家人数</label>
+        ${playerCountHtml}
       </div>
       <button class="btn btn-primary create-btn" style="width: 100%;">创建房间</button>
     `;
@@ -558,7 +575,13 @@ class App {
       const serverUrl = content.querySelector('.server-input').value.trim();
       const roomId = content.querySelector('.room-input').value.trim();
       const nickname = content.querySelector('.nickname-input').value.trim();
-      const maxPlayers = parseInt(content.querySelector('.max-players-select').value, 10);
+
+      let maxPlayers;
+      if (hasRoleSetup && settings.roleCounts) {
+        maxPlayers = Object.values(settings.roleCounts).reduce((s, v) => s + v, 0);
+      } else {
+        maxPlayers = parseInt(content.querySelector('.max-players-select')?.value || minP, 10);
+      }
 
       if (!serverUrl || !roomId || !nickname) {
         showToast('请填写所有字段');
@@ -568,7 +591,8 @@ class App {
       modal.hide();
       // Store settings and config for when game starts
       this._pendingGameSettings = settings;
-      this._pendingGameConfig = this._getGameConfig(gameType);
+      this._pendingGameConfig = gameConfig;
+      const supportsAI = gameConfig.supportsAI !== false;
       await this._connectAndCreateRoom(serverUrl, roomId, nickname, gameType, maxPlayers, supportsAI);
     });
   }
@@ -824,11 +848,20 @@ class App {
       playerId: this.playerId,
       onStartGame: () => {
         if (this.network?.isConnected()) {
+          // Verify player count matches required number
+          const humanPlayers = this.currentRoom.players || [];
+          const aiPlayers = this.currentRoom.aiPlayers || [];
+          const totalPlayers = humanPlayers.length + aiPlayers.length;
+          const requiredPlayers = this.currentRoom.maxPlayers || totalPlayers;
+
+          if (totalPlayers !== requiredPlayers) {
+            showToast(`需要 ${requiredPlayers} 名玩家才能开始（当前 ${totalPlayers} 人）`);
+            return;
+          }
+
           // Host initializes the game and sends initial state to all players
           const gameType = this.currentRoom.gameType;
           // Combine human players and AI players
-          const humanPlayers = this.currentRoom.players || [];
-          const aiPlayers = this.currentRoom.aiPlayers || [];
           const allPlayers = [...humanPlayers, ...aiPlayers];
           // Get settings from WaitingRoom (includes any edits made)
           const settings = this.currentView.getGameSettings();

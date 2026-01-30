@@ -5,6 +5,7 @@
 
 import { PlayerAvatar } from '../components/player-avatar.js';
 import { GameSettingsPanel } from '../components/game-settings-panel.js';
+import { RoleSetupPanel } from '../components/role-setup-panel.js';
 import { getCardDisplayText, getColorName, CARD_TYPES } from '../games/uno/rules.js';
 
 /**
@@ -35,6 +36,7 @@ export class GameBoard {
     this.chatMessages = [];
     this.activeTab = 'history'; // 'history', 'chat', or 'settings'
     this.settingsPanel = null;
+    this.roleSetupPanel = null;
 
     this._create();
   }
@@ -512,12 +514,41 @@ export class GameBoard {
     const container = this.element.querySelector('.settings-container');
     if (!container) return;
 
-    // Clean up old panel
+    // Clean up old panels
     if (this.settingsPanel) {
       this.settingsPanel.destroy();
       this.settingsPanel = null;
     }
+    if (this.roleSetupPanel) {
+      this.roleSetupPanel.destroy();
+      this.roleSetupPanel = null;
+    }
 
+    // Mount role setup panel if applicable
+    if (this.gameConfig.defaultRoleCounts && this.gameSettings.roleCounts) {
+      const roleHeader = document.createElement('h4');
+      roleHeader.style.cssText = 'margin: 0 0 var(--spacing-2) 0; font-size: var(--text-sm); color: var(--text-secondary);';
+      roleHeader.textContent = '角色配置';
+      container.appendChild(roleHeader);
+
+      this.roleSetupPanel = new RoleSetupPanel({
+        roles: this.gameConfig.roles,
+        defaultRoleCounts: this.gameConfig.defaultRoleCounts,
+        roleCounts: this.gameSettings.roleCounts,
+        minPlayers: this.gameConfig.minPlayers || 2,
+        maxPlayers: this.gameConfig.maxPlayers || 20,
+        editable: false,
+        compact: true
+      });
+      container.appendChild(this.roleSetupPanel.getElement());
+
+      // Add separator
+      const sep = document.createElement('div');
+      sep.style.cssText = 'border-top: 1px solid var(--border-light); margin: var(--spacing-3) 0;';
+      container.appendChild(sep);
+    }
+
+    // Mount game settings panel
     this.settingsPanel = new GameSettingsPanel({
       gameConfig: this.gameConfig,
       settings: this.gameSettings,
@@ -889,6 +920,10 @@ export class GameBoard {
     if (this.settingsPanel) {
       this.settingsPanel.destroy();
       this.settingsPanel = null;
+    }
+    if (this.roleSetupPanel) {
+      this.roleSetupPanel.destroy();
+      this.roleSetupPanel = null;
     }
     this.element?.remove();
   }

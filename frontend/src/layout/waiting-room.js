@@ -5,6 +5,7 @@
 
 import { PlayerAvatar } from '../components/player-avatar.js';
 import { GameSettingsPanel } from '../components/game-settings-panel.js';
+import { RoleSetupPanel } from '../components/role-setup-panel.js';
 
 /**
  * Waiting Room - Pre-game lobby for multiplayer
@@ -37,6 +38,7 @@ export class WaitingRoom {
     this.chatMessages = [];
     this.avatars = new Map();
     this.settingsPanel = null;
+    this.roleSetupPanel = null;
 
     this._create();
   }
@@ -98,7 +100,7 @@ export class WaitingRoom {
         <div>
           <h2 style="margin: 0; font-size: var(--text-xl);">等待大厅</h2>
           <p style="margin: var(--spacing-1) 0 0 0; opacity: 0.9; font-size: var(--text-sm);">
-            房间 ID: ${this.room.id} | 游戏: ${this.room.gameType} | 人数上限: ${maxPlayers}
+            房间 ID: ${this.room.id} | 游戏: ${this.room.gameType} | 目标人数: ${maxPlayers}
           </p>
         </div>
         <button class="btn btn-secondary leave-btn">离开房间</button>
@@ -144,6 +146,22 @@ export class WaitingRoom {
             </div>
           </div>
 
+          ${this.room.gameConfig?.defaultRoleCounts ? `
+            <div class="card" style="margin-bottom: var(--spacing-4);">
+              <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0;">角色配置</h3>
+                ${!isHost ? `
+                  <span style="font-size: var(--text-xs); color: var(--text-tertiary);">
+                    仅房主可修改
+                  </span>
+                ` : ''}
+              </div>
+              <div class="card-body role-setup-container">
+                <!-- Role setup panel will be mounted here -->
+              </div>
+            </div>
+          ` : ''}
+
           <div class="card" style="margin-bottom: var(--spacing-4);">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <h3 style="margin: 0;">游戏设置</h3>
@@ -159,12 +177,12 @@ export class WaitingRoom {
           </div>
 
           ${isHost ? `
-            <button class="btn btn-primary btn-lg start-game-btn" style="width: 100%;" ${totalPlayers < 2 ? 'disabled' : ''}>
+            <button class="btn btn-primary btn-lg start-game-btn" style="width: 100%;" ${totalPlayers !== maxPlayers ? 'disabled' : ''}>
               开始游戏
             </button>
-            ${totalPlayers < 2 ? `
+            ${totalPlayers !== maxPlayers ? `
               <p style="text-align: center; color: var(--text-secondary); margin-top: var(--spacing-2);">
-                需要至少 2 名玩家才能开始
+                需要 ${maxPlayers} 名玩家才能开始（当前 ${totalPlayers} 人）
               </p>
             ` : ''}
           ` : `
@@ -203,6 +221,7 @@ export class WaitingRoom {
 
     this._renderPlayers();
     this._renderSettings();
+    this._renderRoleSetup();
     this._bindEvents();
     this._scrollChatToBottom();
   }
@@ -239,6 +258,97 @@ export class WaitingRoom {
     });
 
     container.appendChild(this.settingsPanel.getElement());
+  }
+
+  /**
+   * Render role setup panel
+   * @private
+   */
+  _renderRoleSetup() {
+    const gameConfig = this.room.gameConfig;
+    if (!gameConfig?.defaultRoleCounts) return;
+
+    const container = this.element.querySelector('.role-setup-container');
+    if (!container) return;
+
+    if (this.roleSetupPanel) {
+      this.roleSetupPanel.destroy();
+      this.roleSetupPanel = null;
+    }
+
+    const isHost = this.isHost();
+
+    this.roleSetupPanel = new RoleSetupPanel({
+      roles: gameConfig.roles,
+      defaultRoleCounts: gameConfig.defaultRoleCounts,
+      roleCounts: this.room.gameSettings?.roleCounts || null,
+      minPlayers: gameConfig.minPlayers || 2,
+      maxPlayers: gameConfig.maxPlayers || 20,
+      minTotal: this.room.players.length,
+      editable: isHost,
+      onChange: (roleCounts, total) => {
+        if (!this.room.gameSettings) this.room.gameSettings = {};
+        this.room.gameSettings.roleCounts = roleCounts;
+        this.room.maxPlayers = total;
+        this._updateStartButton();
+        this._updateHeaderCounts();
+        this.options.onSettingsChange?.(this.room.gameSettings);
+      }
+    });
+
+    container.appendChild(this.roleSetupPanel.getElement());
+  }
+
+  /**
+   * Update start button state without full re-render
+   * @private
+   */
+  _updateStartButton() {
+    const startBtn = this.element.querySelector('.start-game-btn');
+    if (!startBtn) return;
+
+    const totalPlayers = this.getTotalPlayerCount();
+    const maxPlayers = this.room.maxPlayers || 10;
+    const canStart = totalPlayers === maxPlayers;
+
+    startBtn.disabled = !canStart;
+
+    // Update hint text below button
+    let hint = startBtn.nextElementSibling;
+    if (!canStart) {
+      const hintText = `需要 ${maxPlayers} 名玩家才能开始（当前 ${totalPlayers} 人）`;
+      if (hint && hint.tagName === 'P') {
+        hint.textContent = hintText;
+      } else {
+        hint = document.createElement('p');
+        hint.style.cssText = 'text-align: center; color: var(--text-secondary); margin-top: var(--spacing-2);';
+        hint.textContent = hintText;
+        startBtn.after(hint);
+      }
+    } else if (hint && hint.tagName === 'P') {
+      hint.remove();
+    }
+  }
+
+  /**
+   * Update header counts and player list heading without full re-render
+   * @private
+   */
+  _updateHeaderCounts() {
+    const maxPlayers = this.room.maxPlayers || 10;
+    const totalPlayers = this.getTotalPlayerCount();
+
+    // Update header subtitle
+    const headerP = this.element.querySelector('header p');
+    if (headerP) {
+      headerP.textContent = `房间 ID: ${this.room.id} | 游戏: ${this.room.gameType} | 目标人数: ${maxPlayers}`;
+    }
+
+    // Update player list heading
+    const playerHeading = this.element.querySelector('.card-header h3');
+    if (playerHeading && playerHeading.textContent.includes('玩家列表')) {
+      playerHeading.textContent = `玩家列表 (${totalPlayers}/${maxPlayers})`;
+    }
   }
 
   /**
@@ -382,6 +492,9 @@ export class WaitingRoom {
   updatePlayers(players) {
     this.room.players = players;
     this._render();
+    if (this.roleSetupPanel) {
+      this.roleSetupPanel.setMinTotal(players.length);
+    }
   }
 
   /**
@@ -402,6 +515,13 @@ export class WaitingRoom {
     if (this.settingsPanel) {
       this.settingsPanel.updateSettings(settings);
     }
+    if (settings.roleCounts && this.roleSetupPanel) {
+      this.roleSetupPanel.updateRoleCounts(settings.roleCounts);
+      const total = this.roleSetupPanel.getTotal();
+      this.room.maxPlayers = total;
+      this._updateStartButton();
+      this._updateHeaderCounts();
+    }
   }
 
   /**
@@ -409,7 +529,11 @@ export class WaitingRoom {
    * @returns {Object}
    */
   getGameSettings() {
-    return this.settingsPanel?.getSettings() || this.room.gameSettings || {};
+    const base = this.settingsPanel?.getSettings() || this.room.gameSettings || {};
+    if (this.roleSetupPanel) {
+      base.roleCounts = this.roleSetupPanel.getRoleCounts();
+    }
+    return base;
   }
 
   /**
@@ -476,6 +600,10 @@ export class WaitingRoom {
     if (this.settingsPanel) {
       this.settingsPanel.destroy();
       this.settingsPanel = null;
+    }
+    if (this.roleSetupPanel) {
+      this.roleSetupPanel.destroy();
+      this.roleSetupPanel = null;
     }
     this.element?.remove();
   }

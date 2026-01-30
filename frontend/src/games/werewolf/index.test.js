@@ -263,12 +263,12 @@ describe('WerewolfGame', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('should reject wolf kill targeting a fellow wolf', () => {
+    it('should allow wolf kill targeting a fellow wolf', () => {
       const result = game.validateMove(
         { playerId: 'p1', actionType: ACTION_TYPES.NIGHT_WOLF_KILL, actionData: { targetId: 'p2' } },
         state
       );
-      expect(result.valid).toBe(false);
+      expect(result.valid).toBe(true);
     });
 
     it('should accept seer check on another player', () => {

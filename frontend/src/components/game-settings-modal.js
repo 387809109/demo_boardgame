@@ -3,6 +3,8 @@
  * @module components/game-settings-modal
  */
 
+import { RoleSetupPanel } from './role-setup-panel.js';
+
 /**
  * Game Settings Modal - Configure game options before starting
  */
@@ -20,8 +22,27 @@ export class GameSettingsModal {
     this.mode = options.mode || 'offline';
     this.element = null;
     this.settings = this._getDefaultSettings();
+    this.hasRoleSetup = !!this.gameConfig.defaultRoleCounts;
+    this.roleCounts = null;
+    this.roleSetupPanel = null;
+
+    if (this.hasRoleSetup) {
+      this._initRoleCounts();
+    }
 
     this._create();
+  }
+
+  /**
+   * Initialize roleCounts from smallest-range preset
+   * @private
+   */
+  _initRoleCounts() {
+    const presets = this.gameConfig.defaultRoleCounts;
+    const firstKey = Object.keys(presets)[0];
+    if (firstKey) {
+      this.roleCounts = { ...presets[firstKey] };
+    }
   }
 
   /**
@@ -111,14 +132,24 @@ export class GameSettingsModal {
             </span>
           </div>
 
+          ${this.hasRoleSetup ? `
+            <div class="role-setup-container" style="
+              margin-bottom: var(--spacing-4);
+              padding-bottom: var(--spacing-4);
+              border-bottom: 1px solid var(--border-light);
+            "></div>
+          ` : ''}
+
           ${hasSettings ? `
             <div class="settings-form" style="display: flex; flex-direction: column; gap: var(--spacing-4);">
               ${Object.entries(schema).map(([key, config]) => this._renderSettingField(key, config)).join('')}
             </div>
           ` : `
-            <p style="color: var(--text-secondary); text-align: center; padding: var(--spacing-4);">
-              此游戏暂无可配置选项
-            </p>
+            ${!this.hasRoleSetup ? `
+              <p style="color: var(--text-secondary); text-align: center; padding: var(--spacing-4);">
+                此游戏暂无可配置选项
+              </p>
+            ` : ''}
           `}
 
           ${this.mode === 'offline' && this.gameConfig.supportsAI !== false ? `
@@ -157,6 +188,36 @@ export class GameSettingsModal {
     `;
 
     this._bindEvents();
+    this._mountRoleSetup();
+  }
+
+  /**
+   * Mount role setup panel into container
+   * @private
+   */
+  _mountRoleSetup() {
+    if (!this.hasRoleSetup) return;
+
+    const container = this.element.querySelector('.role-setup-container');
+    if (!container) return;
+
+    if (this.roleSetupPanel) {
+      this.roleSetupPanel.destroy();
+    }
+
+    this.roleSetupPanel = new RoleSetupPanel({
+      roles: this.gameConfig.roles,
+      defaultRoleCounts: this.gameConfig.defaultRoleCounts,
+      roleCounts: this.roleCounts,
+      minPlayers: this.gameConfig.minPlayers || 2,
+      maxPlayers: this.gameConfig.maxPlayers || 20,
+      editable: true,
+      onChange: (roleCounts) => {
+        this.roleCounts = roleCounts;
+      }
+    });
+
+    container.appendChild(this.roleSetupPanel.getElement());
   }
 
   /**
@@ -249,8 +310,13 @@ export class GameSettingsModal {
         ? parseInt(this.element.querySelector('.ai-count-slider')?.value || '1')
         : 0;
 
+      const settings = { ...this.settings };
+      if (this.hasRoleSetup && this.roleCounts) {
+        settings.roleCounts = { ...this.roleCounts };
+      }
+
       this.options.onConfirm?.({
-        settings: { ...this.settings },
+        settings,
         aiCount
       });
       this.destroy();
@@ -319,6 +385,8 @@ export class GameSettingsModal {
    * Destroy and remove from DOM
    */
   destroy() {
+    this.roleSetupPanel?.destroy();
+    this.roleSetupPanel = null;
     this.element?.remove();
     this.element = null;
   }

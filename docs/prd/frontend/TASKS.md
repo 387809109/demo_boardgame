@@ -450,6 +450,18 @@
 
 ---
 
+### 5.3 移动端适配
+
+- [ ] **T-F123** 移动端响应式布局适配
+  - 当前问题：游戏面板左右双栏 (玩家列表侧栏 + 右侧信息栏) 在手机分辨率下遮盖主游戏区域
+  - GameBoard (`layout/game-board.js`): 将三栏布局改为响应式，移动端隐藏侧栏并提供抽屉式切换
+  - WaitingRoom (`layout/waiting-room.js`): 将双栏 (主区域 + 聊天) 改为单栏堆叠布局
+  - 触摸交互优化：按钮尺寸、卡牌点击区域、滑动手势
+  - 添加 viewport meta 和 CSS media queries (`@media (max-width: 768px)`)
+  - 测试目标：iPhone SE (375px) ~ iPad (768px) 宽度范围正常可用
+
+---
+
 ## 文档要求
 
 ### 游戏开发前置文档

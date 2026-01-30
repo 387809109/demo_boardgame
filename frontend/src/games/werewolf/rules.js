@@ -108,9 +108,6 @@ export function validateNightAction(move, state) {
       if (player.roleId !== 'werewolf') {
         return { valid: false, error: '只有狼人可以执行此操作' };
       }
-      if (targetId && state.playerMap[targetId]?.roleId === 'werewolf') {
-        return { valid: false, error: '不能击杀同伴狼人' };
-      }
       break;
     }
     case 'NIGHT_DOCTOR_PROTECT': {

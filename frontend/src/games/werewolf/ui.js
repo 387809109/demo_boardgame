@@ -321,7 +321,6 @@ export class WerewolfUI {
         el.appendChild(this._createInfoBox('选择今晚要击杀的目标'));
         el.appendChild(this._renderPlayerGrid({
           selectable: true,
-          excludeTeam: TEAMS.WEREWOLF,
           onSelect: (targetId) => { this._selectedTarget = targetId; }
         }));
         break;
