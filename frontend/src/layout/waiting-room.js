@@ -507,16 +507,16 @@ export class WaitingRoom {
   }
 
   /**
-   * Update game settings
+   * Update game settings (merges with existing to avoid losing keys like roleCounts)
    * @param {Object} settings - New game settings
    */
   updateGameSettings(settings) {
-    this.room.gameSettings = settings;
+    this.room.gameSettings = { ...this.room.gameSettings, ...settings };
     if (this.settingsPanel) {
-      this.settingsPanel.updateSettings(settings);
+      this.settingsPanel.updateSettings(this.room.gameSettings);
     }
-    if (settings.roleCounts && this.roleSetupPanel) {
-      this.roleSetupPanel.updateRoleCounts(settings.roleCounts);
+    if (this.room.gameSettings.roleCounts && this.roleSetupPanel) {
+      this.roleSetupPanel.updateRoleCounts(this.room.gameSettings.roleCounts);
       const total = this.roleSetupPanel.getTotal();
       this.room.maxPlayers = total;
       this._updateStartButton();
@@ -529,10 +529,14 @@ export class WaitingRoom {
    * @returns {Object}
    */
   getGameSettings() {
-    const base = this.settingsPanel?.getSettings() || this.room.gameSettings || {};
+    const base = this.settingsPanel?.getSettings()
+      || { ...this.room.gameSettings } || {};
     if (this.roleSetupPanel) {
       base.roleCounts = this.roleSetupPanel.getRoleCounts();
     }
+    // Strip internal metadata keys
+    delete base._gameType;
+    delete base._maxPlayers;
     return base;
   }
 

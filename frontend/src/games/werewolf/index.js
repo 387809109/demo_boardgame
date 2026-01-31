@@ -11,7 +11,8 @@ import {
   resolveNightActions,
   calculateVoteResult,
   checkWinConditions,
-  getActiveNightRoles
+  getActiveNightRoles,
+  resolveWolfConsensus
 } from './rules.js';
 import config from './config.json';
 
@@ -109,14 +110,15 @@ export class WerewolfGame extends GameEngine {
     const initialWolfCount = Object.values(playerMap)
       .filter(p => p.team === TEAMS.WEREWOLF).length;
 
-    // Get pending night roles
+    // Build night steps from active roles
     const stateForRoles = {
       playerMap,
       nightActionPriority: config.nightActionPriority,
       roleDefinitions: config.roles
     };
-    const pendingNightRoles = getActiveNightRoles(stateForRoles)
-      .map(r => r.playerId);
+    const nightSteps = this._buildNightSteps(stateForRoles);
+    const pendingNightRoles = nightSteps.length > 0
+      ? [...nightSteps[0].playerIds] : [];
 
     const state = {
       players: players.map(p => ({
@@ -134,6 +136,8 @@ export class WerewolfGame extends GameEngine {
       // Night tracking
       nightActions: {},
       wolfVotes: {},
+      nightSteps,
+      currentNightStep: 0,
       pendingNightRoles,
       protectedLastNight: null,
 
@@ -279,9 +283,8 @@ export class WerewolfGame extends GameEngine {
       case ACTION_TYPES.NIGHT_WITCH_POISON:
       case ACTION_TYPES.NIGHT_SKIP:
         this._collectNightAction(newState, move);
-        if (this._areAllNightActionsCollected(newState)) {
-          this._resolveNight(newState);
-          this._transitionPhase(newState, PHASES.DAY_ANNOUNCE);
+        if (newState.pendingNightRoles.length === 0) {
+          this._advanceNightStep(newState);
         }
         break;
 
@@ -341,9 +344,8 @@ export class WerewolfGame extends GameEngine {
         // Generic night action handler for extensibility (P1-P3 roles)
         if (actionType.startsWith('NIGHT_')) {
           this._collectNightAction(newState, move);
-          if (this._areAllNightActionsCollected(newState)) {
-            this._resolveNight(newState);
-            this._transitionPhase(newState, PHASES.DAY_ANNOUNCE);
+          if (newState.pendingNightRoles.length === 0) {
+            this._advanceNightStep(newState);
           }
         }
         break;
@@ -451,6 +453,10 @@ export class WerewolfGame extends GameEngine {
       winner: state.winner,
       eventLog: isGameEnded ? state.eventLog : [],
       pendingNightRoles: state.pendingNightRoles,
+      nightSteps: state.nightSteps || [],
+      currentNightStep: state.currentNightStep ?? 0,
+      wolfVotes: (viewer?.team === TEAMS.WEREWOLF && state.phase === PHASES.NIGHT)
+        ? state.wolfVotes : {},
       currentSpeaker: state.currentSpeaker,
       speakerQueue: state.speakerQueue,
       deadChat: (viewer && !viewer.alive) || isGameEnded ? state.deadChat : [],
@@ -514,9 +520,12 @@ export class WerewolfGame extends GameEngine {
     state.speakerIndex = -1;
     state.currentSpeaker = null;
 
-    // Populate pending night roles
-    const activeRoles = getActiveNightRoles(state);
-    state.pendingNightRoles = activeRoles.map(r => r.playerId);
+    // Build sequential night steps from active roles
+    const steps = this._buildNightSteps(state);
+    state.nightSteps = steps;
+    state.currentNightStep = 0;
+    state.pendingNightRoles = steps.length > 0
+      ? [...steps[0].playerIds] : [];
 
     this._logEvent(state, 'phase_change', {
       phase: PHASES.NIGHT,
@@ -613,6 +622,77 @@ export class WerewolfGame extends GameEngine {
   }
 
   /**
+   * Build ordered night steps from active roles, grouped by priority
+   * @private
+   * @param {Object} state
+   * @returns {Array<{priority: number, roleId: string, playerIds: string[], label: string}>}
+   */
+  _buildNightSteps(state) {
+    const activeRoles = getActiveNightRoles(state);
+    const steps = [];
+    let prev = null;
+    for (const role of activeRoles) {
+      if (!prev || role.priority !== prev.priority) {
+        steps.push({
+          priority: role.priority,
+          roleId: role.roleId,
+          playerIds: [role.playerId],
+          label: this._getNightStepLabel(role.priority)
+        });
+      } else {
+        steps[steps.length - 1].playerIds.push(role.playerId);
+      }
+      prev = role;
+    }
+    return steps;
+  }
+
+  /**
+   * Get display label for a night step priority
+   * @private
+   */
+  _getNightStepLabel(priority) {
+    const labels = {
+      5: '预言家查验', 7: '医生保护',
+      8: '狼人行动', 10: '女巫行动'
+    };
+    return labels[priority] || '夜间行动';
+  }
+
+  /**
+   * Advance to the next night step after current step's players all submitted
+   * @private
+   */
+  _advanceNightStep(state) {
+    state.currentNightStep++;
+
+    if (state.currentNightStep >= state.nightSteps.length) {
+      // All steps done — resolve & transition
+      this._resolveNight(state);
+      this._transitionPhase(state, PHASES.DAY_ANNOUNCE);
+      return;
+    }
+
+    const nextStep = state.nightSteps[state.currentNightStep];
+    state.pendingNightRoles = [...nextStep.playerIds];
+
+    // When witch step begins, provide wolf target info
+    if (nextStep.roleId === 'witch') {
+      const wolfTarget = resolveWolfConsensus(state);
+      state.dayAnnouncements.push({
+        type: 'witch_night_info',
+        playerId: nextStep.playerIds[0],
+        wolfTarget: wolfTarget || null
+      });
+    }
+
+    this._logEvent(state, 'night_step', {
+      step: state.currentNightStep,
+      label: nextStep.label
+    });
+  }
+
+  /**
    * Collect a night action from a player
    * @private
    */
@@ -659,7 +739,8 @@ export class WerewolfGame extends GameEngine {
   _resolveNight(state) {
     const { deaths, announcements } = resolveNightActions(state);
 
-    state.dayAnnouncements = announcements;
+    // Merge with existing announcements (e.g. witch_night_info added during step advancement)
+    state.dayAnnouncements = [...(state.dayAnnouncements || []), ...announcements];
     state.nightDeaths = deaths;
 
     // Apply deaths and process triggers per-death (cause matters for hunter)

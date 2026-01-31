@@ -64,6 +64,11 @@ export function validateNightAction(move, state) {
     return { valid: false, error: '当前不是夜晚阶段' };
   }
 
+  // Check player belongs to current night step
+  if (!state.pendingNightRoles?.includes(playerId)) {
+    return { valid: false, error: '当前不是你的行动阶段' };
+  }
+
   // Check role matches action
   const roleConfig = _findRoleConfig(player.roleId, state.roleDefinitions);
   if (!roleConfig) {
@@ -131,7 +136,7 @@ export function validateNightAction(move, state) {
         return { valid: false, error: '救人药水仅首夜可用' };
       }
       // Must have a wolf kill victim to save
-      if (!_resolveWolfConsensus(state)) {
+      if (!resolveWolfConsensus(state)) {
         return { valid: false, error: '今晚无人被袭击，无法使用救人药水' };
       }
       break;
@@ -210,7 +215,7 @@ export function resolveNightActions(state) {
   const announcements = [];
 
   // ── Step 1: Resolve wolf consensus ──
-  const wolfTarget = _resolveWolfConsensus(state);
+  const wolfTarget = resolveWolfConsensus(state);
 
   // ── Step 2: Collect all kill events ──
   const kills = [];
@@ -289,16 +294,6 @@ export function resolveNightActions(state) {
     .filter(k => !k.cancelled)
     .map(k => ({ playerId: k.targetId, cause: k.cause }));
 
-  // ── Witch night info — tell the witch who the wolves targeted ──
-  const witchPlayerId = _findPlayerByRole(state, 'witch');
-  if (witchPlayerId) {
-    announcements.push({
-      type: 'witch_night_info',
-      playerId: witchPlayerId,
-      wolfTarget: wolfTarget || null
-    });
-  }
-
   return { deaths, announcements };
 }
 
@@ -308,7 +303,7 @@ export function resolveNightActions(state) {
  * @returns {string|null} Target player ID or null
  */
 export function getWolfTarget(state) {
-  return _resolveWolfConsensus(state);
+  return resolveWolfConsensus(state);
 }
 
 /**
@@ -423,7 +418,7 @@ export function getActiveNightRoles(state) {
  * @param {Object} state
  * @returns {string|null} Target player ID or null (no consensus / tie)
  */
-function _resolveWolfConsensus(state) {
+export function resolveWolfConsensus(state) {
   const wolfVotes = state.wolfVotes || {};
   const voteCounts = {};
 
@@ -492,5 +487,6 @@ export default {
   calculateVoteResult,
   checkWinConditions,
   getActiveNightRoles,
-  getWolfTarget
+  getWolfTarget,
+  resolveWolfConsensus
 };

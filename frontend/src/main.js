@@ -715,11 +715,20 @@ class App {
     const net = this.network;
 
     net.onMessage('PLAYER_JOINED', (data) => {
+      // Preserve existing gameSettings (host is source of truth);
+      // only accept server settings when we have none yet (non-host joining)
+      const existingSettings = this.currentRoom?.gameSettings;
+      const hasLocalSettings = existingSettings
+        && Object.keys(existingSettings).length > 0;
+      const gameSettings = hasLocalSettings
+        ? existingSettings
+        : (data.gameSettings || {});
+
       this.currentRoom = {
         ...this.currentRoom,
         players: data.players,
         aiPlayers: data.aiPlayers || this.currentRoom?.aiPlayers || [],
-        gameSettings: data.gameSettings || this.currentRoom?.gameSettings || {}
+        gameSettings
       };
 
       if (!this.currentView || !(this.currentView instanceof WaitingRoom)) {
@@ -730,11 +739,23 @@ class App {
         if (data.aiPlayers) {
           this.currentView.updateAIPlayers(data.aiPlayers);
         }
-        // Sync game settings if provided
-        if (data.gameSettings) {
+        // Only sync game settings for non-host (who doesn't have settings yet)
+        if (data.gameSettings && !hasLocalSettings) {
           this.currentView.updateGameSettings(data.gameSettings);
         }
         this.currentView.addSystemMessage(`${data.nickname} 加入了房间`);
+
+        // Host re-sends settings so new player receives full room info
+        if (this._isHost() && this.network?.isConnected()) {
+          const settings = this.currentRoom.gameSettings || {};
+          this.network.send('GAME_SETTINGS_UPDATE', {
+            gameSettings: {
+              ...settings,
+              _gameType: this.currentRoom.gameType,
+              _maxPlayers: this.currentRoom.maxPlayers
+            }
+          });
+        }
       }
     });
 
@@ -775,8 +796,32 @@ class App {
 
     net.onMessage('GAME_SETTINGS_UPDATE', (data) => {
       const gameSettings = data.gameSettings || {};
+      const metaGameType = gameSettings._gameType;
+      const metaMaxPlayers = gameSettings._maxPlayers;
+
       if (this.currentRoom) {
         this.currentRoom.gameSettings = gameSettings;
+
+        // Non-host: upgrade room info from metadata when gameType is unknown
+        if (metaGameType && this.currentRoom.gameType === 'unknown') {
+          this.currentRoom.gameType = metaGameType;
+          this.currentRoom.gameConfig = this._getGameConfig(metaGameType);
+          this.currentRoom.maxPlayers = metaMaxPlayers
+            || this.currentRoom.gameConfig.maxPlayers;
+          this.currentRoom.supportsAI =
+            !!this.currentRoom.gameConfig.supportsAI;
+
+          // Re-create waiting room with full data
+          if (this.currentView instanceof WaitingRoom) {
+            this._showWaitingRoom();
+            return;
+          }
+        }
+
+        // Update maxPlayers from metadata (host may have changed role counts)
+        if (metaMaxPlayers) {
+          this.currentRoom.maxPlayers = metaMaxPlayers;
+        }
       }
 
       if (this.currentView instanceof WaitingRoom) {
@@ -951,16 +996,33 @@ class App {
       onSettingsChange: (settings) => {
         // Update local room settings
         this.currentRoom.gameSettings = settings;
-        // Sync to server for other players
+        // Sync to server for other players (include room metadata)
         if (this.network?.isConnected()) {
           this.network.send('GAME_SETTINGS_UPDATE', {
-            gameSettings: settings
+            gameSettings: {
+              ...settings,
+              _gameType: this.currentRoom.gameType,
+              _maxPlayers: this.currentRoom.maxPlayers
+            }
           });
         }
       }
     });
 
     this.currentView.mount(this.root);
+
+    // Host sends initial GAME_SETTINGS_UPDATE so server persists settings
+    // and late-joining players receive them
+    if (this._isHost() && this.network?.isConnected()) {
+      const settings = this.currentRoom.gameSettings || {};
+      this.network.send('GAME_SETTINGS_UPDATE', {
+        gameSettings: {
+          ...settings,
+          _gameType: this.currentRoom.gameType,
+          _maxPlayers: this.currentRoom.maxPlayers
+        }
+      });
+    }
   }
 
   /**

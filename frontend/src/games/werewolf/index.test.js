@@ -90,17 +90,58 @@ function findRoleConfig(roleId) {
   return configs[roleId] || { team: 'village', actionTypes: [] };
 }
 
-/** Rebuild pendingNightRoles after patching roleMap */
+/** Night step label lookup */
+function getNightStepLabel(priority) {
+  const labels = {
+    5: '预言家查验', 7: '医生保护',
+    8: '狼人行动', 10: '女巫行动'
+  };
+  return labels[priority] || '夜间行动';
+}
+
+/** Rebuild pendingNightRoles and nightSteps after patching roleMap */
 function rebuildPendingNightRoles(state) {
+  const nightPriority = state.nightActionPriority || [];
   const nightRoles = [];
+
   for (const player of Object.values(state.playerMap)) {
     if (!player.alive) continue;
     const cfg = findRoleConfig(player.roleId);
-    if (cfg.actionTypes.some(a => a.startsWith('NIGHT_'))) {
-      nightRoles.push(player.id);
+    if (!cfg.actionTypes.some(a => a.startsWith('NIGHT_'))) continue;
+
+    let priority = 99;
+    for (const entry of nightPriority) {
+      if (entry.roles.includes(player.roleId)) {
+        priority = entry.priority;
+        break;
+      }
     }
+    nightRoles.push({ playerId: player.id, roleId: player.roleId, priority });
   }
-  state.pendingNightRoles = nightRoles;
+
+  nightRoles.sort((a, b) => a.priority - b.priority);
+
+  // Group by priority into steps
+  const steps = [];
+  let prev = null;
+  for (const role of nightRoles) {
+    if (!prev || role.priority !== prev.priority) {
+      steps.push({
+        priority: role.priority,
+        roleId: role.roleId,
+        playerIds: [role.playerId],
+        label: getNightStepLabel(role.priority)
+      });
+    } else {
+      steps[steps.length - 1].playerIds.push(role.playerId);
+    }
+    prev = role;
+  }
+
+  state.nightSteps = steps;
+  state.currentNightStep = 0;
+  state.pendingNightRoles = steps.length > 0
+    ? [...steps[0].playerIds] : [];
 }
 
 /** Find player IDs by role in a state */
@@ -115,16 +156,19 @@ function submitNight(game, playerId, actionType, actionData = {}) {
   return game.executeMove({ playerId, actionType, actionData });
 }
 
-/** Submit all night skips for pending roles */
+/** Submit all night skips for pending roles across all steps */
 function skipAllNightActions(game) {
-  const state = game.getState();
-  const pending = [...state.pendingNightRoles];
-  for (const pid of pending) {
-    game.executeMove({
-      playerId: pid,
-      actionType: ACTION_TYPES.NIGHT_SKIP,
-      actionData: {}
-    });
+  while (game.getState().phase === PHASES.NIGHT) {
+    const state = game.getState();
+    const pending = [...state.pendingNightRoles];
+    if (pending.length === 0) break;
+    for (const pid of pending) {
+      game.executeMove({
+        playerId: pid,
+        actionType: ACTION_TYPES.NIGHT_SKIP,
+        actionData: {}
+      });
+    }
   }
 }
 
@@ -253,6 +297,8 @@ describe('WerewolfGame', () => {
           p5: 'hunter', p6: 'villager'
         }
       }));
+      // Include all night-active players for role-specific validation tests
+      state.pendingNightRoles = ['p1', 'p2', 'p3', 'p4'];
     });
 
     it('should accept wolf kill targeting non-wolf', () => {
@@ -386,6 +432,8 @@ describe('WerewolfGame', () => {
           p5: 'witch', p6: 'hunter', p7: 'villager'
         }
       }));
+      // For witch validation tests, put witch in pendingNightRoles
+      state.pendingNightRoles = ['p5'];
     });
 
     it('should accept witch save when save not used and wolf target exists', () => {
@@ -531,30 +579,29 @@ describe('WerewolfGame', () => {
     });
 
     it('should collect night action and remove from pending', () => {
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+      // Seer is step 0 — submit seer action first
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
       const s = game.getState();
-      expect(s.nightActions.p1).toBeDefined();
-      expect(s.pendingNightRoles).not.toContain('p1');
+      expect(s.nightActions.p3).toBeDefined();
+      expect(s.pendingNightRoles).not.toContain('p3');
     });
 
     it('should transition to day_announce when all night actions collected', () => {
-      // Wolves
+      // Submit in priority order: seer → doctor → wolves
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p3' });
       submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
       submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
-      // Seer
-      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
-      // Doctor
-      submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p3' });
 
       const s = game.getState();
       expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
     });
 
     it('should kill wolf target when unprotected', () => {
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
 
       const s = game.getState();
       expect(s.nightDeaths).toHaveLength(1);
@@ -564,10 +611,10 @@ describe('WerewolfGame', () => {
     });
 
     it('should protect wolf target when doctor protects', () => {
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p6' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
 
       const s = game.getState();
       expect(s.nightDeaths).toHaveLength(0);
@@ -575,10 +622,10 @@ describe('WerewolfGame', () => {
     });
 
     it('should produce seer result announcement', () => {
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
 
       const s = game.getState();
       const seerResult = s.dayAnnouncements.find(a => a.type === 'seer_result');
@@ -589,16 +636,19 @@ describe('WerewolfGame', () => {
     });
 
     it('should result in no death when wolves disagree (tie)', () => {
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
 
       const s = game.getState();
       expect(s.nightDeaths).toHaveLength(0);
     });
 
     it('should track wolf votes separately', () => {
+      // Advance to wolf step first
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
       const s = game.getState();
       expect(s.wolfVotes.p1).toBe('p6');
@@ -623,10 +673,11 @@ describe('WerewolfGame', () => {
     });
 
     it('should save wolf target when witch uses save', () => {
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      // Priority order: seer → doctor → wolves → witch
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
 
       const s = game.getState();
@@ -637,10 +688,10 @@ describe('WerewolfGame', () => {
 
     it('should kill witch poison target bypassing protection', () => {
       // Doctor protects p1 (a wolf), witch poisons p1
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p1' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p1' });
 
       const s = game.getState();
@@ -652,21 +703,21 @@ describe('WerewolfGame', () => {
     });
 
     it('should mark witchPoisonUsed after poisoning', () => {
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p1' });
 
       const s = game.getState();
       expect(s.roleStates.witchPoisonUsed).toBe(true);
     });
 
-    it('should produce witch_night_info announcement', () => {
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+    it('should produce witch_night_info announcement when witch step begins', () => {
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
 
       const s = game.getState();
@@ -690,11 +741,11 @@ describe('WerewolfGame', () => {
           p5: 'hunter', p6: 'villager'
         }
       }));
-      // Complete night with a kill
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      // Complete night with a kill (priority order: seer → doctor → wolves)
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
     });
 
     it('should be in day_announce after night resolves', () => {
@@ -782,11 +833,11 @@ describe('WerewolfGame', () => {
       });
       game = result.game;
 
-      // Complete night (no kill via tie)
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      // Complete night (no kill via tie, priority order)
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
 
       // Advance to vote phase
       game.executeMove({
@@ -865,11 +916,11 @@ describe('WerewolfGame', () => {
         }
       });
 
-      // Kill hunter
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+      // Kill hunter (priority order)
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
 
       const s = game.getState();
       expect(s.hunterPendingShoot).toBe('p5');
@@ -884,10 +935,10 @@ describe('WerewolfGame', () => {
         }
       });
 
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
 
       // Validate hunter can shoot
       const s = game.getState();
@@ -907,10 +958,10 @@ describe('WerewolfGame', () => {
         }
       });
 
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
 
       // Hunter shoots wolf
       game.executeMove({
@@ -937,11 +988,11 @@ describe('WerewolfGame', () => {
         options: { hunterShootOnPoison: false }
       });
 
-      // Wolves kill p7, witch poisons p6 (hunter)
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      // Wolves kill p7, witch poisons p6 (hunter) — priority order
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p6' });
 
       const s = game.getState();
@@ -963,11 +1014,11 @@ describe('WerewolfGame', () => {
         }
       });
 
-      // Kill p6
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      // Kill p6 (priority order)
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
 
       // Dead player sends chat
       game.executeMove({
@@ -1140,11 +1191,11 @@ describe('WerewolfGame', () => {
     });
 
     it('should show seer result only to seer', () => {
-      // Complete night with seer checking p1
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      // Complete night with seer checking p1 (priority order)
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
 
       const seerView = game.getVisibleState('p3');
       const seerAnnouncement = seerView.dayAnnouncements.find(
@@ -1192,11 +1243,11 @@ describe('WerewolfGame', () => {
         }
       });
 
-      // === Night 1: wolves kill p6, doctor protects p3 ===
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      // === Night 1: wolves kill p6, doctor protects p3 (priority order) ===
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p3' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
 
       let s = game.getState();
       expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
@@ -1225,10 +1276,10 @@ describe('WerewolfGame', () => {
       // Should transition to night
       expect(s.phase).toBe(PHASES.NIGHT);
 
-      // === Night 2: wolves kill p3, doctor protects p4 ===
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+      // === Night 2: wolves kill p3, doctor protects p4 (priority order) ===
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p2' });
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p4' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
 
       s = game.getState();
       expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
@@ -1262,11 +1313,11 @@ describe('WerewolfGame', () => {
         }
       });
 
-      // Night 1: wolves kill doctor (p4), no protection
-      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
-      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+      // Night 1: wolves kill doctor (p4), no protection (priority order)
       submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
       submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
 
       // Day 1: execute seer (bad outcome)
       game.executeMove({ playerId: 'p1', actionType: ACTION_TYPES.PHASE_ADVANCE, actionData: {} });
@@ -1292,6 +1343,113 @@ describe('WerewolfGame', () => {
       // 2 wolves vs 1 village (p5 hunter) → wolves win
       expect(s.phase).toBe(PHASES.ENDED);
       expect(s.winner).toBe(TEAMS.WEREWOLF);
+    });
+  });
+
+  // ─── Sequential Night Steps ──────────────────────────────
+
+  describe('sequential night steps', () => {
+    let game;
+
+    beforeEach(() => {
+      ({ game } = setupGame({
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'hunter', p6: 'villager'
+        }
+      }));
+    });
+
+    it('should build nightSteps in priority order', () => {
+      const s = game.getState();
+      expect(s.nightSteps).toHaveLength(3); // seer, doctor, wolves
+      expect(s.nightSteps[0].roleId).toBe('seer');
+      expect(s.nightSteps[0].priority).toBe(5);
+      expect(s.nightSteps[1].roleId).toBe('doctor');
+      expect(s.nightSteps[1].priority).toBe(7);
+      expect(s.nightSteps[2].roleId).toBe('werewolf');
+      expect(s.nightSteps[2].priority).toBe(8);
+    });
+
+    it('should start with only step 0 players in pendingNightRoles', () => {
+      const s = game.getState();
+      expect(s.currentNightStep).toBe(0);
+      expect(s.pendingNightRoles).toEqual(['p3']); // only seer
+    });
+
+    it('should advance to next step after current step completes', () => {
+      // Complete seer step
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+      const s = game.getState();
+      expect(s.phase).toBe(PHASES.NIGHT);
+      expect(s.currentNightStep).toBe(1);
+      expect(s.pendingNightRoles).toEqual(['p4']); // doctor
+    });
+
+    it('should group multiple wolves into one step', () => {
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      const s = game.getState();
+      expect(s.currentNightStep).toBe(2);
+      expect(s.pendingNightRoles).toContain('p1');
+      expect(s.pendingNightRoles).toContain('p2');
+    });
+
+    it('should reject action from player not in current step', () => {
+      // p1 (wolf) tries to act during seer step
+      const s = game.getState();
+      const result = game.validateMove(
+        { playerId: 'p1', actionType: ACTION_TYPES.NIGHT_WOLF_KILL, actionData: { targetId: 'p3' } },
+        s
+      );
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('行动阶段');
+    });
+
+    it('should include wolf votes in visible state for wolves during night', () => {
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+
+      const wolfView = game.getVisibleState('p2');
+      expect(wolfView.wolfVotes.p1).toBe('p6');
+
+      // Non-wolf should not see wolf votes
+      const seerView = game.getVisibleState('p3');
+      expect(seerView.wolfVotes).toEqual({});
+    });
+
+    it('should include nightSteps and currentNightStep in visible state', () => {
+      const visible = game.getVisibleState('p3');
+      expect(visible.nightSteps).toHaveLength(3);
+      expect(visible.currentNightStep).toBe(0);
+    });
+
+    it('should add witch_night_info when witch step begins', () => {
+      const { game: g2 } = setupGame({
+        players: SEVEN_PLAYERS,
+        roleCounts: P0_ROLE_COUNTS_WITH_WITCH,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'witch', p6: 'hunter', p7: 'villager'
+        }
+      });
+
+      // Advance to witch step
+      submitNight(g2, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(g2, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(g2, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(g2, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+
+      // Now in witch step — check state
+      const s = g2.getState();
+      expect(s.phase).toBe(PHASES.NIGHT);
+      expect(s.pendingNightRoles).toEqual(['p5']);
+      const witchInfo = s.dayAnnouncements.find(a => a.type === 'witch_night_info');
+      expect(witchInfo).toBeDefined();
+      expect(witchInfo.wolfTarget).toBe('p7');
     });
   });
 });

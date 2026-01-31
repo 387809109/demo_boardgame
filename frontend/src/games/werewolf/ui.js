@@ -55,6 +55,8 @@ export class WerewolfUI {
     /** @type {string|null} */
     this._selectedTarget = null;
     /** @type {HTMLElement|null} */
+    this._nightActionBtn = null;
+    /** @type {HTMLElement|null} */
     this._container = null;
   }
 
@@ -70,6 +72,7 @@ export class WerewolfUI {
     this.playerId = playerId;
     this.onAction = onAction;
     this._selectedTarget = null;
+    this._nightActionBtn = null;
 
     const container = document.createElement('div');
     container.className = 'ww-game';
@@ -161,13 +164,21 @@ export class WerewolfUI {
       case PHASES.NIGHT: {
         if (!viewer?.alive) break;
         const role = state.myRole?.roleId;
+        const isMyStep = state.pendingNightRoles?.includes(playerId);
         const hasAction = this._roleHasNightAction(role);
-        if (hasAction) {
-          bar.appendChild(this._createButton('确认行动', () => {
+
+        if (hasAction && isMyStep) {
+          const btn = this._createButton('确认行动', () => {
             this._submitNightAction();
-          }, !this._selectedTarget && this._nightActionRequiresTarget(role)));
+          }, this._nightActionRequiresTarget(role));
+          this._nightActionBtn = btn;
+          bar.appendChild(btn);
         } else {
-          bar.appendChild(this._createButton('等待其他玩家...', null, true));
+          const stepLabel = state.nightSteps?.[state.currentNightStep]?.label
+            || '夜晚';
+          bar.appendChild(this._createButton(
+            `等待${stepLabel}...`, null, true
+          ));
         }
         break;
       }
@@ -205,6 +216,7 @@ export class WerewolfUI {
   updateState(state) {
     this.state = state;
     this._selectedTarget = null;
+    this._nightActionBtn = null;
   }
 
   // ─── Role Info ──────────────────────────────────────────────
@@ -314,15 +326,40 @@ export class WerewolfUI {
       return el;
     }
 
+    // Night step progress bar
+    const steps = this.state.nightSteps || [];
+    const currentStep = this.state.currentNightStep ?? 0;
+    if (steps.length > 0) {
+      el.appendChild(this._renderNightProgress(steps, currentStep));
+    }
+
     const role = this.state.myRole?.roleId;
+    const isMyStep = this.state.pendingNightRoles?.includes(this.playerId);
+
+    if (!isMyStep) {
+      const label = steps[currentStep]?.label || '夜晚';
+      el.appendChild(this._createInfoBox(`当前阶段: ${label}，等待行动中...`));
+      return el;
+    }
+
+    const onSelectTarget = (targetId) => {
+      this._selectedTarget = targetId;
+      if (this._nightActionBtn) {
+        this._nightActionBtn.disabled = false;
+        this._nightActionBtn.style.cursor = 'pointer';
+        this._nightActionBtn.style.opacity = '1';
+      }
+    };
 
     switch (role) {
       case 'werewolf':
         el.appendChild(this._createInfoBox('选择今晚要击杀的目标'));
         el.appendChild(this._renderPlayerGrid({
           selectable: true,
-          onSelect: (targetId) => { this._selectedTarget = targetId; }
+          onSelect: onSelectTarget
         }));
+        // Show wolf teammates' votes
+        el.appendChild(this._renderWolfVotes());
         break;
 
       case 'seer':
@@ -330,7 +367,7 @@ export class WerewolfUI {
         el.appendChild(this._renderPlayerGrid({
           selectable: true,
           excludeIds: [this.playerId],
-          onSelect: (targetId) => { this._selectedTarget = targetId; }
+          onSelect: onSelectTarget
         }));
         break;
 
@@ -340,7 +377,7 @@ export class WerewolfUI {
           selectable: true,
           excludeIds: this.state.options?.allowDoctorSelfProtect
             ? [] : [this.playerId],
-          onSelect: (targetId) => { this._selectedTarget = targetId; }
+          onSelect: onSelectTarget
         }));
         break;
 
@@ -355,7 +392,7 @@ export class WerewolfUI {
         break;
     }
 
-    // Skip button for roles with night actions
+    // Skip button for roles with night actions (only when it's their step)
     if (this._roleHasNightAction(role)) {
       const skipBtn = this._createButton('跳过行动', () => {
         this.onAction({
@@ -415,7 +452,7 @@ export class WerewolfUI {
       `;
     } else {
       const targetPlayer = this._findPlayer(wolfTargetId);
-      const targetName = targetPlayer?.nickname || wolfTargetId;
+      const targetName = this._displayName(targetPlayer, wolfTargetId);
       saveSection.innerHTML = `
         <div style="margin-bottom: var(--spacing-2);">
           <span style="
@@ -486,6 +523,111 @@ export class WerewolfUI {
     return el;
   }
 
+  /**
+   * Render night step progress indicator
+   * @private
+   * @param {Array} steps - Night steps
+   * @param {number} currentStep - Current step index
+   * @returns {HTMLElement}
+   */
+  _renderNightProgress(steps, currentStep) {
+    const el = document.createElement('div');
+    el.className = 'ww-night-progress';
+    el.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-1);
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      flex-wrap: wrap;
+    `;
+
+    steps.forEach((step, i) => {
+      if (i > 0) {
+        const arrow = document.createElement('span');
+        arrow.style.cssText = `
+          color: var(--text-tertiary);
+          font-size: var(--text-xs);
+        `;
+        arrow.textContent = '→';
+        el.appendChild(arrow);
+      }
+
+      const isCompleted = i < currentStep;
+      const isActive = i === currentStep;
+      const icon = isCompleted ? '✓' : isActive ? '●' : '○';
+
+      const badge = document.createElement('span');
+      badge.style.cssText = `
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px var(--spacing-2);
+        border-radius: var(--radius-sm);
+        font-size: var(--text-xs);
+        font-weight: ${isActive ? 'var(--font-semibold)' : 'var(--font-normal)'};
+        color: ${isCompleted ? 'var(--text-tertiary)' : isActive ? 'var(--primary-700)' : 'var(--text-secondary)'};
+        background: ${isActive ? 'var(--primary-50)' : 'transparent'};
+        ${isCompleted ? 'text-decoration: line-through;' : ''}
+      `;
+      badge.textContent = `${icon} ${step.label}`;
+      el.appendChild(badge);
+    });
+
+    return el;
+  }
+
+  /**
+   * Render wolf teammates' vote summary
+   * @private
+   * @returns {HTMLElement}
+   */
+  _renderWolfVotes() {
+    const el = document.createElement('div');
+    const wolfVotes = this.state.wolfVotes || {};
+    const voteEntries = Object.entries(wolfVotes)
+      .filter(([id]) => id !== this.playerId);
+
+    if (voteEntries.length === 0) return el;
+
+    el.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      border-left: 3px solid var(--error-500);
+    `;
+
+    const header = document.createElement('div');
+    header.style.cssText = `
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      color: var(--text-secondary);
+      margin-bottom: var(--spacing-1);
+    `;
+    header.textContent = '队友投票:';
+    el.appendChild(header);
+
+    for (const [wolfId, targetId] of voteEntries) {
+      const wolf = this._findPlayer(wolfId);
+      const target = targetId ? this._findPlayer(targetId) : null;
+      const row = document.createElement('div');
+      row.style.cssText = `
+        font-size: var(--text-sm);
+        color: var(--text-primary);
+        padding: 1px 0;
+      `;
+      const wolfName = this._displayName(wolf, wolfId);
+      const targetName = target
+        ? this._displayName(target, targetId) : '未选择';
+      row.textContent = `${wolfName} → ${targetName}`;
+      el.appendChild(row);
+    }
+
+    return el;
+  }
+
   // ─── Day Announce Panel ─────────────────────────────────────
 
   /**
@@ -537,7 +679,7 @@ export class WerewolfUI {
         row.innerHTML = `
           <span style="color: var(--error-500);">✕</span>
           <span style="font-weight: var(--font-medium);">
-            ${player?.nickname || death.playerId}
+            ${this._displayName(player, death.playerId)}
           </span>
           <span style="color: var(--text-tertiary); font-size: var(--text-sm);">
             (${causeText})
@@ -572,7 +714,7 @@ export class WerewolfUI {
         </div>
         <div style="color: var(--text-primary); margin-top: var(--spacing-1);">
           <span style="font-weight: var(--font-medium);">
-            ${target?.nickname || seerResult.targetId}
+            ${this._displayName(target, seerResult.targetId)}
           </span>
           的身份是
           <span style="color: ${teamColor}; font-weight: var(--font-bold);">
@@ -658,7 +800,7 @@ export class WerewolfUI {
         <span style="
           color: ${isCurrent ? 'var(--primary-700)' : 'var(--text-primary)'};
           font-weight: ${isCurrent ? 'var(--font-semibold)' : 'var(--font-normal)'};
-        ">${player?.nickname || speakerId}</span>
+        ">${this._displayName(player, speakerId)}</span>
         ${isCurrent ? '<span style="color: var(--primary-500); font-size: var(--text-xs);">发言中</span>' : ''}
         ${isDone ? '<span style="color: var(--text-tertiary); font-size: var(--text-xs);">已发言</span>' : ''}
       `;
@@ -710,7 +852,7 @@ export class WerewolfUI {
         font-size: var(--text-sm);
       `;
       const names = tiedCandidates
-        .map(id => this._findPlayer(id)?.nickname || id)
+        .map(id => this._displayName(this._findPlayer(id), id))
         .join('、');
       tiedBox.textContent = `平票候选人：${names}`;
       el.appendChild(tiedBox);
@@ -761,9 +903,10 @@ export class WerewolfUI {
           color: var(--text-secondary);
           padding: 2px 0;
         `;
-        row.textContent = target
-          ? `${voter?.nickname || voterId} → ${target?.nickname || targetId}`
-          : `${voter?.nickname || voterId} → 弃票`;
+        const voterName = this._displayName(voter, voterId);
+        const targetName = target
+          ? this._displayName(target, targetId) : '弃票';
+        row.textContent = `${voterName} → ${targetName}`;
         voteBox.appendChild(row);
       }
       el.appendChild(voteBox);
@@ -859,7 +1002,7 @@ export class WerewolfUI {
         <span style="
           flex: 1;
           color: var(--text-primary);
-        ">${player.nickname}</span>
+        ">${this._displayName(player)}</span>
         <span style="
           color: ${teamColor};
           font-weight: var(--font-medium);
@@ -971,7 +1114,8 @@ export class WerewolfUI {
             color: var(--primary-500);
             font-weight: var(--font-medium);
             flex-shrink: 0;
-          ">${msg.nickname}:</span>
+          ">${msg.playerId === this.playerId && msg.nickname
+              ? `${msg.nickname}（我）` : msg.nickname}:</span>
           <span class="ww-dead-chat__text" style="
             color: var(--text-primary);
             word-break: break-all;
@@ -1113,7 +1257,7 @@ export class WerewolfUI {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-        ">${player.nickname}</div>
+        ">${this._displayName(player)}</div>
         ${isWolfTeammate
           ? `<div style="
               font-size: var(--text-xs);
@@ -1214,6 +1358,18 @@ export class WerewolfUI {
   }
 
   /**
+   * Get display name, appending （我） for the current player
+   * @private
+   * @param {Object|null} player - Player object
+   * @param {string} [fallback] - Fallback if player is null
+   * @returns {string}
+   */
+  _displayName(player, fallback = '') {
+    const name = player?.nickname || fallback || '???';
+    return player?.id === this.playerId ? `${name}（我）` : name;
+  }
+
+  /**
    * Get death cause display text
    * @private
    * @param {string} cause
@@ -1280,7 +1436,7 @@ export class WerewolfUI {
           : 'background: var(--bg-tertiary); color: var(--text-primary);'}
     `;
 
-    if (onClick && !disabled) {
+    if (onClick) {
       btn.addEventListener('click', onClick);
     }
 

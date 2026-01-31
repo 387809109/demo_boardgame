@@ -307,7 +307,10 @@ export class GameBoard {
     const unoCalledBy = state?.unoCalledBy;
 
     orderedPlayers.forEach((player, index) => {
-      const avatar = new PlayerAvatar(player);
+      const displayPlayer = player.id === this.playerId
+        ? { ...player, nickname: `${player.nickname}（我）` }
+        : player;
+      const avatar = new PlayerAvatar(displayPlayer);
       avatar.setCurrentTurn(player.id === currentPlayerId);
 
       // Add turn order number
@@ -602,6 +605,32 @@ export class GameBoard {
       case 'CALL_UNO':
         return '<div style="color: var(--error-500); font-weight: var(--font-bold);">UNO!</div>';
 
+      case 'NIGHT_WOLF_KILL':
+      case 'NIGHT_SEER_CHECK':
+      case 'NIGHT_DOCTOR_PROTECT':
+      case 'NIGHT_WITCH_SAVE':
+      case 'NIGHT_WITCH_POISON':
+      case 'NIGHT_SKIP':
+        return '<div style="color: var(--text-tertiary);">提交了夜间行动</div>';
+
+      case 'DAY_VOTE': {
+        const target = actionData?.targetId
+          ? this._getPlayerName(actionData.targetId) : '弃票';
+        return `<div>投票: ${target}</div>`;
+      }
+
+      case 'DAY_SKIP_VOTE':
+        return '<div style="color: var(--text-tertiary);">弃票</div>';
+
+      case 'PHASE_ADVANCE':
+        return '<div style="color: var(--text-tertiary);">确认继续</div>';
+
+      case 'SPEECH_DONE':
+        return '<div>发言结束</div>';
+
+      case 'LAST_WORDS':
+        return '<div>发表了遗言</div>';
+
       default:
         return `<div>${actionType}</div>`;
     }
@@ -674,7 +703,7 @@ export class GameBoard {
     });
 
     this.element.querySelector('.rules-btn')?.addEventListener('click', () => {
-      const gameId = this.game?.config?.id || 'uno';
+      const gameId = this.gameConfig?.id || this.game?.config?.id || 'uno';
       window.open(`/rules/${gameId}.html`, '_blank', 'width=900,height=700');
     });
 
