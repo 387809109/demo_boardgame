@@ -336,6 +336,13 @@ export class WerewolfUI {
     const role = this.state.myRole?.roleId;
     const isMyStep = this.state.pendingNightRoles?.includes(this.playerId);
 
+    // Show seer result if available (revealed immediately after seer confirms)
+    const seerResult = (this.state.dayAnnouncements || [])
+      .find(a => a.type === 'seer_result' && a.playerId === this.playerId);
+    if (seerResult) {
+      el.appendChild(this._renderSeerResult(seerResult));
+    }
+
     if (!isMyStep) {
       const label = steps[currentStep]?.label || '夜晚';
       el.appendChild(this._createInfoBox(`当前阶段: ${label}，等待行动中...`));
@@ -576,6 +583,43 @@ export class WerewolfUI {
       el.appendChild(badge);
     });
 
+    return el;
+  }
+
+  /**
+   * Render seer check result during night
+   * @private
+   * @param {Object} result - { targetId, result (team) }
+   * @returns {HTMLElement}
+   */
+  _renderSeerResult(result) {
+    const target = this._findPlayer(result.targetId);
+    const targetName = this._displayName(target, result.targetId);
+    const isWolf = result.result === TEAMS.WEREWOLF;
+    const teamText = isWolf ? '狼人' : '好人';
+    const teamColor = isWolf ? 'var(--error-500)' : 'var(--success-500)';
+
+    const el = document.createElement('div');
+    el.style.cssText = `
+      padding: var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      border-left: 3px solid ${teamColor};
+    `;
+    el.innerHTML = `
+      <div style="font-weight: var(--font-semibold); color: var(--text-primary);">
+        查验结果
+      </div>
+      <div style="color: var(--text-primary); margin-top: var(--spacing-1);">
+        <span style="font-weight: var(--font-medium);">
+          ${targetName}
+        </span>
+        的身份是
+        <span style="color: ${teamColor}; font-weight: var(--font-bold);">
+          ${teamText}
+        </span>
+      </div>
+    `;
     return el;
   }
 
@@ -1366,7 +1410,24 @@ export class WerewolfUI {
    */
   _displayName(player, fallback = '') {
     const name = player?.nickname || fallback || '???';
-    return player?.id === this.playerId ? `${name}（我）` : name;
+    const id = player?.id || fallback;
+    let display = id === this.playerId ? `${name}（我）` : name;
+
+    if (id && id !== this.playerId) {
+      if (player?.roleId) {
+        // Role visible (teammate, death+reveal, game ended)
+        const roleName = ROLE_NAMES[player.roleId] || player.roleId;
+        display += `（${roleName}）`;
+      } else {
+        // Seer-known identity for players whose role isn't directly visible
+        const seerChecks = this.state?.seerChecks || {};
+        if (seerChecks[id]) {
+          const teamLabel = seerChecks[id] === TEAMS.WEREWOLF ? '狼人' : '好人';
+          display += `（${teamLabel}）`;
+        }
+      }
+    }
+    return display;
   }
 
   /**

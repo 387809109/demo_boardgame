@@ -306,10 +306,27 @@ export class GameBoard {
 
     const unoCalledBy = state?.unoCalledBy;
 
+    const seerChecks = state?.seerChecks || {};
+    const roleNames = {
+      villager: '村民', werewolf: '狼人', seer: '预言家',
+      doctor: '医生', hunter: '猎人', witch: '女巫'
+    };
+
     orderedPlayers.forEach((player, index) => {
-      const displayPlayer = player.id === this.playerId
-        ? { ...player, nickname: `${player.nickname}（我）` }
-        : player;
+      let nickname = player.nickname;
+      if (player.id === this.playerId) {
+        nickname = `${nickname}（我）`;
+      }
+      // Role visible (teammate, death+reveal, game ended)
+      if (player.id !== this.playerId && player.roleId) {
+        nickname += `（${roleNames[player.roleId] || player.roleId}）`;
+      }
+      // Seer-known identity for players whose role isn't directly visible
+      else if (player.id !== this.playerId && seerChecks[player.id]) {
+        const teamLabel = seerChecks[player.id] === 'werewolf' ? '狼人' : '好人';
+        nickname += `（${teamLabel}）`;
+      }
+      const displayPlayer = { ...player, nickname };
       const avatar = new PlayerAvatar(displayPlayer);
       avatar.setCurrentTurn(player.id === currentPlayerId);
 

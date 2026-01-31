@@ -267,6 +267,15 @@
 
 ### 2026-01-31
 
+- ✅ 预言家查验结果即时显示 & 玩家名标注身份
+  - 修改 `games/werewolf/index.js` — 预言家提交查验后立即生成 `seer_result`（不再等到夜间结算）；新增 `seerChecks` 持久字段跨轮次记录查验结果；`getVisibleState()` 仅对预言家暴露 `seerChecks`
+  - 修改 `games/werewolf/rules.js` — 移除 `resolveNightActions` 中的重复 `seer_result` 生成
+  - 修改 `games/werewolf/ui.js` — 夜间面板新增 `_renderSeerResult()` 即时展示查验结果；`_displayName()` 根据 `seerChecks` 为被查验玩家名追加（狼人）/（好人）标注
+  - 修改 `layout/game-board.js` — 左侧玩家列表同样根据 `seerChecks` 追加身份标注
+
+- ✅ 修复玩家名过长被截断为省略号
+  - 修改 `components/player-avatar.js` — 移除 `max-width: 80px`、`overflow: hidden`、`text-overflow: ellipsis` 限制，改用 `word-break: break-word` 允许换行
+
 - ✅ 狼人杀顺序夜间阶段 (Sequential Night Phases)
   - 修改 `games/werewolf/index.js` — 新增 `nightSteps`/`currentNightStep` 状态字段，`_buildNightSteps()`、`_getNightStepLabel()`、`_advanceNightStep()` 方法；按优先级分步执行夜间行动（预言家→医生→狼人→女巫）；女巫阶段开始时注入狼人击杀目标；`getVisibleState()` 暴露 `nightSteps`、`currentNightStep`、`wolfVotes`
   - 修改 `games/werewolf/rules.js` — 导出 `resolveWolfConsensus`；`validateNightAction` 增加 `pendingNightRoles` 步骤校验；`resolveNightActions` 移除 `witch_night_info`（改由引擎在步骤推进时注入）

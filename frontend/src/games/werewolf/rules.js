@@ -244,20 +244,9 @@ export function resolveNightActions(state) {
     }
   }
 
-  // ── Step 4: Resolve seer check ──
-  for (const [actorId, action] of Object.entries(state.nightActions)) {
-    if (action.actionType === 'NIGHT_SEER_CHECK' && action.actionData?.targetId) {
-      const target = state.playerMap[action.actionData.targetId];
-      if (target) {
-        announcements.push({
-          type: 'seer_result',
-          playerId: actorId,
-          targetId: action.actionData.targetId,
-          result: target.team
-        });
-      }
-    }
-  }
+  // ── Step 4: Seer check ──
+  // (seer_result is now added immediately in _collectNightAction;
+  //  no duplicate generation here)
 
   // ── Step 5: Apply protections to kills ──
   // Doctor protection blocks non-bypassing kills

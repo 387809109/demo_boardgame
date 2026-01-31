@@ -163,6 +163,9 @@ export class WerewolfGame extends GameEngine {
       },
       links: {},
 
+      // Seer check results (persists across rounds)
+      seerChecks: {},
+
       // Dead player chat (visible only to dead players)
       deadChat: [],
 
@@ -461,7 +464,8 @@ export class WerewolfGame extends GameEngine {
       speakerQueue: state.speakerQueue,
       deadChat: (viewer && !viewer.alive) || isGameEnded ? state.deadChat : [],
       options: state.options,
-      roleStates: playerId ? this._getVisibleRoleStates(playerId, state) : {}
+      roleStates: playerId ? this._getVisibleRoleStates(playerId, state) : {},
+      seerChecks: viewer?.roleId === 'seer' ? (state.seerChecks || {}) : {}
     };
   }
 
@@ -704,6 +708,21 @@ export class WerewolfGame extends GameEngine {
     // Track wolf votes separately for consensus
     if (actionType === ACTION_TYPES.NIGHT_WOLF_KILL) {
       state.wolfVotes[playerId] = actionData?.targetId || null;
+    }
+
+    // Seer check: immediately reveal target's team to the seer
+    if (actionType === ACTION_TYPES.NIGHT_SEER_CHECK && actionData?.targetId) {
+      const target = state.playerMap[actionData.targetId];
+      if (target) {
+        state.dayAnnouncements.push({
+          type: 'seer_result',
+          playerId,
+          targetId: actionData.targetId,
+          result: target.team
+        });
+        // Persist across rounds for name display
+        state.seerChecks[actionData.targetId] = target.team;
+      }
     }
 
     // Update role states for resource tracking

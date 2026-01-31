@@ -119,11 +119,8 @@ export class PlayerAvatar {
       <div class="avatar-name" style="
         font-size: var(--text-sm);
         color: var(--text-primary);
-        max-width: 80px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
         text-align: center;
+        word-break: break-word;
       ">${this._escapeHtml(this.player.nickname)}</div>
       ${this.isCurrentTurn ? `
         <div style="
