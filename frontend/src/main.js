@@ -14,11 +14,16 @@ import { WaitingRoom } from './layout/waiting-room.js';
 import { GameBoard } from './layout/game-board.js';
 import { SettingsPanel } from './layout/settings-panel.js';
 import { GameResult } from './layout/game-result.js';
+import { AuthPage } from './layout/auth-page.js';
 
 import { getModal } from './components/modal.js';
 import { showNotification, showToast } from './components/notification.js';
 import { showLoading, hideLoading } from './components/loading.js';
 import { GameSettingsModal } from './components/game-settings-modal.js';
+
+import { isCloudAvailable, getSupabaseClient } from './cloud/supabase-client.js';
+import { AuthService } from './cloud/auth.js';
+import { CloudNetworkClient } from './cloud/cloud-network.js';
 
 import UnoGame from './games/uno/index.js';
 import { UnoUI } from './games/uno/ui.js';
@@ -55,6 +60,12 @@ class App {
     /** @type {Object|null} */
     this.currentRoom = null;
 
+    /** @type {'local'|'cloud'} */
+    this.mode = 'local';
+
+    /** @type {AuthService|null} */
+    this.authService = null;
+
     this._init();
   }
 
@@ -67,9 +78,15 @@ class App {
     registerGame('uno', UnoGame, unoConfig);
     registerGame('werewolf', WerewolfGame, werewolfConfig);
 
-    // Generate or load player ID
+    // Generate or load player ID (used for local mode)
     this.playerId = loadSessionData('playerId') || this._generatePlayerId();
     saveSessionData('playerId', this.playerId);
+
+    // Initialize cloud auth if available
+    if (isCloudAvailable()) {
+      this.authService = new AuthService(getSupabaseClient());
+      this.authService.initialize();
+    }
 
     // Show lobby
     this.showLobby();
@@ -106,10 +123,83 @@ class App {
     this.currentView = new GameLobby({
       onSelectGame: (gameId, mode) => this._handleGameSelect(gameId, mode),
       onJoinRoom: () => this._showJoinRoomDialog(),
-      onSettings: () => this._showSettings()
+      onSettings: () => this._showSettings(),
+      cloudAvailable: isCloudAvailable(),
+      serverMode: this.mode,
+      authService: this.authService,
+      onSwitchMode: (newMode) => this._handleSwitchMode(newMode),
+      onLogin: () => this._showAuthPage(),
+      onLogout: () => this._handleLogout()
     });
 
     this.currentView.mount(this.root);
+  }
+
+  /**
+   * Show auth page (login/register)
+   */
+  showAuthPage() {
+    this._showAuthPage();
+  }
+
+  /**
+   * Show auth page
+   * @private
+   */
+  _showAuthPage() {
+    this._clearView();
+
+    this.currentView = new AuthPage({
+      authService: this.authService,
+      onLoginSuccess: (user) => {
+        this.playerId = user.id;
+        this.mode = 'cloud';
+        this.showLobby();
+      },
+      onBack: () => {
+        this.mode = 'local';
+        this.showLobby();
+      }
+    });
+
+    this.currentView.mount(this.root);
+  }
+
+  /**
+   * Handle mode switch (local/cloud)
+   * @private
+   * @param {'local'|'cloud'} newMode
+   */
+  _handleSwitchMode(newMode) {
+    if (newMode === 'cloud') {
+      if (!isCloudAvailable()) {
+        showToast('云端未配置，请设置 Supabase 环境变量');
+        return;
+      }
+      if (!this.authService?.isLoggedIn()) {
+        this._showAuthPage();
+        return;
+      }
+      this.playerId = this.authService.getCurrentUser().id;
+    } else {
+      // Switch back to local — restore local player ID
+      this.playerId = loadSessionData('playerId') || this._generatePlayerId();
+    }
+    this.mode = newMode;
+    this.showLobby();
+  }
+
+  /**
+   * Handle logout
+   * @private
+   */
+  async _handleLogout() {
+    if (this.authService) {
+      await this.authService.logout();
+    }
+    this.mode = 'local';
+    this.playerId = loadSessionData('playerId') || this._generatePlayerId();
+    this.showLobby();
   }
 
   /**
@@ -549,18 +639,28 @@ class App {
           return `<select class="input max-players-select">${playerOptions}</select>`;
         })();
 
+    const isCloud = this.mode === 'cloud';
+    const cloudNickname = isCloud
+      ? (this.authService?.getCurrentUser()?.nickname || '')
+      : '';
+    const defaultNickname = isCloud
+      ? cloudNickname
+      : this.config.game.defaultNickname;
+
     content.innerHTML = `
-      <div class="input-group" style="margin-bottom: var(--spacing-4);">
-        <label class="input-label">服务器地址</label>
-        <input type="text" class="input server-input" value="ws://localhost:7777" placeholder="ws://IP:端口">
-      </div>
+      ${!isCloud ? `
+        <div class="input-group" style="margin-bottom: var(--spacing-4);">
+          <label class="input-label">服务器地址</label>
+          <input type="text" class="input server-input" value="ws://localhost:7777" placeholder="ws://IP:端口">
+        </div>
+      ` : ''}
       <div class="input-group" style="margin-bottom: var(--spacing-4);">
         <label class="input-label">房间 ID</label>
         <input type="text" class="input room-input" value="room-${Date.now().toString(36)}" placeholder="房间ID">
       </div>
       <div class="input-group" style="margin-bottom: var(--spacing-4);">
         <label class="input-label">你的昵称</label>
-        <input type="text" class="input nickname-input" value="${this.config.game.defaultNickname}" placeholder="昵称">
+        <input type="text" class="input nickname-input" value="${defaultNickname}" placeholder="昵称">
       </div>
       <div class="input-group" style="margin-bottom: var(--spacing-4);">
         <label class="input-label">玩家人数</label>
@@ -569,10 +669,13 @@ class App {
       <button class="btn btn-primary create-btn" style="width: 100%;">创建房间</button>
     `;
 
-    modal.show(content, { title: '创建在线房间', width: '360px' });
+    const title = isCloud ? '创建云端房间' : '创建在线房间';
+    modal.show(content, { title, width: '360px' });
 
     content.querySelector('.create-btn').addEventListener('click', async () => {
-      const serverUrl = content.querySelector('.server-input').value.trim();
+      const serverUrl = isCloud
+        ? ''
+        : content.querySelector('.server-input')?.value.trim();
       const roomId = content.querySelector('.room-input').value.trim();
       const nickname = content.querySelector('.nickname-input').value.trim();
 
@@ -583,7 +686,7 @@ class App {
         maxPlayers = parseInt(content.querySelector('.max-players-select')?.value || minP, 10);
       }
 
-      if (!serverUrl || !roomId || !nickname) {
+      if ((!isCloud && !serverUrl) || !roomId || !nickname) {
         showToast('请填写所有字段');
         return;
       }
@@ -605,30 +708,40 @@ class App {
     const modal = getModal();
     const content = document.createElement('div');
 
+    const isCloud = this.mode === 'cloud';
+    const defaultNickname = isCloud
+      ? (this.authService?.getCurrentUser()?.nickname || '')
+      : this.config.game.defaultNickname;
+
     content.innerHTML = `
-      <div class="input-group" style="margin-bottom: var(--spacing-4);">
-        <label class="input-label">服务器地址</label>
-        <input type="text" class="input server-input" value="ws://localhost:7777" placeholder="ws://IP:端口">
-      </div>
+      ${!isCloud ? `
+        <div class="input-group" style="margin-bottom: var(--spacing-4);">
+          <label class="input-label">服务器地址</label>
+          <input type="text" class="input server-input" value="ws://localhost:7777" placeholder="ws://IP:端口">
+        </div>
+      ` : ''}
       <div class="input-group" style="margin-bottom: var(--spacing-4);">
         <label class="input-label">房间 ID</label>
         <input type="text" class="input room-input" placeholder="输入房间ID">
       </div>
       <div class="input-group" style="margin-bottom: var(--spacing-4);">
         <label class="input-label">你的昵称</label>
-        <input type="text" class="input nickname-input" value="${this.config.game.defaultNickname}" placeholder="昵称">
+        <input type="text" class="input nickname-input" value="${defaultNickname}" placeholder="昵称">
       </div>
       <button class="btn btn-primary join-btn" style="width: 100%;">加入房间</button>
     `;
 
-    modal.show(content, { title: '加入在线房间', width: '360px' });
+    const title = isCloud ? '加入云端房间' : '加入在线房间';
+    modal.show(content, { title, width: '360px' });
 
     content.querySelector('.join-btn').addEventListener('click', async () => {
-      const serverUrl = content.querySelector('.server-input').value.trim();
+      const serverUrl = isCloud
+        ? ''
+        : content.querySelector('.server-input')?.value.trim();
       const roomId = content.querySelector('.room-input').value.trim();
       const nickname = content.querySelector('.nickname-input').value.trim();
 
-      if (!serverUrl || !roomId || !nickname) {
+      if ((!isCloud && !serverUrl) || !roomId || !nickname) {
         showToast('请填写所有字段');
         return;
       }
@@ -646,7 +759,11 @@ class App {
     showLoading('连接服务器...');
 
     try {
-      this.network = new NetworkClient(serverUrl);
+      if (this.mode === 'cloud') {
+        this.network = new CloudNetworkClient(getSupabaseClient());
+      } else {
+        this.network = new NetworkClient(serverUrl);
+      }
       this.network.playerId = this.playerId;
 
       await this.network.connect();
@@ -683,7 +800,11 @@ class App {
     showLoading('连接服务器...');
 
     try {
-      this.network = new NetworkClient(serverUrl);
+      if (this.mode === 'cloud') {
+        this.network = new CloudNetworkClient(getSupabaseClient());
+      } else {
+        this.network = new NetworkClient(serverUrl);
+      }
       this.network.playerId = this.playerId;
 
       await this.network.connect();
@@ -845,11 +966,11 @@ class App {
 
     net.onMessage('GAME_STATE_UPDATE', (data) => {
       if (this.currentGame && data.lastAction) {
-        // Apply the action from another player (or AI)
+        // Apply the action from another player (or AI controlled by host)
         const action = data.lastAction;
-        const isAI = this._isAIPlayer(action.playerId);
-        // Execute if not from self (for human players) or not from local AI simulation
-        if (action.playerId !== this.playerId && !isAI) {
+        // Skip only if the action is from ourselves (already applied locally).
+        // AI actions sent by the host must be applied by non-host clients.
+        if (action.playerId !== this.playerId) {
           this.currentGame.executeMove(action);
         }
         // Trigger AI simulation if host and game has AI players

@@ -16,6 +16,12 @@ export class GameLobby {
    * @param {Function} options.onSelectGame - Called when game is selected
    * @param {Function} options.onJoinRoom - Called when joining online room
    * @param {Function} options.onSettings - Called when settings is clicked
+   * @param {boolean} [options.cloudAvailable] - Whether cloud backend is configured
+   * @param {'local'|'cloud'} [options.serverMode] - Current server mode
+   * @param {Object} [options.authService] - AuthService instance
+   * @param {Function} [options.onSwitchMode] - Called when mode is toggled
+   * @param {Function} [options.onLogin] - Called to show login page
+   * @param {Function} [options.onLogout] - Called to logout
    */
   constructor(options = {}) {
     this.options = options;
@@ -55,15 +61,76 @@ export class GameLobby {
     const config = loadConfig();
     const filteredGames = this._filterGames();
 
+    const isCloud = this.options.serverMode === 'cloud';
+    const cloudAvail = this.options.cloudAvailable;
+    const user = this.options.authService?.getCurrentUser?.();
+
     this.element.innerHTML = `
       <header class="lobby-header" style="
         background: var(--gradient-primary);
         color: white;
-        padding: var(--spacing-8) var(--spacing-6);
+        padding: var(--spacing-6) var(--spacing-6) var(--spacing-4);
         text-align: center;
       ">
         <h1 style="margin: 0 0 var(--spacing-2) 0; font-size: var(--text-4xl);">桌游集成客户端</h1>
-        <p style="margin: 0; opacity: 0.9;">选择游戏开始游玩</p>
+        <p style="margin: 0 0 var(--spacing-4) 0; opacity: 0.9;">选择游戏开始游玩</p>
+        ${cloudAvail ? `
+          <div class="mode-switch" style="
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-3);
+            background: rgba(255,255,255,0.15);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-1) var(--spacing-2);
+          ">
+            <button class="mode-btn ${!isCloud ? 'active' : ''}" data-mode="local" style="
+              padding: var(--spacing-2) var(--spacing-4);
+              border: none;
+              border-radius: var(--radius-base);
+              cursor: pointer;
+              font-size: var(--text-sm);
+              background: ${!isCloud ? 'white' : 'transparent'};
+              color: ${!isCloud ? 'var(--primary-600)' : 'rgba(255,255,255,0.8)'};
+              font-weight: ${!isCloud ? '600' : '400'};
+            ">
+              局域网
+            </button>
+            <button class="mode-btn ${isCloud ? 'active' : ''}" data-mode="cloud" style="
+              padding: var(--spacing-2) var(--spacing-4);
+              border: none;
+              border-radius: var(--radius-base);
+              cursor: pointer;
+              font-size: var(--text-sm);
+              background: ${isCloud ? 'white' : 'transparent'};
+              color: ${isCloud ? 'var(--primary-600)' : 'rgba(255,255,255,0.8)'};
+              font-weight: ${isCloud ? '600' : '400'};
+            ">
+              云端
+            </button>
+          </div>
+          ${isCloud && user ? `
+            <div class="user-info" style="
+              margin-top: var(--spacing-3);
+              font-size: var(--text-sm);
+              opacity: 0.9;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: var(--spacing-2);
+            ">
+              <span>${user.nickname || user.email}</span>
+              <button class="logout-btn" style="
+                background: rgba(255,255,255,0.2);
+                border: 1px solid rgba(255,255,255,0.3);
+                color: white;
+                padding: var(--spacing-1) var(--spacing-3);
+                border-radius: var(--radius-sm);
+                cursor: pointer;
+                font-size: var(--text-xs);
+              ">登出</button>
+            </div>
+          ` : ''}
+        ` : ''}
       </header>
 
       <div class="lobby-content" style="
@@ -371,6 +438,21 @@ export class GameLobby {
     // Settings
     this.element.querySelector('.settings-btn')?.addEventListener('click', () => {
       this.options.onSettings?.();
+    });
+
+    // Mode switch (local/cloud)
+    this.element.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+        if (mode !== this.options.serverMode) {
+          this.options.onSwitchMode?.(mode);
+        }
+      });
+    });
+
+    // Logout
+    this.element.querySelector('.logout-btn')?.addEventListener('click', () => {
+      this.options.onLogout?.();
     });
   }
 

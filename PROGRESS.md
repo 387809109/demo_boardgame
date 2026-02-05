@@ -1,6 +1,6 @@
 # 项目进度报告
 
-> 最后更新: 2026-01-31
+> 最后更新: 2026-02-05
 
 ---
 
@@ -9,8 +9,9 @@
 | 模块 | 进度 | 状态 |
 |------|------|------|
 | **前端** | 85% | 🔶 部分完成 |
-| **后端** | 90% | ✅ 基本完成 |
-| **整体** | 87% | 🔶 开发中 |
+| **后端 (本地)** | 90% | ✅ 基本完成 |
+| **后端 (云端)** | 90% | ✅ 基本完成 |
+| **整体** | 85% | 🔶 开发中 |
 
 ---
 
@@ -188,6 +189,63 @@
 
 ---
 
+## 云端后端进度详情
+
+> **设计方案**: Supabase Realtime 替代 WebSocket 服务器 + Supabase Auth 用户系统
+> **详细计划**: `docs/prd/cloud/PLAN.md` | **任务清单**: `docs/prd/cloud/TASKS.md`
+
+### Phase C1: 基础设施 ✅ 完成
+
+| 任务 ID | 描述 | 状态 |
+|---------|------|------|
+| T-C001 | cloud/ 目录结构和 README | ✅ |
+| T-C002 | 数据库迁移 (profiles 表) | ✅ |
+| T-C003 | 前端添加 @supabase/supabase-js | ✅ |
+| T-C004 | 环境变量配置 (.env.example) | ✅ |
+| T-C005 | Supabase 客户端初始化模块 | ✅ |
+
+### Phase C2: 用户认证 ✅ 完成
+
+| 任务 ID | 描述 | 状态 |
+|---------|------|------|
+| T-C010 | AuthService 认证服务 | ✅ |
+| T-C011 | 登录/注册页面 UI | ✅ |
+| T-C012 | main.js 认证流程集成 | ✅ |
+| T-C013 | AuthService 单元测试 | ⬜ |
+
+### Phase C3: CloudNetworkClient ✅ 完成
+
+| 任务 ID | 描述 | 状态 |
+|---------|------|------|
+| T-C020 | CloudNetworkClient 基础结构 | ✅ |
+| T-C021 | Channel 管理 (subscribe/unsubscribe) | ✅ |
+| T-C022 | Presence 房间管理 | ✅ |
+| T-C023 | Broadcast 消息收发 | ✅ |
+| T-C024 | Host 判定和权限逻辑 | ✅ |
+| T-C025 | 完整消息类型实现 | ✅ |
+| T-C026 | CloudNetworkClient 单元测试 | ⬜ |
+
+### Phase C4: 前端集成 ✅ 完成
+
+| 任务 ID | 描述 | 状态 |
+|---------|------|------|
+| T-C030 | 大厅模式切换 UI | ✅ |
+| T-C031 | 创建/加入房间对话框适配 | ✅ |
+| T-C032 | main.js CloudNetworkClient 集成 | ✅ |
+| T-C033 | 大厅用户信息展示 | ✅ |
+| T-C034 | 集成测试 | ✅ |
+
+### Phase C5: 文档更新 🔶 进行中
+
+| 任务 ID | 描述 | 状态 |
+|---------|------|------|
+| T-C040 | 更新 CLAUDE.md | ✅ |
+| T-C041 | 更新 PROGRESS.md | ✅ |
+| T-C042 | 创建 cloud/TASKS.md | ✅ |
+| T-C043 | 更新 PROTOCOL.md | ⬜ |
+
+---
+
 ## 测试覆盖率
 
 ### 前端测试统计 (477 tests passing)
@@ -239,8 +297,8 @@
 
 ### 高优先级
 
-1. **狼人杀手动测试** - UI 渲染及完整游戏流程端到端验证 (T-F075)
-2. **网络性能优化** - 消息压缩、批量发送 (T-F101)
+1. **云端后端单元测试** - AuthService + CloudNetworkClient 单元测试 (T-C013, T-C026)
+2. **狼人杀手动测试** - UI 渲染及完整游戏流程端到端验证 (T-F075)
 3. **集成测试** - 端到端测试 (T-F112)
 
 ### 中优先级
@@ -253,10 +311,11 @@
 ### 低优先级
 
 8. **狼人杀 P2-P3 角色** - 高级及扩展角色 (T-F078, T-F079)
+9. **网络性能优化** - 消息压缩、批量发送 (T-F101)
 
 ### 可选功能 (Optional)
 
-9. **桌面应用打包** - Electron 打包为独立可执行文件 (T-F120-T-F122)
+10. **桌面应用打包** - Electron 打包为独立可执行文件 (T-F120-T-F122)
    - 用户无需安装编程环境即可运行
    - 支持 Windows/macOS/Linux
    - 推荐方案：Electron (~150MB)，轻量方案：Tauri (~15MB)
@@ -264,6 +323,31 @@
 ---
 
 ## 最近完成的任务
+
+### 2026-02-05
+
+- ✅ 云端后端实现 (Phase C1~C4 完成，手动测试通过)
+  - **Phase C1 基础设施**: `cloud/` 目录、数据库迁移 SQL、`@supabase/supabase-js` 依赖、`.env` 环境变量、`supabase-client.js` 客户端单例
+  - **Phase C2 用户认证**: `AuthService` 认证服务 (注册/登录/登出/profile)、`AuthPage` 登录注册 UI
+  - **Phase C3 CloudNetworkClient**: Supabase Realtime Channel + Presence，完整消息类型映射 (GAME_ACTION→GAME_STATE_UPDATE, START_GAME→GAME_STARTED 等)，Host 判定 (最早 joinedAt)
+  - **Phase C4 前端集成**: 大厅模式切换 (局域网/云端)、创建/加入房间对话框云端适配、`main.js` 双模式集成、用户信息展示与登出
+  - 手动测试: 两个浏览器通过 Supabase 云端完成 UNO 对局
+
+- ✅ 修复 AI 玩家操作同步 bug
+  - `main.js` GAME_STATE_UPDATE handler 中 `!isAI` 条件导致非主机玩家跳过 AI 操作
+  - 移除 `!isAI` 检查，确保所有客户端正确执行 AI 操作广播
+
+- ✅ 云端后端开发计划完成
+  - 新建 `docs/prd/cloud/PLAN.md` — 完整设计方案 (架构、数据库、接口、实现阶段)
+  - 新建 `docs/prd/cloud/TASKS.md` — 任务清单 (T-C001~T-C043, 5 个阶段)
+  - 更新 `CLAUDE.md` — 架构图增加云端模块、目录结构更新、文档引用
+  - 更新 `PROGRESS.md` — 增加云端后端进度章节
+
+- 方案概要:
+  - Supabase Realtime (Channels + Presence) 替代自建 WebSocket 服务器
+  - Supabase Auth 提供邮箱注册/登录
+  - `CloudNetworkClient` 与现有 `NetworkClient` 接口一致
+  - 现有本地后端和游戏逻辑完全不受影响
 
 ### 2026-01-31
 

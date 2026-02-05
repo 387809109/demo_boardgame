@@ -6,28 +6,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **桌游集成客户端** - A web-based board game platform supporting single-player and LAN multiplayer modes. Built with vanilla JavaScript (frontend) and Node.js WebSocket server (backend).
 
-**Current Status**: Frontend implemented (v0.1.0) with UNO game, single-player AI, and online multiplayer support. Backend pending.
+**Current Status**: Frontend implemented (v0.1.0) with UNO game, single-player AI, and online multiplayer support. Local backend complete. Cloud backend (Supabase) planned.
 
 ## Architecture
 
 **Critical Design Principle**: The backend is a **message relay only** - all game logic lives in the frontend.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Frontend                              │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │ GameEngine│  │ RuleEngine│  │NetworkClient│  │   UI    │    │
-│  │(game logic)│  │(validation)│  │(WebSocket) │  │(render) │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
-└─────────────────────────────────────────────────────────────┘
-                              ↕ WebSocket (JSON)
-┌─────────────────────────────────────────────────────────────┐
-│                   Backend (Port 7777)                        │
-│  ┌────────────────┐  ┌────────────┐  ┌───────────────┐     │
-│  │ConnectionManager│  │ RoomManager │  │ MessageRouter │     │
-│  │ (ws sessions)   │  │ (rooms/players)│ │ (forward only)│     │
-│  └────────────────┘  └────────────┘  └───────────────┘     │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                           Frontend                                   │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐  ┌────────┐  │
+│  │GameEngine │  │RuleEngine │  │  Network Clients     │  │   UI   │  │
+│  │(game logic)│  │(validation)│  │ ┌──────────────────┐│  │(render)│  │
+│  └──────────┘  └──────────┘  │ │ NetworkClient (WS) ││  └────────┘  │
+│                               │ │ CloudNetworkClient ││              │
+│                               │ │ (Supabase Realtime)││              │
+│                               │ └──────────────────┘│              │
+│                               └──────────────────────┘              │
+└────────────────────┬───────────────────────┬────────────────────────┘
+                     │                       │
+           ↕ WebSocket (JSON)      ↕ Supabase Realtime
+                     │                       │
+┌────────────────────┴──────┐  ┌─────────────┴─────────────────────┐
+│  Local Backend (Port 7777) │  │  Cloud Backend (Supabase)         │
+│  ┌─────────────────┐      │  │  ┌──────────┐  ┌───────────────┐  │
+│  │ConnectionManager │      │  │  │  Auth     │  │   Realtime    │  │
+│  │RoomManager       │      │  │  │(users/JWT)│  │(channels/     │  │
+│  │MessageRouter     │      │  │  └──────────┘  │ presence/      │  │
+│  │(forward only)    │      │  │  ┌──────────┐  │ broadcast)     │  │
+│  └─────────────────┘      │  │  │PostgreSQL │  └───────────────┘  │
+└───────────────────────────┘  │  │(profiles) │                     │
+                               │  └──────────┘                     │
+                               └───────────────────────────────────┘
 ```
 
 ## Project Structure
@@ -36,9 +46,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 demo_boardgame/
 ├── frontend/              # Frontend source (Vite + vanilla JS)
 │   ├── src/
+│   │   ├── cloud/         # Cloud modules: supabase-client.js, cloud-network.js, auth.js
 │   │   ├── game/          # Core: engine.js, rules.js, network.js, registry.js
-│   │   ├── games/         # Game modules: uno/
-│   │   ├── layout/        # UI: game-lobby.js, game-board.js, settings-panel.js
+│   │   ├── games/         # Game modules: uno/, werewolf/
+│   │   ├── layout/        # UI: game-lobby.js, game-board.js, auth-page.js, ...
 │   │   ├── components/    # Common UI: modal.js, notification.js, loading.js
 │   │   ├── theme/         # CSS: variables.css, default.css
 │   │   ├── utils/         # Helpers: storage.js, validators.js, event-emitter.js
@@ -46,10 +57,14 @@ demo_boardgame/
 │   ├── public/
 │   │   └── rules/         # User-facing rule books (HTML)
 │   │       └── uno.html   # UNO rules for players
+│   ├── .env.example       # Environment variables template (Supabase keys)
 │   ├── index.html         # HTML entry
 │   └── package.json       # Vite + dependencies
-├── backend/               # Backend source (empty, to implement)
+├── backend/               # Local backend (Node.js WebSocket server)
 │   └── server/            # index.js, connection-manager.js, room-manager.js, message-router.js
+├── cloud/                 # Cloud backend config (Supabase)
+│   ├── README.md          # Supabase project setup guide
+│   └── migrations/        # Database migration SQL files
 ├── docs/
 │   ├── PROTOCOL.md        # WebSocket message spec (required reading)
 │   ├── dev_rules/         # Development standards (MUST READ)
@@ -65,7 +80,8 @@ demo_boardgame/
 │   └── prd/
 │       ├── PRD.md         # Product requirements
 │       ├── frontend/      # Frontend PRD + task list
-│       └── backend/       # Backend PRD + task list
+│       ├── backend/       # Backend PRD + task list
+│       └── cloud/         # Cloud backend PRD + task list
 └── landing_page/          # Marketing page (TBD)
 ```
 
@@ -86,9 +102,18 @@ node index.js            # Start WebSocket server on port 7777
 
 ## Key Technical Details
 
-### WebSocket Protocol (Port 7777)
+### Network Protocol
 
-Message format:
+**Two backend options** (coexist, user selects mode in lobby):
+
+| | Local Mode | Cloud Mode |
+|--|-----------|------------|
+| Transport | WebSocket (`ws://host:7777`) | Supabase Realtime (Channels) |
+| Backend | `backend/server/` (Node.js) | Supabase (managed) |
+| Auth | None | Supabase Auth (email/password) |
+| Room Mgmt | Server-side RoomManager | Client-side Presence |
+
+**Message format** (same for both modes):
 ```javascript
 {
   "type": "MESSAGE_TYPE",      // Required
@@ -98,8 +123,18 @@ Message format:
 }
 ```
 
-Client → Server: `JOIN`, `LEAVE`, `START_GAME`, `GAME_ACTION`, `CHAT_MESSAGE`, `PING`
-Server → Client: `PLAYER_JOINED`, `PLAYER_LEFT`, `GAME_STARTED`, `GAME_STATE_UPDATE`, `GAME_ENDED`, `ERROR`, `PONG`
+Message types: `JOIN`, `LEAVE`, `START_GAME`, `GAME_ACTION`, `CHAT_MESSAGE`, `PING`
+Server responses: `PLAYER_JOINED`, `PLAYER_LEFT`, `GAME_STARTED`, `GAME_STATE_UPDATE`, `GAME_ENDED`, `ERROR`, `PONG`
+
+### Cloud Backend (Supabase)
+
+- **Supabase Realtime Channels** replace WebSocket server for message relay
+- **Supabase Presence** replaces server-side room/player management
+- **Supabase Auth** provides email/password registration and JWT authentication
+- **Supabase PostgreSQL** stores user profiles (extensible for stats, friends)
+- `CloudNetworkClient` implements same interface as `NetworkClient`
+- Frontend game logic is completely unaware of which backend is in use
+- Config: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` environment variables
 
 ### Game Module Structure
 
@@ -211,6 +246,8 @@ Example: `docs/games/werewolf/PLAN.md`
 | `docs/prd/frontend/TASKS.md` | Frontend task checklist (T-F001 to T-F112) |
 | `docs/prd/backend/README.md` | Backend implementation guide with templates |
 | `docs/prd/backend/TASKS.md` | Backend task checklist (T-B001 to T-B113) |
+| `docs/prd/cloud/PLAN.md` | **Cloud backend design & architecture** |
+| `docs/prd/cloud/TASKS.md` | Cloud backend task checklist (T-C001 to T-C043) |
 | `docs/games/TEMPLATE.md` | **Template for new game rule docs** |
 | `docs/games/[game]/RULES.md` | Game-specific AI rule documentation |
 | `docs/games/[game]/PLAN.md` | Game development plan (optional) |
