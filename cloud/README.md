@@ -55,11 +55,33 @@ cloud/migrations/001_create_profiles.sql
 
 对于开发和小规模使用完全足够。
 
+## 数据库迁移
+
+按顺序执行以下迁移：
+
+1. `migrations/001_create_profiles.sql` — 用户资料表
+2. `migrations/002_create_card_data.sql` — 游戏/卡牌数据表
+
+## API 服务 (Render)
+
+项目包含一个 REST API 服务 (`api/`)，部署在 Render：
+
+- **功能**: 游戏元数据查询、卡牌数据查询（AI/MCP 接口预留）
+- **部署配置**: 仓库根目录 `render.yaml`
+- **环境变量**: 需在 Render Dashboard 中设置
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `SUPABASE_ANON_KEY`
+  - `ALLOWED_ORIGINS`
+
+详见 `api/.env.example`。
+
 ## 文件说明
 
 ```
 cloud/
 ├── README.md                       # 本文件
 └── migrations/
-    └── 001_create_profiles.sql     # 用户资料表迁移
+    ├── 001_create_profiles.sql     # 用户资料表迁移
+    └── 002_create_card_data.sql    # 游戏/卡牌数据表迁移
 ```
