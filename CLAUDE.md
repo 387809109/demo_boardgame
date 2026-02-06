@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **桌游集成客户端** - A web-based board game platform supporting single-player and LAN multiplayer modes. Built with vanilla JavaScript (frontend) and Node.js WebSocket server (backend).
 
-**Current Status**: Frontend implemented (v0.1.0) with UNO game, single-player AI, and online multiplayer support. Local backend complete. Cloud backend (Supabase) planned.
+**Current Status**: Frontend implemented (v0.1.0) with UNO game, single-player AI, and online multiplayer support. Local backend complete. Cloud backend (Supabase) complete. REST API service (Render) deployed.
 
 ## Architecture
 
@@ -62,9 +62,15 @@ demo_boardgame/
 │   └── package.json       # Vite + dependencies
 ├── backend/               # Local backend (Node.js WebSocket server)
 │   └── server/            # index.js, connection-manager.js, room-manager.js, message-router.js
+├── api/                   # REST API service (Render deployment)
+│   ├── routes/            # Express routes (v1/health, games, cards)
+│   ├── services/          # Business logic (supabase, game-service, card-service)
+│   ├── middleware/        # auth, cors, rate-limiter, error-handler
+│   └── stubs/             # AI/MCP interface placeholders
 ├── cloud/                 # Cloud backend config (Supabase)
 │   ├── README.md          # Supabase project setup guide
-│   └── migrations/        # Database migration SQL files
+│   └── migrations/        # Database migration SQL files (001_profiles, 002_card_data)
+├── render.yaml            # Render deployment configuration
 ├── docs/
 │   ├── PROTOCOL.md        # WebSocket message spec (required reading)
 │   ├── dev_rules/         # Development standards (MUST READ)
@@ -248,6 +254,8 @@ Example: `docs/games/werewolf/PLAN.md`
 | `docs/prd/backend/TASKS.md` | Backend task checklist (T-B001 to T-B113) |
 | `docs/prd/cloud/PLAN.md` | **Cloud backend design & architecture** |
 | `docs/prd/cloud/TASKS.md` | Cloud backend task checklist (T-C001 to T-C043) |
+| `docs/prd/api/README.md` | **API service design (Render)** |
+| `docs/prd/api/TASKS.md` | API task checklist (T-A001 to T-A066) |
 | `docs/games/TEMPLATE.md` | **Template for new game rule docs** |
 | `docs/games/[game]/RULES.md` | Game-specific AI rule documentation |
 | `docs/games/[game]/PLAN.md` | Game development plan (optional) |
