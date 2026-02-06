@@ -6,6 +6,7 @@
 import { PlayerAvatar } from '../components/player-avatar.js';
 import { GameSettingsPanel } from '../components/game-settings-panel.js';
 import { RoleSetupPanel } from '../components/role-setup-panel.js';
+import { showQueryPanel } from '../components/query-panel.js';
 
 /**
  * Waiting Room - Pre-game lobby for multiplayer
@@ -103,7 +104,10 @@ export class WaitingRoom {
             房间 ID: ${this.room.id} | 游戏: ${this.room.gameType} | 目标人数: ${maxPlayers}
           </p>
         </div>
-        <button class="btn btn-secondary leave-btn">离开房间</button>
+        <div style="display: flex; gap: var(--spacing-2);">
+          <button class="btn btn-secondary query-btn" title="游戏查询">🔍</button>
+          <button class="btn btn-secondary leave-btn">离开房间</button>
+        </div>
       </header>
 
       <div style="
@@ -438,6 +442,11 @@ export class WaitingRoom {
    * @private
    */
   _bindEvents() {
+    // Query button
+    this.element.querySelector('.query-btn')?.addEventListener('click', () => {
+      showQueryPanel();
+    });
+
     // Leave button
     this.element.querySelector('.leave-btn')?.addEventListener('click', () => {
       this.options.onLeave?.();

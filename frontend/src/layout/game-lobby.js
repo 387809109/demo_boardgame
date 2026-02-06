@@ -6,6 +6,7 @@
 import { getGameList } from '../game/registry.js';
 import { loadConfig } from '../utils/storage.js';
 import { debounce } from '../utils/render-scheduler.js';
+import { showQueryPanel } from '../components/query-panel.js';
 
 /**
  * Game Lobby - Main menu for selecting and starting games
@@ -147,6 +148,9 @@ export class GameLobby {
           <div style="flex: 1; min-width: 200px;">
             <input type="text" class="input search-input" placeholder="搜索游戏..." value="${this.searchTerm}">
           </div>
+          <button class="btn btn-secondary query-btn">
+            <span>🔍</span> 查询
+          </button>
           <button class="btn btn-secondary join-room-btn">
             <span>🌐</span> 加入房间
           </button>
@@ -428,6 +432,11 @@ export class GameLobby {
         card.style.transform = '';
         card.style.boxShadow = '';
       });
+    });
+
+    // Query panel
+    this.element.querySelector('.query-btn')?.addEventListener('click', () => {
+      showQueryPanel();
     });
 
     // Join room

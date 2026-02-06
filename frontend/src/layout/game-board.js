@@ -7,6 +7,7 @@ import { PlayerAvatar } from '../components/player-avatar.js';
 import { GameSettingsPanel } from '../components/game-settings-panel.js';
 import { RoleSetupPanel } from '../components/role-setup-panel.js';
 import { getCardDisplayText, getColorName, CARD_TYPES } from '../games/uno/rules.js';
+import { showQueryPanel } from '../components/query-panel.js';
 
 /**
  * Game Board - Generic container for game rendering
@@ -96,6 +97,7 @@ export class GameBoard {
           ` : ''}
         </div>
         <div style="display: flex; gap: var(--spacing-2);">
+          <button class="btn btn-ghost btn-sm query-btn" title="游戏查询">🔍</button>
           <button class="btn btn-ghost btn-sm rules-btn" title="查看规则">📖 规则</button>
           <button class="btn btn-secondary btn-sm leave-btn">退出游戏</button>
         </div>
@@ -717,6 +719,10 @@ export class GameBoard {
   _bindEvents() {
     this.element.querySelector('.leave-btn')?.addEventListener('click', () => {
       this.options.onLeave?.();
+    });
+
+    this.element.querySelector('.query-btn')?.addEventListener('click', () => {
+      showQueryPanel();
     });
 
     this.element.querySelector('.rules-btn')?.addEventListener('click', () => {
