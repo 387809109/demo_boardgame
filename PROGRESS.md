@@ -1,6 +1,6 @@
 # 项目进度报告
 
-> 最后更新: 2026-02-07
+> 最后更新: 2026-02-08
 
 ---
 
@@ -371,6 +371,55 @@
 ---
 
 ## 最近完成的任务
+
+### 2026-02-08
+
+- ✅ 狼人杀阶段计时器 (Phase Timer)
+  - **新建** `components/phase-timer.js` — 倒计时组件 (mm:ss 格式、颜色渐变 green→yellow→red、到期 Toast 提醒、不影响游戏流程)
+  - **修改** `layout/game-board.js` — 集成 PhaseTimer 至游戏头部，startTimer/stopTimer/pauseTimer/resumeTimer 方法
+  - **修改** `games/werewolf/ui.js` — 各阶段启动对应计时 (nightActionTime/discussionTime/voteTime)
+  - **修改** `games/uno/config.json` — 新增可选 actionTime 设置
+
+- ✅ 狼人杀遗言流程修复
+  - 死亡玩家可点击"结束遗言"按钮继续游戏
+  - 修改 `games/werewolf/index.js` — DAY_ANNOUNCE 阶段允许死亡玩家提交 PHASE_ADVANCE
+  - 修改 `games/werewolf/ui.js` — 死亡玩家显示"结束遗言"按钮
+
+- ✅ 玩家发言状态徽章
+  - 讨论阶段当前发言者显示"发言中"徽章
+  - 遗言阶段死亡玩家显示"遗言中"徽章
+  - 修改 `layout/game-board.js` — 添加 speaking 徽章逻辑
+  - 修改 `components/player-avatar.js` — speaking 徽章绿色样式
+
+- ✅ 发言顺序与方向指示器一致
+  - 修改 `games/werewolf/index.js` — 发言队列由逆时针改为顺时针 `(startIdx + i)` 匹配方向箭头
+
+- ✅ 平票二次发言实现
+  - 投票平票后，平票候选人按原发言顺序依次发言
+  - 新增 `_startTieSpeech` 方法处理平票发言阶段
+  - UI 显示"平票发言"标题
+
+- ✅ 顺序投票机制
+  - 白天投票改为顺序投票 (与发言顺序一致)
+  - 新增 `voterQueue`、`currentVoter`、`baseSpeakerOrder` 状态字段
+  - 修改 `games/werewolf/rules.js` — validateDayVote 增加 currentVoter 校验
+  - 修改 `games/werewolf/ui.js` — 投票面板显示当前投票者和队列
+  - 当前投票者显示"投票中"徽章
+
+- ✅ 狼人拟投票系统 (Tentative Vote)
+  - 夜间狼人可先发送"拟投票"表示意向，再"确认击杀"提交最终决定
+  - 新增 `NIGHT_WOLF_TENTATIVE` 行动类型
+  - 新增 `wolfTentativeVotes` 状态字段
+  - 队友可见拟投票/已确认状态
+  - 修改 `games/werewolf/rules.js` — 新增拟投票验证
+  - 修改 `games/werewolf/ui.js` — 狼人面板显示拟投票按钮和队友状态
+
+- ✅ 历史记录匿名化
+  - 夜间行动显示角色名 (匿名)，除非身份已知
+  - 白天行动显示玩家名，已知身份追加角色
+  - 自己永远显示为"我"
+  - 已知身份来源：狼人队友、预言家查验、游戏结束揭示
+  - 修改 `components/game-sidebar.js` — 新增 `_getWerewolfHistoryName`、`_getRoleName`、`_getRoleFromActionType` 方法
 
 ### 2026-02-07
 
