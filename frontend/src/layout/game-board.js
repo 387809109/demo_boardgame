@@ -272,6 +272,20 @@ export class GameBoard {
       });
     }
 
+    // Speaking badge (Werewolf - discussion phase)
+    if (state.currentSpeaker && state.phase === 'day_discussion') {
+      badges[state.currentSpeaker] = badges[state.currentSpeaker] || [];
+      badges[state.currentSpeaker].push({ type: 'speaking', text: '发言中' });
+    }
+
+    // Last words badge (Werewolf - announce phase for dead players)
+    if (state.phase === 'day_announce' && state.nightDeaths?.length > 0) {
+      state.nightDeaths.forEach(death => {
+        badges[death.playerId] = badges[death.playerId] || [];
+        badges[death.playerId].push({ type: 'speaking', text: '遗言中' });
+      });
+    }
+
     return badges;
   }
 

@@ -216,7 +216,8 @@ export class PlayerAvatar {
       wolf: 'var(--error-500)',
       seer: 'var(--primary-500)',
       protected: 'var(--success-500)',
-      order: 'var(--neutral-400)'
+      order: 'var(--neutral-400)',
+      speaking: 'var(--success-500)'
     };
     return colors[type] || 'var(--neutral-500)';
   }
