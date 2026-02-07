@@ -286,6 +286,12 @@ export class GameBoard {
       });
     }
 
+    // Voting badge (Werewolf - vote phase)
+    if (state.currentVoter && state.phase === 'day_vote') {
+      badges[state.currentVoter] = badges[state.currentVoter] || [];
+      badges[state.currentVoter].push({ type: 'voting', text: '投票中' });
+    }
+
     return badges;
   }
 

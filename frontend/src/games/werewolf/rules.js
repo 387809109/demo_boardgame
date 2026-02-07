@@ -174,6 +174,9 @@ export function validateDayVote(move, state) {
   if (state.phase !== 'day_vote') {
     return { valid: false, error: '当前不是投票阶段' };
   }
+  if (state.currentVoter !== playerId) {
+    return { valid: false, error: '还没轮到你投票' };
+  }
   if (state.votes[playerId] !== undefined) {
     return { valid: false, error: '你已经投过票了' };
   }

@@ -148,6 +148,11 @@ export class WerewolfGame extends GameEngine {
       speakerQueue: [],
       speakerIndex: -1,
       currentSpeaker: null,
+      voterQueue: [],
+      voterIndex: -1,
+      currentVoter: null,
+      // Store the base speaker order for reuse in tie speech and voting
+      baseSpeakerOrder: [],
 
       // Death & triggers
       nightDeaths: [],
@@ -465,6 +470,8 @@ export class WerewolfGame extends GameEngine {
         ? state.wolfVotes : {},
       currentSpeaker: state.currentSpeaker,
       speakerQueue: state.speakerQueue,
+      currentVoter: state.currentVoter,
+      voterQueue: state.voterQueue,
       deadChat: (viewer && !viewer.alive) || isGameEnded ? state.deadChat : [],
       options: state.options,
       roleStates: playerId ? this._getVisibleRoleStates(playerId, state) : {},
@@ -592,6 +599,8 @@ export class WerewolfGame extends GameEngine {
     state.speakerQueue = queue;
     state.speakerIndex = 0;
     state.currentSpeaker = queue.length > 0 ? queue[0] : null;
+    // Save base order for reuse in tie speech and voting
+    state.baseSpeakerOrder = [...queue];
 
     this._logEvent(state, 'phase_change', {
       phase: PHASES.DAY_DISCUSSION,
@@ -620,29 +629,44 @@ export class WerewolfGame extends GameEngine {
    * @private
    */
   _startTieSpeech(state, tiedPlayerIds) {
+    // Order tied candidates by their position in base speaker order
+    const orderedTied = state.baseSpeakerOrder.filter(id => tiedPlayerIds.includes(id));
+
     state.phase = PHASES.DAY_DISCUSSION;
-    state.speakerQueue = [...tiedPlayerIds];
+    state.speakerQueue = orderedTied;
     state.speakerIndex = 0;
-    state.currentSpeaker = tiedPlayerIds.length > 0 ? tiedPlayerIds[0] : null;
+    state.currentSpeaker = orderedTied.length > 0 ? orderedTied[0] : null;
 
     this._logEvent(state, 'phase_change', {
       phase: PHASES.DAY_DISCUSSION,
       round: state.round,
-      speakerQueue: tiedPlayerIds,
+      speakerQueue: orderedTied,
       isTieSpeech: true
     });
   }
 
   /**
-   * Start day vote phase
+   * Start day vote phase - builds voter queue in same order as speaker queue
    * @private
    */
   _startDayVote(state) {
     state.votes = {};
+
+    // Build voter queue: same order as base speaker order (alive players only)
+    const aliveIds = state.players
+      .filter(p => state.playerMap[p.id].alive)
+      .map(p => p.id);
+    const voterQueue = state.baseSpeakerOrder.filter(id => aliveIds.includes(id));
+
+    state.voterQueue = voterQueue;
+    state.voterIndex = 0;
+    state.currentVoter = voterQueue.length > 0 ? voterQueue[0] : null;
+
     this._logEvent(state, 'phase_change', {
       phase: PHASES.DAY_VOTE,
       round: state.round,
-      voteRound: state.voteRound
+      voteRound: state.voteRound,
+      voterQueue
     });
   }
 
@@ -793,7 +817,7 @@ export class WerewolfGame extends GameEngine {
   }
 
   /**
-   * Collect a day vote
+   * Collect a day vote and advance to next voter
    * @private
    */
   _collectDayVote(state, move) {
@@ -804,6 +828,14 @@ export class WerewolfGame extends GameEngine {
     } else {
       state.votes[playerId] = actionData.targetId;
     }
+
+    // Advance to next voter
+    state.voterIndex++;
+    if (state.voterIndex >= state.voterQueue.length) {
+      state.currentVoter = null;
+    } else {
+      state.currentVoter = state.voterQueue[state.voterIndex];
+    }
   }
 
   /**
@@ -811,8 +843,7 @@ export class WerewolfGame extends GameEngine {
    * @private
    */
   _areAllDayVotesCollected(state) {
-    const alivePlayers = this._getAlivePlayers(state);
-    return alivePlayers.every(p => state.votes[p.id] !== undefined);
+    return state.currentVoter === null;
   }
 
   /**

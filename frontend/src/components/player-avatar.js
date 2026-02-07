@@ -217,7 +217,8 @@ export class PlayerAvatar {
       seer: 'var(--primary-500)',
       protected: 'var(--success-500)',
       order: 'var(--neutral-400)',
-      speaking: 'var(--success-500)'
+      speaking: 'var(--success-500)',
+      voting: 'var(--primary-500)'
     };
     return colors[type] || 'var(--neutral-500)';
   }

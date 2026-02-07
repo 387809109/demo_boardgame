@@ -232,9 +232,13 @@ export class WerewolfUI {
         }
         break;
       case PHASES.DAY_VOTE:
-        bar.appendChild(this._createButton('弃票', () => {
-          onAction({ actionType: ACTION_TYPES.DAY_SKIP_VOTE });
-        }));
+        if (state.currentVoter === playerId) {
+          bar.appendChild(this._createButton('弃票', () => {
+            onAction({ actionType: ACTION_TYPES.DAY_SKIP_VOTE });
+          }));
+        } else {
+          bar.appendChild(this._createButton('等待投票...', null, true));
+        }
         break;
       case PHASES.ENDED:
         // No actions
@@ -346,28 +350,26 @@ export class WerewolfUI {
       }
     }
 
-    // Day vote
-    if (state.phase === PHASES.DAY_VOTE) {
-      const hasVoted = state.votes?.[this.playerId] !== undefined;
-      if (!hasVoted) {
-        const tiedCandidates = state.tiedCandidates;
-        const voteRound = state.voteRound || 1;
-        const filterIds = (voteRound === 2 && tiedCandidates?.length > 0)
-          ? tiedCandidates : null;
+    // Day vote - only when it's my turn
+    if (state.phase === PHASES.DAY_VOTE && state.currentVoter === this.playerId) {
+      const tiedCandidates = state.tiedCandidates;
+      const voteRound = state.voteRound || 1;
+      const filterIds = (voteRound === 2 && tiedCandidates?.length > 0)
+        ? tiedCandidates : null;
 
-        let selectableIds = this._getAlivePlayerIds().filter(id => id !== this.playerId);
-        if (filterIds) {
-          selectableIds = selectableIds.filter(id => filterIds.includes(id));
-        }
+      let selectableIds = this._getAlivePlayerIds().filter(id => id !== this.playerId);
+      if (filterIds) {
+        selectableIds = selectableIds.filter(id => filterIds.includes(id));
+      }
 
-        return {
-          selectableIds,
-          disabledIds: [],
-          onSelect: (targetId) => {
-            this.onAction?.({
-              actionType: ACTION_TYPES.DAY_VOTE,
-              actionData: { targetId }
-            });
+      return {
+        selectableIds,
+        disabledIds: [],
+        onSelect: (targetId) => {
+          this.onAction?.({
+            actionType: ACTION_TYPES.DAY_VOTE,
+            actionData: { targetId }
+          });
           }
         };
       }
@@ -1067,7 +1069,7 @@ export class WerewolfUI {
   // ─── Vote Panel ─────────────────────────────────────────────
 
   /**
-   * Render vote panel
+   * Render vote panel with sequential voting
    * Player selection happens through the ring
    * @private
    */
@@ -1082,20 +1084,26 @@ export class WerewolfUI {
 
     const voteRound = this.state.voteRound || 1;
     const tiedCandidates = this.state.tiedCandidates;
+    const currentVoter = this.state.currentVoter;
+    const isMyTurn = currentVoter === this.playerId;
     const hasVoted = this.state.votes?.[this.playerId] !== undefined;
 
-    let infoText = '点击环形布局中的玩家头像选择要放逐的玩家';
-    if (voteRound === 2 && tiedCandidates?.length > 0) {
-      infoText = '平票重投！点击以下候选人的头像进行投票';
-    }
-    if (hasVoted) {
+    // Info text based on state
+    let infoText;
+    if (isMyTurn) {
+      infoText = voteRound === 2 && tiedCandidates?.length > 0
+        ? '轮到你投票了，点击平票候选人的头像进行投票'
+        : '轮到你投票了，点击环形布局中的玩家头像选择要放逐的玩家';
+    } else if (hasVoted) {
       infoText = '你已投票，等待其他玩家...';
+    } else {
+      infoText = '等待其他玩家投票...';
     }
 
     el.appendChild(this._createInfoBox(infoText));
 
-    // Enable selection mode for voting
-    if (!hasVoted) {
+    // Enable selection mode for voting only when it's my turn
+    if (isMyTurn) {
       this._updateSelectionMode();
     }
 
@@ -1116,40 +1124,76 @@ export class WerewolfUI {
       el.appendChild(tiedBox);
     }
 
-    // Show current votes
-    const votes = this.state.votes || {};
-    const voteEntries = Object.entries(votes);
-    if (voteEntries.length > 0) {
-      const voteBox = document.createElement('div');
-      voteBox.style.cssText = `
+    // Voter queue list (similar to speaker queue)
+    const voterQueue = this.state.voterQueue || [];
+    if (voterQueue.length > 0) {
+      const list = document.createElement('div');
+      list.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-1);
         padding: var(--spacing-3);
         background: var(--bg-secondary);
         border-radius: var(--radius-md);
       `;
-      voteBox.innerHTML = `
+
+      list.innerHTML = `
         <div style="
           font-weight: var(--font-semibold);
           color: var(--text-primary);
           margin-bottom: var(--spacing-2);
-          font-size: var(--text-sm);
-        ">已投票 (${voteEntries.length})</div>
+        ">投票顺序</div>
       `;
-      for (const [voterId, targetId] of voteEntries) {
-        const voter = this._findPlayer(voterId);
-        const target = targetId ? this._findPlayer(targetId) : null;
+
+      const votes = this.state.votes || {};
+      for (let i = 0; i < voterQueue.length; i++) {
+        const voterId = voterQueue[i];
+        const player = this._findPlayer(voterId);
+        const isCurrent = voterId === currentVoter;
+        const hasVotedAlready = votes[voterId] !== undefined;
+        const voteTarget = votes[voterId];
+
         const row = document.createElement('div');
         row.style.cssText = `
-          font-size: var(--text-sm);
-          color: var(--text-secondary);
-          padding: 2px 0;
+          padding: var(--spacing-1) var(--spacing-2);
+          border-radius: var(--radius-sm);
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-2);
+          ${isCurrent
+            ? 'background: var(--primary-100); border-left: 3px solid var(--primary-500);'
+            : ''}
+          ${hasVotedAlready ? 'opacity: 0.7;' : ''}
         `;
-        const voterName = this._displayName(voter, voterId);
-        const targetName = target
-          ? this._displayName(target, targetId) : '弃票';
-        row.textContent = `${voterName} → ${targetName}`;
-        voteBox.appendChild(row);
+
+        let statusText = '';
+        if (isCurrent) {
+          statusText = '<span style="color: var(--primary-500); font-size: var(--text-xs);">投票中</span>';
+        } else if (hasVotedAlready) {
+          const targetName = voteTarget
+            ? this._displayName(this._findPlayer(voteTarget), voteTarget)
+            : '弃票';
+          statusText = `<span style="color: var(--text-tertiary); font-size: var(--text-xs);">→ ${targetName}</span>`;
+        }
+
+        row.innerHTML = `
+          <span style="
+            width: 20px;
+            text-align: center;
+            font-size: var(--text-sm);
+            color: var(--text-tertiary);
+          ">${i + 1}</span>
+          <span style="
+            color: ${isCurrent ? 'var(--primary-700)' : 'var(--text-primary)'};
+            font-weight: ${isCurrent ? 'var(--font-semibold)' : 'var(--font-normal)'};
+            flex: 1;
+          ">${this._displayName(player, voterId)}</span>
+          ${statusText}
+        `;
+        list.appendChild(row);
       }
-      el.appendChild(voteBox);
+
+      el.appendChild(list);
     }
 
     return el;
