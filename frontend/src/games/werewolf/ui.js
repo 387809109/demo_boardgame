@@ -197,11 +197,16 @@ export class WerewolfUI {
         const hasAction = this._roleHasNightAction(role);
 
         if (hasAction && isMyStep) {
-          const btn = this._createButton('确认行动', () => {
-            this._submitNightAction();
-          }, this._nightActionRequiresTarget(role) && !this._selectedTarget);
-          this._nightActionBtn = btn;
-          bar.appendChild(btn);
+          // Werewolves have buttons in the wolf panel, no action bar button needed
+          if (role === 'werewolf') {
+            bar.appendChild(this._createButton('请在上方选择目标', null, true));
+          } else {
+            const btn = this._createButton('确认行动', () => {
+              this._submitNightAction();
+            }, this._nightActionRequiresTarget(role) && !this._selectedTarget);
+            this._nightActionBtn = btn;
+            bar.appendChild(btn);
+          }
         } else {
           const stepLabel = state.nightSteps?.[state.currentNightStep]?.label
             || '夜晚';
@@ -613,8 +618,8 @@ export class WerewolfUI {
 
     switch (role) {
       case 'werewolf':
-        el.appendChild(this._createInfoBox('点击环形布局中的玩家头像选择今晚要击杀的目标'));
-        el.appendChild(this._renderWolfVotes());
+        el.appendChild(this._createInfoBox('先选择目标后点击"拟投票"表达意向，与队友协商后点击"确认击杀"'));
+        el.appendChild(this._renderWolfVotesPanel());
         break;
 
       case 'seer':
@@ -636,8 +641,8 @@ export class WerewolfUI {
         break;
     }
 
-    // Skip button for roles with night actions
-    if (this._roleHasNightAction(role)) {
+    // Skip button for roles with night actions (except werewolves who have their own panel)
+    if (this._roleHasNightAction(role) && role !== 'werewolf') {
       const skipBtn = this._createButton('跳过行动', () => {
         this.onAction({
           actionType: ACTION_TYPES.NIGHT_SKIP,
@@ -847,18 +852,83 @@ export class WerewolfUI {
   }
 
   /**
-   * Render wolf teammates' vote summary
+   * Render wolf voting panel with tentative and actual votes
    * @private
    */
-  _renderWolfVotes() {
+  _renderWolfVotesPanel() {
     const el = document.createElement('div');
-    const wolfVotes = this.state.wolfVotes || {};
-    const voteEntries = Object.entries(wolfVotes)
-      .filter(([id]) => id !== this.playerId);
-
-    if (voteEntries.length === 0) return el;
-
     el.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-3);
+    `;
+
+    const wolfVotes = this.state.wolfVotes || {};
+    const tentativeVotes = this.state.wolfTentativeVotes || {};
+
+    // My current selection/vote status
+    const myTentative = tentativeVotes[this.playerId];
+    const myActual = wolfVotes[this.playerId];
+    const myTargetName = this._selectedTarget
+      ? this._displayName(this._findPlayer(this._selectedTarget), this._selectedTarget)
+      : (myTentative ? this._displayName(this._findPlayer(myTentative), myTentative) : '未选择');
+
+    // My status box
+    const myStatusBox = document.createElement('div');
+    myStatusBox.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      border-left: 3px solid var(--primary-500);
+    `;
+    myStatusBox.innerHTML = `
+      <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: var(--spacing-1);">
+        我的目标
+      </div>
+      <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: var(--font-medium);">
+        ${myActual
+          ? `<span style="color: var(--success-500);">✓ 已确认:</span> ${this._displayName(this._findPlayer(myActual), myActual)}`
+          : `<span style="color: var(--warning-500);">选中:</span> ${myTargetName}`
+        }
+      </div>
+    `;
+    el.appendChild(myStatusBox);
+
+    // Action buttons for tentative and actual vote
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = `
+      display: flex;
+      gap: var(--spacing-2);
+      justify-content: center;
+    `;
+
+    // Tentative vote button
+    const tentativeBtn = this._createButton('拟投票', () => {
+      if (this._selectedTarget) {
+        this.onAction?.({
+          actionType: ACTION_TYPES.NIGHT_WOLF_TENTATIVE,
+          actionData: { targetId: this._selectedTarget }
+        });
+      }
+    }, !this._selectedTarget, 'secondary');
+    btnRow.appendChild(tentativeBtn);
+
+    // Actual vote button
+    const actualBtn = this._createButton('确认击杀', () => {
+      if (this._selectedTarget) {
+        this.onAction?.({
+          actionType: ACTION_TYPES.NIGHT_WOLF_KILL,
+          actionData: { targetId: this._selectedTarget }
+        });
+      }
+    }, !this._selectedTarget || !!myActual, 'danger');
+    btnRow.appendChild(actualBtn);
+
+    el.appendChild(btnRow);
+
+    // Teammates' votes section
+    const teammatesBox = document.createElement('div');
+    teammatesBox.style.cssText = `
       padding: var(--spacing-2) var(--spacing-3);
       background: var(--bg-secondary);
       border-radius: var(--radius-md);
@@ -872,24 +942,55 @@ export class WerewolfUI {
       color: var(--text-secondary);
       margin-bottom: var(--spacing-1);
     `;
-    header.textContent = '队友投票:';
-    el.appendChild(header);
+    header.textContent = '队友投票状态:';
+    teammatesBox.appendChild(header);
 
-    for (const [wolfId, targetId] of voteEntries) {
-      const wolf = this._findPlayer(wolfId);
-      const target = targetId ? this._findPlayer(targetId) : null;
-      const row = document.createElement('div');
-      row.style.cssText = `
-        font-size: var(--text-sm);
-        color: var(--text-primary);
-        padding: 1px 0;
-      `;
-      const wolfName = this._displayName(wolf, wolfId);
-      const targetName = target
-        ? this._displayName(target, targetId) : '未选择';
-      row.textContent = `${wolfName} → ${targetName}`;
-      el.appendChild(row);
+    // Get all wolf IDs
+    const wolfIds = (this.state.wolfTeamIds || []).filter(id => id !== this.playerId);
+
+    if (wolfIds.length === 0) {
+      const noTeammate = document.createElement('div');
+      noTeammate.style.cssText = `font-size: var(--text-sm); color: var(--text-tertiary);`;
+      noTeammate.textContent = '无其他队友';
+      teammatesBox.appendChild(noTeammate);
+    } else {
+      for (const wolfId of wolfIds) {
+        const wolf = this._findPlayer(wolfId);
+        const actualTarget = wolfVotes[wolfId];
+        const tentativeTarget = tentativeVotes[wolfId];
+
+        const row = document.createElement('div');
+        row.style.cssText = `
+          font-size: var(--text-sm);
+          color: var(--text-primary);
+          padding: 2px 0;
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-2);
+        `;
+
+        const wolfName = this._displayName(wolf, wolfId);
+        let statusHtml;
+
+        if (actualTarget) {
+          const targetName = this._displayName(this._findPlayer(actualTarget), actualTarget);
+          statusHtml = `<span style="color: var(--success-500);">✓</span> ${targetName}`;
+        } else if (tentativeTarget) {
+          const targetName = this._displayName(this._findPlayer(tentativeTarget), tentativeTarget);
+          statusHtml = `<span style="color: var(--warning-500);">?</span> ${targetName} <span style="font-size: var(--text-xs); color: var(--text-tertiary);">(拟)</span>`;
+        } else {
+          statusHtml = `<span style="color: var(--text-tertiary);">—</span> 未选择`;
+        }
+
+        row.innerHTML = `
+          <span style="flex: 1;">${wolfName}</span>
+          <span>${statusHtml}</span>
+        `;
+        teammatesBox.appendChild(row);
+      }
     }
+
+    el.appendChild(teammatesBox);
 
     return el;
   }

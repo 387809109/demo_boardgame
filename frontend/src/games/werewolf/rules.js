@@ -115,6 +115,14 @@ export function validateNightAction(move, state) {
       }
       break;
     }
+    case 'NIGHT_WOLF_TENTATIVE': {
+      // Tentative vote - wolf can change intent anytime during wolf step
+      if (player.roleId !== 'werewolf') {
+        return { valid: false, error: '只有狼人可以执行此操作' };
+      }
+      // Allow even if already voted (to see tentative), just check wolf step is active
+      return { valid: true };
+    }
     case 'NIGHT_DOCTOR_PROTECT': {
       if (!state.options.allowDoctorSelfProtect && targetId === playerId) {
         return { valid: false, error: '医生不能保护自己' };

@@ -29,6 +29,7 @@ export const PHASES = {
 /** Action types */
 export const ACTION_TYPES = {
   NIGHT_WOLF_KILL: 'NIGHT_WOLF_KILL',
+  NIGHT_WOLF_TENTATIVE: 'NIGHT_WOLF_TENTATIVE', // Tentative vote visible to wolf teammates
   NIGHT_SEER_CHECK: 'NIGHT_SEER_CHECK',
   NIGHT_DOCTOR_PROTECT: 'NIGHT_DOCTOR_PROTECT',
   NIGHT_WITCH_SAVE: 'NIGHT_WITCH_SAVE',
@@ -135,7 +136,8 @@ export class WerewolfGame extends GameEngine {
 
       // Night tracking
       nightActions: {},
-      wolfVotes: {},
+      wolfVotes: {},           // Actual committed wolf votes
+      wolfTentativeVotes: {},  // Tentative votes visible to wolf teammates
       nightSteps,
       currentNightStep: 0,
       pendingNightRoles,
@@ -287,6 +289,11 @@ export class WerewolfGame extends GameEngine {
     const { actionType, playerId, actionData } = move;
 
     switch (actionType) {
+      case ACTION_TYPES.NIGHT_WOLF_TENTATIVE:
+        // Tentative vote - just store the intention, doesn't advance game
+        newState.wolfTentativeVotes[playerId] = actionData.targetId;
+        break;
+
       case ACTION_TYPES.NIGHT_WOLF_KILL:
       case ACTION_TYPES.NIGHT_SEER_CHECK:
       case ACTION_TYPES.NIGHT_DOCTOR_PROTECT:
@@ -468,6 +475,8 @@ export class WerewolfGame extends GameEngine {
       currentNightStep: state.currentNightStep ?? 0,
       wolfVotes: (viewer?.team === TEAMS.WEREWOLF && state.phase === PHASES.NIGHT)
         ? state.wolfVotes : {},
+      wolfTentativeVotes: (viewer?.team === TEAMS.WEREWOLF && state.phase === PHASES.NIGHT)
+        ? state.wolfTentativeVotes : {},
       currentSpeaker: state.currentSpeaker,
       speakerQueue: state.speakerQueue,
       currentVoter: state.currentVoter,
@@ -526,6 +535,7 @@ export class WerewolfGame extends GameEngine {
   _startNight(state) {
     state.nightActions = {};
     state.wolfVotes = {};
+    state.wolfTentativeVotes = {};
     state.nightDeaths = [];
     state.dayAnnouncements = [];
     state.tiedCandidates = null;
