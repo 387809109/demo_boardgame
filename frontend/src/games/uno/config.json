@@ -62,6 +62,14 @@
       "label": "0 轮转",
       "description": "出 0 时所有玩家将手牌传给下一位玩家",
       "default": false
+    },
+    "actionTime": {
+      "type": "number",
+      "label": "回合时间限制",
+      "description": "每个玩家回合的时间限制（秒），0 表示不限制",
+      "default": 0,
+      "min": 0,
+      "max": 120
     }
   }
 }

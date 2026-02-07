@@ -64,17 +64,27 @@ export class WerewolfUI {
     this._container = null;
     /** @type {Object|null} */
     this._gameBoard = null;
+    /** @type {string|null} - Track last phase for timer restart */
+    this._lastPhase = null;
+    /** @type {number|null} - Track last round for timer restart */
+    this._lastRound = null;
+    /** @type {string|null} - Track last speaker for discussion timer */
+    this._lastSpeaker = null;
 
     // Flag for GameBoard - mount below the ring
     this.mountInRingCenter = false;
   }
 
   /**
-   * Set reference to GameBoard for player selection
+   * Set reference to GameBoard for player selection and timer
    * @param {Object} gameBoard - GameBoard instance
    */
   setGameBoard(gameBoard) {
     this._gameBoard = gameBoard;
+    // Initialize timer on first set
+    if (this.state) {
+      this._updatePhaseTimer();
+    }
   }
 
   /**
@@ -239,6 +249,65 @@ export class WerewolfUI {
 
     // Update selection mode based on current phase
     this._updateSelectionMode();
+
+    // Update phase timer
+    this._updatePhaseTimer();
+  }
+
+  /**
+   * Update the phase timer based on current game phase
+   * @private
+   */
+  _updatePhaseTimer() {
+    if (!this._gameBoard) return;
+
+    const phase = this.state.phase;
+    const round = this.state.round || 1;
+    const currentSpeaker = this.state.currentSpeaker;
+
+    // Get timing config from state options (set during game creation)
+    const timing = this.state.options || {};
+    const nightActionTime = timing.nightActionTime || 30;
+    const discussionTime = timing.discussionTime || 300;
+    const voteTime = timing.voteTime || 30;
+    const lastWordsTime = timing.lastWordsTime || 30;
+
+    // Check if phase changed or round changed
+    const phaseChanged = phase !== this._lastPhase || round !== this._lastRound;
+    const speakerChanged = currentSpeaker !== this._lastSpeaker;
+
+    if (phaseChanged) {
+      // Stop any running timer first
+      this._gameBoard.stopTimer();
+
+      // Start new timer based on phase
+      switch (phase) {
+        case PHASES.NIGHT:
+          this._gameBoard.startTimer(nightActionTime, '夜间行动');
+          break;
+        case PHASES.DAY_DISCUSSION:
+          // Start timer for first speaker
+          if (currentSpeaker) {
+            this._gameBoard.startTimer(discussionTime, '讨论时间');
+          }
+          break;
+        case PHASES.DAY_VOTE:
+          this._gameBoard.startTimer(voteTime, '投票时间');
+          break;
+        case PHASES.ENDED:
+          // No timer for ended phase
+          break;
+        // DAY_ANNOUNCE doesn't need a timer
+      }
+    } else if (phase === PHASES.DAY_DISCUSSION && speakerChanged && currentSpeaker) {
+      // Speaker changed during discussion - restart timer
+      this._gameBoard.startTimer(discussionTime, '讨论时间');
+    }
+
+    // Update tracking
+    this._lastPhase = phase;
+    this._lastRound = round;
+    this._lastSpeaker = currentSpeaker;
   }
 
   /**

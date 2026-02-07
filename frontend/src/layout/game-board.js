@@ -6,6 +6,7 @@
 import { PlayerRing } from '../components/player-ring.js';
 import { GameSidebar } from '../components/game-sidebar.js';
 import { showQueryPanel } from '../components/query-panel.js';
+import { PhaseTimer } from '../components/phase-timer.js';
 
 /**
  * Game Board - Generic container for game rendering
@@ -33,6 +34,7 @@ export class GameBoard {
     this.gameUI = null;
     this.playerRing = null;
     this.sidebar = null;
+    this.phaseTimer = null;
     this._lastUnoCalledBy = null;
     this._lastSkippedPlayerId = null;
     this._lastCurrentPlayer = null;
@@ -98,6 +100,7 @@ export class GameBoard {
             <span class="turn-number" style="color: var(--text-tertiary); font-size: var(--text-sm);">
               回合 ${state.turnNumber || 1}
             </span>
+            <div class="phase-timer-container"></div>
           ` : ''}
         </div>
         <div style="display: flex; gap: var(--spacing-2);">
@@ -166,7 +169,28 @@ export class GameBoard {
 
     this._renderPlayerRing();
     this._renderSidebar();
+    this._renderPhaseTimer();
     this._bindEvents();
+  }
+
+  /**
+   * Render the phase timer
+   * @private
+   */
+  _renderPhaseTimer() {
+    const container = this.element.querySelector('.phase-timer-container');
+    if (!container) return;
+
+    // Create timer if not exists
+    if (!this.phaseTimer) {
+      this.phaseTimer = new PhaseTimer({
+        onExpire: () => {
+          // Timer expiry is just a reminder, no game effect
+        }
+      });
+    }
+
+    container.appendChild(this.phaseTimer.getElement());
   }
 
   /**
@@ -558,7 +582,65 @@ export class GameBoard {
       this.sidebar.destroy();
       this.sidebar = null;
     }
+    if (this.phaseTimer) {
+      this.phaseTimer.destroy();
+      this.phaseTimer = null;
+    }
     this.element?.remove();
+  }
+
+  /**
+   * Start the phase timer
+   * @param {number} seconds - Duration in seconds
+   * @param {string} [label] - Phase label to display (e.g., "讨论时间", "投票时间")
+   */
+  startTimer(seconds, label = '') {
+    if (this.phaseTimer && seconds > 0) {
+      this.phaseTimer.start(seconds, label);
+    }
+  }
+
+  /**
+   * Stop the phase timer
+   */
+  stopTimer() {
+    if (this.phaseTimer) {
+      this.phaseTimer.stop();
+    }
+  }
+
+  /**
+   * Pause the phase timer
+   */
+  pauseTimer() {
+    if (this.phaseTimer) {
+      this.phaseTimer.pause();
+    }
+  }
+
+  /**
+   * Resume the phase timer
+   */
+  resumeTimer() {
+    if (this.phaseTimer) {
+      this.phaseTimer.resume();
+    }
+  }
+
+  /**
+   * Check if timer is running
+   * @returns {boolean}
+   */
+  isTimerRunning() {
+    return this.phaseTimer?.isRunning() || false;
+  }
+
+  /**
+   * Get remaining timer seconds
+   * @returns {number}
+   */
+  getTimerRemaining() {
+    return this.phaseTimer?.getRemainingSeconds() || 0;
   }
 
   /**

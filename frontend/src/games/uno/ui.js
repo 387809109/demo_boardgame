@@ -60,10 +60,24 @@ export class UnoUI {
     this._tableEl = null;
     this._colorPickerEl = null;
     this._boundHandleCardClick = this._handleCardClick.bind(this);
+    this._gameBoard = null;
+    this._lastCurrentPlayer = null;
 
     // Flag for GameBoard - mount game UI below the ring, not in center
     // The ring center shows direction indicator; game content below
     this.mountInRingCenter = false;
+  }
+
+  /**
+   * Set reference to GameBoard for timer control
+   * @param {Object} gameBoard - GameBoard instance
+   */
+  setGameBoard(gameBoard) {
+    this._gameBoard = gameBoard;
+    // Initialize timer if state is already set
+    if (this.state) {
+      this._updateTurnTimer();
+    }
   }
 
   /**
@@ -574,6 +588,35 @@ export class UnoUI {
     this.state = state;
     this.selectedCard = null;
     this.showColorPicker = false;
+
+    // Update turn timer
+    this._updateTurnTimer();
+  }
+
+  /**
+   * Update turn timer based on current player
+   * @private
+   */
+  _updateTurnTimer() {
+    if (!this._gameBoard) return;
+
+    const currentPlayer = this.state?.currentPlayer;
+    const actionTime = this.state?.options?.actionTime || 0;
+
+    // Check if turn changed
+    if (currentPlayer !== this._lastCurrentPlayer) {
+      this._lastCurrentPlayer = currentPlayer;
+
+      // Stop any existing timer
+      this._gameBoard.stopTimer();
+
+      // Start new timer if actionTime is configured
+      if (actionTime > 0 && currentPlayer) {
+        const isMyTurn = currentPlayer === this.playerId;
+        const label = isMyTurn ? '你的回合' : '回合时间';
+        this._gameBoard.startTimer(actionTime, label);
+      }
+    }
   }
 
   /**
