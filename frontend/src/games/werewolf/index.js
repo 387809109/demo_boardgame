@@ -198,11 +198,14 @@ export class WerewolfGame extends GameEngine {
       return { valid: false, error: '玩家不存在' };
     }
 
-    // LAST_WORDS, HUNTER_SHOOT, and DEAD_CHAT can come from dead players
-    if (actionType !== ACTION_TYPES.LAST_WORDS &&
-        actionType !== ACTION_TYPES.HUNTER_SHOOT &&
-        actionType !== ACTION_TYPES.DEAD_CHAT &&
-        !player.alive) {
+    // LAST_WORDS, HUNTER_SHOOT, DEAD_CHAT, and PHASE_ADVANCE (during DAY_ANNOUNCE for last words) can come from dead players
+    const canDeadPlayerDoAction =
+      actionType === ACTION_TYPES.LAST_WORDS ||
+      actionType === ACTION_TYPES.HUNTER_SHOOT ||
+      actionType === ACTION_TYPES.DEAD_CHAT ||
+      (actionType === ACTION_TYPES.PHASE_ADVANCE && state.phase === PHASES.DAY_ANNOUNCE);
+
+    if (!canDeadPlayerDoAction && !player.alive) {
       return { valid: false, error: '你已死亡' };
     }
 

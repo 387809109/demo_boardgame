@@ -211,11 +211,17 @@ export class WerewolfUI {
         }
         break;
       }
-      case PHASES.DAY_ANNOUNCE:
-        bar.appendChild(this._createButton('继续', () => {
+      case PHASES.DAY_ANNOUNCE: {
+        // Check if viewer just died (has last words opportunity)
+        const deaths = state.nightDeaths || [];
+        const justDied = deaths.some(d => d.playerId === playerId);
+        const buttonText = justDied ? '结束遗言' : '继续';
+
+        bar.appendChild(this._createButton(buttonText, () => {
           onAction({ actionType: ACTION_TYPES.PHASE_ADVANCE });
         }));
         break;
+      }
       case PHASES.DAY_DISCUSSION:
         if (state.currentSpeaker === playerId) {
           bar.appendChild(this._createButton('发言结束', () => {
