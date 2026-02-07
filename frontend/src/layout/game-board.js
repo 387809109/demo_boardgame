@@ -3,14 +3,13 @@
  * @module layout/game-board
  */
 
-import { PlayerAvatar } from '../components/player-avatar.js';
-import { GameSettingsPanel } from '../components/game-settings-panel.js';
-import { RoleSetupPanel } from '../components/role-setup-panel.js';
-import { getCardDisplayText, getColorName, CARD_TYPES } from '../games/uno/rules.js';
+import { PlayerRing } from '../components/player-ring.js';
+import { GameSidebar } from '../components/game-sidebar.js';
 import { showQueryPanel } from '../components/query-panel.js';
 
 /**
  * Game Board - Generic container for game rendering
+ * Uses circular player ring layout with sidebar
  */
 export class GameBoard {
   /**
@@ -32,12 +31,18 @@ export class GameBoard {
     this.gameSettings = options.gameSettings || {};
     this.state = null;
     this.gameUI = null;
-    this.avatars = new Map();
-    this._lastUnoCalledBy = null; // Track UNO call changes
-    this.chatMessages = [];
-    this.activeTab = 'history'; // 'history', 'chat', or 'settings'
-    this.settingsPanel = null;
-    this.roleSetupPanel = null;
+    this.playerRing = null;
+    this.sidebar = null;
+    this._lastUnoCalledBy = null;
+    this._lastSkippedPlayerId = null;
+    this._lastCurrentPlayer = null;
+    this._activeSkipBadgePlayerId = null;
+
+    // Selection mode state
+    this._selectionMode = false;
+    this._selectionCallback = null;
+    this._selectablePlayerIds = [];
+    this._disabledPlayerIds = [];
 
     this._create();
   }
@@ -66,7 +71,6 @@ export class GameBoard {
    */
   _render() {
     const state = this.state || this.game?.getState();
-    const players = state?.players || [];
     const isMyTurn = state?.currentPlayer === this.playerId;
 
     this.element.innerHTML = `
@@ -82,7 +86,7 @@ export class GameBoard {
         <div style="display: flex; align-items: center; gap: var(--spacing-4);">
           <h2 style="margin: 0; font-size: var(--text-lg);">${this.game?.config?.name || '游戏'}</h2>
           ${state ? `
-            <span style="
+            <span class="turn-badge" style="
               padding: var(--spacing-1) var(--spacing-3);
               background: ${isMyTurn ? 'var(--success-500)' : 'var(--neutral-200)'};
               color: ${isMyTurn ? 'white' : 'var(--text-secondary)'};
@@ -91,7 +95,7 @@ export class GameBoard {
             ">
               ${isMyTurn ? '你的回合' : '等待对手'}
             </span>
-            <span style="color: var(--text-tertiary); font-size: var(--text-sm);">
+            <span class="turn-number" style="color: var(--text-tertiary); font-size: var(--text-sm);">
               回合 ${state.turnNumber || 1}
             </span>
           ` : ''}
@@ -108,29 +112,6 @@ export class GameBoard {
         display: flex;
         overflow: hidden;
       ">
-        <aside class="players-sidebar" style="
-          width: 180px;
-          background: var(--bg-primary);
-          border-right: 1px solid var(--border-light);
-          padding: var(--spacing-4);
-          display: flex;
-          flex-direction: column;
-          gap: var(--spacing-3);
-          overflow-y: auto;
-        ">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h4 style="margin: 0; font-size: var(--text-sm); color: var(--text-secondary);">玩家</h4>
-            <span class="direction-indicator" style="
-              font-size: var(--text-xs);
-              color: var(--text-tertiary);
-              display: flex;
-              align-items: center;
-              gap: 2px;
-            "></span>
-          </div>
-          <div class="players-list" style="display: flex; flex-direction: column; gap: var(--spacing-3);"></div>
-        </aside>
-
         <main class="game-area" style="
           flex: 1;
           display: flex;
@@ -141,12 +122,30 @@ export class GameBoard {
             flex: 1;
             padding: var(--spacing-4);
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            overflow: auto;
+            flex-direction: row;
+            align-items: stretch;
+            gap: var(--spacing-4);
+            overflow: hidden;
           ">
-            <!-- Game-specific UI will be mounted here -->
+            <!-- Player ring on the left -->
+            <div class="player-ring-container" style="
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+              min-width: 360px;
+              max-width: 480px;
+            "></div>
+            <!-- Game UI content on the right -->
+            <div class="game-ui-container" style="
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              overflow: auto;
+              min-width: 0;
+            "></div>
           </div>
 
           <div class="action-bar" style="
@@ -161,555 +160,122 @@ export class GameBoard {
           </div>
         </main>
 
-        <aside class="right-sidebar" style="
-          width: 240px;
-          background: var(--bg-primary);
-          border-left: 1px solid var(--border-light);
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        ">
-          <div class="sidebar-tabs" style="
-            display: flex;
-            border-bottom: 1px solid var(--border-light);
-            flex-shrink: 0;
-          ">
-            <button class="sidebar-tab ${this.activeTab === 'history' ? 'active' : ''}" data-tab="history" style="
-              flex: 1;
-              padding: var(--spacing-3);
-              border: none;
-              background: ${this.activeTab === 'history' ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
-              color: ${this.activeTab === 'history' ? 'var(--primary-500)' : 'var(--text-secondary)'};
-              font-size: var(--text-sm);
-              font-weight: var(--font-medium);
-              cursor: pointer;
-              border-bottom: 2px solid ${this.activeTab === 'history' ? 'var(--primary-500)' : 'transparent'};
-              transition: all 0.2s;
-            ">历史</button>
-            <button class="sidebar-tab ${this.activeTab === 'chat' ? 'active' : ''}" data-tab="chat" style="
-              flex: 1;
-              padding: var(--spacing-3);
-              border: none;
-              background: ${this.activeTab === 'chat' ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
-              color: ${this.activeTab === 'chat' ? 'var(--primary-500)' : 'var(--text-secondary)'};
-              font-size: var(--text-sm);
-              font-weight: var(--font-medium);
-              cursor: pointer;
-              border-bottom: 2px solid ${this.activeTab === 'chat' ? 'var(--primary-500)' : 'transparent'};
-              transition: all 0.2s;
-            ">聊天</button>
-            <button class="sidebar-tab ${this.activeTab === 'settings' ? 'active' : ''}" data-tab="settings" style="
-              flex: 1;
-              padding: var(--spacing-3);
-              border: none;
-              background: ${this.activeTab === 'settings' ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
-              color: ${this.activeTab === 'settings' ? 'var(--primary-500)' : 'var(--text-secondary)'};
-              font-size: var(--text-sm);
-              font-weight: var(--font-medium);
-              cursor: pointer;
-              border-bottom: 2px solid ${this.activeTab === 'settings' ? 'var(--primary-500)' : 'transparent'};
-              transition: all 0.2s;
-            ">设置</button>
-          </div>
-
-          <div class="tab-content history-panel" style="
-            flex: 1;
-            display: ${this.activeTab === 'history' ? 'flex' : 'none'};
-            flex-direction: column;
-            overflow: hidden;
-            padding: var(--spacing-3);
-          ">
-            <div class="history-list" style="
-              flex: 1;
-              overflow-y: auto;
-              overflow-x: hidden;
-              font-size: var(--text-sm);
-              color: var(--text-secondary);
-              min-height: 0;
-            ">
-              ${this._renderHistory()}
-            </div>
-          </div>
-
-          <div class="tab-content chat-panel" style="
-            flex: 1;
-            display: ${this.activeTab === 'chat' ? 'flex' : 'none'};
-            flex-direction: column;
-            overflow: hidden;
-          ">
-            <div class="chat-messages" style="
-              flex: 1;
-              overflow-y: auto;
-              padding: var(--spacing-3);
-              display: flex;
-              flex-direction: column;
-              gap: var(--spacing-2);
-              min-height: 0;
-            ">
-              ${this._renderChatMessages()}
-            </div>
-            <div class="chat-input-area" style="
-              padding: var(--spacing-3);
-              border-top: 1px solid var(--border-light);
-              display: flex;
-              gap: var(--spacing-2);
-              flex-shrink: 0;
-            ">
-              <input type="text" class="input chat-input" placeholder="发送消息..." style="flex: 1; font-size: var(--text-sm);">
-              <button class="btn btn-primary btn-sm send-chat-btn">发送</button>
-            </div>
-          </div>
-
-          <div class="tab-content settings-panel" style="
-            flex: 1;
-            display: ${this.activeTab === 'settings' ? 'flex' : 'none'};
-            flex-direction: column;
-            overflow: hidden;
-            padding: var(--spacing-3);
-          ">
-            <div class="settings-container" style="
-              flex: 1;
-              overflow-y: auto;
-              min-height: 0;
-            ">
-              <!-- Settings panel will be mounted here -->
-            </div>
-          </div>
-        </aside>
+        <div class="sidebar-container"></div>
       </div>
     `;
 
-    this._renderPlayers(players, state?.currentPlayer);
-    this._renderSettingsPanel();
+    this._renderPlayerRing();
+    this._renderSidebar();
     this._bindEvents();
   }
 
   /**
-   * Render players list in turn order
+   * Render the player ring
    * @private
    */
-  _renderPlayers(players, currentPlayerId) {
-    const container = this.element.querySelector('.players-list');
+  _renderPlayerRing() {
+    const container = this.element.querySelector('.player-ring-container');
     if (!container) return;
 
-    container.innerHTML = '';
-    this.avatars.forEach(a => a.destroy());
-    this.avatars.clear();
+    // Cleanup old ring
+    if (this.playerRing) {
+      this.playerRing.destroy();
+      this.playerRing = null;
+    }
 
     const state = this.state || this.game?.getState();
-    const direction = state?.direction ?? 1;
-    const currentIndex = state?.currentPlayerIndex ?? 0;
+    const players = state?.players || [];
+    if (players.length === 0) return;
 
-    // Sort players in turn order starting from current player
-    const orderedPlayers = this._getPlayersInTurnOrder(players, currentIndex, direction);
+    // Build badges for each player
+    const badges = this._buildPlayerBadges(state, players);
 
-    // Update direction indicator
-    this._updateDirectionIndicator(direction);
+    // Build dead player IDs
+    const deadIds = players
+      .filter(p => p.alive === false)
+      .map(p => p.id);
 
-    const unoCalledBy = state?.unoCalledBy;
-
-    const seerChecks = state?.seerChecks || {};
-    const roleNames = {
-      villager: '村民', werewolf: '狼人', seer: '预言家',
-      doctor: '医生', hunter: '猎人', witch: '女巫'
-    };
-
-    orderedPlayers.forEach((player, index) => {
-      let nickname = player.nickname;
-      if (player.id === this.playerId) {
-        nickname = `${nickname}（我）`;
-      }
-      // Role visible (teammate, death+reveal, game ended)
-      if (player.id !== this.playerId && player.roleId) {
-        nickname += `（${roleNames[player.roleId] || player.roleId}）`;
-      }
-      // Seer-known identity for players whose role isn't directly visible
-      else if (player.id !== this.playerId && seerChecks[player.id]) {
-        const teamLabel = seerChecks[player.id] === 'werewolf' ? '狼人' : '好人';
-        nickname += `（${teamLabel}）`;
-      }
-      const displayPlayer = { ...player, nickname };
-      const avatar = new PlayerAvatar(displayPlayer);
-      avatar.setCurrentTurn(player.id === currentPlayerId);
-
-      // Add turn order number
-      const element = avatar.getElement();
-      const orderBadge = document.createElement('span');
-      orderBadge.style.cssText = `
-        position: absolute;
-        top: -4px;
-        right: -4px;
-        width: 16px;
-        height: 16px;
-        background: ${index === 0 ? 'var(--primary-500)' : 'var(--neutral-300)'};
-        color: ${index === 0 ? 'white' : 'var(--text-secondary)'};
-        border-radius: 50%;
-        font-size: 10px;
-        font-weight: var(--font-bold);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      `;
-      orderBadge.textContent = String(index + 1);
-      element.style.position = 'relative';
-      element.appendChild(orderBadge);
-
-      // Add UNO badge if player called UNO
-      if (player.id === unoCalledBy) {
-        const unoBadge = document.createElement('span');
-        unoBadge.className = 'uno-badge';
-        unoBadge.style.cssText = `
-          position: absolute;
-          bottom: -4px;
-          left: 50%;
-          transform: translateX(-50%);
-          padding: 2px 6px;
-          background: linear-gradient(135deg, var(--uno-red) 0%, var(--error-600) 100%);
-          color: white;
-          border-radius: var(--radius-sm);
-          font-size: 9px;
-          font-weight: var(--font-bold);
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-          animation: unoPulse 1s ease-in-out infinite;
-        `;
-        unoBadge.textContent = 'UNO!';
-        element.appendChild(unoBadge);
-      }
-
-      this.avatars.set(player.id, avatar);
-      container.appendChild(element);
-    });
-  }
-
-  /**
-   * Get players ordered by turn sequence
-   * @private
-   */
-  _getPlayersInTurnOrder(players, currentIndex, direction) {
-    if (!players || players.length === 0) return [];
-
-    const count = players.length;
-    const ordered = [];
-
-    for (let i = 0; i < count; i++) {
-      const index = ((currentIndex + i * direction) % count + count) % count;
-      ordered.push(players[index]);
-    }
-
-    return ordered;
-  }
-
-  /**
-   * Update direction indicator
-   * @private
-   */
-  _updateDirectionIndicator(direction) {
-    const indicator = this.element.querySelector('.direction-indicator');
-    if (!indicator) return;
-
-    const isClockwise = direction === 1;
-    indicator.innerHTML = `
-      <span style="font-size: 14px;">${isClockwise ? '↓' : '↑'}</span>
-      <span>${isClockwise ? '顺时针' : '逆时针'}</span>
-    `;
-    indicator.title = isClockwise ? '行动顺序：从上到下' : '行动顺序：从下到上';
-  }
-
-  /**
-   * Render history
-   * @private
-   */
-  _renderHistory() {
-    const history = this.game?.getHistory() || [];
-
-    if (history.length === 0) {
-      return '<p style="color: var(--text-tertiary);">暂无历史记录</p>';
-    }
-
-    return history.slice(-50).reverse().map(entry => {
-      const playerName = this._getPlayerName(entry.playerId);
-      return `
-        <div style="
-          padding: var(--spacing-2);
-          border-bottom: 1px solid var(--border-light);
-        ">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-            <span style="font-weight: var(--font-medium); color: var(--text-primary); font-size: var(--text-xs);">
-              ${playerName}
-            </span>
-            <span style="color: var(--text-tertiary); font-size: 10px;">
-              ${new Date(entry.timestamp).toLocaleTimeString()}
-            </span>
-          </div>
-          ${this._renderHistoryAction(entry)}
-        </div>
-      `;
-    }).join('');
-  }
-
-  /**
-   * Get player name by ID
-   * @private
-   */
-  _getPlayerName(playerId) {
-    if (playerId === this.playerId) return '你';
-    const state = this.state || this.game?.getState();
-    const player = state?.players?.find(p => p.id === playerId);
-    return player?.nickname || playerId.substring(0, 8);
-  }
-
-  /**
-   * Render chat messages
-   * @private
-   */
-  _renderChatMessages() {
-    if (this.chatMessages.length === 0) {
-      return '<p style="color: var(--text-tertiary); text-align: center; font-size: var(--text-sm);">暂无消息</p>';
-    }
-
-    return this.chatMessages.map(msg => this._renderChatMessage(msg)).join('');
-  }
-
-  /**
-   * Render a single chat message
-   * @private
-   */
-  _renderChatMessage(msg) {
-    const isSystem = msg.playerId === 'system';
-    const isSelf = msg.playerId === this.playerId;
-
-    if (isSystem) {
-      return `
-        <div style="text-align: center; color: var(--text-tertiary); font-size: var(--text-xs);">
-          ${this._escapeHtml(msg.message)}
-        </div>
-      `;
-    }
-
-    return `
-      <div style="${isSelf ? 'text-align: right;' : ''}">
-        <span style="font-size: var(--text-xs); color: var(--text-secondary);">
-          ${msg.nickname || this._getPlayerName(msg.playerId)}
-        </span>
-        <div style="
-          display: inline-block;
-          padding: var(--spacing-2) var(--spacing-3);
-          background: ${isSelf ? 'var(--primary-500)' : 'var(--bg-tertiary)'};
-          color: ${isSelf ? 'white' : 'var(--text-primary)'};
-          border-radius: var(--radius-base);
-          max-width: 180px;
-          word-break: break-word;
-          font-size: var(--text-sm);
-        ">${this._escapeHtml(msg.message)}</div>
-      </div>
-    `;
-  }
-
-  /**
-   * Escape HTML to prevent XSS
-   * @private
-   */
-  _escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  /**
-   * Scroll chat to bottom
-   * @private
-   */
-  _scrollChatToBottom() {
-    const container = this.element.querySelector('.chat-messages');
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
-  }
-
-  /**
-   * Render settings panel
-   * @private
-   */
-  _renderSettingsPanel() {
-    const container = this.element.querySelector('.settings-container');
-    if (!container) return;
-
-    // Clean up old panels
-    if (this.settingsPanel) {
-      this.settingsPanel.destroy();
-      this.settingsPanel = null;
-    }
-    if (this.roleSetupPanel) {
-      this.roleSetupPanel.destroy();
-      this.roleSetupPanel = null;
-    }
-
-    // Mount role setup panel if applicable
-    if (this.gameConfig.defaultRoleCounts && this.gameSettings.roleCounts) {
-      const roleHeader = document.createElement('h4');
-      roleHeader.style.cssText = 'margin: 0 0 var(--spacing-2) 0; font-size: var(--text-sm); color: var(--text-secondary);';
-      roleHeader.textContent = '角色配置';
-      container.appendChild(roleHeader);
-
-      this.roleSetupPanel = new RoleSetupPanel({
-        roles: this.gameConfig.roles,
-        defaultRoleCounts: this.gameConfig.defaultRoleCounts,
-        roleCounts: this.gameSettings.roleCounts,
-        minPlayers: this.gameConfig.minPlayers || 2,
-        maxPlayers: this.gameConfig.maxPlayers || 20,
-        editable: false,
-        compact: true
-      });
-      container.appendChild(this.roleSetupPanel.getElement());
-
-      // Add separator
-      const sep = document.createElement('div');
-      sep.style.cssText = 'border-top: 1px solid var(--border-light); margin: var(--spacing-3) 0;';
-      container.appendChild(sep);
-    }
-
-    // Mount game settings panel
-    this.settingsPanel = new GameSettingsPanel({
-      gameConfig: this.gameConfig,
-      settings: this.gameSettings,
-      editable: false, // Always read-only in game
-      compact: true
+    // Create player ring
+    this.playerRing = new PlayerRing({
+      players,
+      selfPlayerId: this.playerId,
+      currentPlayerId: state?.currentPlayer,
+      direction: state?.direction ?? 1,
+      selectableIds: this._selectionMode ? this._selectablePlayerIds : [],
+      disabledIds: this._selectionMode ? this._disabledPlayerIds : [],
+      deadIds,
+      badges,
+      onPlayerSelect: this._selectionMode ? (playerId) => {
+        this._selectionCallback?.(playerId);
+      } : null,
+      minRadius: 140,
+      maxRadius: 200
     });
 
-    container.appendChild(this.settingsPanel.getElement());
+    container.appendChild(this.playerRing.getElement());
   }
 
   /**
-   * Render a history action with details
+   * Build badges object for all players
    * @private
    */
-  _renderHistoryAction(entry) {
-    const { actionType, actionData } = entry;
+  _buildPlayerBadges(state, players) {
+    const badges = {};
 
-    switch (actionType) {
-      case 'PLAY_CARD': {
-        const card = actionData?.card || this._findCardById(actionData?.cardId);
-        if (card) {
-          const skippedName = actionData?.skippedPlayerId
-            ? this._getPlayerName(actionData.skippedPlayerId)
-            : null;
-          return `
-            <div style="display: flex; align-items: center; gap: var(--spacing-2);">
-              <span>出牌</span>
-              ${this._renderMiniCard(card)}
-              ${actionData?.chosenColor ? `
-                <span style="font-size: var(--text-xs);">→ ${getColorName(actionData.chosenColor)}</span>
-              ` : ''}
-            </div>
-            ${skippedName ? `
-              <div style="color: var(--warning-600); font-size: var(--text-xs); margin-top: 2px;">
-                跳过 ${skippedName}
-              </div>
-            ` : ''}
-          `;
+    if (!state) return badges;
+
+    // UNO badge
+    if (state.unoCalledBy) {
+      badges[state.unoCalledBy] = badges[state.unoCalledBy] || [];
+      badges[state.unoCalledBy].push({ type: 'uno', text: 'UNO!' });
+    }
+
+    // Seer checks (Werewolf)
+    const seerChecks = state.seerChecks || {};
+    for (const [playerId, team] of Object.entries(seerChecks)) {
+      badges[playerId] = badges[playerId] || [];
+      const label = team === 'werewolf' ? '狼人' : '好人';
+      badges[playerId].push({ type: 'seer', text: label });
+    }
+
+    // Wolf teammates (Werewolf - only for wolves)
+    if (state.wolfTeamIds && state.myRole?.team === 'werewolf') {
+      state.wolfTeamIds.forEach(wolfId => {
+        if (wolfId !== this.playerId) {
+          badges[wolfId] = badges[wolfId] || [];
+          badges[wolfId].push({ type: 'wolf', text: '同伴' });
         }
-        return '<div>出牌</div>';
-      }
-
-      case 'DRAW_CARD': {
-        const count = actionData?.count || 1;
-        return `<div style="color: var(--warning-600);">摸了 ${count} 张牌</div>`;
-      }
-
-      case 'SKIP_TURN':
-        return '<div style="color: var(--text-tertiary);">跳过回合</div>';
-
-      case 'CALL_UNO':
-        return '<div style="color: var(--error-500); font-weight: var(--font-bold);">UNO!</div>';
-
-      case 'NIGHT_WOLF_KILL':
-      case 'NIGHT_SEER_CHECK':
-      case 'NIGHT_DOCTOR_PROTECT':
-      case 'NIGHT_WITCH_SAVE':
-      case 'NIGHT_WITCH_POISON':
-      case 'NIGHT_SKIP':
-        return '<div style="color: var(--text-tertiary);">提交了夜间行动</div>';
-
-      case 'DAY_VOTE': {
-        const target = actionData?.targetId
-          ? this._getPlayerName(actionData.targetId) : '弃票';
-        return `<div>投票: ${target}</div>`;
-      }
-
-      case 'DAY_SKIP_VOTE':
-        return '<div style="color: var(--text-tertiary);">弃票</div>';
-
-      case 'PHASE_ADVANCE':
-        return '<div style="color: var(--text-tertiary);">确认继续</div>';
-
-      case 'SPEECH_DONE':
-        return '<div>发言结束</div>';
-
-      case 'LAST_WORDS':
-        return '<div>发表了遗言</div>';
-
-      default:
-        return `<div>${actionType}</div>`;
+      });
     }
+
+    return badges;
   }
 
   /**
-   * Find card by ID from game state
+   * Render the sidebar
    * @private
    */
-  _findCardById(cardId) {
-    if (!cardId) return null;
-    const state = this.game?.getState();
-    if (!state) return null;
+  _renderSidebar() {
+    const container = this.element.querySelector('.sidebar-container');
+    if (!container) return;
 
-    // Check discard pile
-    const discardCard = state.discardPile?.find(c => c.id === cardId);
-    if (discardCard) return discardCard;
-
-    // Check all hands
-    for (const hand of Object.values(state.hands || {})) {
-      const card = hand.find(c => c.id === cardId);
-      if (card) return card;
+    // Cleanup old sidebar
+    if (this.sidebar) {
+      this.sidebar.destroy();
+      this.sidebar = null;
     }
 
-    return null;
-  }
+    // Create sidebar
+    this.sidebar = new GameSidebar({
+      playerId: this.playerId,
+      gameConfig: this.gameConfig,
+      gameSettings: this.gameSettings,
+      getHistory: () => this.game?.getHistory() || [],
+      getState: () => this.state || this.game?.getState(),
+      onSendChat: (message) => this.options.onSendChat?.(message)
+    });
 
-  /**
-   * Render a mini card for history
-   * @private
-   */
-  _renderMiniCard(card) {
-    const colorMap = {
-      red: 'var(--uno-red)',
-      blue: 'var(--uno-blue)',
-      green: 'var(--uno-green)',
-      yellow: 'var(--uno-yellow)',
-      null: 'var(--uno-black)'
-    };
-
-    const bgColor = colorMap[card.color] || colorMap[null];
-    const isWild = card.color === null;
-    const displayText = getCardDisplayText(card);
-
-    return `
-      <span style="
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 28px;
-        height: 20px;
-        padding: 0 4px;
-        background: ${isWild ? 'linear-gradient(135deg, var(--uno-red) 25%, var(--uno-blue) 25%, var(--uno-blue) 50%, var(--uno-green) 50%, var(--uno-green) 75%, var(--uno-yellow) 75%)' : bgColor};
-        color: white;
-        border-radius: 3px;
-        font-size: 11px;
-        font-weight: var(--font-bold);
-        box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-      ">${displayText}</span>
-    `;
+    container.appendChild(this.sidebar.getElement());
   }
 
   /**
@@ -729,61 +295,6 @@ export class GameBoard {
       const gameId = this.gameConfig?.id || this.game?.config?.id || 'uno';
       window.open(`/rules/${gameId}.html`, '_blank', 'width=900,height=700');
     });
-
-    // Tab switching
-    this.element.querySelectorAll('.sidebar-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        const tabName = tab.dataset.tab;
-        if (tabName && tabName !== this.activeTab) {
-          this.activeTab = tabName;
-          this._updateTabs();
-        }
-      });
-    });
-
-    // Chat input
-    const chatInput = this.element.querySelector('.chat-input');
-    const sendBtn = this.element.querySelector('.send-chat-btn');
-
-    const sendMessage = () => {
-      const message = chatInput?.value.trim();
-      if (message) {
-        this.options.onSendChat?.(message);
-        chatInput.value = '';
-      }
-    };
-
-    sendBtn?.addEventListener('click', sendMessage);
-    chatInput?.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') sendMessage();
-    });
-  }
-
-  /**
-   * Update tab UI without full re-render
-   * @private
-   */
-  _updateTabs() {
-    // Update tab buttons
-    this.element.querySelectorAll('.sidebar-tab').forEach(tab => {
-      const isActive = tab.dataset.tab === this.activeTab;
-      tab.style.background = isActive ? 'var(--bg-primary)' : 'var(--bg-secondary)';
-      tab.style.color = isActive ? 'var(--primary-500)' : 'var(--text-secondary)';
-      tab.style.borderBottom = `2px solid ${isActive ? 'var(--primary-500)' : 'transparent'}`;
-    });
-
-    // Show/hide panels
-    const historyPanel = this.element.querySelector('.history-panel');
-    const chatPanel = this.element.querySelector('.chat-panel');
-    const settingsPanel = this.element.querySelector('.settings-panel');
-    if (historyPanel) historyPanel.style.display = this.activeTab === 'history' ? 'flex' : 'none';
-    if (chatPanel) chatPanel.style.display = this.activeTab === 'chat' ? 'flex' : 'none';
-    if (settingsPanel) settingsPanel.style.display = this.activeTab === 'settings' ? 'flex' : 'none';
-
-    // Scroll chat to bottom when switching to chat tab
-    if (this.activeTab === 'chat') {
-      this._scrollChatToBottom();
-    }
   }
 
   /**
@@ -792,6 +303,8 @@ export class GameBoard {
    */
   updateState(state) {
     const prevUnoCalledBy = this._lastUnoCalledBy;
+    const prevSkippedPlayerId = this._lastSkippedPlayerId;
+    const prevCurrentPlayer = this._lastCurrentPlayer;
     this.state = state;
 
     // Check if someone just called UNO
@@ -802,12 +315,28 @@ export class GameBoard {
     }
     this._lastUnoCalledBy = state.unoCalledBy;
 
-    // Update players
-    this._renderPlayers(state.players || [], state.currentPlayer);
+    // Track skip badge state
+    const skippedPlayerId = state.lastAction?.skippedPlayerId;
+    if (skippedPlayerId && skippedPlayerId !== prevSkippedPlayerId) {
+      this._activeSkipBadgePlayerId = skippedPlayerId;
+    } else if (this._activeSkipBadgePlayerId && state.currentPlayer !== prevCurrentPlayer) {
+      // Next player has acted, clear the skip badge tracking
+      this._activeSkipBadgePlayerId = null;
+    }
+    this._lastSkippedPlayerId = skippedPlayerId;
+    this._lastCurrentPlayer = state.currentPlayer;
+
+    // Update player ring
+    this._renderPlayerRing();
+
+    // Show skip badge AFTER ring is re-rendered (so the new ring instance has it)
+    if (this._activeSkipBadgePlayerId && this.playerRing) {
+      this.playerRing.showSkipBadge(this._activeSkipBadgePlayerId, 0);
+    }
 
     // Update turn indicator
     const isMyTurn = state.currentPlayer === this.playerId;
-    const turnBadge = this.element.querySelector('.game-header span');
+    const turnBadge = this.element.querySelector('.turn-badge');
     if (turnBadge) {
       turnBadge.style.background = isMyTurn ? 'var(--success-500)' : 'var(--neutral-200)';
       turnBadge.style.color = isMyTurn ? 'white' : 'var(--text-secondary)';
@@ -815,15 +344,14 @@ export class GameBoard {
     }
 
     // Update turn number
-    const turnNum = this.element.querySelector('.game-header span:last-of-type');
+    const turnNum = this.element.querySelector('.turn-number');
     if (turnNum) {
       turnNum.textContent = `回合 ${state.turnNumber || 1}`;
     }
 
-    // Update history
-    const historyEl = this.element.querySelector('.history-list');
-    if (historyEl) {
-      historyEl.innerHTML = this._renderHistory();
+    // Update sidebar history
+    if (this.sidebar) {
+      this.sidebar.updateHistory();
     }
 
     // Update game-specific UI
@@ -909,22 +437,77 @@ export class GameBoard {
   }
 
   /**
+   * Enable player selection mode
+   * For games like Werewolf that need to select targets from the ring
+   * @param {Object} config
+   * @param {Array<string>} config.selectableIds - IDs that can be selected
+   * @param {Array<string>} [config.disabledIds] - IDs that are disabled
+   * @param {Function} config.onSelect - Selection callback
+   */
+  enablePlayerSelection(config) {
+    this._selectionMode = true;
+    this._selectablePlayerIds = config.selectableIds || [];
+    this._disabledPlayerIds = config.disabledIds || [];
+    this._selectionCallback = config.onSelect;
+
+    if (this.playerRing) {
+      this.playerRing.enableSelection({
+        selectableIds: this._selectablePlayerIds,
+        disabledIds: this._disabledPlayerIds,
+        onSelect: this._selectionCallback
+      });
+    }
+  }
+
+  /**
+   * Disable player selection mode
+   */
+  disablePlayerSelection() {
+    this._selectionMode = false;
+    this._selectablePlayerIds = [];
+    this._disabledPlayerIds = [];
+    this._selectionCallback = null;
+
+    if (this.playerRing) {
+      this.playerRing.disableSelection();
+    }
+  }
+
+  /**
+   * Get center content element from player ring
+   * For games to mount their center UI (table, cards, etc.)
+   * @returns {HTMLElement|null}
+   */
+  getRingCenterElement() {
+    return this.playerRing?.getCenterElement() || null;
+  }
+
+  /**
    * Set game-specific UI
    * @param {Object} gameUI - Game UI component with render/updateState methods
    */
   setGameUI(gameUI) {
     this.gameUI = gameUI;
 
-    const content = this.element.querySelector('.game-content');
+    // Pass gameBoard reference to gameUI if it supports it (for selection mode)
+    if (gameUI.setGameBoard) {
+      gameUI.setGameBoard(this);
+    }
+
+    const gameUIContainer = this.element.querySelector('.game-ui-container');
     const actionBar = this.element.querySelector('.action-bar');
 
-    if (content && gameUI.render) {
-      content.innerHTML = '';
+    if (gameUIContainer && gameUI.render) {
+      // Clear game UI container
+      gameUIContainer.innerHTML = '';
+
+      // Render game UI content
       const uiElement = gameUI.render(this.state, this.playerId, (action) => {
         this.options.onAction?.(action);
       });
+
       if (uiElement) {
-        content.appendChild(uiElement);
+        gameUIContainer.appendChild(uiElement);
       }
     }
 
@@ -967,15 +550,13 @@ export class GameBoard {
    * Unmount
    */
   unmount() {
-    this.avatars.forEach(a => a.destroy());
-    this.avatars.clear();
-    if (this.settingsPanel) {
-      this.settingsPanel.destroy();
-      this.settingsPanel = null;
+    if (this.playerRing) {
+      this.playerRing.destroy();
+      this.playerRing = null;
     }
-    if (this.roleSetupPanel) {
-      this.roleSetupPanel.destroy();
-      this.roleSetupPanel = null;
+    if (this.sidebar) {
+      this.sidebar.destroy();
+      this.sidebar = null;
     }
     this.element?.remove();
   }
@@ -985,16 +566,8 @@ export class GameBoard {
    * @param {Object} msg - Chat message with playerId, nickname, message
    */
   addChatMessage(msg) {
-    this.chatMessages.push(msg);
-
-    const container = this.element.querySelector('.chat-messages');
-    if (container) {
-      // Remove "no messages" placeholder if exists
-      if (this.chatMessages.length === 1) {
-        container.innerHTML = '';
-      }
-      container.insertAdjacentHTML('beforeend', this._renderChatMessage(msg));
-      this._scrollChatToBottom();
+    if (this.sidebar) {
+      this.sidebar.addChatMessage(msg);
     }
   }
 
@@ -1003,11 +576,9 @@ export class GameBoard {
    * @param {string} message
    */
   addSystemMessage(message) {
-    this.addChatMessage({
-      playerId: 'system',
-      message,
-      timestamp: Date.now()
-    });
+    if (this.sidebar) {
+      this.sidebar.addSystemMessage(message);
+    }
   }
 
   /**

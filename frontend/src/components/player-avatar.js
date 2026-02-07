@@ -9,7 +9,7 @@ const AVATAR_COLORS = [
 ];
 
 /**
- * Player Avatar component
+ * Player Avatar component with enhanced states and badges
  */
 export class PlayerAvatar {
   /**
@@ -17,9 +17,18 @@ export class PlayerAvatar {
    * @param {string} player.id - Player ID
    * @param {string} player.nickname - Player nickname
    * @param {boolean} [player.isHost=false] - Whether player is host
+   * @param {boolean} [player.isAI=false] - Whether player is AI
+   * @param {Object} [options] - Additional options
+   * @param {boolean} [options.selectable=false] - Can be clicked to select
+   * @param {boolean} [options.disabled=false] - Disabled state (grayed out, non-interactive)
+   * @param {boolean} [options.selected=false] - Currently selected
+   * @param {boolean} [options.isDead=false] - Dead state (for Werewolf)
+   * @param {Function} [options.onClick] - Click callback
+   * @param {Array<{type: string, text: string, color?: string}>} [options.badges] - Badge array
    */
-  constructor(player) {
+  constructor(player, options = {}) {
     this.player = player;
+    this.options = options;
     this.element = null;
     this.isOnline = true;
     this.isCurrentTurn = false;
@@ -44,7 +53,24 @@ export class PlayerAvatar {
   _render() {
     const color = this._getColor();
     const initial = this._getInitial();
+    const {
+      selectable = false,
+      disabled = false,
+      selected = false,
+      isDead = false,
+      badges = []
+    } = this.options;
 
+    // Build CSS classes
+    const classes = ['player-avatar'];
+    if (selectable && !disabled && !isDead) classes.push('player-avatar--selectable');
+    if (selected) classes.push('player-avatar--selected');
+    if (disabled) classes.push('player-avatar--disabled');
+    if (isDead) classes.push('player-avatar--dead');
+    if (this.isCurrentTurn) classes.push('player-avatar--current');
+    this.element.className = classes.join(' ');
+
+    // Base styles
     this.element.style.cssText = `
       display: flex;
       flex-direction: column;
@@ -53,8 +79,32 @@ export class PlayerAvatar {
       padding: var(--spacing-2);
       border-radius: var(--radius-base);
       transition: all var(--transition-fast);
-      ${this.isCurrentTurn ? 'background: var(--primary-50); box-shadow: 0 0 0 2px var(--primary-500);' : ''}
+      position: relative;
     `;
+
+    // Build badges HTML
+    const badgesHtml = badges.map((badge, index) => {
+      const bgColor = badge.color || this._getBadgeColor(badge.type);
+      return `
+        <span class="player-avatar__badge player-avatar__badge--${badge.type}" style="
+          position: absolute;
+          ${index === 0 ? 'bottom: -6px;' : `bottom: ${-6 - (index * 20)}px;`}
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 2px 6px;
+          background: ${bgColor};
+          color: white;
+          border-radius: var(--radius-sm);
+          font-size: 9px;
+          font-weight: var(--font-bold);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          white-space: nowrap;
+          z-index: ${10 - index};
+        ">${this._escapeHtml(badge.text)}</span>
+      `;
+    }).join('');
 
     this.element.innerHTML = `
       <div class="avatar-circle" style="
@@ -69,11 +119,10 @@ export class PlayerAvatar {
         font-weight: var(--font-bold);
         color: white;
         position: relative;
-        ${!this.isOnline ? 'opacity: 0.5; filter: grayscale(50%);' : ''}
       ">
         ${initial}
         ${this.player.isHost ? `
-          <span style="
+          <span class="avatar-badge avatar-badge--host" style="
             position: absolute;
             top: -4px;
             right: -4px;
@@ -88,7 +137,7 @@ export class PlayerAvatar {
           ">👑</span>
         ` : ''}
         ${this.player.isAI ? `
-          <span style="
+          <span class="avatar-badge avatar-badge--ai" style="
             position: absolute;
             top: -4px;
             left: -4px;
@@ -103,8 +152,8 @@ export class PlayerAvatar {
             color: white;
           ">🤖</span>
         ` : ''}
-        ${this.isOnline ? `
-          <span style="
+        ${this.isOnline && !isDead ? `
+          <span class="avatar-online-indicator" style="
             position: absolute;
             bottom: 0;
             right: 0;
@@ -115,21 +164,61 @@ export class PlayerAvatar {
             border: 2px solid white;
           "></span>
         ` : ''}
+        ${isDead ? `
+          <span class="avatar-dead-marker" style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 32px;
+            color: var(--error-500);
+            text-shadow: 0 0 4px white;
+          ">✕</span>
+        ` : ''}
+        ${badgesHtml}
       </div>
       <div class="avatar-name" style="
         font-size: var(--text-sm);
         color: var(--text-primary);
         text-align: center;
         word-break: break-word;
+        max-width: 80px;
       ">${this._escapeHtml(this.player.nickname)}</div>
-      ${this.isCurrentTurn ? `
-        <div style="
+      ${this.isCurrentTurn && !isDead ? `
+        <div class="avatar-turn-indicator" style="
           font-size: var(--text-xs);
           color: var(--primary-600);
           font-weight: var(--font-medium);
         ">当前回合</div>
       ` : ''}
     `;
+
+    // Bind click event if selectable
+    if (selectable && !disabled && !isDead && this.options.onClick) {
+      this.element.style.cursor = 'pointer';
+      this.element.onclick = (e) => {
+        e.stopPropagation();
+        this.options.onClick(this.player.id);
+      };
+    }
+  }
+
+  /**
+   * Get badge background color based on type
+   * @private
+   * @param {string} type
+   * @returns {string}
+   */
+  _getBadgeColor(type) {
+    const colors = {
+      uno: 'linear-gradient(135deg, var(--uno-red) 0%, var(--error-600) 100%)',
+      skip: 'var(--warning-500)',
+      wolf: 'var(--error-500)',
+      seer: 'var(--primary-500)',
+      protected: 'var(--success-500)',
+      order: 'var(--neutral-400)'
+    };
+    return colors[type] || 'var(--neutral-500)';
   }
 
   /**
@@ -178,6 +267,15 @@ export class PlayerAvatar {
   }
 
   /**
+   * Update options
+   * @param {Object} options - New options
+   */
+  updateOptions(options) {
+    this.options = { ...this.options, ...options };
+    this._render();
+  }
+
+  /**
    * Set online status
    * @param {boolean} isOnline
    */
@@ -207,8 +305,11 @@ export class PlayerAvatar {
    * Destroy the component
    */
   destroy() {
-    if (this.element && this.element.parentNode) {
-      this.element.parentNode.removeChild(this.element);
+    if (this.element) {
+      this.element.onclick = null;
+      if (this.element.parentNode) {
+        this.element.parentNode.removeChild(this.element);
+      }
     }
     this.element = null;
   }
@@ -217,10 +318,11 @@ export class PlayerAvatar {
 /**
  * Create player avatar element
  * @param {Object} player - Player object
+ * @param {Object} [options] - Additional options
  * @returns {HTMLElement}
  */
-export function createPlayerAvatar(player) {
-  const avatar = new PlayerAvatar(player);
+export function createPlayerAvatar(player, options = {}) {
+  const avatar = new PlayerAvatar(player, options);
   return avatar.getElement();
 }
 

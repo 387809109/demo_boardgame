@@ -43,6 +43,7 @@ const TYPE_SORT_ORDER = {
 
 /**
  * UNO UI Component
+ * Adapted for circular player ring layout - game table renders in the center
  */
 export class UnoUI {
   constructor() {
@@ -59,6 +60,10 @@ export class UnoUI {
     this._tableEl = null;
     this._colorPickerEl = null;
     this._boundHandleCardClick = this._handleCardClick.bind(this);
+
+    // Flag for GameBoard - mount game UI below the ring, not in center
+    // The ring center shows direction indicator; game content below
+    this.mountInRingCenter = false;
   }
 
   /**
@@ -82,16 +87,17 @@ export class UnoUI {
       max-width: 800px;
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-6);
+      gap: var(--spacing-4);
       align-items: center;
+      padding: var(--spacing-4) 0;
     `;
     this._container = container;
 
-    // Game info
+    // Game info bar (current color, draw pending, etc.)
     this._gameInfoEl = this._renderGameInfo();
     container.appendChild(this._gameInfoEl);
 
-    // Discard pile and deck
+    // Discard pile and deck (centered table area)
     this._tableEl = this._renderTable();
     container.appendChild(this._tableEl);
 
@@ -120,6 +126,9 @@ export class UnoUI {
       gap: var(--spacing-4);
       align-items: center;
       font-size: var(--text-sm);
+      padding: var(--spacing-2) var(--spacing-4);
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-lg);
     `;
 
     this._updateGameInfoContent(div);
@@ -128,6 +137,7 @@ export class UnoUI {
 
   /**
    * Update game info content without recreating the element
+   * Direction indicator is now in the player ring center, so removed from here
    * @private
    */
   _updateGameInfoContent(el) {
@@ -151,19 +161,12 @@ export class UnoUI {
           border-radius: var(--radius-sm);
         ">需要摸 ${this.state.drawPending} 张牌</span>
       ` : ''}
-      ${this.state.direction === -1 ? `
-        <span style="
-          padding: var(--spacing-1) var(--spacing-2);
-          background: var(--warning-500);
-          color: white;
-          border-radius: var(--radius-sm);
-        ">逆时针</span>
-      ` : ''}
     `;
   }
 
   /**
    * Render table (deck and discard pile)
+   * Compact layout for center of player ring
    * @private
    */
   _renderTable() {
@@ -171,34 +174,38 @@ export class UnoUI {
     div.className = 'game-table';
     div.style.cssText = `
       display: flex;
-      gap: var(--spacing-8);
+      gap: var(--spacing-6);
       align-items: center;
+      padding: var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-lg);
     `;
 
     // Deck
     const deck = document.createElement('div');
     deck.className = 'deck';
     deck.style.cssText = `
-      width: 80px;
-      height: 120px;
+      width: 70px;
+      height: 100px;
       background: var(--uno-black);
       border-radius: var(--radius-base);
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       color: white;
-      font-size: var(--text-2xl);
+      font-size: var(--text-lg);
       cursor: ${this.state.currentPlayer === this.playerId ? 'pointer' : 'default'};
       box-shadow: var(--shadow-md);
       position: relative;
       transition: transform var(--transition-fast);
     `;
     deck.innerHTML = `
-      <span>UNO</span>
+      <span style="font-weight: var(--font-bold);">UNO</span>
       <span style="
-        position: absolute;
-        bottom: var(--spacing-2);
         font-size: var(--text-xs);
+        margin-top: var(--spacing-1);
+        opacity: 0.8;
       ">${this.state.deckCount} 张</span>
     `;
 
@@ -213,8 +220,8 @@ export class UnoUI {
     discard.className = 'discard-pile';
     discard.style.cssText = `
       position: relative;
-      width: 80px;
-      height: 120px;
+      width: 70px;
+      height: 100px;
     `;
 
     if (this.state.topCard) {
@@ -267,7 +274,7 @@ export class UnoUI {
       padding-top: var(--spacing-6);
       background: var(--bg-tertiary);
       border-radius: var(--radius-lg);
-      min-height: 150px;
+      min-height: 130px;
       max-width: 100%;
     `;
     this._handContainer = div;
@@ -417,6 +424,15 @@ export class UnoUI {
     }
 
     div.className = classes.join(' ');
+
+    // Adjust size for the compact table layout
+    if (large) {
+      div.style.cssText = `
+        width: 70px;
+        height: 100px;
+        font-size: var(--text-xl);
+      `;
+    }
 
     // Data attributes for event delegation (only for hand cards)
     if (!large) {

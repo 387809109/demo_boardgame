@@ -12,7 +12,7 @@
   "rules": {
     "initialCards": 7,
     "drawOnMiss": 1,
-    "stackDrawCards": false,
+    "stackDrawCards": true,
     "forcePlay": false,
     "unoPenalty": 2
   },
@@ -29,7 +29,7 @@
       "type": "boolean",
       "label": "允许叠加 +2/+4",
       "description": "当被出 +2 时可以出 +2 或 +4 叠加，被出 +4 时可以出 +4 叠加",
-      "default": false
+      "default": true
     },
     "forcePlay": {
       "type": "boolean",

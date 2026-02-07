@@ -53,7 +53,7 @@ function ensureContainers() {
     toastContainer.id = 'toast-container';
     toastContainer.style.cssText = `
       position: fixed;
-      bottom: var(--spacing-4);
+      bottom: 100px;
       left: 50%;
       transform: translateX(-50%);
       z-index: var(--z-toast);

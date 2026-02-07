@@ -1,6 +1,9 @@
 /**
  * Werewolf Game UI
  * @module games/werewolf/ui
+ *
+ * Adapted for circular player ring layout - player selection now happens
+ * through the PlayerRing component in GameBoard instead of a separate grid.
  */
 
 import { ACTION_TYPES, PHASES, TEAMS } from './index.js';
@@ -43,6 +46,7 @@ const PHASE_NAMES = {
 
 /**
  * Werewolf UI Component
+ * Now works with PlayerRing for player selection
  */
 export class WerewolfUI {
   constructor() {
@@ -58,6 +62,19 @@ export class WerewolfUI {
     this._nightActionBtn = null;
     /** @type {HTMLElement|null} */
     this._container = null;
+    /** @type {Object|null} */
+    this._gameBoard = null;
+
+    // Flag for GameBoard - mount below the ring
+    this.mountInRingCenter = false;
+  }
+
+  /**
+   * Set reference to GameBoard for player selection
+   * @param {Object} gameBoard - GameBoard instance
+   */
+  setGameBoard(gameBoard) {
+    this._gameBoard = gameBoard;
   }
 
   /**
@@ -78,11 +95,12 @@ export class WerewolfUI {
     container.className = 'ww-game';
     container.style.cssText = `
       width: 100%;
-      max-width: 800px;
+      max-width: 700px;
       display: flex;
       flex-direction: column;
       gap: var(--spacing-4);
       align-items: stretch;
+      padding: var(--spacing-4) 0;
     `;
     this._container = container;
 
@@ -95,6 +113,7 @@ export class WerewolfUI {
     // 3. Phase content — switch by current phase
     if (state.hunterPendingShoot === playerId) {
       container.appendChild(this._renderHunterShoot());
+      this._enableHunterSelection();
     } else {
       switch (state.phase) {
         case PHASES.NIGHT:
@@ -170,7 +189,7 @@ export class WerewolfUI {
         if (hasAction && isMyStep) {
           const btn = this._createButton('确认行动', () => {
             this._submitNightAction();
-          }, this._nightActionRequiresTarget(role));
+          }, this._nightActionRequiresTarget(role) && !this._selectedTarget);
           this._nightActionBtn = btn;
           bar.appendChild(btn);
         } else {
@@ -217,6 +236,168 @@ export class WerewolfUI {
     this.state = state;
     this._selectedTarget = null;
     this._nightActionBtn = null;
+
+    // Update selection mode based on current phase
+    this._updateSelectionMode();
+  }
+
+  /**
+   * Get current selection config for GameBoard
+   * Returns null if no selection needed
+   * @returns {Object|null}
+   */
+  getSelectionConfig() {
+    const viewer = this._getViewer();
+    if (!viewer?.alive) return null;
+
+    const state = this.state;
+
+    // Hunter shoot
+    if (state.hunterPendingShoot === this.playerId) {
+      return {
+        selectableIds: this._getAlivePlayerIds().filter(id => id !== this.playerId),
+        disabledIds: [],
+        onSelect: (targetId) => this._handleTargetSelect(targetId)
+      };
+    }
+
+    // Night phase
+    if (state.phase === PHASES.NIGHT) {
+      const role = state.myRole?.roleId;
+      const isMyStep = state.pendingNightRoles?.includes(this.playerId);
+
+      if (isMyStep && this._roleHasNightAction(role)) {
+        return this._getNightSelectionConfig(role);
+      }
+    }
+
+    // Day vote
+    if (state.phase === PHASES.DAY_VOTE) {
+      const hasVoted = state.votes?.[this.playerId] !== undefined;
+      if (!hasVoted) {
+        const tiedCandidates = state.tiedCandidates;
+        const voteRound = state.voteRound || 1;
+        const filterIds = (voteRound === 2 && tiedCandidates?.length > 0)
+          ? tiedCandidates : null;
+
+        let selectableIds = this._getAlivePlayerIds().filter(id => id !== this.playerId);
+        if (filterIds) {
+          selectableIds = selectableIds.filter(id => filterIds.includes(id));
+        }
+
+        return {
+          selectableIds,
+          disabledIds: [],
+          onSelect: (targetId) => {
+            this.onAction?.({
+              actionType: ACTION_TYPES.DAY_VOTE,
+              actionData: { targetId }
+            });
+          }
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Get night phase selection config based on role
+   * @private
+   */
+  _getNightSelectionConfig(role) {
+    let selectableIds = [];
+    let excludeIds = [this.playerId];
+
+    switch (role) {
+      case 'werewolf':
+        selectableIds = this._getAlivePlayerIds();
+        break;
+      case 'seer':
+        selectableIds = this._getAlivePlayerIds().filter(id => id !== this.playerId);
+        break;
+      case 'doctor':
+        if (this.state.options?.allowDoctorSelfProtect) {
+          selectableIds = this._getAlivePlayerIds();
+        } else {
+          selectableIds = this._getAlivePlayerIds().filter(id => id !== this.playerId);
+        }
+        break;
+      case 'witch':
+        // Witch has special UI, but poison target selection uses ring
+        const roleStates = this.state.roleStates || {};
+        if (!roleStates.witchPoisonUsed) {
+          selectableIds = this._getAlivePlayerIds().filter(id => id !== this.playerId);
+        }
+        break;
+      default:
+        return null;
+    }
+
+    return {
+      selectableIds,
+      disabledIds: [],
+      onSelect: (targetId) => this._handleTargetSelect(targetId)
+    };
+  }
+
+  /**
+   * Handle target selection from player ring
+   * @private
+   */
+  _handleTargetSelect(targetId) {
+    this._selectedTarget = targetId;
+
+    // Enable the confirm button if exists
+    if (this._nightActionBtn) {
+      this._nightActionBtn.disabled = false;
+      this._nightActionBtn.style.cursor = 'pointer';
+      this._nightActionBtn.style.opacity = '1';
+    }
+
+    // Re-render to show selection
+    if (this._container) {
+      // Just update visual feedback - the full re-render will happen on action
+    }
+  }
+
+  /**
+   * Update selection mode on GameBoard
+   * @private
+   */
+  _updateSelectionMode() {
+    if (!this._gameBoard) return;
+
+    const config = this.getSelectionConfig();
+    if (config) {
+      this._gameBoard.enablePlayerSelection(config);
+    } else {
+      this._gameBoard.disablePlayerSelection();
+    }
+  }
+
+  /**
+   * Enable hunter shoot selection
+   * @private
+   */
+  _enableHunterSelection() {
+    if (!this._gameBoard) return;
+
+    this._gameBoard.enablePlayerSelection({
+      selectableIds: this._getAlivePlayerIds().filter(id => id !== this.playerId),
+      disabledIds: [],
+      onSelect: (targetId) => this._handleTargetSelect(targetId)
+    });
+  }
+
+  /**
+   * Get alive player IDs
+   * @private
+   */
+  _getAlivePlayerIds() {
+    return (this.state.players || [])
+      .filter(p => p.alive !== false)
+      .map(p => p.id);
   }
 
   // ─── Role Info ──────────────────────────────────────────────
@@ -308,6 +489,7 @@ export class WerewolfUI {
 
   /**
    * Render night action panel
+   * Player selection happens through the ring, so no grid here
    * @private
    * @returns {HTMLElement}
    */
@@ -336,7 +518,7 @@ export class WerewolfUI {
     const role = this.state.myRole?.roleId;
     const isMyStep = this.state.pendingNightRoles?.includes(this.playerId);
 
-    // Show seer result if available (revealed immediately after seer confirms)
+    // Show seer result if available
     const seerResult = (this.state.dayAnnouncements || [])
       .find(a => a.type === 'seer_result' && a.playerId === this.playerId);
     if (seerResult) {
@@ -349,43 +531,21 @@ export class WerewolfUI {
       return el;
     }
 
-    const onSelectTarget = (targetId) => {
-      this._selectedTarget = targetId;
-      if (this._nightActionBtn) {
-        this._nightActionBtn.disabled = false;
-        this._nightActionBtn.style.cursor = 'pointer';
-        this._nightActionBtn.style.opacity = '1';
-      }
-    };
+    // Enable selection mode for this role
+    this._updateSelectionMode();
 
     switch (role) {
       case 'werewolf':
-        el.appendChild(this._createInfoBox('选择今晚要击杀的目标'));
-        el.appendChild(this._renderPlayerGrid({
-          selectable: true,
-          onSelect: onSelectTarget
-        }));
-        // Show wolf teammates' votes
+        el.appendChild(this._createInfoBox('点击环形布局中的玩家头像选择今晚要击杀的目标'));
         el.appendChild(this._renderWolfVotes());
         break;
 
       case 'seer':
-        el.appendChild(this._createInfoBox('选择要查验的玩家'));
-        el.appendChild(this._renderPlayerGrid({
-          selectable: true,
-          excludeIds: [this.playerId],
-          onSelect: onSelectTarget
-        }));
+        el.appendChild(this._createInfoBox('点击环形布局中的玩家头像选择要查验的玩家'));
         break;
 
       case 'doctor':
-        el.appendChild(this._createInfoBox('选择要保护的玩家'));
-        el.appendChild(this._renderPlayerGrid({
-          selectable: true,
-          excludeIds: this.state.options?.allowDoctorSelfProtect
-            ? [] : [this.playerId],
-          onSelect: onSelectTarget
-        }));
+        el.appendChild(this._createInfoBox('点击环形布局中的玩家头像选择要保护的玩家'));
         break;
 
       case 'witch':
@@ -399,7 +559,7 @@ export class WerewolfUI {
         break;
     }
 
-    // Skip button for roles with night actions (only when it's their step)
+    // Skip button for roles with night actions
     if (this._roleHasNightAction(role)) {
       const skipBtn = this._createButton('跳过行动', () => {
         this.onAction({
@@ -431,7 +591,7 @@ export class WerewolfUI {
     const saveUsed = roleStates.witchSaveUsed;
     const poisonUsed = roleStates.witchPoisonUsed;
 
-    // Find wolf target from announcements (witch_night_info)
+    // Find wolf target from announcements
     const witchInfo = (this.state.dayAnnouncements || [])
       .find(a => a.type === 'witch_night_info');
     const wolfTargetId = witchInfo?.wolfTarget || null;
@@ -503,17 +663,8 @@ export class WerewolfUI {
           margin-bottom: var(--spacing-2);
           font-weight: var(--font-semibold);
           color: var(--text-primary);
-        ">选择毒杀目标</div>
+        ">点击环形布局中的玩家头像选择毒杀目标</div>
       `;
-
-      poisonSection.appendChild(this._renderPlayerGrid({
-        selectable: true,
-        excludeIds: [this.playerId],
-        onSelect: (targetId) => {
-          this._selectedTarget = targetId;
-          this._witchAction = 'poison';
-        }
-      }));
 
       const poisonBtn = this._createButton('使用毒药', () => {
         if (this._selectedTarget) {
@@ -522,7 +673,7 @@ export class WerewolfUI {
             actionData: { targetId: this._selectedTarget }
           });
         }
-      }, false, 'danger');
+      }, !this._selectedTarget, 'danger');
       poisonSection.appendChild(poisonBtn);
     }
     el.appendChild(poisonSection);
@@ -533,9 +684,6 @@ export class WerewolfUI {
   /**
    * Render night step progress indicator
    * @private
-   * @param {Array} steps - Night steps
-   * @param {number} currentStep - Current step index
-   * @returns {HTMLElement}
    */
   _renderNightProgress(steps, currentStep) {
     const el = document.createElement('div');
@@ -589,8 +737,6 @@ export class WerewolfUI {
   /**
    * Render seer check result during night
    * @private
-   * @param {Object} result - { targetId, result (team) }
-   * @returns {HTMLElement}
    */
   _renderSeerResult(result) {
     const target = this._findPlayer(result.targetId);
@@ -626,7 +772,6 @@ export class WerewolfUI {
   /**
    * Render wolf teammates' vote summary
    * @private
-   * @returns {HTMLElement}
    */
   _renderWolfVotes() {
     const el = document.createElement('div');
@@ -677,7 +822,6 @@ export class WerewolfUI {
   /**
    * Render day announce panel
    * @private
-   * @returns {HTMLElement}
    */
   _renderAnnouncePanel() {
     const el = document.createElement('div');
@@ -740,33 +884,7 @@ export class WerewolfUI {
       a => a.type === 'seer_result' && a.playerId === this.playerId
     );
     if (seerResult) {
-      const target = this._findPlayer(seerResult.targetId);
-      const teamText = seerResult.result === TEAMS.WEREWOLF ? '狼人' : '好人';
-      const teamColor = seerResult.result === TEAMS.WEREWOLF
-        ? 'var(--error-500)' : 'var(--success-500)';
-
-      const seerBox = document.createElement('div');
-      seerBox.style.cssText = `
-        padding: var(--spacing-3);
-        background: var(--bg-secondary);
-        border-radius: var(--radius-md);
-        border-left: 3px solid ${teamColor};
-      `;
-      seerBox.innerHTML = `
-        <div style="font-weight: var(--font-semibold); color: var(--text-primary);">
-          查验结果
-        </div>
-        <div style="color: var(--text-primary); margin-top: var(--spacing-1);">
-          <span style="font-weight: var(--font-medium);">
-            ${this._displayName(target, seerResult.targetId)}
-          </span>
-          的身份是
-          <span style="color: ${teamColor}; font-weight: var(--font-bold);">
-            ${teamText}
-          </span>
-        </div>
-      `;
-      el.appendChild(seerBox);
+      el.appendChild(this._renderSeerResult(seerResult));
     }
 
     return el;
@@ -777,7 +895,6 @@ export class WerewolfUI {
   /**
    * Render discussion panel with speaker queue
    * @private
-   * @returns {HTMLElement}
    */
   _renderDiscussionPanel() {
     const el = document.createElement('div');
@@ -859,8 +976,8 @@ export class WerewolfUI {
 
   /**
    * Render vote panel
+   * Player selection happens through the ring
    * @private
-   * @returns {HTMLElement}
    */
   _renderVotePanel() {
     const el = document.createElement('div');
@@ -875,15 +992,20 @@ export class WerewolfUI {
     const tiedCandidates = this.state.tiedCandidates;
     const hasVoted = this.state.votes?.[this.playerId] !== undefined;
 
-    let infoText = '选择要放逐的玩家';
+    let infoText = '点击环形布局中的玩家头像选择要放逐的玩家';
     if (voteRound === 2 && tiedCandidates?.length > 0) {
-      infoText = '平票重投！仅可选择以下候选人';
+      infoText = '平票重投！点击以下候选人的头像进行投票';
     }
     if (hasVoted) {
       infoText = '你已投票，等待其他玩家...';
     }
 
     el.appendChild(this._createInfoBox(infoText));
+
+    // Enable selection mode for voting
+    if (!hasVoted) {
+      this._updateSelectionMode();
+    }
 
     // Show tied candidates indicator
     if (voteRound === 2 && tiedCandidates?.length > 0) {
@@ -900,24 +1022,6 @@ export class WerewolfUI {
         .join('、');
       tiedBox.textContent = `平票候选人：${names}`;
       el.appendChild(tiedBox);
-    }
-
-    // Player grid for voting
-    if (!hasVoted) {
-      const filterIds = (voteRound === 2 && tiedCandidates?.length > 0)
-        ? tiedCandidates : null;
-
-      el.appendChild(this._renderPlayerGrid({
-        selectable: true,
-        excludeIds: [this.playerId],
-        onlyIds: filterIds,
-        onSelect: (targetId) => {
-          this.onAction({
-            actionType: ACTION_TYPES.DAY_VOTE,
-            actionData: { targetId }
-          });
-        }
-      }));
     }
 
     // Show current votes
@@ -964,7 +1068,6 @@ export class WerewolfUI {
   /**
    * Render ended panel with winner and role reveal
    * @private
-   * @returns {HTMLElement}
    */
   _renderEndedPanel() {
     const el = document.createElement('div');
@@ -1068,8 +1171,8 @@ export class WerewolfUI {
 
   /**
    * Render hunter shoot panel (override for any phase)
+   * Selection happens through the ring
    * @private
-   * @returns {HTMLElement}
    */
   _renderHunterShoot() {
     const el = document.createElement('div');
@@ -1080,13 +1183,7 @@ export class WerewolfUI {
       gap: var(--spacing-3);
     `;
 
-    el.appendChild(this._createInfoBox('你是猎人！死亡时可以开枪带走一名玩家'));
-
-    el.appendChild(this._renderPlayerGrid({
-      selectable: true,
-      excludeIds: [this.playerId],
-      onSelect: (targetId) => { this._selectedTarget = targetId; }
-    }));
+    el.appendChild(this._createInfoBox('你是猎人！点击环形布局中的玩家头像选择开枪目标'));
 
     return el;
   }
@@ -1096,7 +1193,6 @@ export class WerewolfUI {
   /**
    * Render dead chat box
    * @private
-   * @returns {HTMLElement}
    */
   _renderDeadChat() {
     const el = document.createElement('div');
@@ -1236,100 +1332,6 @@ export class WerewolfUI {
     return el;
   }
 
-  // ─── Reusable Player Grid ──────────────────────────────────
-
-  /**
-   * Render a reusable player grid for target selection
-   * @private
-   * @param {Object} opts
-   * @param {boolean} opts.selectable - Whether cards are clickable
-   * @param {Function} [opts.onSelect] - Callback when a player is selected
-   * @param {string[]} [opts.excludeIds] - Player IDs to exclude
-   * @param {string} [opts.excludeTeam] - Team to exclude
-   * @param {string[]} [opts.onlyIds] - If set, only show these player IDs
-   * @returns {HTMLElement}
-   */
-  _renderPlayerGrid(opts = {}) {
-    const {
-      selectable = false,
-      onSelect,
-      excludeIds = [],
-      excludeTeam,
-      onlyIds
-    } = opts;
-
-    const grid = document.createElement('div');
-    grid.className = 'ww-player-grid';
-    grid.style.cssText = `
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-      gap: var(--spacing-2);
-    `;
-
-    const players = this.state.players || [];
-
-    for (const player of players) {
-      // Filters
-      if (excludeIds.includes(player.id)) continue;
-      if (!player.alive) continue;
-      if (excludeTeam && player.team === excludeTeam) continue;
-      if (onlyIds && !onlyIds.includes(player.id)) continue;
-
-      const isWolfTeammate = this.state.wolfTeamIds?.includes(player.id)
-        && this.state.myRole?.team === TEAMS.WEREWOLF
-        && player.id !== this.playerId;
-      const isSelected = this._selectedTarget === player.id;
-
-      const card = document.createElement('div');
-      card.className = 'ww-player-card';
-      card.style.cssText = `
-        padding: var(--spacing-2);
-        background: ${isSelected ? 'var(--primary-100)' : 'var(--bg-primary)'};
-        border: 2px solid ${isSelected ? 'var(--primary-500)' : 'var(--border-light)'};
-        border-radius: var(--radius-md);
-        text-align: center;
-        cursor: ${selectable ? 'pointer' : 'default'};
-        transition: var(--transition-fast);
-        ${isWolfTeammate ? `border-color: ${TEAM_COLORS[TEAMS.WEREWOLF]};` : ''}
-      `;
-
-      card.innerHTML = `
-        <div style="
-          font-size: var(--text-sm);
-          font-weight: var(--font-medium);
-          color: var(--text-primary);
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        ">${this._displayName(player)}</div>
-        ${isWolfTeammate
-          ? `<div style="
-              font-size: var(--text-xs);
-              color: ${TEAM_COLORS[TEAMS.WEREWOLF]};
-            ">狼人同伴</div>`
-          : ''}
-      `;
-
-      if (selectable && onSelect) {
-        card.addEventListener('click', () => {
-          // Update visual selection
-          grid.querySelectorAll('.ww-player-card').forEach(c => {
-            c.style.background = 'var(--bg-primary)';
-            c.style.borderColor = 'var(--border-light)';
-          });
-          card.style.background = 'var(--primary-100)';
-          card.style.borderColor = 'var(--primary-500)';
-          this._selectedTarget = player.id;
-          onSelect(player.id);
-        });
-      }
-
-      grid.appendChild(card);
-    }
-
-    return grid;
-  }
-
   // ─── Helpers ────────────────────────────────────────────────
 
   /**
@@ -1365,8 +1367,6 @@ export class WerewolfUI {
   /**
    * Check if a role has a night action
    * @private
-   * @param {string} roleId
-   * @returns {boolean}
    */
   _roleHasNightAction(roleId) {
     return ['werewolf', 'seer', 'doctor', 'witch'].includes(roleId);
@@ -1375,8 +1375,6 @@ export class WerewolfUI {
   /**
    * Check if a role's night action requires a target selection
    * @private
-   * @param {string} roleId
-   * @returns {boolean}
    */
   _nightActionRequiresTarget(roleId) {
     return ['werewolf', 'seer', 'doctor'].includes(roleId);
@@ -1385,7 +1383,6 @@ export class WerewolfUI {
   /**
    * Get the viewer player object from state
    * @private
-   * @returns {Object|null}
    */
   _getViewer() {
     return (this.state.players || []).find(p => p.id === this.playerId) || null;
@@ -1394,8 +1391,6 @@ export class WerewolfUI {
   /**
    * Find a player by ID
    * @private
-   * @param {string} playerId
-   * @returns {Object|null}
    */
   _findPlayer(playerId) {
     return (this.state.players || []).find(p => p.id === playerId) || null;
@@ -1404,9 +1399,6 @@ export class WerewolfUI {
   /**
    * Get display name, appending （我） for the current player
    * @private
-   * @param {Object|null} player - Player object
-   * @param {string} [fallback] - Fallback if player is null
-   * @returns {string}
    */
   _displayName(player, fallback = '') {
     const name = player?.nickname || fallback || '???';
@@ -1415,11 +1407,9 @@ export class WerewolfUI {
 
     if (id && id !== this.playerId) {
       if (player?.roleId) {
-        // Role visible (teammate, death+reveal, game ended)
         const roleName = ROLE_NAMES[player.roleId] || player.roleId;
         display += `（${roleName}）`;
       } else {
-        // Seer-known identity for players whose role isn't directly visible
         const seerChecks = this.state?.seerChecks || {};
         if (seerChecks[id]) {
           const teamLabel = seerChecks[id] === TEAMS.WEREWOLF ? '狼人' : '好人';
@@ -1433,8 +1423,6 @@ export class WerewolfUI {
   /**
    * Get death cause display text
    * @private
-   * @param {string} cause
-   * @returns {string}
    */
   _getDeathCauseText(cause) {
     const texts = {
@@ -1450,8 +1438,6 @@ export class WerewolfUI {
   /**
    * Create a styled info box
    * @private
-   * @param {string} text
-   * @returns {HTMLElement}
    */
   _createInfoBox(text) {
     const el = document.createElement('div');
@@ -1471,11 +1457,6 @@ export class WerewolfUI {
   /**
    * Create a styled button
    * @private
-   * @param {string} text
-   * @param {Function|null} onClick
-   * @param {boolean} [disabled=false]
-   * @param {string} [variant='primary']
-   * @returns {HTMLElement}
    */
   _createButton(text, onClick, disabled = false, variant = 'primary') {
     const btn = document.createElement('button');
@@ -1507,8 +1488,6 @@ export class WerewolfUI {
   /**
    * Escape HTML to prevent XSS
    * @private
-   * @param {string} str
-   * @returns {string}
    */
   _escapeHtml(str) {
     const div = document.createElement('div');

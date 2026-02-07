@@ -374,6 +374,31 @@
 
 ### 2026-02-07
 
+- ✅ 环形玩家布局重构 (Player Ring Layout)
+  - **新建** `components/player-ring.js` — 环形玩家布局组件 (圆形定位算法、方向指示器、选择模式、跳过徽章)
+  - **新建** `components/game-sidebar.js` — 侧边栏组件 (从 game-board.js 拆分，历史/聊天/设置标签页)
+  - **重构** `layout/game-board.js` — 移除左侧玩家列表，集成 PlayerRing，PC 端左右布局 (玩家环形左侧 + 游戏内容右侧)
+  - **增强** `components/player-avatar.js` — 添加 selectable/disabled/selected/isDead 状态，灵活徽章系统
+  - **适配** `games/uno/ui.js` — 适配新布局，移除冗余方向指示器
+  - **适配** `games/werewolf/ui.js` — 使用环形选择替代玩家网格
+  - **样式** `theme/default.css` — 添加环形布局、玩家状态、徽章 CSS
+
+- ✅ UNO 游戏修复
+  - 修复 +4 无法响应 +2 的 bug (启用 stackDrawCards 默认值)
+  - 修复玩家位置随方向变化的问题 (位置固定，仅指示器变化)
+  - 修复方向箭头与玩家顺序相反的问题 (调整角度计算公式)
+  - 修复跳过徽章不显示的问题 (showSkipBadge 调用顺序)
+  - 移除方向指示器动画 (改为静态箭头)
+  - 玩家自己固定在最下方位置
+
+- ✅ UI 优化
+  - Toast 提示位置上移 (避免遮盖操作按钮)
+  - 玩家座位区域放大 (容器 360-480px，半径 140-200)
+  - 文件拆分：game-board.js 从 1072 行拆分为 595 行 + game-sidebar.js 584 行
+
+- ✅ 任务更新
+  - T-F123 移动端适配任务添加游戏区域布局调整目标
+
 - ✅ T-F124 游戏数据查询面板
   - 新建 `frontend/src/utils/api-client.js` — API 客户端工具 (fetchGames, get, post, ApiError, isApiConfigured)
   - 新建 `frontend/src/components/query-panel.js` — 查询面板组件 (模态框、游戏卡片网格、加载/错误状态、重试)
