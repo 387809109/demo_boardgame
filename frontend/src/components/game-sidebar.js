@@ -171,8 +171,16 @@ export class GameSidebar {
       return '<p style="color: var(--text-tertiary);">暂无历史记录</p>';
     }
 
+    // Check if this is a werewolf game
+    const state = this.options.getState?.();
+    const isWerewolf = state?.myRole !== undefined;
+
     return history.slice(-50).reverse().map(entry => {
-      const playerName = this._getPlayerName(entry.playerId);
+      // Use werewolf-specific display name if applicable
+      const playerName = isWerewolf
+        ? this._getWerewolfHistoryName(entry.playerId, entry.actionType)
+        : this._getPlayerName(entry.playerId);
+
       return `
         <div style="
           padding: var(--spacing-2);
@@ -201,6 +209,102 @@ export class GameSidebar {
     const state = this.options.getState?.();
     const player = state?.players?.find(p => p.id === playerId);
     return player?.nickname || playerId.substring(0, 8);
+  }
+
+  /**
+   * Get display name for history entries in Werewolf
+   * Rules:
+   * - Self is always "我"
+   * - Night actions: show role only (anonymous), unless player is known
+   * - Day actions: show player name, add role if known
+   * - Known players: wolf teammates, seer checked players
+   * @private
+   */
+  _getWerewolfHistoryName(playerId, actionType) {
+    const state = this.options.getState?.();
+    if (!state) return this._getPlayerName(playerId);
+
+    // Self is always "我"
+    if (playerId === this.playerId) return '我';
+
+    const player = state.players?.find(p => p.id === playerId);
+    const playerName = player?.nickname || playerId.substring(0, 8);
+
+    // Check if this player's identity is known to the viewer
+    const myRole = state.myRole?.roleId;
+    const myTeam = state.myRole?.team;
+    const seerChecks = state.seerChecks || {};
+    const wolfTeamIds = state.wolfTeamIds || [];
+
+    // Known identity sources:
+    // 1. Wolf teammates (if I'm a wolf)
+    // 2. Seer checked players (if I'm the seer)
+    // 3. Game ended (all roles revealed)
+    const isGameEnded = state.phase === 'ended';
+    const isWolfTeammate = myTeam === 'werewolf' && wolfTeamIds.includes(playerId);
+    const isSeerChecked = seerChecks[playerId] !== undefined;
+
+    // Get the player's role if known
+    let knownRole = null;
+    if (isGameEnded && player?.roleId) {
+      knownRole = this._getRoleName(player.roleId);
+    } else if (isWolfTeammate) {
+      knownRole = '狼人';
+    } else if (isSeerChecked) {
+      knownRole = seerChecks[playerId] === 'werewolf' ? '狼人' : '好人';
+    }
+
+    // Check if this is a night action
+    const isNightAction = actionType?.startsWith('NIGHT_');
+
+    if (isNightAction) {
+      // Night actions: anonymous (role only) unless known
+      if (knownRole) {
+        return `${playerName}（${knownRole}）`;
+      }
+      // Get role from action type for anonymous display
+      const roleFromAction = this._getRoleFromActionType(actionType);
+      return roleFromAction || '???';
+    } else {
+      // Day actions: show name, add role if known
+      if (knownRole) {
+        return `${playerName}（${knownRole}）`;
+      }
+      return playerName;
+    }
+  }
+
+  /**
+   * Get role name in Chinese
+   * @private
+   */
+  _getRoleName(roleId) {
+    const roleNames = {
+      villager: '村民',
+      werewolf: '狼人',
+      seer: '预言家',
+      doctor: '医生',
+      hunter: '猎人',
+      witch: '女巫'
+    };
+    return roleNames[roleId] || roleId;
+  }
+
+  /**
+   * Get role name from action type for anonymous display
+   * @private
+   */
+  _getRoleFromActionType(actionType) {
+    const actionRoles = {
+      'NIGHT_WOLF_KILL': '狼人',
+      'NIGHT_WOLF_TENTATIVE': '狼人',
+      'NIGHT_SEER_CHECK': '预言家',
+      'NIGHT_DOCTOR_PROTECT': '医生',
+      'NIGHT_WITCH_SAVE': '女巫',
+      'NIGHT_WITCH_POISON': '女巫',
+      'NIGHT_SKIP': null  // Could be any role
+    };
+    return actionRoles[actionType] || null;
   }
 
   /**
