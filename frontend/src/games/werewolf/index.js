@@ -559,7 +559,7 @@ export class WerewolfGame extends GameEngine {
   _startDayDiscussion(state) {
     state.votes = {};
 
-    // Build speaker queue: counter-clockwise from victim
+    // Build speaker queue: clockwise from victim (matches direction indicator)
     const alive = state.players.filter(p => state.playerMap[p.id].alive);
     const victimIds = (state.nightDeaths || []).map(d => d.playerId);
 
@@ -570,7 +570,7 @@ export class WerewolfGame extends GameEngine {
       // Use the first victim's original seat to pick starting neighbor
       const victimSeat = state.players.findIndex(p => p.id === victimIds[0]);
       if (victimSeat !== -1) {
-        // Counter-clockwise = decreasing index; find next alive player after victim seat
+        // Find next alive player clockwise from victim seat
         for (let offset = 1; offset <= state.players.length; offset++) {
           const idx = (victimSeat + offset) % state.players.length;
           const candidate = state.players[idx];
@@ -582,10 +582,10 @@ export class WerewolfGame extends GameEngine {
       }
     }
 
-    // Build queue in counter-clockwise (reverse) order from startIdx
+    // Build queue in clockwise order from startIdx (matches direction indicator)
     const queue = [];
     for (let i = 0; i < alive.length; i++) {
-      const idx = (startIdx + alive.length - i) % alive.length;
+      const idx = (startIdx + i) % alive.length;
       queue.push(alive[idx].id);
     }
 
