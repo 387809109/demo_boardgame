@@ -616,6 +616,24 @@ export class WerewolfGame extends GameEngine {
   }
 
   /**
+   * Start tie speech phase - only tied candidates speak before second vote
+   * @private
+   */
+  _startTieSpeech(state, tiedPlayerIds) {
+    state.phase = PHASES.DAY_DISCUSSION;
+    state.speakerQueue = [...tiedPlayerIds];
+    state.speakerIndex = 0;
+    state.currentSpeaker = tiedPlayerIds.length > 0 ? tiedPlayerIds[0] : null;
+
+    this._logEvent(state, 'phase_change', {
+      phase: PHASES.DAY_DISCUSSION,
+      round: state.round,
+      speakerQueue: tiedPlayerIds,
+      isTieSpeech: true
+    });
+  }
+
+  /**
    * Start day vote phase
    * @private
    */
@@ -829,11 +847,12 @@ export class WerewolfGame extends GameEngine {
         this._transitionPhase(state, PHASES.NIGHT);
       }
     } else if (result.tiedPlayers.length > 0 && state.voteRound === 1) {
-      // Tie in first vote round -> second vote with tied candidates only
+      // Tie in first vote round -> tied candidates speak, then second vote
       state.tiedCandidates = result.tiedPlayers;
       state.voteRound = 2;
       state.votes = {};
-      state.phase = PHASES.DAY_VOTE;
+      // Give tied candidates a chance to speak before second vote
+      this._startTieSpeech(state, result.tiedPlayers);
     } else {
       // No execution (second tie or no votes) -> go to night
       state.tiedCandidates = null;

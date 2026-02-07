@@ -982,6 +982,22 @@ export class WerewolfUI {
 
     const queue = this.state.speakerQueue || [];
     const currentSpeaker = this.state.currentSpeaker;
+    const isTieSpeech = this.state.voteRound === 2 && this.state.tiedCandidates?.length > 0;
+
+    // Tie speech header
+    if (isTieSpeech) {
+      const tieHeader = document.createElement('div');
+      tieHeader.style.cssText = `
+        padding: var(--spacing-2) var(--spacing-3);
+        background: var(--warning-100);
+        border-radius: var(--radius-md);
+        color: var(--warning-700);
+        font-weight: var(--font-semibold);
+        text-align: center;
+      `;
+      tieHeader.textContent = '平票发言';
+      el.appendChild(tieHeader);
+    }
 
     el.appendChild(this._createInfoBox(
       currentSpeaker === this.playerId
@@ -1000,12 +1016,13 @@ export class WerewolfUI {
       border-radius: var(--radius-md);
     `;
 
+    const listTitle = isTieSpeech ? '平票候选人发言顺序' : '发言顺序';
     list.innerHTML = `
       <div style="
         font-weight: var(--font-semibold);
         color: var(--text-primary);
         margin-bottom: var(--spacing-2);
-      ">发言顺序</div>
+      ">${listTitle}</div>
     `;
 
     for (let i = 0; i < queue.length; i++) {
