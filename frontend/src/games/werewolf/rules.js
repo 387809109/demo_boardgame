@@ -80,6 +80,15 @@ export function validateNightAction(move, state) {
     return { valid: true };
   }
 
+  // NIGHT_WOLF_TENTATIVE is a special action for werewolves (not in config actionTypes)
+  if (actionType === 'NIGHT_WOLF_TENTATIVE') {
+    if (player.roleId !== 'werewolf') {
+      return { valid: false, error: '只有狼人可以执行此操作' };
+    }
+    // Tentative vote can be done anytime during wolf step, even after submitting
+    return { valid: true };
+  }
+
   // Check the role is allowed this action
   if (!roleConfig.actionTypes.includes(actionType)) {
     return { valid: false, error: '你的角色不能执行此操作' };
@@ -115,14 +124,7 @@ export function validateNightAction(move, state) {
       }
       break;
     }
-    case 'NIGHT_WOLF_TENTATIVE': {
-      // Tentative vote - wolf can change intent anytime during wolf step
-      if (player.roleId !== 'werewolf') {
-        return { valid: false, error: '只有狼人可以执行此操作' };
-      }
-      // Allow even if already voted (to see tentative), just check wolf step is active
-      return { valid: true };
-    }
+    // NIGHT_WOLF_TENTATIVE is handled earlier (before actionTypes check)
     case 'NIGHT_DOCTOR_PROTECT': {
       if (!state.options.allowDoctorSelfProtect && targetId === playerId) {
         return { valid: false, error: '医生不能保护自己' };
