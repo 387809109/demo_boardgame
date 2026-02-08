@@ -434,6 +434,40 @@
   - 已知身份来源：狼人队友、预言家查验、游戏结束揭示
   - 修改 `components/game-sidebar.js` — 新增 `_getWerewolfHistoryName`、`_getRoleName`、`_getRoleFromActionType` 方法
 
+- ✅ API 新增单人模式游戏列表端点
+  - 新增 `GET /api/v1/games/single-player`，返回支持单人模式的游戏
+  - 判定规则：`metadata.gameType=singleplayer` 或 `metadata.supportsAI=true`
+  - 修改 `api/routes/v1/games.js`、`api/services/game-service.js`
+  - 补充测试 `api/tests/routes/v1/games.test.js`、`api/tests/services/game-service.test.js`
+
+- ✅ 狼人杀修复：女巫双药行动阶段与狼人弃票
+  - 女巫在同一夜晚可先后执行救/毒，且仅在手动结束当前夜间步骤后才进入结算
+  - 狼人支持明确弃票与拟弃票（`targetId: null`），并在队友视图中同步状态
+  - 修改 `frontend/src/games/werewolf/rules.js`、`frontend/src/games/werewolf/game-phases.js`、`frontend/src/games/werewolf/ui-panels-night.js`
+  - 补充测试 `frontend/src/games/werewolf/index.test.js`
+
+- ✅ 狼人杀修复：猎人夜死白天开枪结算链
+  - 夜间死亡的猎人可在白天公告阶段优先开枪，之后再进入遗言流程
+  - 被猎人射杀的玩家立即死亡且无遗言
+  - 若猎人夜死且可触发开枪，则强制公开猎人身份；否则按“死亡公开角色”配置处理
+  - 修改 `frontend/src/games/werewolf/index.js`、`frontend/src/games/werewolf/game-phases.js`
+  - 补充测试 `frontend/src/games/werewolf/index.test.js`
+
+- ✅ 狼人杀修复：亡者聊天解锁时机
+  - 亡者聊天改为“按玩家逐个解锁”：该玩家在遗言或猎人开枪待结算期间不可发言
+  - 仅当该玩家完成自身死亡结算后，才开放亡者聊天
+  - 修改 `frontend/src/games/werewolf/index.js`、`frontend/src/games/werewolf/ui.js`
+  - 补充测试 `frontend/src/games/werewolf/index.test.js`、`frontend/src/games/werewolf/ui.test.js`
+
+- ✅ 狼人杀修复：猎人选中目标高亮 + 领袖选项标注
+  - 猎人开枪阶段点选目标后，玩家环立即高亮选中目标
+  - 房间设置保留“领袖机制”选项，文案改为 `启用领袖机制(未实装)`
+  - 修改 `frontend/src/games/werewolf/ui.js`、`frontend/src/games/werewolf/config.json`、`frontend/src/games/werewolf/ui.test.js`
+
+- ✅ Codex 技能：新增 API 端点开发模板
+  - 新增技能 `.codex/skills/add-api-endpoint/`
+  - 包含流程说明、OpenAI 代理配置、项目 API 约定与后端边界参考
+
 ### 2026-02-07
 
 - ✅ 环形玩家布局重构 (Player Ring Layout)

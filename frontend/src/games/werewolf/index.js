@@ -189,6 +189,7 @@ export class WerewolfGame extends GameEngine {
 
       // Seer check results
       seerChecks: {},
+      forcedRevealRoleIds: {},
 
       // Dead player chat
       deadChat: [],
@@ -236,6 +237,9 @@ export class WerewolfGame extends GameEngine {
     // PHASE_ADVANCE validation
     if (actionType === ACTION_TYPES.PHASE_ADVANCE) {
       if (state.phase === PHASES.DAY_ANNOUNCE) {
+        if (state.hunterPendingShoot) {
+          return { valid: false, error: '等待猎人开枪' };
+        }
         if (state.lastWordsPlayerId && playerId !== state.lastWordsPlayerId) {
           return { valid: false, error: '等待遗言玩家结束发言' };
         }
@@ -292,6 +296,9 @@ export class WerewolfGame extends GameEngine {
       if (player.alive) {
         return { valid: false, error: '只有死亡玩家可以使用此聊天' };
       }
+      if (!this._canPlayerUseDeadChat(state, playerId)) {
+        return { valid: false, error: '死亡结算未完成，暂不可使用亡者聊天' };
+      }
       if (!move.actionData?.message) {
         return { valid: false, error: '消息不能为空' };
       }
@@ -319,7 +326,7 @@ export class WerewolfGame extends GameEngine {
 
     switch (actionType) {
       case ACTION_TYPES.NIGHT_WOLF_TENTATIVE:
-        newState.wolfTentativeVotes[playerId] = actionData.targetId;
+        newState.wolfTentativeVotes[playerId] = actionData?.targetId ?? null;
         break;
 
       case ACTION_TYPES.NIGHT_WOLF_KILL:
@@ -351,7 +358,18 @@ export class WerewolfGame extends GameEngine {
           targetId
         });
         this._processDeathTriggers(newState, [targetId], 'hunter_shoot');
-        if (!newState.hunterPendingShoot) {
+        if (newState.phase === PHASES.DAY_ANNOUNCE && !newState.hunterPendingShoot) {
+          const deaths = newState.nightDeaths || [];
+          if (deaths.length > 0) {
+            newState.lastWordsPlayerId = deaths[0].playerId;
+            newState.awaitingFirstSpeaker = false;
+            newState.firstSpeakerId = null;
+          } else {
+            newState.lastWordsPlayerId = null;
+            newState.awaitingFirstSpeaker = true;
+            calculateFirstSpeaker(newState);
+          }
+        } else if (!newState.hunterPendingShoot) {
           transitionPhase(newState, PHASES.NIGHT, helpers);
         }
         break;
@@ -517,7 +535,8 @@ export class WerewolfGame extends GameEngine {
       finishedSpeakers: state.finishedSpeakers || [],
       currentVoter: state.currentVoter,
       voterQueue: state.voterQueue,
-      deadChat: (viewer && !viewer.alive) || isGameEnded ? state.deadChat : [],
+      deadChat: this._canPlayerUseDeadChat(state, playerId) || isGameEnded ? state.deadChat : [],
+      deadChatEnabled: this._canPlayerUseDeadChat(state, playerId) || isGameEnded,
       options: state.options,
       roleStates: playerId ? this._getVisibleRoleStates(playerId, state) : {},
       seerChecks: viewer?.roleId === 'seer' ? (state.seerChecks || {}) : {},
@@ -553,12 +572,63 @@ export class WerewolfGame extends GameEngine {
    */
   _collectNightAction(state, move) {
     const { playerId, actionType, actionData } = move;
+    const player = state.playerMap[playerId];
+    const isWitch = player?.roleId === 'witch';
+    const isWitchAbilityAction =
+      actionType === ACTION_TYPES.NIGHT_WITCH_SAVE ||
+      actionType === ACTION_TYPES.NIGHT_WITCH_POISON;
 
-    state.nightActions[playerId] = { actionType, actionData };
+    // Witch can submit save + poison in the same night step.
+    if (isWitch && isWitchAbilityAction) {
+      const existing = state.nightActions[playerId];
+      const combined = existing?.actionType === 'NIGHT_WITCH_COMBINED'
+        ? { ...existing.actionData }
+        : {
+            usedSave: false,
+            usedPoison: false,
+            poisonTargetId: null
+          };
+
+      if (actionType === ACTION_TYPES.NIGHT_WITCH_SAVE) {
+        combined.usedSave = true;
+        state.roleStates.witchSaveUsed = true;
+      }
+
+      if (actionType === ACTION_TYPES.NIGHT_WITCH_POISON) {
+        combined.usedPoison = true;
+        combined.poisonTargetId = actionData?.targetId || null;
+        state.roleStates.witchPoisonUsed = true;
+      }
+
+      state.nightActions[playerId] = {
+        actionType: 'NIGHT_WITCH_COMBINED',
+        actionData: combined
+      };
+
+      // Witch step ends only when player explicitly submits NIGHT_SKIP.
+      return;
+    } else {
+      const existing = state.nightActions[playerId];
+      const shouldKeepWitchCombinedAction =
+        isWitch &&
+        actionType === ACTION_TYPES.NIGHT_SKIP &&
+        existing?.actionType === 'NIGHT_WITCH_COMBINED';
+
+      if (!shouldKeepWitchCombinedAction) {
+        state.nightActions[playerId] = { actionType, actionData };
+      }
+    }
 
     // Track wolf votes
     if (actionType === ACTION_TYPES.NIGHT_WOLF_KILL) {
       state.wolfVotes[playerId] = actionData?.targetId || null;
+      delete state.wolfTentativeVotes[playerId];
+    }
+
+    // Wolf abstain should also be visible to teammates.
+    if (actionType === ACTION_TYPES.NIGHT_SKIP && player?.roleId === 'werewolf') {
+      state.wolfVotes[playerId] = null;
+      delete state.wolfTentativeVotes[playerId];
     }
 
     // Seer check: immediately reveal
@@ -576,12 +646,6 @@ export class WerewolfGame extends GameEngine {
     }
 
     // Update role states
-    if (actionType === ACTION_TYPES.NIGHT_WITCH_SAVE) {
-      state.roleStates.witchSaveUsed = true;
-    }
-    if (actionType === ACTION_TYPES.NIGHT_WITCH_POISON) {
-      state.roleStates.witchPoisonUsed = true;
-    }
     if (actionType === ACTION_TYPES.NIGHT_DOCTOR_PROTECT) {
       state.roleStates.doctorLastProtect = actionData?.targetId || null;
     }
@@ -623,6 +687,10 @@ export class WerewolfGame extends GameEngine {
                          state.options.hunterShootOnPoison;
         if (canShoot) {
           state.hunterPendingShoot = deadId;
+          if (cause === 'wolf_kill' || cause === 'witch_poison') {
+            state.forcedRevealRoleIds = state.forcedRevealRoleIds || {};
+            state.forcedRevealRoleIds[deadId] = true;
+          }
         }
       }
 
@@ -653,6 +721,7 @@ export class WerewolfGame extends GameEngine {
     if (viewer && !viewer.alive) return true;
 
     const target = state.playerMap[targetId];
+    if (target?.alive === false && state.forcedRevealRoleIds?.[targetId]) return true;
     if (!target.alive && state.options.revealRolesOnDeath) return true;
 
     if (viewer?.team === TEAMS.WEREWOLF && target.team === TEAMS.WEREWOLF) {
@@ -660,6 +729,21 @@ export class WerewolfGame extends GameEngine {
     }
 
     return false;
+  }
+
+  /**
+   * Whether a dead player can use dead chat.
+   * Dead chat unlocks only after that player's death settlement is complete.
+   * @private
+   */
+  _canPlayerUseDeadChat(state, playerId) {
+    const player = state.playerMap[playerId];
+    if (!player || player.alive) return false;
+
+    if (state.hunterPendingShoot === playerId) return false;
+    if (state.lastWordsPlayerId === playerId) return false;
+
+    return true;
   }
 
   /**

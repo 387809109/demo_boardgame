@@ -61,7 +61,11 @@ export function renderNightPanel(ctx) {
 
   // Check if player has already submitted their action this round
   const myAction = state.nightActions?.[playerId];
-  if (myAction) {
+  const isWitchContinuingAction =
+    role === 'witch' &&
+    isMyStep &&
+    myAction?.actionType === 'NIGHT_WITCH_COMBINED';
+  if (myAction && !isWitchContinuingAction) {
     el.appendChild(renderMyNightAction(ctx, myAction));
     const label = steps[currentStep]?.label || '夜晚';
     el.appendChild(createInfoBox(`等待其他玩家行动... (${label})`));
@@ -79,7 +83,7 @@ export function renderNightPanel(ctx) {
 
   switch (role) {
     case 'werewolf':
-      el.appendChild(createInfoBox('先选择目标后点击"拟投票"表达意向，与队友协商后点击"确认击杀"'));
+      el.appendChild(createInfoBox('先选择目标后点击"拟投票"表达意向，与队友协商后点击"确认击杀"；也可以拟弃票或确认弃票'));
       el.appendChild(renderWolfVotesPanel(ctx));
       break;
 
@@ -104,7 +108,8 @@ export function renderNightPanel(ctx) {
 
   // Skip button for roles with night actions (except werewolves who have their own panel)
   if (roleHasNightAction(role) && role !== 'werewolf') {
-    const skipBtn = createButton('跳过行动', () => {
+    const skipText = role === 'witch' ? '结束女巫行动' : '跳过行动';
+    const skipBtn = createButton(skipText, () => {
       onAction({
         actionType: ACTION_TYPES.NIGHT_SKIP,
         actionData: {}
@@ -228,7 +233,7 @@ export function renderMyNightAction(ctx, action) {
   `;
 
   const { actionType, actionData } = action;
-  const targetId = actionData?.targetId;
+  const targetId = actionData?.targetId || actionData?.poisonTargetId || null;
   const targetPlayer = targetId ? findPlayer(state.players, targetId) : null;
   const targetName = targetPlayer
     ? getDisplayName(targetPlayer, playerId, state.seerChecks, targetId)
@@ -238,6 +243,20 @@ export function renderMyNightAction(ctx, action) {
   let actionIcon = '✓';
 
   switch (actionType) {
+    case 'NIGHT_WITCH_COMBINED': {
+      const usedSave = Boolean(actionData?.usedSave);
+      const usedPoison = Boolean(actionData?.usedPoison || actionData?.poisonTargetId);
+      const parts = [];
+
+      if (usedSave) parts.push('使用解药');
+      if (usedPoison) {
+        parts.push(targetId ? `使用毒药: ${escapeHtml(targetName)}` : '使用毒药');
+      }
+
+      actionLabel = parts.length > 0 ? parts.join('，') : '女巫行动已提交';
+      actionIcon = '🧪';
+      break;
+    }
     case ACTION_TYPES.NIGHT_WOLF_KILL:
       actionLabel = '击杀目标';
       actionIcon = '🐺';
@@ -497,13 +516,32 @@ export function renderWolfVotesPanel(ctx) {
 
   const wolfVotes = state.wolfVotes || {};
   const tentativeVotes = state.wolfTentativeVotes || {};
+  const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
   // My current selection/vote status
-  const myTentative = tentativeVotes[playerId];
-  const myActual = wolfVotes[playerId];
-  const myTargetName = selectedTarget
-    ? getDisplayName(findPlayer(state.players, selectedTarget), playerId, state.seerChecks, selectedTarget)
-    : (myTentative ? getDisplayName(findPlayer(state.players, myTentative), playerId, state.seerChecks, myTentative) : '未选择');
+  const hasMyTentative = hasOwn(tentativeVotes, playerId);
+  const hasMyActual = hasOwn(wolfVotes, playerId);
+  const myTentative = hasMyTentative ? tentativeVotes[playerId] : undefined;
+  const myActual = hasMyActual ? wolfVotes[playerId] : undefined;
+  const getTargetName = (targetId) => getDisplayName(
+    findPlayer(state.players, targetId),
+    playerId,
+    state.seerChecks,
+    targetId
+  );
+
+  let myStatusHtml = '<span style="color: var(--warning-500);">选中:</span> 未选择';
+  if (hasMyActual) {
+    myStatusHtml = myActual === null
+      ? '<span style="color: var(--success-500);">✓ 已确认:</span> 弃票'
+      : `<span style="color: var(--success-500);">✓ 已确认:</span> ${getTargetName(myActual)}`;
+  } else if (selectedTarget) {
+    myStatusHtml = `<span style="color: var(--warning-500);">选中:</span> ${getTargetName(selectedTarget)}`;
+  } else if (hasMyTentative) {
+    myStatusHtml = myTentative === null
+      ? '<span style="color: var(--warning-500);">? 已拟:</span> 弃票'
+      : `<span style="color: var(--warning-500);">? 已拟:</span> ${getTargetName(myTentative)}`;
+  }
 
   // My status box
   const myStatusBox = document.createElement('div');
@@ -518,10 +556,7 @@ export function renderWolfVotesPanel(ctx) {
       我的目标
     </div>
     <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: var(--font-medium);">
-      ${myActual
-        ? `<span style="color: var(--success-500);">✓ 已确认:</span> ${getDisplayName(findPlayer(state.players, myActual), playerId, state.seerChecks, myActual)}`
-        : `<span style="color: var(--warning-500);">选中:</span> ${myTargetName}`
-      }
+      ${myStatusHtml}
     </div>
   `;
   el.appendChild(myStatusBox);
@@ -545,6 +580,14 @@ export function renderWolfVotesPanel(ctx) {
   }, !selectedTarget, 'secondary');
   btnRow.appendChild(tentativeBtn);
 
+  const tentativeSkipBtn = createButton('拟弃票', () => {
+    onAction?.({
+      actionType: ACTION_TYPES.NIGHT_WOLF_TENTATIVE,
+      actionData: { targetId: null }
+    });
+  }, hasMyActual, 'secondary');
+  btnRow.appendChild(tentativeSkipBtn);
+
   // Actual vote button
   const actualBtn = createButton('确认击杀', () => {
     if (selectedTarget) {
@@ -553,8 +596,16 @@ export function renderWolfVotesPanel(ctx) {
         actionData: { targetId: selectedTarget }
       });
     }
-  }, !selectedTarget || !!myActual, 'danger');
+  }, !selectedTarget || hasMyActual, 'danger');
   btnRow.appendChild(actualBtn);
+
+  const actualSkipBtn = createButton('确认弃票', () => {
+    onAction?.({
+      actionType: ACTION_TYPES.NIGHT_SKIP,
+      actionData: {}
+    });
+  }, hasMyActual, 'secondary');
+  btnRow.appendChild(actualSkipBtn);
 
   el.appendChild(btnRow);
 
@@ -590,6 +641,8 @@ export function renderWolfVotesPanel(ctx) {
       const wolf = findPlayer(state.players, wolfId);
       const actualTarget = wolfVotes[wolfId];
       const tentativeTarget = tentativeVotes[wolfId];
+      const hasActualVote = hasOwn(wolfVotes, wolfId);
+      const hasTentativeVote = hasOwn(tentativeVotes, wolfId);
 
       const row = document.createElement('div');
       row.style.cssText = `
@@ -604,12 +657,20 @@ export function renderWolfVotesPanel(ctx) {
       const wolfName = getDisplayName(wolf, playerId, state.seerChecks, wolfId);
       let statusHtml;
 
-      if (actualTarget) {
-        const targetName = getDisplayName(findPlayer(state.players, actualTarget), playerId, state.seerChecks, actualTarget);
-        statusHtml = `<span style="color: var(--success-500);">✓</span> ${targetName}`;
-      } else if (tentativeTarget) {
-        const targetName = getDisplayName(findPlayer(state.players, tentativeTarget), playerId, state.seerChecks, tentativeTarget);
-        statusHtml = `<span style="color: var(--warning-500);">?</span> ${targetName} <span style="font-size: var(--text-xs); color: var(--text-tertiary);">(拟)</span>`;
+      if (hasActualVote) {
+        if (actualTarget === null) {
+          statusHtml = '<span style="color: var(--success-500);">✓</span> 弃票';
+        } else {
+          const targetName = getDisplayName(findPlayer(state.players, actualTarget), playerId, state.seerChecks, actualTarget);
+          statusHtml = `<span style="color: var(--success-500);">✓</span> ${targetName}`;
+        }
+      } else if (hasTentativeVote) {
+        if (tentativeTarget === null) {
+          statusHtml = '<span style="color: var(--warning-500);">?</span> 弃票 <span style="font-size: var(--text-xs); color: var(--text-tertiary);">(拟)</span>';
+        } else {
+          const targetName = getDisplayName(findPlayer(state.players, tentativeTarget), playerId, state.seerChecks, tentativeTarget);
+          statusHtml = `<span style="color: var(--warning-500);">?</span> ${targetName} <span style="font-size: var(--text-xs); color: var(--text-tertiary);">(拟)</span>`;
+        }
       } else {
         statusHtml = `<span style="color: var(--text-tertiary);">—</span> 未选择`;
       }

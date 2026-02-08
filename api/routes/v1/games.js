@@ -39,6 +39,31 @@ router.get('/', async (req, res, next) => {
 });
 
 /**
+ * GET /api/v1/games/single-player
+ * List games that support single-player mode
+ */
+router.get('/single-player', async (req, res, next) => {
+  try {
+    const { limit, offset } = validatePagination(
+      req.query,
+      config.pagination.defaultLimit,
+      config.pagination.maxLimit
+    );
+
+    const result = await gameService.listSinglePlayerGames({
+      limit, offset
+    });
+
+    res.json({
+      data: result.data,
+      meta: { total: result.total, limit, offset }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /api/v1/games/:gameId
  * Get a single game by ID
  */

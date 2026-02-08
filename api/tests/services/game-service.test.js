@@ -44,7 +44,7 @@ function setupChain(finalResult) {
   mockSingle.mockReturnValue(finalResult);
 }
 
-const { listGames, getGame } = await import(
+const { listGames, listSinglePlayerGames, getGame } = await import(
   '../../services/game-service.js'
 );
 
@@ -75,6 +75,25 @@ describe('game-service', () => {
 
       expect(result.data).toEqual([]);
       expect(result.total).toBe(0);
+    });
+  });
+
+  describe('listSinglePlayerGames', () => {
+    it('should return games with count', async () => {
+      setupChain({
+        data: [{ id: 'uno', name: 'UNO' }],
+        error: null,
+        count: 1
+      });
+
+      const result = await listSinglePlayerGames({ limit: 20, offset: 0 });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(mockFrom).toHaveBeenCalledWith('games');
+      expect(mockOr).toHaveBeenCalledWith(
+        'metadata->>gameType.eq.singleplayer,metadata->>supportsAI.eq.true'
+      );
     });
   });
 

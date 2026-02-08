@@ -95,8 +95,29 @@ export function validateNightAction(move, state) {
   }
 
   // Check duplicate submission
-  if (state.nightActions[playerId]) {
+  const existingNightAction = state.nightActions[playerId];
+  const isWitchAbilityAction =
+    actionType === 'NIGHT_WITCH_SAVE' || actionType === 'NIGHT_WITCH_POISON';
+  if (existingNightAction && !isWitchAbilityAction) {
     return { valid: false, error: '你已经提交了夜间行动' };
+  }
+  if (existingNightAction && isWitchAbilityAction) {
+    const combinedAction = existingNightAction.actionType === 'NIGHT_WITCH_COMBINED'
+      ? existingNightAction.actionData
+      : null;
+    const usedSave = combinedAction?.usedSave || existingNightAction.actionType === 'NIGHT_WITCH_SAVE';
+    const usedPoison =
+      combinedAction?.usedPoison ||
+      existingNightAction.actionType === 'NIGHT_WITCH_POISON' ||
+      Boolean(combinedAction?.poisonTargetId);
+
+    if (actionType === 'NIGHT_WITCH_SAVE' && usedSave) {
+      return { valid: false, error: '你已经提交了救人行动' };
+    }
+
+    if (actionType === 'NIGHT_WITCH_POISON' && usedPoison) {
+      return { valid: false, error: '你已经提交了毒人行动' };
+    }
   }
 
   const targetId = actionData?.targetId;
@@ -139,15 +160,16 @@ export function validateNightAction(move, state) {
       if (state.roleStates?.witchSaveUsed) {
         return { valid: false, error: '救人药水已用完' };
       }
-      if (!state.options.witchCanSaveSelf && targetId === playerId) {
-        return { valid: false, error: '女巫不能自救' };
-      }
       if (state.options.witchSaveFirstNightOnly && state.round > 1) {
         return { valid: false, error: '救人药水仅首夜可用' };
       }
       // Must have a wolf kill victim to save
-      if (!resolveWolfConsensus(state)) {
+      const wolfTarget = resolveWolfConsensus(state);
+      if (!wolfTarget) {
         return { valid: false, error: '今晚无人被袭击，无法使用救人药水' };
+      }
+      if (!state.options.witchCanSaveSelf && wolfTarget === playerId) {
+        return { valid: false, error: '女巫不能自救' };
       }
       break;
     }
@@ -247,6 +269,14 @@ export function resolveNightActions(state) {
         bypassesProtection: true
       });
     }
+    if (action.actionType === 'NIGHT_WITCH_COMBINED' && action.actionData?.poisonTargetId) {
+      poisonTargetId = action.actionData.poisonTargetId;
+      kills.push({
+        targetId: poisonTargetId,
+        cause: 'witch_poison',
+        bypassesProtection: true
+      });
+    }
   }
 
   // ── Step 3: Collect protection events ──
@@ -278,7 +308,10 @@ export function resolveNightActions(state) {
   // ── Step 6: Witch save — cancels wolf_kill death ──
   let witchUsedSave = false;
   for (const [, action] of Object.entries(state.nightActions)) {
-    if (action.actionType === 'NIGHT_WITCH_SAVE') {
+    if (
+      action.actionType === 'NIGHT_WITCH_SAVE' ||
+      (action.actionType === 'NIGHT_WITCH_COMBINED' && action.actionData?.usedSave)
+    ) {
       const wolfKill = kills.find(k => k.cause === 'wolf_kill' && !k.cancelled);
       if (wolfKill) {
         wolfKill.cancelled = true;

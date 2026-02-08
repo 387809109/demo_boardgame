@@ -100,6 +100,25 @@ describe('Games routes', () => {
     });
   });
 
+  describe('GET /api/v1/games/single-player', () => {
+    it('should return single-player supported games with meta', async () => {
+      const res = await request(app).get('/api/v1/games/single-player');
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toBeDefined();
+      expect(res.body.meta).toBeDefined();
+    });
+
+    it('should accept pagination params', async () => {
+      const res = await request(app)
+        .get('/api/v1/games/single-player?limit=3&offset=0');
+
+      expect(res.status).toBe(200);
+      expect(res.body.meta.limit).toBe(3);
+      expect(res.body.meta.offset).toBe(0);
+    });
+  });
+
   describe('GET /api/v1/games/:gameId', () => {
     it('should return a single game', async () => {
       const res = await request(app).get('/api/v1/games/uno');

@@ -87,8 +87,10 @@ export function renderAnnouncePanel(ctx) {
     el.appendChild(renderSeerResult(ctx, seerResult));
   }
 
-  // Show last words or first speaker prompt
-  if (state.lastWordsPlayerId) {
+  // Show hunter-shot / last words / first speaker prompt
+  if (state.hunterPendingShoot) {
+    el.appendChild(createInfoBox('等待猎人开枪...'));
+  } else if (state.lastWordsPlayerId) {
     const lastWordsPlayer = findPlayer(state.players, state.lastWordsPlayerId);
     const isMe = state.lastWordsPlayerId === playerId;
     const promptBox = createInfoBox(

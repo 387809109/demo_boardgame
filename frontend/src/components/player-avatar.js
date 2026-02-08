@@ -9,6 +9,19 @@ const AVATAR_COLORS = [
 ];
 
 /**
+ * Calculate extra top margin for player name based on stacked badge count.
+ * Keeps badge labels from overlapping the name text.
+ * @param {number} badgeCount
+ * @returns {number}
+ */
+export function calculateAvatarNameMarginTop(badgeCount) {
+  const count = Number.isFinite(badgeCount) ? Math.max(0, Math.floor(badgeCount)) : 0;
+  const badgeBottomExtent = count > 0 ? (6 + (count - 1) * 20) : 0;
+  const defaultNameGapPx = 8; // Matches var(--spacing-2) in current theme.
+  return Math.max(0, badgeBottomExtent + 4 - defaultNameGapPx);
+}
+
+/**
  * Player Avatar component with enhanced states and badges
  */
 export class PlayerAvatar {
@@ -106,6 +119,10 @@ export class PlayerAvatar {
       `;
     }).join('');
 
+    // Badges are absolutely positioned below avatar circle.
+    // Reserve enough vertical space so they never overlap the player name.
+    const nameMarginTopPx = calculateAvatarNameMarginTop(badges.length);
+
     this.element.innerHTML = `
       <div class="avatar-circle" style="
         width: 48px;
@@ -183,6 +200,7 @@ export class PlayerAvatar {
         text-align: center;
         word-break: break-word;
         max-width: 80px;
+        margin-top: ${nameMarginTopPx}px;
       ">${this._escapeHtml(this.player.nickname)}</div>
       ${this.isCurrentTurn && !isDead ? `
         <div class="avatar-turn-indicator" style="

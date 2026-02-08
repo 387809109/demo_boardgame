@@ -282,7 +282,7 @@
   },
 
   "rules": {
-    "revealRolesOnDeath": true,
+    "revealRolesOnDeath": false,
     "allowDoctorSelfProtect": true,
     "allowRepeatedProtect": false,
     "hunterShootOnPoison": false,
@@ -308,7 +308,7 @@
       "type": "boolean",
       "label": "死亡公开角色",
       "description": "玩家死亡时是否公开其角色身份",
-      "default": true
+      "default": false
     },
     "allowDoctorSelfProtect": {
       "type": "boolean",
@@ -336,7 +336,7 @@
     },
     "leaderEnabled": {
       "type": "boolean",
-      "label": "启用领袖机制",
+      "label": "启用领袖机制(未实装)",
       "description": "是否启用 Leader 机制决定发言顺序",
       "default": true
     },

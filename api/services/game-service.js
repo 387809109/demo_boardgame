@@ -47,6 +47,38 @@ export async function listGames(options = {}) {
 }
 
 /**
+ * List games that support single-player mode.
+ * A game supports single-player if:
+ * - metadata.gameType is "singleplayer", or
+ * - metadata.supportsAI is true (multiplayer game with AI opponents)
+ * @param {object} [options]
+ * @param {number} [options.limit] - Page size
+ * @param {number} [options.offset] - Page offset
+ * @returns {Promise<{ data: object[], total: number }>}
+ */
+export async function listSinglePlayerGames(options = {}) {
+  const { limit = 20, offset = 0 } = options;
+  const supabase = getSupabaseAdmin();
+
+  let query = supabase
+    .from('games')
+    .select('*', { count: 'exact' })
+    .or('metadata->>gameType.eq.singleplayer,metadata->>supportsAI.eq.true');
+
+  query = query
+    .order('name')
+    .range(offset, offset + limit - 1);
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return { data: data || [], total: count || 0 };
+}
+
+/**
  * Get a single game by ID
  * @param {string} gameId
  * @returns {Promise<object>}

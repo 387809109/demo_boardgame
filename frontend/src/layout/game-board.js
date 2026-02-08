@@ -284,8 +284,8 @@ export class GameBoard {
       badges[state.lastWordsPlayerId].push({ type: 'speaking', text: '遗言中' });
     }
 
-    // Finished speaking badge (Werewolf - discussion phase)
-    if (state.finishedSpeakers?.length > 0) {
+    // Finished speaking badge (Werewolf - discussion phase only)
+    if (state.phase === 'day_discussion' && state.finishedSpeakers?.length > 0) {
       state.finishedSpeakers.forEach(playerId => {
         badges[playerId] = badges[playerId] || [];
         badges[playerId].push({ type: 'done', text: '发言完毕' });

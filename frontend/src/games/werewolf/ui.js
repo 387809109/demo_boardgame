@@ -43,6 +43,8 @@ export class WerewolfUI {
     /** @type {HTMLElement|null} */
     this._nightActionBtn = null;
     /** @type {HTMLElement|null} */
+    this._hunterShootBtn = null;
+    /** @type {HTMLElement|null} */
     this._container = null;
     /** @type {Object|null} */
     this._gameBoard = null;
@@ -101,6 +103,7 @@ export class WerewolfUI {
     this.onAction = onAction;
     this._selectedTarget = null;
     this._nightActionBtn = null;
+    this._hunterShootBtn = null;
 
     const container = document.createElement('div');
     container.className = 'ww-game';
@@ -149,7 +152,10 @@ export class WerewolfUI {
 
     // 4. Dead chat — only when viewer is dead or game ended
     const viewer = this._getViewer();
-    if (viewer && (!viewer.alive || state.phase === PHASES.ENDED)) {
+    const canShowDeadChat = state.deadChatEnabled ?? (
+      viewer && (!viewer.alive || state.phase === PHASES.ENDED)
+    );
+    if (canShowDeadChat) {
       container.appendChild(renderDeadChat(ctx));
     }
 
@@ -182,14 +188,16 @@ export class WerewolfUI {
 
     // Hunter shoot overrides everything
     if (state.hunterPendingShoot === playerId) {
-      bar.appendChild(createButton('确认开枪', () => {
+      const btn = createButton('确认开枪', () => {
         if (this._selectedTarget) {
           onAction({
             actionType: ACTION_TYPES.HUNTER_SHOOT,
             actionData: { targetId: this._selectedTarget }
           });
         }
-      }, !this._selectedTarget));
+      }, !this._selectedTarget);
+      this._hunterShootBtn = btn;
+      bar.appendChild(btn);
       return bar;
     }
 
@@ -223,6 +231,11 @@ export class WerewolfUI {
         break;
       }
       case PHASES.DAY_ANNOUNCE: {
+        if (state.hunterPendingShoot) {
+          bar.appendChild(createButton('等待猎人开枪...', null, true));
+          break;
+        }
+
         // Check who can click continue
         if (state.lastWordsPlayerId) {
           // Last words phase - only dying player can continue
@@ -284,6 +297,7 @@ export class WerewolfUI {
     this.state = state;
     this._selectedTarget = null;
     this._nightActionBtn = null;
+    this._hunterShootBtn = null;
 
     // Update selection mode based on current phase
     this._updateSelectionMode();
@@ -359,9 +373,6 @@ export class WerewolfUI {
    * @returns {Object|null}
    */
   getSelectionConfig() {
-    const viewer = this._getViewer();
-    if (!viewer?.alive) return null;
-
     const state = this.state;
 
     // Hunter shoot
@@ -372,6 +383,9 @@ export class WerewolfUI {
         onSelect: (targetId) => this._handleTargetSelect(targetId)
       };
     }
+
+    const viewer = this._getViewer();
+    if (!viewer?.alive) return null;
 
     // Night phase
     if (state.phase === PHASES.NIGHT) {
@@ -455,11 +469,20 @@ export class WerewolfUI {
   _handleTargetSelect(targetId) {
     this._selectedTarget = targetId;
 
+    // Refresh ring selection state so selected target is highlighted.
+    this._updateSelectionMode();
+
     // Enable the confirm button if exists
     if (this._nightActionBtn) {
       this._nightActionBtn.disabled = false;
       this._nightActionBtn.style.cursor = 'pointer';
       this._nightActionBtn.style.opacity = '1';
+    }
+
+    if (this._hunterShootBtn) {
+      this._hunterShootBtn.disabled = false;
+      this._hunterShootBtn.style.cursor = 'pointer';
+      this._hunterShootBtn.style.opacity = '1';
     }
 
     // Re-render night panel to update button states

@@ -84,7 +84,12 @@ export function startNight(state, helpers) {
 export function startDayAnnounce(state, helpers) {
   // Determine who should give last words (first night death)
   const deaths = state.nightDeaths || [];
-  if (deaths.length > 0) {
+  if (state.hunterPendingShoot) {
+    // If hunter died at night and can shoot, hunter shot resolves before last words.
+    state.lastWordsPlayerId = null;
+    state.awaitingFirstSpeaker = false;
+    state.firstSpeakerId = null;
+  } else if (deaths.length > 0) {
     state.lastWordsPlayerId = deaths[0].playerId;
     state.awaitingFirstSpeaker = false;
   } else {
@@ -208,6 +213,7 @@ export function startTieSpeech(state, tiedPlayerIds, helpers) {
   state.speakerQueue = orderedTied;
   state.speakerIndex = 0;
   state.currentSpeaker = orderedTied.length > 0 ? orderedTied[0] : null;
+  state.finishedSpeakers = [];
 
   helpers.logEvent(state, 'phase_change', {
     phase: PHASES.DAY_DISCUSSION,
@@ -224,6 +230,7 @@ export function startTieSpeech(state, tiedPlayerIds, helpers) {
  */
 export function startDayVote(state, helpers) {
   state.votes = {};
+  state.finishedSpeakers = [];
 
   const aliveIds = state.players
     .filter(p => state.playerMap[p.id].alive)

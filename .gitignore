@@ -11,7 +11,7 @@ dist/
 *.swo
 
 # Claude Code
-.claude/
+.claude/settings.local.json
 
 # Environment
 .env

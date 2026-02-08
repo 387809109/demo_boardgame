@@ -156,6 +156,50 @@ function submitNight(game, playerId, actionType, actionData = {}) {
   return game.executeMove({ playerId, actionType, actionData });
 }
 
+/** Advance from day_announce to day_discussion using current gating rules */
+function advanceToDiscussion(game) {
+  while (game.getState().phase === PHASES.DAY_ANNOUNCE) {
+    const state = game.getState();
+    let actorId = null;
+
+    if (state.lastWordsPlayerId) {
+      actorId = state.lastWordsPlayerId;
+    } else if (state.awaitingFirstSpeaker) {
+      actorId = state.firstSpeakerId;
+    } else {
+      const anyAlive = Object.values(state.playerMap).find(p => p.alive);
+      actorId = anyAlive?.id;
+    }
+
+    if (!actorId) break;
+
+    game.executeMove({
+      playerId: actorId,
+      actionType: ACTION_TYPES.PHASE_ADVANCE,
+      actionData: {}
+    });
+  }
+}
+
+/** Cast one full vote round following currentVoter order */
+function playVoteRound(game, votePlan = {}) {
+  while (game.getState().phase === PHASES.DAY_VOTE) {
+    const state = game.getState();
+    const voterId = state.currentVoter;
+    if (!voterId) break;
+
+    const targetId = Object.prototype.hasOwnProperty.call(votePlan, voterId)
+      ? votePlan[voterId]
+      : null;
+
+    game.executeMove({
+      playerId: voterId,
+      actionType: targetId ? ACTION_TYPES.DAY_VOTE : ACTION_TYPES.DAY_SKIP_VOTE,
+      actionData: targetId ? { targetId } : {}
+    });
+  }
+}
+
 /** Submit all night skips for pending roles across all steps */
 function skipAllNightActions(game) {
   while (game.getState().phase === PHASES.NIGHT) {
@@ -377,6 +421,14 @@ describe('WerewolfGame', () => {
       expect(result.valid).toBe(true);
     });
 
+    it('should accept NIGHT_WOLF_TENTATIVE with null target as tentative abstain', () => {
+      const result = game.validateMove(
+        { playerId: 'p1', actionType: ACTION_TYPES.NIGHT_WOLF_TENTATIVE, actionData: { targetId: null } },
+        state
+      );
+      expect(result.valid).toBe(true);
+    });
+
     it('should reject dead player night action', () => {
       state.playerMap.p1.alive = false;
       const result = game.validateMove(
@@ -474,6 +526,36 @@ describe('WerewolfGame', () => {
       expect(result.valid).toBe(true);
     });
 
+    it('should allow witch poison after save in the same night step', () => {
+      state.wolfVotes = { p1: 'p3', p2: 'p3' };
+      state.nightActions.p5 = {
+        actionType: 'NIGHT_WITCH_COMBINED',
+        actionData: { usedSave: true, usedPoison: false, poisonTargetId: null }
+      };
+      state.roleStates.witchSaveUsed = true;
+
+      const result = game.validateMove(
+        { playerId: 'p5', actionType: ACTION_TYPES.NIGHT_WITCH_POISON, actionData: { targetId: 'p1' } },
+        state
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it('should allow witch save after poison in the same night step', () => {
+      state.wolfVotes = { p1: 'p3', p2: 'p3' };
+      state.nightActions.p5 = {
+        actionType: 'NIGHT_WITCH_COMBINED',
+        actionData: { usedSave: false, usedPoison: true, poisonTargetId: 'p1' }
+      };
+      state.roleStates.witchPoisonUsed = true;
+
+      const result = game.validateMove(
+        { playerId: 'p5', actionType: ACTION_TYPES.NIGHT_WITCH_SAVE, actionData: {} },
+        state
+      );
+      expect(result.valid).toBe(true);
+    });
+
     it('should reject witch poison when already used', () => {
       state.roleStates.witchPoisonUsed = true;
       const result = game.validateMove(
@@ -509,6 +591,7 @@ describe('WerewolfGame', () => {
         }
       }));
       state.phase = PHASES.DAY_VOTE;
+      state.currentVoter = 'p3';
     });
 
     it('should accept vote for alive player', () => {
@@ -653,6 +736,36 @@ describe('WerewolfGame', () => {
       const s = game.getState();
       expect(s.wolfVotes.p1).toBe('p6');
     });
+
+    it('should track wolf tentative abstain as null without consuming action', () => {
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+
+      game.executeMove({
+        playerId: 'p1',
+        actionType: ACTION_TYPES.NIGHT_WOLF_TENTATIVE,
+        actionData: { targetId: null }
+      });
+
+      const s = game.getState();
+      expect(Object.prototype.hasOwnProperty.call(s.wolfTentativeVotes, 'p1')).toBe(true);
+      expect(s.wolfTentativeVotes.p1).toBeNull();
+      expect(s.pendingNightRoles).toContain('p1');
+      expect(s.nightActions.p1).toBeUndefined();
+    });
+
+    it('should allow wolf NIGHT_SKIP and record explicit abstain vote', () => {
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const s = game.getState();
+      expect(s.nightActions.p1.actionType).toBe(ACTION_TYPES.NIGHT_SKIP);
+      expect(Object.prototype.hasOwnProperty.call(s.wolfVotes, 'p1')).toBe(true);
+      expect(s.wolfVotes.p1).toBeNull();
+      expect(s.pendingNightRoles).not.toContain('p1');
+    });
   });
 
   // ─── Witch Night Resolution ───────────────────────────────
@@ -680,7 +793,12 @@ describe('WerewolfGame', () => {
       submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
 
-      const s = game.getState();
+      let s = game.getState();
+      expect(s.phase).toBe(PHASES.NIGHT);
+      expect(s.pendingNightRoles).toContain('p5');
+
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+      s = game.getState();
       expect(s.nightDeaths).toHaveLength(0);
       expect(s.playerMap.p7.alive).toBe(true);
       expect(s.roleStates.witchSaveUsed).toBe(true);
@@ -693,6 +811,7 @@ describe('WerewolfGame', () => {
       submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p1' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
 
       const s = game.getState();
       // p7 dies from wolf, p1 dies from poison (bypasses doctor)
@@ -726,6 +845,68 @@ describe('WerewolfGame', () => {
       expect(witchInfo.playerId).toBe('p5');
       expect(witchInfo.wolfTarget).toBe('p7');
     });
+
+    it('should allow witch to save then poison before night ends', () => {
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+
+      const saveResult = submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
+      expect(saveResult.success).toBe(true);
+
+      let s = game.getState();
+      expect(s.phase).toBe(PHASES.NIGHT);
+      expect(s.pendingNightRoles).toContain('p5');
+
+      const poisonResult = submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p1' });
+      expect(poisonResult.success).toBe(true);
+
+      s = game.getState();
+      expect(s.phase).toBe(PHASES.NIGHT);
+      expect(s.pendingNightRoles).toContain('p5');
+
+      const endResult = submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+      expect(endResult.success).toBe(true);
+
+      s = game.getState();
+      expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(s.playerMap.p7.alive).toBe(true);
+      expect(s.playerMap.p1.alive).toBe(false);
+      expect(s.roleStates.witchSaveUsed).toBe(true);
+      expect(s.roleStates.witchPoisonUsed).toBe(true);
+    });
+
+    it('should allow witch to poison then save before manually ending step', () => {
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+
+      const poisonResult = submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p1' });
+      expect(poisonResult.success).toBe(true);
+
+      let s = game.getState();
+      expect(s.phase).toBe(PHASES.NIGHT);
+      expect(s.pendingNightRoles).toContain('p5');
+      expect(s.playerMap.p1.alive).toBe(true);
+
+      const saveResult = submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
+      expect(saveResult.success).toBe(true);
+
+      s = game.getState();
+      expect(s.phase).toBe(PHASES.NIGHT);
+      expect(s.pendingNightRoles).toContain('p5');
+
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+      s = game.getState();
+
+      expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(s.playerMap.p1.alive).toBe(false);
+      expect(s.playerMap.p7.alive).toBe(true);
+      expect(s.roleStates.witchSaveUsed).toBe(true);
+      expect(s.roleStates.witchPoisonUsed).toBe(true);
+    });
   });
 
   // ─── Day Phase Flow ───────────────────────────────────────
@@ -753,21 +934,13 @@ describe('WerewolfGame', () => {
     });
 
     it('should transition to day_discussion on PHASE_ADVANCE', () => {
-      game.executeMove({
-        playerId: 'p3',
-        actionType: ACTION_TYPES.PHASE_ADVANCE,
-        actionData: {}
-      });
+      advanceToDiscussion(game);
 
       expect(game.getState().phase).toBe(PHASES.DAY_DISCUSSION);
     });
 
     it('should build speaker queue in discussion phase', () => {
-      game.executeMove({
-        playerId: 'p3',
-        actionType: ACTION_TYPES.PHASE_ADVANCE,
-        actionData: {}
-      });
+      advanceToDiscussion(game);
 
       const s = game.getState();
       expect(s.speakerQueue.length).toBeGreaterThan(0);
@@ -775,11 +948,7 @@ describe('WerewolfGame', () => {
     });
 
     it('should advance speakers on SPEECH_DONE', () => {
-      game.executeMove({
-        playerId: 'p3',
-        actionType: ACTION_TYPES.PHASE_ADVANCE,
-        actionData: {}
-      });
+      advanceToDiscussion(game);
 
       const firstSpeaker = game.getState().currentSpeaker;
       game.executeMove({
@@ -796,11 +965,7 @@ describe('WerewolfGame', () => {
     });
 
     it('should transition to day_vote after all speakers done', () => {
-      game.executeMove({
-        playerId: 'p3',
-        actionType: ACTION_TYPES.PHASE_ADVANCE,
-        actionData: {}
-      });
+      advanceToDiscussion(game);
 
       // Exhaust all speakers
       while (game.getState().phase === PHASES.DAY_DISCUSSION) {
@@ -813,7 +978,9 @@ describe('WerewolfGame', () => {
         });
       }
 
-      expect(game.getState().phase).toBe(PHASES.DAY_VOTE);
+      const s = game.getState();
+      expect(s.phase).toBe(PHASES.DAY_VOTE);
+      expect(s.finishedSpeakers).toEqual([]);
     });
   });
 
@@ -840,11 +1007,7 @@ describe('WerewolfGame', () => {
       submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
 
       // Advance to vote phase
-      game.executeMove({
-        playerId: 'p1',
-        actionType: ACTION_TYPES.PHASE_ADVANCE,
-        actionData: {}
-      });
+      advanceToDiscussion(game);
       while (game.getState().phase === PHASES.DAY_DISCUSSION) {
         const cur = game.getState().currentSpeaker;
         if (!cur) break;
@@ -861,12 +1024,14 @@ describe('WerewolfGame', () => {
       expect(game.getState().phase).toBe(PHASES.DAY_VOTE);
 
       // Vote for p1: p3, p4, p5, p6 vote p1; p1, p2 abstain
-      game.executeMove({ playerId: 'p3', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p1' } });
-      game.executeMove({ playerId: 'p4', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p1' } });
-      game.executeMove({ playerId: 'p5', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p1' } });
-      game.executeMove({ playerId: 'p6', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p1' } });
-      game.executeMove({ playerId: 'p1', actionType: ACTION_TYPES.DAY_SKIP_VOTE, actionData: {} });
-      game.executeMove({ playerId: 'p2', actionType: ACTION_TYPES.DAY_SKIP_VOTE, actionData: {} });
+      playVoteRound(game, {
+        p1: null,
+        p2: null,
+        p3: 'p1',
+        p4: 'p1',
+        p5: 'p1',
+        p6: 'p1'
+      });
 
       const s = game.getState();
       expect(s.playerMap.p1.alive).toBe(false);
@@ -876,28 +1041,36 @@ describe('WerewolfGame', () => {
     it('should trigger second vote on tie', () => {
       setupVotePhase();
 
-      // 3 vote p1, 3 vote p2
-      game.executeMove({ playerId: 'p3', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p1' } });
-      game.executeMove({ playerId: 'p4', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p1' } });
-      game.executeMove({ playerId: 'p5', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p1' } });
-      game.executeMove({ playerId: 'p1', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p3' } });
-      game.executeMove({ playerId: 'p2', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p3' } });
-      game.executeMove({ playerId: 'p6', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p3' } });
+      // 3 vote p1, 3 vote p3
+      playVoteRound(game, {
+        p1: 'p3',
+        p2: 'p3',
+        p3: 'p1',
+        p4: 'p1',
+        p5: 'p1',
+        p6: 'p3'
+      });
 
       const s = game.getState();
       expect(s.voteRound).toBe(2);
       expect(s.tiedCandidates).toContain('p1');
       expect(s.tiedCandidates).toContain('p3');
-      expect(s.phase).toBe(PHASES.DAY_VOTE);
+      expect(s.phase).toBe(PHASES.DAY_DISCUSSION);
+      expect(s.finishedSpeakers).toEqual([]);
     });
 
     it('should go to night after all abstain', () => {
       setupVotePhase();
 
-      // All skip
-      for (const pid of ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']) {
-        game.executeMove({ playerId: pid, actionType: ACTION_TYPES.DAY_SKIP_VOTE, actionData: {} });
-      }
+      // All skip in turn order
+      playVoteRound(game, {
+        p1: null,
+        p2: null,
+        p3: null,
+        p4: null,
+        p5: null,
+        p6: null
+      });
 
       const s = game.getState();
       expect(s.phase).toBe(PHASES.NIGHT);
@@ -907,6 +1080,33 @@ describe('WerewolfGame', () => {
   // ─── Hunter Shoot ─────────────────────────────────────────
 
   describe('processMove — hunter', () => {
+    it('should require hunter shot before day announce can advance', () => {
+      const { game } = setupGame({
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'hunter', p6: 'villager'
+        }
+      });
+
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+
+      const s = game.getState();
+      expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(s.hunterPendingShoot).toBe('p5');
+      expect(s.lastWordsPlayerId).toBeNull();
+
+      const advanceResult = game.validateMove(
+        { playerId: 'p1', actionType: ACTION_TYPES.PHASE_ADVANCE, actionData: {} },
+        s
+      );
+      expect(advanceResult.valid).toBe(false);
+      expect(advanceResult.error).toContain('猎人');
+    });
+
     it('should trigger hunterPendingShoot when hunter dies to wolf kill', () => {
       const { game } = setupGame({
         roleMap: {
@@ -976,6 +1176,51 @@ describe('WerewolfGame', () => {
       expect(s.hunterPendingShoot).toBeNull();
     });
 
+    it('should resolve hunter shot before last words, then continue normal announce flow', () => {
+      const { game } = setupGame({
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'hunter', p6: 'villager'
+        }
+      });
+
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+
+      game.executeMove({
+        playerId: 'p5',
+        actionType: ACTION_TYPES.HUNTER_SHOOT,
+        actionData: { targetId: 'p1' }
+      });
+
+      let s = game.getState();
+      expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(s.hunterPendingShoot).toBeNull();
+      expect(s.lastWordsPlayerId).toBe('p5');
+      expect(s.lastWordsPlayerId).not.toBe('p1');
+
+      game.executeMove({
+        playerId: 'p5',
+        actionType: ACTION_TYPES.PHASE_ADVANCE,
+        actionData: {}
+      });
+
+      s = game.getState();
+      expect(s.awaitingFirstSpeaker).toBe(true);
+      expect(s.firstSpeakerId).toBeTruthy();
+
+      game.executeMove({
+        playerId: s.firstSpeakerId,
+        actionType: ACTION_TYPES.PHASE_ADVANCE,
+        actionData: {}
+      });
+
+      expect(game.getState().phase).toBe(PHASES.DAY_DISCUSSION);
+    });
+
     it('should not trigger hunter shoot when poisoned (default option)', () => {
       const { game } = setupGame({
         players: SEVEN_PLAYERS,
@@ -994,11 +1239,92 @@ describe('WerewolfGame', () => {
       submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
       submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p6' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
 
       const s = game.getState();
       expect(s.playerMap.p6.alive).toBe(false);
       // Hunter was poisoned — should NOT be able to shoot
       expect(s.hunterPendingShoot).toBeNull();
+    });
+
+    it('should reveal hunter role on night death with pending shoot even when revealRolesOnDeath is false', () => {
+      const { game } = setupGame({
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'hunter', p6: 'villager'
+        },
+        options: { revealRolesOnDeath: false }
+      });
+
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+
+      const visible = game.getVisibleState('p6');
+      const hunter = visible.players.find(p => p.id === 'p5');
+      expect(hunter.alive).toBe(false);
+      expect(hunter.roleId).toBe('hunter');
+    });
+
+    it('should not reveal poisoned hunter role when hunter cannot shoot and revealRolesOnDeath is false', () => {
+      const { game } = setupGame({
+        players: SEVEN_PLAYERS,
+        roleCounts: P0_ROLE_COUNTS_WITH_WITCH,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'witch', p6: 'hunter', p7: 'villager'
+        },
+        options: {
+          revealRolesOnDeath: false,
+          hunterShootOnPoison: false
+        }
+      });
+
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p6' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const visible = game.getVisibleState('p1');
+      const hunter = visible.players.find(p => p.id === 'p6');
+      expect(hunter.alive).toBe(false);
+      expect(hunter.roleId).toBeNull();
+    });
+
+    it('should reveal poisoned hunter role when hunter can shoot and revealRolesOnDeath is false', () => {
+      const { game } = setupGame({
+        players: SEVEN_PLAYERS,
+        roleCounts: P0_ROLE_COUNTS_WITH_WITCH,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'witch', p6: 'hunter', p7: 'villager'
+        },
+        options: {
+          revealRolesOnDeath: false,
+          hunterShootOnPoison: true
+        }
+      });
+
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p6' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const s = game.getState();
+      expect(s.hunterPendingShoot).toBe('p6');
+
+      const visible = game.getVisibleState('p1');
+      const hunter = visible.players.find(p => p.id === 'p6');
+      expect(hunter.alive).toBe(false);
+      expect(hunter.roleId).toBe('hunter');
     });
   });
 
@@ -1020,6 +1346,21 @@ describe('WerewolfGame', () => {
       submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
       submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
 
+      let current = game.getState();
+      expect(current.lastWordsPlayerId).toBe('p6');
+
+      const blocked = game.validateMove(
+        { playerId: 'p6', actionType: ACTION_TYPES.DEAD_CHAT, actionData: { message: 'blocked' } },
+        current
+      );
+      expect(blocked.valid).toBe(false);
+
+      game.executeMove({
+        playerId: 'p6',
+        actionType: ACTION_TYPES.PHASE_ADVANCE,
+        actionData: {}
+      });
+
       // Dead player sends chat
       game.executeMove({
         playerId: 'p6',
@@ -1031,6 +1372,30 @@ describe('WerewolfGame', () => {
       expect(s.deadChat).toHaveLength(1);
       expect(s.deadChat[0].playerId).toBe('p6');
       expect(s.deadChat[0].message).toBe('我是村民!');
+    });
+
+    it('should reject dead chat while hunter shoot is pending', () => {
+      const { game } = setupGame({
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'hunter', p6: 'villager'
+        }
+      });
+
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+
+      const s = game.getState();
+      expect(s.hunterPendingShoot).toBe('p5');
+
+      const result = game.validateMove(
+        { playerId: 'p5', actionType: ACTION_TYPES.DEAD_CHAT, actionData: { message: 'test' } },
+        s
+      );
+      expect(result.valid).toBe(false);
     });
 
     it('should reject dead chat from alive player', () => {
@@ -1180,6 +1545,22 @@ describe('WerewolfGame', () => {
       expect(aliveView.deadChat).toHaveLength(0);
     });
 
+    it('should lock dead chat while own last words are pending', () => {
+      const s = game.getState();
+      s.deadChat.push({ playerId: 'p6', nickname: 'Player6', message: 'test', timestamp: 1 });
+      s.playerMap.p6.alive = false;
+      s.lastWordsPlayerId = 'p6';
+
+      const duringSettlement = game.getVisibleState('p6');
+      expect(duringSettlement.deadChatEnabled).toBe(false);
+      expect(duringSettlement.deadChat).toHaveLength(0);
+
+      s.lastWordsPlayerId = null;
+      const afterSettlement = game.getVisibleState('p6');
+      expect(afterSettlement.deadChatEnabled).toBe(true);
+      expect(afterSettlement.deadChat).toHaveLength(1);
+    });
+
     it('should reveal all roles when game ends', () => {
       const s = game.getState();
       s.phase = PHASES.ENDED;
@@ -1254,8 +1635,7 @@ describe('WerewolfGame', () => {
       expect(s.playerMap.p6.alive).toBe(false);
 
       // === Day 1: advance through announce → discussion → vote ===
-      // Advance to discussion
-      game.executeMove({ playerId: 'p3', actionType: ACTION_TYPES.PHASE_ADVANCE, actionData: {} });
+      advanceToDiscussion(game);
 
       // Advance through all speakers
       while (game.getState().phase === PHASES.DAY_DISCUSSION) {
@@ -1265,11 +1645,13 @@ describe('WerewolfGame', () => {
       }
 
       // Vote to execute p1 (a wolf)
-      game.executeMove({ playerId: 'p3', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p1' } });
-      game.executeMove({ playerId: 'p4', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p1' } });
-      game.executeMove({ playerId: 'p5', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p1' } });
-      game.executeMove({ playerId: 'p1', actionType: ACTION_TYPES.DAY_SKIP_VOTE, actionData: {} });
-      game.executeMove({ playerId: 'p2', actionType: ACTION_TYPES.DAY_SKIP_VOTE, actionData: {} });
+      playVoteRound(game, {
+        p1: null,
+        p2: null,
+        p3: 'p1',
+        p4: 'p1',
+        p5: 'p1'
+      });
 
       s = game.getState();
       expect(s.playerMap.p1.alive).toBe(false);
@@ -1286,16 +1668,18 @@ describe('WerewolfGame', () => {
       expect(s.playerMap.p3.alive).toBe(false);
 
       // === Day 2: vote to execute p2 (last wolf) ===
-      game.executeMove({ playerId: 'p4', actionType: ACTION_TYPES.PHASE_ADVANCE, actionData: {} });
+      advanceToDiscussion(game);
       while (game.getState().phase === PHASES.DAY_DISCUSSION) {
         const cur = game.getState().currentSpeaker;
         if (!cur) break;
         game.executeMove({ playerId: cur, actionType: ACTION_TYPES.SPEECH_DONE, actionData: {} });
       }
 
-      game.executeMove({ playerId: 'p4', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p2' } });
-      game.executeMove({ playerId: 'p5', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p2' } });
-      game.executeMove({ playerId: 'p2', actionType: ACTION_TYPES.DAY_SKIP_VOTE, actionData: {} });
+      playVoteRound(game, {
+        p2: null,
+        p4: 'p2',
+        p5: 'p2'
+      });
 
       s = game.getState();
       expect(s.playerMap.p2.alive).toBe(false);
@@ -1320,18 +1704,20 @@ describe('WerewolfGame', () => {
       submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
 
       // Day 1: execute seer (bad outcome)
-      game.executeMove({ playerId: 'p1', actionType: ACTION_TYPES.PHASE_ADVANCE, actionData: {} });
+      advanceToDiscussion(game);
       while (game.getState().phase === PHASES.DAY_DISCUSSION) {
         const cur = game.getState().currentSpeaker;
         if (!cur) break;
         game.executeMove({ playerId: cur, actionType: ACTION_TYPES.SPEECH_DONE, actionData: {} });
       }
       // Wolves and villager vote seer
-      game.executeMove({ playerId: 'p1', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p3' } });
-      game.executeMove({ playerId: 'p2', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p3' } });
-      game.executeMove({ playerId: 'p6', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p3' } });
-      game.executeMove({ playerId: 'p3', actionType: ACTION_TYPES.DAY_SKIP_VOTE, actionData: {} });
-      game.executeMove({ playerId: 'p5', actionType: ACTION_TYPES.DAY_SKIP_VOTE, actionData: {} });
+      playVoteRound(game, {
+        p1: 'p3',
+        p2: 'p3',
+        p3: null,
+        p5: null,
+        p6: 'p3'
+      });
 
       let s = game.getState();
       expect(s.playerMap.p3.alive).toBe(false);

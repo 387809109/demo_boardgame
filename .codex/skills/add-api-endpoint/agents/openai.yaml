@@ -1,0 +1,4 @@
+interface:
+  display_name: "Add API Endpoint"
+  short_description: "Add REST endpoints in api/ only"
+  default_prompt: "Use $add-api-endpoint to add a new REST endpoint in api/ only, including route, service, validation, and Jest tests."
