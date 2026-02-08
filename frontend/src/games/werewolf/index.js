@@ -8,28 +8,28 @@ import {
   assignRoles,
   validateNightAction,
   validateDayVote,
-  resolveNightActions,
-  calculateVoteResult,
-  checkWinConditions,
-  getActiveNightRoles,
-  resolveWolfConsensus
+  checkWinConditions
 } from './rules.js';
+import {
+  PHASES,
+  transitionPhase,
+  calculateFirstSpeaker,
+  advanceSpeaker,
+  advanceNightStep,
+  collectDayVote,
+  areAllDayVotesCollected,
+  resolveVotes,
+  buildNightSteps
+} from './game-phases.js';
 import config from './config.json';
 
-/** Game phases */
-export const PHASES = {
-  NIGHT: 'night',
-  DAY_ANNOUNCE: 'day_announce',
-  DAY_DISCUSSION: 'day_discussion',
-  DAY_VOTE: 'day_vote',
-  DAY_EXECUTION: 'day_execution',
-  ENDED: 'ended'
-};
+// Re-export PHASES for external use
+export { PHASES };
 
 /** Action types */
 export const ACTION_TYPES = {
   NIGHT_WOLF_KILL: 'NIGHT_WOLF_KILL',
-  NIGHT_WOLF_TENTATIVE: 'NIGHT_WOLF_TENTATIVE', // Tentative vote visible to wolf teammates
+  NIGHT_WOLF_TENTATIVE: 'NIGHT_WOLF_TENTATIVE',
   NIGHT_SEER_CHECK: 'NIGHT_SEER_CHECK',
   NIGHT_DOCTOR_PROTECT: 'NIGHT_DOCTOR_PROTECT',
   NIGHT_WITCH_SAVE: 'NIGHT_WITCH_SAVE',
@@ -58,6 +58,18 @@ export class WerewolfGame extends GameEngine {
   constructor(mode = 'offline') {
     super(mode);
     this.config = config;
+  }
+
+  /**
+   * Get helper functions for phase management
+   * @private
+   */
+  _getPhaseHelpers() {
+    return {
+      logEvent: (state, type, data) => this._logEvent(state, type, data),
+      markPlayerDead: (state, playerId, cause) => this._markPlayerDead(state, playerId, cause),
+      processDeathTriggers: (state, deadIds, cause) => this._processDeathTriggers(state, deadIds, cause)
+    };
   }
 
   /**
@@ -117,7 +129,8 @@ export class WerewolfGame extends GameEngine {
       nightActionPriority: config.nightActionPriority,
       roleDefinitions: config.roles
     };
-    const nightSteps = this._buildNightSteps(stateForRoles);
+
+    const nightSteps = buildNightSteps(stateForRoles);
     const pendingNightRoles = nightSteps.length > 0
       ? [...nightSteps[0].playerIds] : [];
 
@@ -136,8 +149,8 @@ export class WerewolfGame extends GameEngine {
 
       // Night tracking
       nightActions: {},
-      wolfVotes: {},           // Actual committed wolf votes
-      wolfTentativeVotes: {},  // Tentative votes visible to wolf teammates
+      wolfVotes: {},
+      wolfTentativeVotes: {},
       nightSteps,
       currentNightStep: 0,
       pendingNightRoles,
@@ -150,13 +163,11 @@ export class WerewolfGame extends GameEngine {
       speakerQueue: [],
       speakerIndex: -1,
       currentSpeaker: null,
-      finishedSpeakers: [],        // Players who have finished speaking
+      finishedSpeakers: [],
       voterQueue: [],
       voterIndex: -1,
       currentVoter: null,
-      // Store the base speaker order for reuse in tie speech and voting
       baseSpeakerOrder: [],
-      // Track who should start discussion (first speaker clicks continue)
       awaitingFirstSpeaker: false,
       firstSpeakerId: null,
 
@@ -165,8 +176,8 @@ export class WerewolfGame extends GameEngine {
       dayAnnouncements: [],
       hunterPendingShoot: null,
       lastWordsRemaining: initialWolfCount,
-      lastWordsPlayerId: null,     // Player currently giving last words
-      lastDayExecution: null,      // Who was executed last day (null = peaceful)
+      lastWordsPlayerId: null,
+      lastDayExecution: null,
 
       // Role states
       roleStates: {
@@ -176,10 +187,10 @@ export class WerewolfGame extends GameEngine {
       },
       links: {},
 
-      // Seer check results (persists across rounds)
+      // Seer check results
       seerChecks: {},
 
-      // Dead player chat (visible only to dead players)
+      // Dead player chat
       deadChat: [],
 
       // Meta
@@ -211,7 +222,7 @@ export class WerewolfGame extends GameEngine {
       return { valid: false, error: '玩家不存在' };
     }
 
-    // LAST_WORDS, HUNTER_SHOOT, DEAD_CHAT, and PHASE_ADVANCE (during DAY_ANNOUNCE for last words) can come from dead players
+    // Actions that dead players can do
     const canDeadPlayerDoAction =
       actionType === ACTION_TYPES.LAST_WORDS ||
       actionType === ACTION_TYPES.HUNTER_SHOOT ||
@@ -222,21 +233,18 @@ export class WerewolfGame extends GameEngine {
       return { valid: false, error: '你已死亡' };
     }
 
-    // PHASE_ADVANCE can happen in announce or discussion with restrictions
+    // PHASE_ADVANCE validation
     if (actionType === ACTION_TYPES.PHASE_ADVANCE) {
       if (state.phase === PHASES.DAY_ANNOUNCE) {
-        // During last words, only the dying player can continue
         if (state.lastWordsPlayerId && playerId !== state.lastWordsPlayerId) {
           return { valid: false, error: '等待遗言玩家结束发言' };
         }
-        // After last words, waiting for first speaker to start discussion
         if (state.awaitingFirstSpeaker && playerId !== state.firstSpeakerId) {
           return { valid: false, error: '等待第一位发言人开始' };
         }
         return { valid: true };
       }
       if (state.phase === PHASES.DAY_DISCUSSION) {
-        // Only current speaker can advance (end their speech)
         if (state.currentSpeaker && playerId !== state.currentSpeaker) {
           return { valid: false, error: '等待当前发言人结束' };
         }
@@ -307,10 +315,10 @@ export class WerewolfGame extends GameEngine {
   processMove(move, state) {
     const newState = JSON.parse(JSON.stringify(state));
     const { actionType, playerId, actionData } = move;
+    const helpers = this._getPhaseHelpers();
 
     switch (actionType) {
       case ACTION_TYPES.NIGHT_WOLF_TENTATIVE:
-        // Tentative vote - just store the intention, doesn't advance game
         newState.wolfTentativeVotes[playerId] = actionData.targetId;
         break;
 
@@ -322,15 +330,15 @@ export class WerewolfGame extends GameEngine {
       case ACTION_TYPES.NIGHT_SKIP:
         this._collectNightAction(newState, move);
         if (newState.pendingNightRoles.length === 0) {
-          this._advanceNightStep(newState);
+          advanceNightStep(newState, helpers);
         }
         break;
 
       case ACTION_TYPES.DAY_VOTE:
       case ACTION_TYPES.DAY_SKIP_VOTE:
-        this._collectDayVote(newState, move);
-        if (this._areAllDayVotesCollected(newState)) {
-          this._resolveVotes(newState);
+        collectDayVote(newState, move);
+        if (areAllDayVotesCollected(newState)) {
+          resolveVotes(newState, helpers);
         }
         break;
 
@@ -343,9 +351,8 @@ export class WerewolfGame extends GameEngine {
           targetId
         });
         this._processDeathTriggers(newState, [targetId], 'hunter_shoot');
-        // After triggers resolve, transition to night if no more pending
         if (!newState.hunterPendingShoot) {
-          this._transitionPhase(newState, PHASES.NIGHT);
+          transitionPhase(newState, PHASES.NIGHT, helpers);
         }
         break;
       }
@@ -367,35 +374,31 @@ export class WerewolfGame extends GameEngine {
         break;
 
       case ACTION_TYPES.SPEECH_DONE:
-        this._advanceSpeaker(newState);
+        advanceSpeaker(newState, helpers);
         break;
 
       case ACTION_TYPES.PHASE_ADVANCE:
         if (newState.phase === PHASES.DAY_ANNOUNCE) {
           if (newState.lastWordsPlayerId) {
-            // Last words ended, now wait for first speaker
             newState.lastWordsPlayerId = null;
             newState.awaitingFirstSpeaker = true;
-            // Calculate first speaker based on victim position
-            this._calculateFirstSpeaker(newState);
+            calculateFirstSpeaker(newState);
           } else if (newState.awaitingFirstSpeaker) {
-            // First speaker clicked continue, start discussion
             newState.awaitingFirstSpeaker = false;
-            this._transitionPhase(newState, PHASES.DAY_DISCUSSION);
+            transitionPhase(newState, PHASES.DAY_DISCUSSION, helpers);
           } else {
-            this._transitionPhase(newState, PHASES.DAY_DISCUSSION);
+            transitionPhase(newState, PHASES.DAY_DISCUSSION, helpers);
           }
         } else if (newState.phase === PHASES.DAY_DISCUSSION) {
-          this._transitionPhase(newState, PHASES.DAY_VOTE);
+          transitionPhase(newState, PHASES.DAY_VOTE, helpers);
         }
         break;
 
       default:
-        // Generic night action handler for extensibility (P1-P3 roles)
         if (actionType.startsWith('NIGHT_')) {
           this._collectNightAction(newState, move);
           if (newState.pendingNightRoles.length === 0) {
-            this._advanceNightStep(newState);
+            advanceNightStep(newState, helpers);
           }
         }
         break;
@@ -442,7 +445,7 @@ export class WerewolfGame extends GameEngine {
   }
 
   /**
-   * Get visible state for a player (hides roles/actions of others)
+   * Get visible state for a player
    * @param {string} playerId
    * @returns {Object} Filtered state
    */
@@ -469,7 +472,7 @@ export class WerewolfGame extends GameEngine {
       };
     });
 
-    // Viewer's own role is always visible
+    // Viewer's own role
     const myRole = viewer ? {
       roleId: viewer.roleId,
       team: viewer.team
@@ -483,7 +486,7 @@ export class WerewolfGame extends GameEngine {
         .map(p => p.id);
     }
 
-    // Night action feedback for seer etc.
+    // Night action feedback
     const myAnnouncements = (state.dayAnnouncements || [])
       .filter(a => a.playerId === playerId || !a.playerId);
 
@@ -518,12 +521,11 @@ export class WerewolfGame extends GameEngine {
       options: state.options,
       roleStates: playerId ? this._getVisibleRoleStates(playerId, state) : {},
       seerChecks: viewer?.roleId === 'seer' ? (state.seerChecks || {}) : {},
-      // New fields for UI
       lastWordsPlayerId: state.lastWordsPlayerId,
       awaitingFirstSpeaker: state.awaitingFirstSpeaker,
       firstSpeakerId: state.firstSpeakerId,
       lastDayExecution: state.lastDayExecution,
-      nightActions: state.nightActions  // For showing completed action to self
+      nightActions: state.nightActions
     };
   }
 
@@ -546,297 +548,6 @@ export class WerewolfGame extends GameEngine {
   // ─── Private Methods ────────────────────────────────────────
 
   /**
-   * Transition to a new phase
-   * @private
-   */
-  _transitionPhase(state, toPhase) {
-    state.phase = toPhase;
-    switch (toPhase) {
-      case PHASES.NIGHT:
-        this._startNight(state);
-        break;
-      case PHASES.DAY_ANNOUNCE:
-        this._startDayAnnounce(state);
-        break;
-      case PHASES.DAY_DISCUSSION:
-        this._startDayDiscussion(state);
-        break;
-      case PHASES.DAY_VOTE:
-        this._startDayVote(state);
-        break;
-    }
-  }
-
-  /**
-   * Start night phase
-   * @private
-   */
-  _startNight(state) {
-    state.nightActions = {};
-    state.wolfVotes = {};
-    state.wolfTentativeVotes = {};
-    state.nightDeaths = [];
-    state.dayAnnouncements = [];
-    state.tiedCandidates = null;
-    state.voteRound = 1;
-    state.speakerQueue = [];
-    state.speakerIndex = -1;
-    state.currentSpeaker = null;
-
-    // Build sequential night steps from active roles
-    const steps = this._buildNightSteps(state);
-    state.nightSteps = steps;
-    state.currentNightStep = 0;
-    state.pendingNightRoles = steps.length > 0
-      ? [...steps[0].playerIds] : [];
-
-    this._logEvent(state, 'phase_change', {
-      phase: PHASES.NIGHT,
-      round: state.round
-    });
-  }
-
-  /**
-   * Start day announce phase
-   * @private
-   */
-  _startDayAnnounce(state) {
-    // Determine who should give last words (first night death)
-    const deaths = state.nightDeaths || [];
-    if (deaths.length > 0) {
-      state.lastWordsPlayerId = deaths[0].playerId;
-      state.awaitingFirstSpeaker = false;
-    } else {
-      // Peaceful night - wait for first speaker to start discussion
-      state.lastWordsPlayerId = null;
-      state.awaitingFirstSpeaker = true;
-      // Pre-calculate first speaker
-      const alive = state.players.filter(p => state.playerMap[p.id].alive);
-      state.firstSpeakerId = alive.length > 0 ? alive[0].id : null;
-    }
-
-    this._logEvent(state, 'phase_change', {
-      phase: PHASES.DAY_ANNOUNCE,
-      round: state.round,
-      deaths: deaths.map(d => d.playerId)
-    });
-  }
-
-  /**
-   * Calculate first speaker based on victim position
-   * @private
-   */
-  _calculateFirstSpeaker(state) {
-    const alive = state.players.filter(p => state.playerMap[p.id].alive);
-    const victimIds = (state.nightDeaths || []).map(d => d.playerId);
-
-    let startIdx = 0;
-    if (victimIds.length > 0) {
-      const victimSeat = state.players.findIndex(p => p.id === victimIds[0]);
-      if (victimSeat !== -1) {
-        for (let offset = 1; offset <= state.players.length; offset++) {
-          const idx = (victimSeat + offset) % state.players.length;
-          const candidate = state.players[idx];
-          if (state.playerMap[candidate.id].alive) {
-            startIdx = alive.findIndex(p => p.id === candidate.id);
-            break;
-          }
-        }
-      }
-    }
-
-    state.firstSpeakerId = alive.length > 0 ? alive[startIdx].id : null;
-  }
-
-  /**
-   * Start day discussion phase - builds speaker queue
-   * @private
-   */
-  _startDayDiscussion(state) {
-    state.votes = {};
-
-    // Build speaker queue: clockwise from victim (matches direction indicator)
-    const alive = state.players.filter(p => state.playerMap[p.id].alive);
-    const victimIds = (state.nightDeaths || []).map(d => d.playerId);
-
-    // Find starting index: first victim's seat position among alive players,
-    // or index 0 if no deaths or victim not in alive list
-    let startIdx = 0;
-    if (victimIds.length > 0) {
-      // Use the first victim's original seat to pick starting neighbor
-      const victimSeat = state.players.findIndex(p => p.id === victimIds[0]);
-      if (victimSeat !== -1) {
-        // Find next alive player clockwise from victim seat
-        for (let offset = 1; offset <= state.players.length; offset++) {
-          const idx = (victimSeat + offset) % state.players.length;
-          const candidate = state.players[idx];
-          if (state.playerMap[candidate.id].alive) {
-            startIdx = alive.findIndex(p => p.id === candidate.id);
-            break;
-          }
-        }
-      }
-    }
-
-    // Build queue in clockwise order from startIdx (matches direction indicator)
-    const queue = [];
-    for (let i = 0; i < alive.length; i++) {
-      const idx = (startIdx + i) % alive.length;
-      queue.push(alive[idx].id);
-    }
-
-    state.speakerQueue = queue;
-    state.speakerIndex = 0;
-    state.currentSpeaker = queue.length > 0 ? queue[0] : null;
-    state.finishedSpeakers = [];  // Reset finished speakers
-    // Save base order for reuse in tie speech and voting
-    state.baseSpeakerOrder = [...queue];
-
-    this._logEvent(state, 'phase_change', {
-      phase: PHASES.DAY_DISCUSSION,
-      round: state.round,
-      speakerQueue: queue
-    });
-  }
-
-  /**
-   * Advance to the next speaker; transition to vote when queue exhausted
-   * @private
-   */
-  _advanceSpeaker(state) {
-    // Add current speaker to finished list
-    if (state.currentSpeaker) {
-      state.finishedSpeakers = [...(state.finishedSpeakers || []), state.currentSpeaker];
-    }
-
-    state.speakerIndex++;
-    if (state.speakerIndex >= state.speakerQueue.length) {
-      // All speakers done
-      state.currentSpeaker = null;
-      this._transitionPhase(state, PHASES.DAY_VOTE);
-    } else {
-      state.currentSpeaker = state.speakerQueue[state.speakerIndex];
-    }
-  }
-
-  /**
-   * Start tie speech phase - only tied candidates speak before second vote
-   * @private
-   */
-  _startTieSpeech(state, tiedPlayerIds) {
-    // Order tied candidates by their position in base speaker order
-    const orderedTied = state.baseSpeakerOrder.filter(id => tiedPlayerIds.includes(id));
-
-    state.phase = PHASES.DAY_DISCUSSION;
-    state.speakerQueue = orderedTied;
-    state.speakerIndex = 0;
-    state.currentSpeaker = orderedTied.length > 0 ? orderedTied[0] : null;
-
-    this._logEvent(state, 'phase_change', {
-      phase: PHASES.DAY_DISCUSSION,
-      round: state.round,
-      speakerQueue: orderedTied,
-      isTieSpeech: true
-    });
-  }
-
-  /**
-   * Start day vote phase - builds voter queue in same order as speaker queue
-   * @private
-   */
-  _startDayVote(state) {
-    state.votes = {};
-
-    // Build voter queue: same order as base speaker order (alive players only)
-    const aliveIds = state.players
-      .filter(p => state.playerMap[p.id].alive)
-      .map(p => p.id);
-    const voterQueue = state.baseSpeakerOrder.filter(id => aliveIds.includes(id));
-
-    state.voterQueue = voterQueue;
-    state.voterIndex = 0;
-    state.currentVoter = voterQueue.length > 0 ? voterQueue[0] : null;
-
-    this._logEvent(state, 'phase_change', {
-      phase: PHASES.DAY_VOTE,
-      round: state.round,
-      voteRound: state.voteRound,
-      voterQueue
-    });
-  }
-
-  /**
-   * Build ordered night steps from active roles, grouped by priority
-   * @private
-   * @param {Object} state
-   * @returns {Array<{priority: number, roleId: string, playerIds: string[], label: string}>}
-   */
-  _buildNightSteps(state) {
-    const activeRoles = getActiveNightRoles(state);
-    const steps = [];
-    let prev = null;
-    for (const role of activeRoles) {
-      if (!prev || role.priority !== prev.priority) {
-        steps.push({
-          priority: role.priority,
-          roleId: role.roleId,
-          playerIds: [role.playerId],
-          label: this._getNightStepLabel(role.priority)
-        });
-      } else {
-        steps[steps.length - 1].playerIds.push(role.playerId);
-      }
-      prev = role;
-    }
-    return steps;
-  }
-
-  /**
-   * Get display label for a night step priority
-   * @private
-   */
-  _getNightStepLabel(priority) {
-    const labels = {
-      5: '预言家查验', 7: '医生保护',
-      8: '狼人行动', 10: '女巫行动'
-    };
-    return labels[priority] || '夜间行动';
-  }
-
-  /**
-   * Advance to the next night step after current step's players all submitted
-   * @private
-   */
-  _advanceNightStep(state) {
-    state.currentNightStep++;
-
-    if (state.currentNightStep >= state.nightSteps.length) {
-      // All steps done — resolve & transition
-      this._resolveNight(state);
-      this._transitionPhase(state, PHASES.DAY_ANNOUNCE);
-      return;
-    }
-
-    const nextStep = state.nightSteps[state.currentNightStep];
-    state.pendingNightRoles = [...nextStep.playerIds];
-
-    // When witch step begins, provide wolf target info
-    if (nextStep.roleId === 'witch') {
-      const wolfTarget = resolveWolfConsensus(state);
-      state.dayAnnouncements.push({
-        type: 'witch_night_info',
-        playerId: nextStep.playerIds[0],
-        wolfTarget: wolfTarget || null
-      });
-    }
-
-    this._logEvent(state, 'night_step', {
-      step: state.currentNightStep,
-      label: nextStep.label
-    });
-  }
-
-  /**
    * Collect a night action from a player
    * @private
    */
@@ -845,12 +556,12 @@ export class WerewolfGame extends GameEngine {
 
     state.nightActions[playerId] = { actionType, actionData };
 
-    // Track wolf votes separately for consensus
+    // Track wolf votes
     if (actionType === ACTION_TYPES.NIGHT_WOLF_KILL) {
       state.wolfVotes[playerId] = actionData?.targetId || null;
     }
 
-    // Seer check: immediately reveal target's team to the seer
+    // Seer check: immediately reveal
     if (actionType === ACTION_TYPES.NIGHT_SEER_CHECK && actionData?.targetId) {
       const target = state.playerMap[actionData.targetId];
       if (target) {
@@ -860,12 +571,11 @@ export class WerewolfGame extends GameEngine {
           targetId: actionData.targetId,
           result: target.team
         });
-        // Persist across rounds for name display
         state.seerChecks[actionData.targetId] = target.team;
       }
     }
 
-    // Update role states for resource tracking
+    // Update role states
     if (actionType === ACTION_TYPES.NIGHT_WITCH_SAVE) {
       state.roleStates.witchSaveUsed = true;
     }
@@ -880,111 +590,6 @@ export class WerewolfGame extends GameEngine {
     const idx = state.pendingNightRoles.indexOf(playerId);
     if (idx !== -1) {
       state.pendingNightRoles.splice(idx, 1);
-    }
-  }
-
-  /**
-   * Check if all night actions have been collected
-   * @private
-   */
-  _areAllNightActionsCollected(state) {
-    return state.pendingNightRoles.length === 0;
-  }
-
-  /**
-   * Resolve all night actions
-   * @private
-   */
-  _resolveNight(state) {
-    const { deaths, announcements } = resolveNightActions(state);
-
-    // Merge with existing announcements (e.g. witch_night_info added during step advancement)
-    state.dayAnnouncements = [...(state.dayAnnouncements || []), ...announcements];
-    state.nightDeaths = deaths;
-
-    // Apply deaths and process triggers per-death (cause matters for hunter)
-    for (const death of deaths) {
-      this._markPlayerDead(state, death.playerId, death.cause);
-      this._processDeathTriggers(state, [death.playerId], death.cause);
-    }
-
-    state.round++;
-  }
-
-  /**
-   * Collect a day vote and advance to next voter
-   * @private
-   */
-  _collectDayVote(state, move) {
-    const { playerId, actionType, actionData } = move;
-
-    if (actionType === ACTION_TYPES.DAY_SKIP_VOTE) {
-      state.votes[playerId] = null;
-    } else {
-      state.votes[playerId] = actionData.targetId;
-    }
-
-    // Advance to next voter
-    state.voterIndex++;
-    if (state.voterIndex >= state.voterQueue.length) {
-      state.currentVoter = null;
-    } else {
-      state.currentVoter = state.voterQueue[state.voterIndex];
-    }
-  }
-
-  /**
-   * Check if all day votes have been collected
-   * @private
-   */
-  _areAllDayVotesCollected(state) {
-    return state.currentVoter === null;
-  }
-
-  /**
-   * Resolve day votes
-   * @private
-   */
-  _resolveVotes(state) {
-    const result = calculateVoteResult(state.votes, state.options);
-
-    this._logEvent(state, 'vote_result', {
-      voteCounts: result.voteCounts,
-      executed: result.executed,
-      tiedPlayers: result.tiedPlayers,
-      voteRound: state.voteRound
-    });
-
-    if (result.executed) {
-      // Execution
-      this._markPlayerDead(state, result.executed, 'execution');
-      state.tiedCandidates = null;
-      state.lastDayExecution = result.executed;  // Record for night display
-
-      // Check last words eligibility
-      if (state.options.lastWordsMode !== 'none' && state.lastWordsRemaining > 0) {
-        state.lastWordsRemaining--;
-      }
-
-      // Process death triggers
-      this._processDeathTriggers(state, [result.executed], 'execution');
-
-      // If no pending triggers, go to night
-      if (!state.hunterPendingShoot) {
-        this._transitionPhase(state, PHASES.NIGHT);
-      }
-    } else if (result.tiedPlayers.length > 0 && state.voteRound === 1) {
-      // Tie in first vote round -> tied candidates speak, then second vote
-      state.tiedCandidates = result.tiedPlayers;
-      state.voteRound = 2;
-      state.votes = {};
-      // Give tied candidates a chance to speak before second vote
-      this._startTieSpeech(state, result.tiedPlayers);
-    } else {
-      // No execution (second tie or no votes) -> go to night
-      state.tiedCandidates = null;
-      state.lastDayExecution = null;  // Peaceful day (no execution)
-      this._transitionPhase(state, PHASES.NIGHT);
     }
   }
 
@@ -1004,7 +609,7 @@ export class WerewolfGame extends GameEngine {
   }
 
   /**
-   * Process death triggers (hunter shoot, lover cascade, etc.)
+   * Process death triggers
    * @private
    */
   _processDeathTriggers(state, deadIds, cause) {
@@ -1014,7 +619,6 @@ export class WerewolfGame extends GameEngine {
 
       // Hunter shoot eligibility
       if (deadPlayer.roleId === 'hunter') {
-        // Can't shoot if poisoned (unless option enabled)
         const canShoot = cause !== 'witch_poison' ||
                          state.options.hunterShootOnPoison;
         if (canShoot) {
@@ -1022,7 +626,7 @@ export class WerewolfGame extends GameEngine {
         }
       }
 
-      // Lover cascade (if links exist)
+      // Lover cascade
       if (state.links.lovers) {
         const [loverA, loverB] = state.links.lovers;
         let partner = null;
@@ -1031,7 +635,6 @@ export class WerewolfGame extends GameEngine {
 
         if (partner && state.playerMap[partner]?.alive) {
           this._markPlayerDead(state, partner, 'lover_death');
-          // Recursive trigger for partner death
           this._processDeathTriggers(state, [partner], 'lover_death');
         }
       }
@@ -1039,33 +642,19 @@ export class WerewolfGame extends GameEngine {
   }
 
   /**
-   * Get alive players
-   * @private
-   */
-  _getAlivePlayers(state) {
-    return Object.values(state.playerMap).filter(p => p.alive);
-  }
-
-  /**
    * Check if viewer can see a target's role
    * @private
    */
   _canSeeRole(viewerId, targetId, state) {
-    // Always see own role
     if (viewerId === targetId) return true;
-
-    // Game ended: all revealed
     if (state.phase === PHASES.ENDED) return true;
 
-    // Dead viewer sees all roles
     const viewer = state.playerMap[viewerId];
     if (viewer && !viewer.alive) return true;
 
-    // Dead target + revealOnDeath option
     const target = state.playerMap[targetId];
     if (!target.alive && state.options.revealRolesOnDeath) return true;
 
-    // Wolf sees wolf
     if (viewer?.team === TEAMS.WEREWOLF && target.team === TEAMS.WEREWOLF) {
       return true;
     }
@@ -1074,7 +663,7 @@ export class WerewolfGame extends GameEngine {
   }
 
   /**
-   * Get visible role states for a specific player
+   * Get visible role states for a player
    * @private
    */
   _getVisibleRoleStates(playerId, state) {
@@ -1083,26 +672,20 @@ export class WerewolfGame extends GameEngine {
 
     const visible = {};
 
-    // Witch sees potion status
     if (player.roleId === 'witch') {
       visible.witchSaveUsed = state.roleStates.witchSaveUsed;
       visible.witchPoisonUsed = state.roleStates.witchPoisonUsed;
+    }
+
+    if (player.roleId === 'doctor') {
+      visible.doctorLastProtect = state.roleStates.doctorLastProtect;
     }
 
     return visible;
   }
 
   /**
-   * Get team for a role ID
-   * @private
-   */
-  _getRoleTeam(roleId) {
-    const roleConfig = this._getRoleConfig(roleId);
-    return roleConfig?.team || TEAMS.VILLAGE;
-  }
-
-  /**
-   * Get role config from config.json roles across tiers
+   * Get role config
    * @private
    */
   _getRoleConfig(roleId) {
@@ -1115,7 +698,7 @@ export class WerewolfGame extends GameEngine {
   }
 
   /**
-   * Get default role counts for a player count
+   * Get default role counts
    * @private
    */
   _getDefaultRoleCounts(playerCount) {
@@ -1126,7 +709,6 @@ export class WerewolfGame extends GameEngine {
         return { ...counts };
       }
     }
-    // Fallback to largest range
     return { ...Object.values(ranges).pop() };
   }
 

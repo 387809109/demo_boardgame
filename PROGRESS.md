@@ -374,6 +374,19 @@
 
 ### 2026-02-08
 
+- ✅ 狼人杀代码模块化拆分 (Code Modularization)
+  - 拆分 `ui.js` (1982 行) → 4 个文件:
+    - `ui.js` (546 行) — 主 WerewolfUI 类
+    - `ui-helpers.js` (209 行) — 常量和工具函数
+    - `ui-panels-night.js` (639 行) — 夜间阶段面板
+    - `ui-panels-day.js` (629 行) — 白天阶段面板
+    - `ui-panels.js` (124 行) — 面板统一导出
+  - 拆分 `index.js` (1147 行) → 2 个文件:
+    - `index.js` (729 行) — 主 WerewolfGame 类
+    - `game-phases.js` (424 行) — 阶段转换逻辑
+  - 所有文件行数 < 1000 行，符合 dev_rules 规范
+  - 使用 re-export 模式保持向后兼容
+
 - ✅ 狼人杀阶段计时器 (Phase Timer)
   - **新建** `components/phase-timer.js` — 倒计时组件 (mm:ss 格式、颜色渐变 green→yellow→red、到期 Toast 提醒、不影响游戏流程)
   - **修改** `layout/game-board.js` — 集成 PhaseTimer 至游戏头部，startTimer/stopTimer/pauseTimer/resumeTimer 方法
