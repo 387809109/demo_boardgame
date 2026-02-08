@@ -474,6 +474,8 @@ export class WerewolfUI {
 
     const config = this.getSelectionConfig();
     if (config) {
+      // Add selected target for highlight
+      config.selectedId = this._selectedTarget;
       this._gameBoard.enablePlayerSelection(config);
     } else {
       this._gameBoard.disablePlayerSelection();
@@ -629,6 +631,15 @@ export class WerewolfUI {
       el.appendChild(this._renderSeerResult(seerResult));
     }
 
+    // Check if player has already submitted their action this round
+    const myAction = this.state.nightActions?.[this.playerId];
+    if (myAction) {
+      el.appendChild(this._renderMyNightAction(myAction));
+      const label = steps[currentStep]?.label || '夜晚';
+      el.appendChild(this._createInfoBox(`等待其他玩家行动... (${label})`));
+      return el;
+    }
+
     if (!isMyStep) {
       const label = steps[currentStep]?.label || '夜晚';
       el.appendChild(this._createInfoBox(`当前阶段: ${label}，等待行动中...`));
@@ -673,6 +684,74 @@ export class WerewolfUI {
       }, false, 'secondary');
       el.appendChild(skipBtn);
     }
+
+    return el;
+  }
+
+  /**
+   * Render the action that was submitted by the player
+   * @private
+   * @param {Object} action - The submitted action
+   * @returns {HTMLElement}
+   */
+  _renderMyNightAction(action) {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      padding: var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      border-left: 3px solid var(--success-500);
+      margin-bottom: var(--spacing-3);
+    `;
+
+    const { actionType, actionData } = action;
+    const targetId = actionData?.targetId;
+    const targetPlayer = targetId ? this._findPlayer(targetId) : null;
+    const targetName = targetPlayer
+      ? this._displayName(targetPlayer, targetId)
+      : '无';
+
+    let actionLabel = '';
+    let actionIcon = '✓';
+
+    switch (actionType) {
+      case ACTION_TYPES.NIGHT_WOLF_KILL:
+        actionLabel = '击杀目标';
+        actionIcon = '🐺';
+        break;
+      case ACTION_TYPES.NIGHT_SEER_CHECK:
+        actionLabel = '查验目标';
+        actionIcon = '👁';
+        break;
+      case ACTION_TYPES.NIGHT_DOCTOR_PROTECT:
+        actionLabel = '保护目标';
+        actionIcon = '🛡';
+        break;
+      case ACTION_TYPES.NIGHT_WITCH_SAVE:
+        actionLabel = '使用解药';
+        actionIcon = '💊';
+        break;
+      case ACTION_TYPES.NIGHT_WITCH_POISON:
+        actionLabel = '使用毒药';
+        actionIcon = '☠';
+        break;
+      case ACTION_TYPES.NIGHT_SKIP:
+        actionLabel = '跳过行动';
+        actionIcon = '⏭';
+        break;
+      default:
+        actionLabel = '已行动';
+    }
+
+    el.innerHTML = `
+      <div style="display: flex; align-items: center; gap: var(--spacing-2); margin-bottom: var(--spacing-1);">
+        <span style="font-size: var(--text-lg);">${actionIcon}</span>
+        <span style="font-weight: var(--font-semibold); color: var(--success-600);">行动已提交</span>
+      </div>
+      <div style="font-size: var(--text-sm); color: var(--text-primary);">
+        ${actionLabel}${targetId ? `: <strong>${this._escapeHtml(targetName)}</strong>` : ''}
+      </div>
+    `;
 
     return el;
   }

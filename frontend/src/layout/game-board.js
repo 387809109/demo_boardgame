@@ -487,18 +487,21 @@ export class GameBoard {
    * @param {Array<string>} config.selectableIds - IDs that can be selected
    * @param {Array<string>} [config.disabledIds] - IDs that are disabled
    * @param {Function} config.onSelect - Selection callback
+   * @param {string} [config.selectedId] - Currently selected player ID (for highlight)
    */
   enablePlayerSelection(config) {
     this._selectionMode = true;
     this._selectablePlayerIds = config.selectableIds || [];
     this._disabledPlayerIds = config.disabledIds || [];
     this._selectionCallback = config.onSelect;
+    this._selectedPlayerId = config.selectedId || null;
 
     if (this.playerRing) {
       this.playerRing.enableSelection({
         selectableIds: this._selectablePlayerIds,
         disabledIds: this._disabledPlayerIds,
-        onSelect: this._selectionCallback
+        onSelect: this._selectionCallback,
+        selectedId: this._selectedPlayerId
       });
     }
   }
