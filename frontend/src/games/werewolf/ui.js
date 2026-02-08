@@ -70,6 +70,10 @@ export class WerewolfUI {
     this._lastRound = null;
     /** @type {string|null} - Track last speaker for discussion timer */
     this._lastSpeaker = null;
+    /** @type {number|null} - Track last night step for timer restart */
+    this._lastNightStep = null;
+    /** @type {string|null} - Track last voter for vote timer restart */
+    this._lastVoter = null;
 
     // Flag for GameBoard - mount below the ring
     this.mountInRingCenter = false;
@@ -279,6 +283,8 @@ export class WerewolfUI {
     const phase = this.state.phase;
     const round = this.state.round || 1;
     const currentSpeaker = this.state.currentSpeaker;
+    const currentNightStep = this.state.currentNightStep;
+    const currentVoter = this.state.currentVoter;
 
     // Get timing config from state options (set during game creation)
     const timing = this.state.options || {};
@@ -290,6 +296,8 @@ export class WerewolfUI {
     // Check if phase changed or round changed
     const phaseChanged = phase !== this._lastPhase || round !== this._lastRound;
     const speakerChanged = currentSpeaker !== this._lastSpeaker;
+    const nightStepChanged = currentNightStep !== this._lastNightStep;
+    const voterChanged = currentVoter !== this._lastVoter;
 
     if (phaseChanged) {
       // Stop any running timer first
@@ -314,15 +322,23 @@ export class WerewolfUI {
           break;
         // DAY_ANNOUNCE doesn't need a timer
       }
+    } else if (phase === PHASES.NIGHT && nightStepChanged) {
+      // Night step changed - restart timer for new step
+      this._gameBoard.startTimer(nightActionTime, '夜间行动');
     } else if (phase === PHASES.DAY_DISCUSSION && speakerChanged && currentSpeaker) {
       // Speaker changed during discussion - restart timer
       this._gameBoard.startTimer(discussionTime, '讨论时间');
+    } else if (phase === PHASES.DAY_VOTE && voterChanged && currentVoter) {
+      // Voter changed during voting - restart timer
+      this._gameBoard.startTimer(voteTime, '投票时间');
     }
 
     // Update tracking
     this._lastPhase = phase;
     this._lastRound = round;
     this._lastSpeaker = currentSpeaker;
+    this._lastNightStep = currentNightStep;
+    this._lastVoter = currentVoter;
   }
 
   /**
