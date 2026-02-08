@@ -375,9 +375,8 @@ export class WerewolfUI {
             actionType: ACTION_TYPES.DAY_VOTE,
             actionData: { targetId }
           });
-          }
-        };
-      }
+        }
+      };
     }
 
     return null;
