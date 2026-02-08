@@ -224,14 +224,31 @@ export class WerewolfUI {
         break;
       }
       case PHASES.DAY_ANNOUNCE: {
-        // Check if viewer just died (has last words opportunity)
-        const deaths = state.nightDeaths || [];
-        const justDied = deaths.some(d => d.playerId === playerId);
-        const buttonText = justDied ? '结束遗言' : '继续';
-
-        bar.appendChild(this._createButton(buttonText, () => {
-          onAction({ actionType: ACTION_TYPES.PHASE_ADVANCE });
-        }));
+        // Check who can click continue
+        if (state.lastWordsPlayerId) {
+          // Last words phase - only dying player can continue
+          if (state.lastWordsPlayerId === playerId) {
+            bar.appendChild(this._createButton('结束遗言', () => {
+              onAction({ actionType: ACTION_TYPES.PHASE_ADVANCE });
+            }));
+          } else {
+            bar.appendChild(this._createButton('等待遗言结束...', null, true));
+          }
+        } else if (state.awaitingFirstSpeaker) {
+          // Waiting for first speaker to start
+          if (state.firstSpeakerId === playerId) {
+            bar.appendChild(this._createButton('开始发言', () => {
+              onAction({ actionType: ACTION_TYPES.PHASE_ADVANCE });
+            }));
+          } else {
+            bar.appendChild(this._createButton('等待发言开始...', null, true));
+          }
+        } else {
+          // Fallback
+          bar.appendChild(this._createButton('继续', () => {
+            onAction({ actionType: ACTION_TYPES.PHASE_ADVANCE });
+          }));
+        }
         break;
       }
       case PHASES.DAY_DISCUSSION:
@@ -608,6 +625,11 @@ export class WerewolfUI {
       gap: var(--spacing-4);
     `;
 
+    // Show last day execution result at the top
+    if (this.state.round > 1 || this.state.lastDayExecution !== undefined) {
+      el.appendChild(this._renderLastDayResult());
+    }
+
     const viewer = this._getViewer();
     if (!viewer?.alive) {
       el.appendChild(this._createInfoBox('你已死亡，等待天亮...'));
@@ -660,7 +682,7 @@ export class WerewolfUI {
         break;
 
       case 'doctor':
-        el.appendChild(this._createInfoBox('点击环形布局中的玩家头像选择要保护的玩家'));
+        el.appendChild(this._renderDoctorPanel());
         break;
 
       case 'witch':
@@ -683,6 +705,98 @@ export class WerewolfUI {
         });
       }, false, 'secondary');
       el.appendChild(skipBtn);
+    }
+
+    return el;
+  }
+
+  /**
+   * Render last day's execution result
+   * @private
+   * @returns {HTMLElement}
+   */
+  _renderLastDayResult() {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+    `;
+
+    const executedId = this.state.lastDayExecution;
+    if (executedId) {
+      const player = this._findPlayer(executedId);
+      el.innerHTML = `
+        <span style="color: var(--text-secondary);">上个白天出局: </span>
+        <span style="color: var(--error-600); font-weight: var(--font-medium);">
+          ${this._displayName(player, executedId)}
+        </span>
+      `;
+    } else {
+      el.innerHTML = `
+        <span style="color: var(--text-secondary);">上个白天: </span>
+        <span style="color: var(--success-600);">无人出局</span>
+      `;
+    }
+
+    return el;
+  }
+
+  /**
+   * Render doctor panel with last protection info
+   * @private
+   * @returns {HTMLElement}
+   */
+  _renderDoctorPanel() {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-3);
+    `;
+
+    // Show last night's protection target
+    const lastProtect = this.state.roleStates?.doctorLastProtect;
+    if (lastProtect) {
+      const lastPlayer = this._findPlayer(lastProtect);
+      const infoBox = document.createElement('div');
+      infoBox.style.cssText = `
+        padding: var(--spacing-2) var(--spacing-3);
+        background: var(--bg-secondary);
+        border-radius: var(--radius-md);
+        font-size: var(--text-sm);
+      `;
+      infoBox.innerHTML = `
+        <span style="color: var(--text-secondary);">昨晚保护: </span>
+        <span style="color: var(--primary-600); font-weight: var(--font-medium);">
+          ${this._displayName(lastPlayer, lastProtect)}
+        </span>
+        ${!this.state.options?.allowRepeatedProtect ? '<span style="color: var(--warning-600);"> (今晚不可再选)</span>' : ''}
+      `;
+      el.appendChild(infoBox);
+    }
+
+    // Show current selection
+    if (this._selectedTarget) {
+      const targetPlayer = this._findPlayer(this._selectedTarget);
+      const selectBox = document.createElement('div');
+      selectBox.style.cssText = `
+        padding: var(--spacing-2) var(--spacing-3);
+        background: var(--primary-50);
+        border-radius: var(--radius-md);
+        border-left: 3px solid var(--primary-500);
+        font-size: var(--text-sm);
+      `;
+      selectBox.innerHTML = `
+        <span style="color: var(--text-secondary);">已选择保护: </span>
+        <span style="color: var(--primary-600); font-weight: var(--font-medium);">
+          ${this._displayName(targetPlayer, this._selectedTarget)}
+        </span>
+      `;
+      el.appendChild(selectBox);
+    } else {
+      el.appendChild(this._createInfoBox('点击环形布局中的玩家头像选择要保护的玩家'));
     }
 
     return el;
@@ -1164,6 +1278,37 @@ export class WerewolfUI {
     );
     if (seerResult) {
       el.appendChild(this._renderSeerResult(seerResult));
+    }
+
+    // Show last words or first speaker prompt
+    if (this.state.lastWordsPlayerId) {
+      const lastWordsPlayer = this._findPlayer(this.state.lastWordsPlayerId);
+      const isMe = this.state.lastWordsPlayerId === this.playerId;
+      const promptBox = this._createInfoBox(
+        isMe
+          ? '请发表你的遗言，完成后点击"结束遗言"'
+          : `${this._displayName(lastWordsPlayer, this.state.lastWordsPlayerId)} 正在发表遗言...`
+      );
+      el.appendChild(promptBox);
+    } else if (this.state.awaitingFirstSpeaker) {
+      const firstSpeaker = this._findPlayer(this.state.firstSpeakerId);
+      const isMe = this.state.firstSpeakerId === this.playerId;
+      const promptBox = document.createElement('div');
+      promptBox.style.cssText = `
+        padding: var(--spacing-3);
+        background: var(--primary-50);
+        border-radius: var(--radius-md);
+        border-left: 3px solid var(--primary-500);
+      `;
+      promptBox.innerHTML = `
+        <div style="font-weight: var(--font-semibold); color: var(--primary-700); margin-bottom: var(--spacing-1);">
+          ${isMe ? '你是第一位发言人' : `第一位发言人: ${this._displayName(firstSpeaker, this.state.firstSpeakerId)}`}
+        </div>
+        <div style="font-size: var(--text-sm); color: var(--text-secondary);">
+          ${isMe ? '点击"开始发言"进入讨论阶段' : '等待第一位发言人开始讨论...'}
+        </div>
+      `;
+      el.appendChild(promptBox);
     }
 
     return el;

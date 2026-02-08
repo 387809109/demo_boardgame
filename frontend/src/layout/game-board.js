@@ -279,10 +279,16 @@ export class GameBoard {
     }
 
     // Last words badge (Werewolf - announce phase for dead players)
-    if (state.phase === 'day_announce' && state.nightDeaths?.length > 0) {
-      state.nightDeaths.forEach(death => {
-        badges[death.playerId] = badges[death.playerId] || [];
-        badges[death.playerId].push({ type: 'speaking', text: '遗言中' });
+    if (state.phase === 'day_announce' && state.lastWordsPlayerId) {
+      badges[state.lastWordsPlayerId] = badges[state.lastWordsPlayerId] || [];
+      badges[state.lastWordsPlayerId].push({ type: 'speaking', text: '遗言中' });
+    }
+
+    // Finished speaking badge (Werewolf - discussion phase)
+    if (state.finishedSpeakers?.length > 0) {
+      state.finishedSpeakers.forEach(playerId => {
+        badges[playerId] = badges[playerId] || [];
+        badges[playerId].push({ type: 'done', text: '发言完毕' });
       });
     }
 
@@ -290,6 +296,14 @@ export class GameBoard {
     if (state.currentVoter && state.phase === 'day_vote') {
       badges[state.currentVoter] = badges[state.currentVoter] || [];
       badges[state.currentVoter].push({ type: 'voting', text: '投票中' });
+    }
+
+    // Tied candidates badge (Werewolf - tie speech/second vote)
+    if (state.tiedCandidates?.length > 0 && state.voteRound === 2) {
+      state.tiedCandidates.forEach(playerId => {
+        badges[playerId] = badges[playerId] || [];
+        badges[playerId].push({ type: 'tied', text: '平票' });
+      });
     }
 
     return badges;

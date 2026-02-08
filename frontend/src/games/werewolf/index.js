@@ -150,17 +150,23 @@ export class WerewolfGame extends GameEngine {
       speakerQueue: [],
       speakerIndex: -1,
       currentSpeaker: null,
+      finishedSpeakers: [],        // Players who have finished speaking
       voterQueue: [],
       voterIndex: -1,
       currentVoter: null,
       // Store the base speaker order for reuse in tie speech and voting
       baseSpeakerOrder: [],
+      // Track who should start discussion (first speaker clicks continue)
+      awaitingFirstSpeaker: false,
+      firstSpeakerId: null,
 
       // Death & triggers
       nightDeaths: [],
       dayAnnouncements: [],
       hunterPendingShoot: null,
       lastWordsRemaining: initialWolfCount,
+      lastWordsPlayerId: null,     // Player currently giving last words
+      lastDayExecution: null,      // Who was executed last day (null = peaceful)
 
       // Role states
       roleStates: {
@@ -216,13 +222,27 @@ export class WerewolfGame extends GameEngine {
       return { valid: false, error: '你已死亡' };
     }
 
-    // PHASE_ADVANCE can happen in announce or discussion
+    // PHASE_ADVANCE can happen in announce or discussion with restrictions
     if (actionType === ACTION_TYPES.PHASE_ADVANCE) {
-      if (state.phase !== PHASES.DAY_ANNOUNCE &&
-          state.phase !== PHASES.DAY_DISCUSSION) {
-        return { valid: false, error: '当前阶段无法推进' };
+      if (state.phase === PHASES.DAY_ANNOUNCE) {
+        // During last words, only the dying player can continue
+        if (state.lastWordsPlayerId && playerId !== state.lastWordsPlayerId) {
+          return { valid: false, error: '等待遗言玩家结束发言' };
+        }
+        // After last words, waiting for first speaker to start discussion
+        if (state.awaitingFirstSpeaker && playerId !== state.firstSpeakerId) {
+          return { valid: false, error: '等待第一位发言人开始' };
+        }
+        return { valid: true };
       }
-      return { valid: true };
+      if (state.phase === PHASES.DAY_DISCUSSION) {
+        // Only current speaker can advance (end their speech)
+        if (state.currentSpeaker && playerId !== state.currentSpeaker) {
+          return { valid: false, error: '等待当前发言人结束' };
+        }
+        return { valid: true };
+      }
+      return { valid: false, error: '当前阶段无法推进' };
     }
 
     // Night actions
@@ -352,7 +372,19 @@ export class WerewolfGame extends GameEngine {
 
       case ACTION_TYPES.PHASE_ADVANCE:
         if (newState.phase === PHASES.DAY_ANNOUNCE) {
-          this._transitionPhase(newState, PHASES.DAY_DISCUSSION);
+          if (newState.lastWordsPlayerId) {
+            // Last words ended, now wait for first speaker
+            newState.lastWordsPlayerId = null;
+            newState.awaitingFirstSpeaker = true;
+            // Calculate first speaker based on victim position
+            this._calculateFirstSpeaker(newState);
+          } else if (newState.awaitingFirstSpeaker) {
+            // First speaker clicked continue, start discussion
+            newState.awaitingFirstSpeaker = false;
+            this._transitionPhase(newState, PHASES.DAY_DISCUSSION);
+          } else {
+            this._transitionPhase(newState, PHASES.DAY_DISCUSSION);
+          }
         } else if (newState.phase === PHASES.DAY_DISCUSSION) {
           this._transitionPhase(newState, PHASES.DAY_VOTE);
         }
@@ -479,12 +511,19 @@ export class WerewolfGame extends GameEngine {
         ? state.wolfTentativeVotes : {},
       currentSpeaker: state.currentSpeaker,
       speakerQueue: state.speakerQueue,
+      finishedSpeakers: state.finishedSpeakers || [],
       currentVoter: state.currentVoter,
       voterQueue: state.voterQueue,
       deadChat: (viewer && !viewer.alive) || isGameEnded ? state.deadChat : [],
       options: state.options,
       roleStates: playerId ? this._getVisibleRoleStates(playerId, state) : {},
-      seerChecks: viewer?.roleId === 'seer' ? (state.seerChecks || {}) : {}
+      seerChecks: viewer?.roleId === 'seer' ? (state.seerChecks || {}) : {},
+      // New fields for UI
+      lastWordsPlayerId: state.lastWordsPlayerId,
+      awaitingFirstSpeaker: state.awaitingFirstSpeaker,
+      firstSpeakerId: state.firstSpeakerId,
+      lastDayExecution: state.lastDayExecution,
+      nightActions: state.nightActions  // For showing completed action to self
     };
   }
 
@@ -562,11 +601,51 @@ export class WerewolfGame extends GameEngine {
    * @private
    */
   _startDayAnnounce(state) {
+    // Determine who should give last words (first night death)
+    const deaths = state.nightDeaths || [];
+    if (deaths.length > 0) {
+      state.lastWordsPlayerId = deaths[0].playerId;
+      state.awaitingFirstSpeaker = false;
+    } else {
+      // Peaceful night - wait for first speaker to start discussion
+      state.lastWordsPlayerId = null;
+      state.awaitingFirstSpeaker = true;
+      // Pre-calculate first speaker
+      const alive = state.players.filter(p => state.playerMap[p.id].alive);
+      state.firstSpeakerId = alive.length > 0 ? alive[0].id : null;
+    }
+
     this._logEvent(state, 'phase_change', {
       phase: PHASES.DAY_ANNOUNCE,
       round: state.round,
-      deaths: state.nightDeaths.map(d => d.playerId)
+      deaths: deaths.map(d => d.playerId)
     });
+  }
+
+  /**
+   * Calculate first speaker based on victim position
+   * @private
+   */
+  _calculateFirstSpeaker(state) {
+    const alive = state.players.filter(p => state.playerMap[p.id].alive);
+    const victimIds = (state.nightDeaths || []).map(d => d.playerId);
+
+    let startIdx = 0;
+    if (victimIds.length > 0) {
+      const victimSeat = state.players.findIndex(p => p.id === victimIds[0]);
+      if (victimSeat !== -1) {
+        for (let offset = 1; offset <= state.players.length; offset++) {
+          const idx = (victimSeat + offset) % state.players.length;
+          const candidate = state.players[idx];
+          if (state.playerMap[candidate.id].alive) {
+            startIdx = alive.findIndex(p => p.id === candidate.id);
+            break;
+          }
+        }
+      }
+    }
+
+    state.firstSpeakerId = alive.length > 0 ? alive[startIdx].id : null;
   }
 
   /**
@@ -609,6 +688,7 @@ export class WerewolfGame extends GameEngine {
     state.speakerQueue = queue;
     state.speakerIndex = 0;
     state.currentSpeaker = queue.length > 0 ? queue[0] : null;
+    state.finishedSpeakers = [];  // Reset finished speakers
     // Save base order for reuse in tie speech and voting
     state.baseSpeakerOrder = [...queue];
 
@@ -624,6 +704,11 @@ export class WerewolfGame extends GameEngine {
    * @private
    */
   _advanceSpeaker(state) {
+    // Add current speaker to finished list
+    if (state.currentSpeaker) {
+      state.finishedSpeakers = [...(state.finishedSpeakers || []), state.currentSpeaker];
+    }
+
     state.speakerIndex++;
     if (state.speakerIndex >= state.speakerQueue.length) {
       // All speakers done
@@ -874,6 +959,7 @@ export class WerewolfGame extends GameEngine {
       // Execution
       this._markPlayerDead(state, result.executed, 'execution');
       state.tiedCandidates = null;
+      state.lastDayExecution = result.executed;  // Record for night display
 
       // Check last words eligibility
       if (state.options.lastWordsMode !== 'none' && state.lastWordsRemaining > 0) {
@@ -897,6 +983,7 @@ export class WerewolfGame extends GameEngine {
     } else {
       // No execution (second tie or no votes) -> go to night
       state.tiedCandidates = null;
+      state.lastDayExecution = null;  // Peaceful day (no execution)
       this._transitionPhase(state, PHASES.NIGHT);
     }
   }

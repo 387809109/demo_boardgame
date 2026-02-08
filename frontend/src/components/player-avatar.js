@@ -218,7 +218,9 @@ export class PlayerAvatar {
       protected: 'var(--success-500)',
       order: 'var(--neutral-400)',
       speaking: 'var(--success-500)',
-      voting: 'var(--primary-500)'
+      voting: 'var(--primary-500)',
+      done: 'var(--neutral-500)',
+      tied: 'var(--warning-600)'
     };
     return colors[type] || 'var(--neutral-500)';
   }
