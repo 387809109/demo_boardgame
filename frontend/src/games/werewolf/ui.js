@@ -154,6 +154,9 @@ export class WerewolfUI {
       container.appendChild(this._renderDeadChat());
     }
 
+    // 5. Update selection mode after render (ensures GameBoard has correct selection config)
+    this._updateSelectionMode();
+
     return container;
   }
 
@@ -452,9 +455,13 @@ export class WerewolfUI {
       this._nightActionBtn.style.opacity = '1';
     }
 
-    // Re-render to show selection
-    if (this._container) {
-      // Just update visual feedback - the full re-render will happen on action
+    // Re-render night panel to update button states (especially for werewolf panel)
+    if (this._container && this.state?.phase === PHASES.NIGHT) {
+      const nightPanel = this._container.querySelector('.ww-night-panel');
+      if (nightPanel) {
+        const newNightPanel = this._renderNightPanel();
+        nightPanel.replaceWith(newNightPanel);
+      }
     }
   }
 
