@@ -23,6 +23,116 @@ export const PHASES = {
 };
 
 /**
+ * Order last words candidates according to configured rule.
+ * - `death_resolution`: keep night death settlement order
+ * - `seating_order`: random one as first, then clockwise by seating
+ * @param {Object} state - Game state
+ * @param {string[]} candidateIds - Unique candidate player IDs
+ * @returns {string[]}
+ */
+function orderLastWordsCandidates(state, candidateIds) {
+  const orderMode = state.options?.lastWordsOrder ?? 'seating_order';
+  if (orderMode !== 'seating_order' || candidateIds.length <= 1) {
+    return [...candidateIds];
+  }
+
+  const seatOrder = (state.players || []).map(p => p.id);
+  if (seatOrder.length <= 1) {
+    return [...candidateIds];
+  }
+
+  const seatedCandidates = candidateIds.filter(id => seatOrder.includes(id));
+  const unseatedCandidates = candidateIds.filter(id => !seatOrder.includes(id));
+  if (seatedCandidates.length <= 1) {
+    return [...seatedCandidates, ...unseatedCandidates];
+  }
+
+  // Deterministic "random" start so all clients derive the same order for the same day.
+  const firstSpeakerId = seatedCandidates[getDeterministicStartIndex(state, seatedCandidates)];
+  const firstSeatIndex = seatOrder.indexOf(firstSpeakerId);
+
+  const remaining = new Set(seatedCandidates.filter(id => id !== firstSpeakerId));
+  const ordered = [firstSpeakerId];
+  for (let offset = 1; offset <= seatOrder.length && remaining.size > 0; offset++) {
+    const seatId = seatOrder[(firstSeatIndex + offset) % seatOrder.length];
+    if (remaining.has(seatId)) {
+      ordered.push(seatId);
+      remaining.delete(seatId);
+    }
+  }
+
+  return [...ordered, ...unseatedCandidates];
+}
+
+/**
+ * Pick a deterministic start index for seating-order last words.
+ * Uses stable day-specific data so all clients compute the same result.
+ * @param {Object} state - Game state
+ * @param {string[]} seatedCandidates - Candidate IDs that exist in seat order
+ * @returns {number}
+ */
+function getDeterministicStartIndex(state, seatedCandidates) {
+  if (seatedCandidates.length <= 1) return 0;
+
+  const deathSignature = (state.nightDeaths || [])
+    .map(d => `${d.playerId}:${d.cause || ''}`)
+    .join('|');
+  const seedInput = [
+    String(state.round ?? 0),
+    deathSignature,
+    seatedCandidates.join('|'),
+    String(state.initialWolfCount ?? 0)
+  ].join('#');
+
+  // FNV-1a 32-bit hash
+  let hash = 2166136261;
+  for (let i = 0; i < seedInput.length; i++) {
+    hash ^= seedInput.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+
+  return hash % seatedCandidates.length;
+}
+
+/**
+ * Assign last words speakers from night deaths according to remaining quota.
+ * Selected speakers are consumed from `lastWordsRemaining` only in
+ * `limit_by_initial_wolves` mode.
+ * @param {Object} state - Game state
+ */
+export function assignNightLastWords(state) {
+  const mode = state.options?.lastWordsMode;
+  if (mode === 'none') {
+    state.lastWordsPlayerId = null;
+    state.lastWordsQueue = [];
+    return;
+  }
+
+  const deaths = (state.nightDeaths || [])
+    .map(d => d.playerId)
+    .filter(Boolean);
+  const uniqueDeaths = [...new Set(deaths)];
+
+  if (uniqueDeaths.length === 0) {
+    state.lastWordsPlayerId = null;
+    state.lastWordsQueue = [];
+    return;
+  }
+
+  const orderedCandidates = orderLastWordsCandidates(state, uniqueDeaths);
+
+  let selected = orderedCandidates;
+  if (mode === 'limit_by_initial_wolves') {
+    const remaining = Math.max(0, state.lastWordsRemaining || 0);
+    selected = orderedCandidates.slice(0, remaining);
+    state.lastWordsRemaining = Math.max(0, remaining - selected.length);
+  }
+
+  state.lastWordsPlayerId = selected[0] || null;
+  state.lastWordsQueue = selected.slice(1);
+}
+
+/**
  * Transition to a new phase
  * @param {Object} state - Game state
  * @param {string} toPhase - Target phase
@@ -62,6 +172,8 @@ export function startNight(state, helpers) {
   state.speakerQueue = [];
   state.speakerIndex = -1;
   state.currentSpeaker = null;
+  state.lastWordsPlayerId = null;
+  state.lastWordsQueue = [];
 
   // Build sequential night steps from active roles
   const steps = buildNightSteps(state);
@@ -82,23 +194,26 @@ export function startNight(state, helpers) {
  * @param {Object} helpers - Helper functions
  */
 export function startDayAnnounce(state, helpers) {
-  // Determine who should give last words (first night death)
+  // Determine who should give last words from night deaths.
   const deaths = state.nightDeaths || [];
   if (state.hunterPendingShoot) {
     // If hunter died at night and can shoot, hunter shot resolves before last words.
     state.lastWordsPlayerId = null;
+    state.lastWordsQueue = [];
     state.awaitingFirstSpeaker = false;
     state.firstSpeakerId = null;
-  } else if (deaths.length > 0) {
-    state.lastWordsPlayerId = deaths[0].playerId;
-    state.awaitingFirstSpeaker = false;
   } else {
-    // Peaceful night - wait for first speaker to start discussion
-    state.lastWordsPlayerId = null;
-    state.awaitingFirstSpeaker = true;
-    // Pre-calculate first speaker
-    const alive = state.players.filter(p => state.playerMap[p.id].alive);
-    state.firstSpeakerId = alive.length > 0 ? alive[0].id : null;
+    assignNightLastWords(state);
+    if (state.lastWordsPlayerId) {
+      state.awaitingFirstSpeaker = false;
+      state.firstSpeakerId = null;
+    } else {
+      // Peaceful night - wait for first speaker to start discussion
+      state.awaitingFirstSpeaker = true;
+      // Pre-calculate first speaker
+      const alive = state.players.filter(p => state.playerMap[p.id].alive);
+      state.firstSpeakerId = alive.length > 0 ? alive[0].id : null;
+    }
   }
 
   helpers.logEvent(state, 'phase_change', {
@@ -390,7 +505,7 @@ export function resolveVotes(state, helpers) {
     state.tiedCandidates = null;
     state.lastDayExecution = result.executed;
 
-    if (state.options.lastWordsMode !== 'none' && state.lastWordsRemaining > 0) {
+    if (state.options.lastWordsMode === 'limit_by_initial_wolves' && state.lastWordsRemaining > 0) {
       state.lastWordsRemaining--;
     }
 

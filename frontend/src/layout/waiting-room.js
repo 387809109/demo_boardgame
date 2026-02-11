@@ -40,6 +40,10 @@ export class WaitingRoom {
     this.avatars = new Map();
     this.settingsPanel = null;
     this.roleSetupPanel = null;
+    this.collapsedSections = {
+      roleSetup: false,
+      gameSettings: false
+    };
 
     this._create();
   }
@@ -104,7 +108,32 @@ export class WaitingRoom {
             房间 ID: ${this.room.id} | 游戏: ${this.room.gameType} | 目标人数: ${maxPlayers}
           </p>
         </div>
-        <div style="display: flex; gap: var(--spacing-2);">
+        <div style="display: flex; align-items: center; gap: var(--spacing-3);">
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: var(--spacing-1);">
+            ${isHost ? `
+              <button class="btn btn-primary start-game-btn" ${totalPlayers !== maxPlayers ? 'disabled' : ''}>
+                开始游戏
+              </button>
+              <p class="start-game-hint" style="
+                margin: 0;
+                font-size: var(--text-xs);
+                opacity: 0.9;
+                color: rgba(255, 255, 255, 0.95);
+                ${totalPlayers === maxPlayers ? 'display: none;' : ''}
+              ">
+                需要 ${maxPlayers} 名玩家才能开始（当前 ${totalPlayers} 人）
+              </p>
+            ` : `
+              <p class="start-game-hint" style="
+                margin: 0;
+                font-size: var(--text-sm);
+                opacity: 0.95;
+                color: rgba(255, 255, 255, 0.95);
+              ">
+                等待房主开始游戏...
+              </p>
+            `}
+          </div>
           <button class="btn btn-secondary query-btn" title="游戏查询">🔍</button>
           <button class="btn btn-secondary leave-btn">离开房间</button>
         </div>
@@ -154,13 +183,18 @@ export class WaitingRoom {
             <div class="card" style="margin-bottom: var(--spacing-4);">
               <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 style="margin: 0;">角色配置</h3>
-                ${!isHost ? `
-                  <span style="font-size: var(--text-xs); color: var(--text-tertiary);">
-                    仅房主可修改
-                  </span>
-                ` : ''}
+                <div style="display: flex; align-items: center; gap: var(--spacing-3);">
+                  ${!isHost ? `
+                    <span style="font-size: var(--text-xs); color: var(--text-tertiary);">
+                      仅房主可修改
+                    </span>
+                  ` : ''}
+                  <button class="btn btn-secondary btn-sm toggle-role-setup-btn" type="button">
+                    ${this.collapsedSections.roleSetup ? '展开' : '收起'}
+                  </button>
+                </div>
               </div>
-              <div class="card-body role-setup-container">
+              <div class="card-body role-setup-container" style="${this.collapsedSections.roleSetup ? 'display: none;' : ''}">
                 <!-- Role setup panel will be mounted here -->
               </div>
             </div>
@@ -169,36 +203,21 @@ export class WaitingRoom {
           <div class="card" style="margin-bottom: var(--spacing-4);">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <h3 style="margin: 0;">游戏设置</h3>
-              ${!isHost ? `
-                <span style="font-size: var(--text-xs); color: var(--text-tertiary);">
-                  仅房主可修改
-                </span>
-              ` : ''}
+              <div style="display: flex; align-items: center; gap: var(--spacing-3);">
+                ${!isHost ? `
+                  <span style="font-size: var(--text-xs); color: var(--text-tertiary);">
+                    仅房主可修改
+                  </span>
+                ` : ''}
+                <button class="btn btn-secondary btn-sm toggle-game-settings-btn" type="button">
+                  ${this.collapsedSections.gameSettings ? '展开' : '收起'}
+                </button>
+              </div>
             </div>
-            <div class="card-body settings-container">
+            <div class="card-body settings-container" style="${this.collapsedSections.gameSettings ? 'display: none;' : ''}">
               <!-- Settings panel will be mounted here -->
             </div>
           </div>
-
-          ${isHost ? `
-            <button class="btn btn-primary btn-lg start-game-btn" style="width: 100%;" ${totalPlayers !== maxPlayers ? 'disabled' : ''}>
-              开始游戏
-            </button>
-            ${totalPlayers !== maxPlayers ? `
-              <p style="text-align: center; color: var(--text-secondary); margin-top: var(--spacing-2);">
-                需要 ${maxPlayers} 名玩家才能开始（当前 ${totalPlayers} 人）
-              </p>
-            ` : ''}
-          ` : `
-            <div style="
-              text-align: center;
-              padding: var(--spacing-4);
-              background: var(--bg-tertiary);
-              border-radius: var(--radius-base);
-            ">
-              <p style="margin: 0; color: var(--text-secondary);">等待房主开始游戏...</p>
-            </div>
-          `}
         </div>
 
         <div class="chat-panel card" style="display: flex; flex-direction: column; height: 400px;">
@@ -317,20 +336,14 @@ export class WaitingRoom {
 
     startBtn.disabled = !canStart;
 
-    // Update hint text below button
-    let hint = startBtn.nextElementSibling;
-    if (!canStart) {
-      const hintText = `需要 ${maxPlayers} 名玩家才能开始（当前 ${totalPlayers} 人）`;
-      if (hint && hint.tagName === 'P') {
-        hint.textContent = hintText;
+    const hint = this.element.querySelector('.start-game-hint');
+    if (hint) {
+      if (!canStart) {
+        hint.textContent = `需要 ${maxPlayers} 名玩家才能开始（当前 ${totalPlayers} 人）`;
+        hint.style.display = '';
       } else {
-        hint = document.createElement('p');
-        hint.style.cssText = 'text-align: center; color: var(--text-secondary); margin-top: var(--spacing-2);';
-        hint.textContent = hintText;
-        startBtn.after(hint);
+        hint.style.display = 'none';
       }
-    } else if (hint && hint.tagName === 'P') {
-      hint.remove();
     }
   }
 
@@ -455,6 +468,18 @@ export class WaitingRoom {
     // Start game button
     this.element.querySelector('.start-game-btn')?.addEventListener('click', () => {
       this.options.onStartGame?.();
+    });
+
+    // Collapse role setup
+    this.element.querySelector('.toggle-role-setup-btn')?.addEventListener('click', () => {
+      this.collapsedSections.roleSetup = !this.collapsedSections.roleSetup;
+      this._render();
+    });
+
+    // Collapse game settings
+    this.element.querySelector('.toggle-game-settings-btn')?.addEventListener('click', () => {
+      this.collapsedSections.gameSettings = !this.collapsedSections.gameSettings;
+      this._render();
     });
 
     // Add AI button

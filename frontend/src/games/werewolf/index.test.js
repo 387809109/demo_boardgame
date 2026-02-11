@@ -1247,6 +1247,179 @@ describe('WerewolfGame', () => {
       expect(s.hunterPendingShoot).toBeNull();
     });
 
+    it('should allow two night deaths to speak in sequence when two last words slots remain', () => {
+      const { game } = setupGame({
+        players: SEVEN_PLAYERS,
+        roleCounts: {
+          werewolf: 2,
+          seer: 1,
+          doctor: 1,
+          witch: 1,
+          villager: 2
+        },
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'witch', p6: 'villager', p7: 'villager'
+        }
+      });
+
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p6' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+
+      let s = game.getState();
+      expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(s.lastWordsPlayerId).toBeTruthy();
+      expect(s.lastWordsQueue).toHaveLength(1);
+      const speakers = new Set([s.lastWordsPlayerId, s.lastWordsQueue[0]]);
+      expect(speakers).toEqual(new Set(['p6', 'p7']));
+      expect(s.lastWordsRemaining).toBe(0);
+
+      const firstSpeaker = s.lastWordsPlayerId;
+      const secondSpeaker = s.lastWordsQueue[0];
+
+      game.executeMove({
+        playerId: firstSpeaker,
+        actionType: ACTION_TYPES.PHASE_ADVANCE,
+        actionData: {}
+      });
+
+      s = game.getState();
+      expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(s.lastWordsPlayerId).toBe(secondSpeaker);
+      expect(s.lastWordsQueue).toHaveLength(0);
+
+      game.executeMove({
+        playerId: secondSpeaker,
+        actionType: ACTION_TYPES.PHASE_ADVANCE,
+        actionData: {}
+      });
+
+      s = game.getState();
+      expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(s.lastWordsPlayerId).toBeNull();
+      expect(s.awaitingFirstSpeaker).toBe(true);
+    });
+
+    it('should use death resolution order when lastWordsOrder is death_resolution', () => {
+      const { game } = setupGame({
+        players: SEVEN_PLAYERS,
+        roleCounts: {
+          werewolf: 2,
+          seer: 1,
+          doctor: 1,
+          witch: 1,
+          villager: 2
+        },
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'witch', p6: 'villager', p7: 'villager'
+        },
+        options: { lastWordsOrder: 'death_resolution' }
+      });
+
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p6' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const s = game.getState();
+      expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(s.lastWordsPlayerId).toBe('p7');
+      expect(s.lastWordsQueue).toEqual(['p6']);
+    });
+
+    it('should use seating order when lastWordsOrder is seating_order', () => {
+      const buildSeatingOrderResult = () => {
+        const { game } = setupGame({
+          players: SEVEN_PLAYERS,
+          roleCounts: {
+            werewolf: 2,
+            seer: 1,
+            doctor: 1,
+            witch: 1,
+            villager: 2
+          },
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'seer', p4: 'doctor',
+            p5: 'witch', p6: 'villager', p7: 'villager'
+          },
+          options: { lastWordsOrder: 'seating_order' }
+        });
+
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p6' });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+
+        return game.getState();
+      };
+
+      const s1 = buildSeatingOrderResult();
+      const s2 = buildSeatingOrderResult();
+      expect(s1.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(s2.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(s1.lastWordsPlayerId).toBe(s2.lastWordsPlayerId);
+      expect(s1.lastWordsQueue).toEqual(s2.lastWordsQueue);
+
+      const allSpeakers = [s1.lastWordsPlayerId, ...(s1.lastWordsQueue || [])];
+      expect(new Set(allSpeakers)).toEqual(new Set(['p6', 'p7']));
+      expect(allSpeakers).toHaveLength(2);
+    });
+
+    it('should keep seating order clockwise after the chosen start', () => {
+      const { game } = setupGame({
+        players: SEVEN_PLAYERS,
+        roleCounts: {
+          werewolf: 2,
+          seer: 1,
+          doctor: 1,
+          witch: 1,
+          villager: 2
+        },
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'witch', p6: 'villager', p7: 'villager'
+        },
+        options: { lastWordsOrder: 'seating_order' }
+      });
+
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p6' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const s = game.getState();
+      expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
+      const allSpeakers = [s.lastWordsPlayerId, ...(s.lastWordsQueue || [])];
+      expect(new Set(allSpeakers)).toEqual(new Set(['p6', 'p7']));
+
+      const seatOrder = SEVEN_PLAYERS.map(p => p.id);
+      const firstSeat = seatOrder.indexOf(allSpeakers[0]);
+      let expectedSecond = null;
+      for (let offset = 1; offset <= seatOrder.length; offset++) {
+        const seatId = seatOrder[(firstSeat + offset) % seatOrder.length];
+        if (seatId !== allSpeakers[0] && allSpeakers.includes(seatId)) {
+          expectedSecond = seatId;
+          break;
+        }
+      }
+      expect(allSpeakers[1]).toBe(expectedSecond);
+    });
+
     it('should reveal hunter role on night death with pending shoot even when revealRolesOnDeath is false', () => {
       const { game } = setupGame({
         roleMap: {
@@ -1325,6 +1498,60 @@ describe('WerewolfGame', () => {
       const hunter = visible.players.find(p => p.id === 'p6');
       expect(hunter.alive).toBe(false);
       expect(hunter.roleId).toBe('hunter');
+    });
+
+    it('should not reveal poisoned werewolf role to hunter before hunter finishes last words', () => {
+      const { game } = setupGame({
+        players: SEVEN_PLAYERS,
+        roleCounts: P0_ROLE_COUNTS_WITH_WITCH,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'witch', p6: 'hunter', p7: 'villager'
+        },
+        options: {
+          revealRolesOnDeath: false,
+          lastWordsOrder: 'death_resolution'
+        }
+      });
+
+      // Night: wolves kill hunter, witch poisons werewolf p1.
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p1' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+
+      let s = game.getState();
+      expect(s.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(s.hunterPendingShoot).toBe('p6');
+
+      // Hunter shoots someone, then enters last words.
+      game.executeMove({
+        playerId: 'p6',
+        actionType: ACTION_TYPES.HUNTER_SHOOT,
+        actionData: { targetId: 'p7' }
+      });
+
+      s = game.getState();
+      expect(s.lastWordsPlayerId).toBe('p6');
+
+      const duringOwnLastWords = game.getVisibleState('p6');
+      const poisonedWolfDuring = duringOwnLastWords.players.find(p => p.id === 'p1');
+      expect(poisonedWolfDuring.alive).toBe(false);
+      expect(poisonedWolfDuring.roleId).toBeNull();
+
+      // After finishing own last words, hunter can see all roles as a settled dead player.
+      game.executeMove({
+        playerId: 'p6',
+        actionType: ACTION_TYPES.PHASE_ADVANCE,
+        actionData: {}
+      });
+
+      const afterOwnLastWords = game.getVisibleState('p6');
+      const poisonedWolfAfter = afterOwnLastWords.players.find(p => p.id === 'p1');
+      expect(poisonedWolfAfter.roleId).toBe('werewolf');
     });
   });
 

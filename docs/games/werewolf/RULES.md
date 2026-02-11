@@ -882,6 +882,9 @@ function checkGameEnd(state) {
 - 遗言适用范围（`lastWordsScope`）：
   - `day_only`（默认）：仅白天处决者有遗言
   - `day_and_night`：白天处决者与夜晚受害者均可获得遗言
+- 遗言顺序（`lastWordsOrder`）：
+  - `seating_order`（默认）：符合遗言条件玩家中随机一人先发言，随后按座位顺时针
+  - `death_resolution`：按死亡结算顺序发言
 - 当同一时段有多名玩家符合遗言条件但名额不足时，随机选取获得遗言的玩家
 
 ---
@@ -932,6 +935,7 @@ const defaultConfig = {
   voteTime: 30,                    // 投票时间
   lastWordsTime: 30,               // 遗言时间
   lastWordsScope: 'day_only',      // 遗言适用范围
+  lastWordsOrder: 'seating_order', // 遗言顺序
 };
 ```
 
@@ -950,6 +954,7 @@ const defaultConfig = {
 | `lastWordsMode` | string | limit_by_initial_wolves | 遗言名额规则 (none/all/limit_by_initial_wolves) |
 | `witchCanSaveSelf` | boolean | true | 女巫是否可以自救 |
 | `lastWordsScope` | string | day_only | 遗言适用范围 (day_only/day_and_night) |
+| `lastWordsOrder` | string | seating_order | 遗言顺序 (seating_order/death_resolution) |
 | `protectAgainstPoison` | boolean | false | 保护是否能抵消女巫毒杀 |
 | `protectAgainstVigilante` | boolean | true | 保护是否能抵消猎人夜杀 |
 

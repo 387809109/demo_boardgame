@@ -14,6 +14,7 @@ import {
   PHASES,
   transitionPhase,
   calculateFirstSpeaker,
+  assignNightLastWords,
   advanceSpeaker,
   advanceNightStep,
   collectDayVote,
@@ -90,6 +91,7 @@ export class WerewolfGame extends GameEngine {
       leaderEnabled: options.leaderEnabled ?? config.rules.leaderEnabled,
       lastWordsMode: options.lastWordsMode ?? config.rules.lastWordsMode,
       lastWordsScope: options.lastWordsScope ?? config.rules.lastWordsScope,
+      lastWordsOrder: options.lastWordsOrder ?? config.rules.lastWordsOrder,
       witchCanSaveSelf: options.witchCanSaveSelf ?? config.rules.witchCanSaveSelf,
       witchSaveFirstNightOnly: options.witchSaveFirstNightOnly ?? config.rules.witchSaveFirstNightOnly,
       protectAgainstPoison: options.protectAgainstPoison ?? config.rules.protectAgainstPoison,
@@ -177,6 +179,7 @@ export class WerewolfGame extends GameEngine {
       hunterPendingShoot: null,
       lastWordsRemaining: initialWolfCount,
       lastWordsPlayerId: null,
+      lastWordsQueue: [],
       lastDayExecution: null,
 
       // Role states
@@ -359,13 +362,11 @@ export class WerewolfGame extends GameEngine {
         });
         this._processDeathTriggers(newState, [targetId], 'hunter_shoot');
         if (newState.phase === PHASES.DAY_ANNOUNCE && !newState.hunterPendingShoot) {
-          const deaths = newState.nightDeaths || [];
-          if (deaths.length > 0) {
-            newState.lastWordsPlayerId = deaths[0].playerId;
+          assignNightLastWords(newState);
+          if (newState.lastWordsPlayerId) {
             newState.awaitingFirstSpeaker = false;
             newState.firstSpeakerId = null;
           } else {
-            newState.lastWordsPlayerId = null;
             newState.awaitingFirstSpeaker = true;
             calculateFirstSpeaker(newState);
           }
@@ -398,9 +399,17 @@ export class WerewolfGame extends GameEngine {
       case ACTION_TYPES.PHASE_ADVANCE:
         if (newState.phase === PHASES.DAY_ANNOUNCE) {
           if (newState.lastWordsPlayerId) {
-            newState.lastWordsPlayerId = null;
-            newState.awaitingFirstSpeaker = true;
-            calculateFirstSpeaker(newState);
+            const queue = newState.lastWordsQueue || [];
+            if (queue.length > 0) {
+              newState.lastWordsPlayerId = queue.shift();
+              newState.lastWordsQueue = queue;
+              newState.awaitingFirstSpeaker = false;
+              newState.firstSpeakerId = null;
+            } else {
+              newState.lastWordsPlayerId = null;
+              newState.awaitingFirstSpeaker = true;
+              calculateFirstSpeaker(newState);
+            }
           } else if (newState.awaitingFirstSpeaker) {
             newState.awaitingFirstSpeaker = false;
             transitionPhase(newState, PHASES.DAY_DISCUSSION, helpers);
@@ -718,7 +727,10 @@ export class WerewolfGame extends GameEngine {
     if (state.phase === PHASES.ENDED) return true;
 
     const viewer = state.playerMap[viewerId];
-    if (viewer && !viewer.alive) return true;
+    if (viewer && !viewer.alive) {
+      // Dead players can only see all roles after their own death settlement completes.
+      return this._canPlayerUseDeadChat(state, viewerId);
+    }
 
     const target = state.playerMap[targetId];
     if (target?.alive === false && state.forcedRevealRoleIds?.[targetId]) return true;
@@ -742,6 +754,7 @@ export class WerewolfGame extends GameEngine {
 
     if (state.hunterPendingShoot === playerId) return false;
     if (state.lastWordsPlayerId === playerId) return false;
+    if ((state.lastWordsQueue || []).includes(playerId)) return false;
 
     return true;
   }

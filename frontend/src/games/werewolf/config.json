@@ -290,6 +290,7 @@
     "leaderEnabled": true,
     "lastWordsMode": "limit_by_initial_wolves",
     "lastWordsScope": "day_only",
+    "lastWordsOrder": "seating_order",
     "witchCanSaveSelf": true,
     "witchSaveFirstNightOnly": false,
     "protectAgainstPoison": false,
@@ -349,6 +350,16 @@
         { "value": "none", "label": "无人有遗言" },
         { "value": "all", "label": "所有死亡玩家" },
         { "value": "limit_by_initial_wolves", "label": "等于初始狼人数" }
+      ]
+    },
+    "lastWordsOrder": {
+      "type": "select",
+      "label": "遗言顺序",
+      "description": "遗言玩家的发言顺序规则",
+      "default": "seating_order",
+      "options": [
+        { "value": "seating_order", "label": "座位顺序(随机起点)" },
+        { "value": "death_resolution", "label": "死亡结算顺序" }
       ]
     },
     "witchCanSaveSelf": {
