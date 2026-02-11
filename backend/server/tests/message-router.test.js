@@ -7,6 +7,7 @@ import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { MessageRouter } from '../message-router.js';
 import { RoomManager } from '../room-manager.js';
 import { ConnectionManager } from '../connection-manager.js';
+import { config } from '../config.js';
 
 describe('MessageRouter', () => {
   let router;
@@ -358,6 +359,63 @@ describe('MessageRouter', () => {
     });
   });
 
+  describe('handleReturnToRoom', () => {
+    it('should broadcast return status and unlock next start when all players returned', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const hostConnId = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(hostConnId, 'host-1');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const playerConnId = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(playerConnId, 'player-2');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+
+      roomManager.startGame('room-1');
+
+      router.route(hostConnId, {
+        type: 'RETURN_TO_ROOM',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: {}
+      });
+
+      const hostFirst = JSON.parse(hostWs.send.mock.calls[0][0]);
+      const playerFirst = JSON.parse(playerWs.send.mock.calls[0][0]);
+      expect(hostFirst.type).toBe('RETURN_TO_ROOM_STATUS');
+      expect(playerFirst.type).toBe('RETURN_TO_ROOM_STATUS');
+      expect(hostFirst.data.allReturned).toBe(false);
+      expect(roomManager.getRoom('room-1').gameStarted).toBe(true);
+
+      router.route(playerConnId, {
+        type: 'RETURN_TO_ROOM',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: {}
+      });
+
+      const hostSecond = JSON.parse(hostWs.send.mock.calls[1][0]);
+      expect(hostSecond.type).toBe('RETURN_TO_ROOM_STATUS');
+      expect(hostSecond.data.allReturned).toBe(true);
+      expect(roomManager.getRoom('room-1').gameStarted).toBe(false);
+    });
+
+    it('should error when player is not in any room', () => {
+      const connId = setupPlayer('player-1');
+
+      router.route(connId, {
+        type: 'RETURN_TO_ROOM',
+        timestamp: Date.now(),
+        playerId: 'player-1',
+        data: {}
+      });
+
+      expect(sentMessages[0].type).toBe('ERROR');
+      expect(sentMessages[0].data.code).toBe('GAME_NOT_FOUND');
+    });
+  });
+
   describe('handleChatMessage', () => {
     it('should broadcast chat message to room', () => {
       const mockWs1 = { readyState: 1, send: jest.fn() };
@@ -441,6 +499,115 @@ describe('MessageRouter', () => {
     });
   });
 
+  describe('handleReconnectRequest', () => {
+    it('should accept reconnect and send GAME_SNAPSHOT for valid reconnect session', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const hostConnId = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(hostConnId, 'host-1');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const playerConnId = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(playerConnId, 'player-2');
+      connectionManager.setSessionId(playerConnId, 'sess-1');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+      roomManager.setGameSettings('room-1', { mode: 'fast', rounds: 5 });
+      roomManager.startGame('room-1');
+
+      router.route(hostConnId, {
+        type: 'GAME_ACTION',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: {
+          actionType: 'PLAY_CARD',
+          actionData: { cardId: 'red-7' },
+          gameState: { turn: 1 }
+        }
+      });
+
+      router.handleDisconnect(playerConnId);
+
+      const reconnectWs = { readyState: 1, send: jest.fn() };
+      const reconnectConnId = connectionManager.addConnection(reconnectWs);
+
+      router.route(reconnectConnId, {
+        type: 'RECONNECT_REQUEST',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: {
+          roomId: 'room-1',
+          sessionId: 'sess-1'
+        }
+      });
+
+      const reconnectMessages = reconnectWs.send.mock.calls.map(c => JSON.parse(c[0]));
+      expect(reconnectMessages.some(m => m.type === 'RECONNECT_ACCEPTED')).toBe(true);
+      expect(reconnectMessages.some(m => m.type === 'GAME_SNAPSHOT')).toBe(true);
+      expect(reconnectMessages.some(m => m.type === 'RETURN_TO_ROOM_STATUS')).toBe(true);
+      const snapshot = reconnectMessages.find(m => m.type === 'GAME_SNAPSHOT');
+      expect(snapshot?.data?.gameSettings).toEqual(expect.objectContaining({ mode: 'fast', rounds: 5 }));
+
+      const hostMessages = hostWs.send.mock.calls.map(c => JSON.parse(c[0]));
+      expect(hostMessages.some(m => m.type === 'PLAYER_RECONNECTED')).toBe(true);
+    });
+
+    it('should reject reconnect with mismatched sessionId', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const hostConnId = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(hostConnId, 'host-1');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const playerConnId = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(playerConnId, 'player-2');
+      connectionManager.setSessionId(playerConnId, 'sess-1');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+      roomManager.startGame('room-1');
+
+      router.handleDisconnect(playerConnId);
+
+      const reconnectWs = { readyState: 1, send: jest.fn() };
+      const reconnectConnId = connectionManager.addConnection(reconnectWs);
+
+      router.route(reconnectConnId, {
+        type: 'RECONNECT_REQUEST',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: {
+          roomId: 'room-1',
+          sessionId: 'wrong-sess'
+        }
+      });
+
+      const msg = JSON.parse(reconnectWs.send.mock.calls[0][0]);
+      expect(msg.type).toBe('RECONNECT_REJECTED');
+      expect(msg.data.reasonCode).toBe('RECONNECT_IDENTITY_MISMATCH');
+    });
+
+    it('should reject reconnect when reconnect is disabled', () => {
+      const original = config.enableReconnect;
+      config.enableReconnect = false;
+
+      const connId = connectionManager.addConnection(mockWs);
+      router.route(connId, {
+        type: 'RECONNECT_REQUEST',
+        timestamp: Date.now(),
+        playerId: 'player-1',
+        data: {
+          roomId: 'room-1',
+          sessionId: 'sess-1'
+        }
+      });
+
+      expect(sentMessages[0].type).toBe('RECONNECT_REJECTED');
+      expect(sentMessages[0].data.reasonCode).toBe('RECONNECT_NOT_SUPPORTED');
+
+      config.enableReconnect = original;
+    });
+  });
+
   describe('handleDisconnect', () => {
     it('should remove player from room on disconnect', () => {
       setupPlayerInRoom('player-1', 'Alice', 'room-1');
@@ -472,7 +639,41 @@ describe('MessageRouter', () => {
       expect(msg.data.reason).toBe('disconnected');
     });
 
-    it('should end game when host disconnects during game', () => {
+    it('should keep non-host in room during started game and broadcast return status', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const hostConnId = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(hostConnId, 'host-1');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const playerConnId = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(playerConnId, 'player-2');
+      connectionManager.setSessionId(playerConnId, 'sess-1');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+
+      roomManager.startGame('room-1');
+      roomManager.markPlayerReturned('room-1', 'host-1');
+
+      router.handleDisconnect(playerConnId);
+
+      expect(roomManager.findPlayerRoom('player-2')).toBe('room-1');
+      const room = roomManager.getRoom('room-1');
+      expect(room.disconnectedPlayers.has('player-2')).toBe(true);
+      expect(room.returnStatus.get('player-2')).toBe(false);
+
+      const hostMessages = hostWs.send.mock.calls.map((call) => JSON.parse(call[0]));
+      expect(hostMessages.some(msg => msg.type === 'PLAYER_LEFT')).toBe(false);
+      const returnStatus = hostMessages.find(msg => msg.type === 'RETURN_TO_ROOM_STATUS');
+      expect(returnStatus).toBeDefined();
+      expect(returnStatus.data.allReturned).toBe(false);
+      expect(returnStatus.data.players).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: 'host-1', returned: true }),
+        expect.objectContaining({ id: 'player-2', returned: false })
+      ]));
+    });
+
+    it('should destroy room when host disconnects during game', () => {
       const mockWs1 = { readyState: 1, send: jest.fn() };
       const mockWs2 = { readyState: 1, send: jest.fn() };
 
@@ -488,15 +689,14 @@ describe('MessageRouter', () => {
 
       router.handleDisconnect(connId1);
 
-      // Should receive PLAYER_LEFT and GAME_ENDED
+      // Should receive ROOM_DESTROYED
       const calls = mockWs2.send.mock.calls;
       const messages = calls.map(c => JSON.parse(c[0]));
 
-      expect(messages.some(m => m.type === 'PLAYER_LEFT')).toBe(true);
-      expect(messages.some(m => m.type === 'GAME_ENDED')).toBe(true);
+      expect(messages.some(m => m.type === 'ROOM_DESTROYED')).toBe(true);
 
-      const gameEnded = messages.find(m => m.type === 'GAME_ENDED');
-      expect(gameEnded.data.reason).toBe('host_disconnected');
+      const roomDestroyed = messages.find(m => m.type === 'ROOM_DESTROYED');
+      expect(roomDestroyed.data.reason).toBe('host_left');
     });
 
     it('should do nothing for unbound connection', () => {

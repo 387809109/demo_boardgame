@@ -82,6 +82,58 @@ export class WaitingRoom {
   }
 
   /**
+   * Whether waiting room is in post-round return phase
+   * @returns {boolean}
+   */
+  isReturnToRoomPhase() {
+    return !!this.room.returnToRoomPhase;
+  }
+
+  /**
+   * Check whether all current human players have returned to room
+   * @returns {boolean}
+   */
+  areAllPlayersReturned() {
+    if (!this.isReturnToRoomPhase()) {
+      return true;
+    }
+    const status = this.room.returnStatus || {};
+    return (this.room.players || []).every(player => !!status[player.id]);
+  }
+
+  /**
+   * Build host/non-host hint text for start readiness
+   * @param {boolean} isHost
+   * @param {number} totalPlayers
+   * @param {number} maxPlayers
+   * @param {boolean} allPlayersReturned
+   * @returns {string}
+   */
+  getStartHintText(isHost, totalPlayers, maxPlayers, allPlayersReturned) {
+    if (totalPlayers !== maxPlayers) {
+      return `需要 ${maxPlayers} 名玩家才能开始（当前 ${totalPlayers} 人）`;
+    }
+    if (this.isReturnToRoomPhase() && !allPlayersReturned) {
+      return isHost ? '等待所有玩家返回房间后可开始新一局' : '等待其他玩家返回房间...';
+    }
+    return isHost ? '' : '等待房主开始游戏...';
+  }
+
+  /**
+   * Whether room settings can be edited at this moment
+   * @returns {boolean}
+   */
+  canEditRoomConfig() {
+    if (!this.isHost()) {
+      return false;
+    }
+    if (!this.isReturnToRoomPhase()) {
+      return true;
+    }
+    return this.areAllPlayersReturned();
+  }
+
+  /**
    * Render the room
    * @private
    */
@@ -89,6 +141,9 @@ export class WaitingRoom {
     const isHost = this.isHost();
     const totalPlayers = this.getTotalPlayerCount();
     const maxPlayers = this.room.maxPlayers || 10;
+    const allPlayersReturned = this.areAllPlayersReturned();
+    const canStart = totalPlayers === maxPlayers && allPlayersReturned;
+    const startHintText = this.getStartHintText(isHost, totalPlayers, maxPlayers, allPlayersReturned);
     const supportsAI = this.room.supportsAI !== false;
     const canAddAI = isHost && supportsAI && totalPlayers < maxPlayers;
     const canRemoveAI = isHost && supportsAI && (this.room.aiPlayers?.length || 0) > 0;
@@ -111,7 +166,7 @@ export class WaitingRoom {
         <div style="display: flex; align-items: center; gap: var(--spacing-3);">
           <div style="display: flex; flex-direction: column; align-items: flex-end; gap: var(--spacing-1);">
             ${isHost ? `
-              <button class="btn btn-primary start-game-btn" ${totalPlayers !== maxPlayers ? 'disabled' : ''}>
+              <button class="btn btn-primary start-game-btn" ${!canStart ? 'disabled' : ''}>
                 开始游戏
               </button>
               <p class="start-game-hint" style="
@@ -119,9 +174,9 @@ export class WaitingRoom {
                 font-size: var(--text-xs);
                 opacity: 0.9;
                 color: rgba(255, 255, 255, 0.95);
-                ${totalPlayers === maxPlayers ? 'display: none;' : ''}
+                ${startHintText ? '' : 'display: none;'}
               ">
-                需要 ${maxPlayers} 名玩家才能开始（当前 ${totalPlayers} 人）
+                ${startHintText}
               </p>
             ` : `
               <p class="start-game-hint" style="
@@ -130,7 +185,7 @@ export class WaitingRoom {
                 opacity: 0.95;
                 color: rgba(255, 255, 255, 0.95);
               ">
-                等待房主开始游戏...
+                ${startHintText}
               </p>
             `}
           </div>
@@ -265,12 +320,12 @@ export class WaitingRoom {
 
     const gameConfig = this.room.gameConfig;
     const gameSettings = this.room.gameSettings || {};
-    const isHost = this.isHost();
+    const canEdit = this.canEditRoomConfig();
 
     this.settingsPanel = new GameSettingsPanel({
       gameConfig,
       settings: gameSettings,
-      editable: isHost,
+      editable: canEdit,
       compact: true,
       onChange: (key, value, allSettings) => {
         // Update local room settings
@@ -299,7 +354,7 @@ export class WaitingRoom {
       this.roleSetupPanel = null;
     }
 
-    const isHost = this.isHost();
+    const canEdit = this.canEditRoomConfig();
 
     this.roleSetupPanel = new RoleSetupPanel({
       roles: gameConfig.roles,
@@ -308,7 +363,7 @@ export class WaitingRoom {
       minPlayers: gameConfig.minPlayers || 2,
       maxPlayers: gameConfig.maxPlayers || 20,
       minTotal: this.room.players.length,
-      editable: isHost,
+      editable: canEdit,
       onChange: (roleCounts, total) => {
         if (!this.room.gameSettings) this.room.gameSettings = {};
         this.room.gameSettings.roleCounts = roleCounts;
@@ -330,16 +385,19 @@ export class WaitingRoom {
     const startBtn = this.element.querySelector('.start-game-btn');
     if (!startBtn) return;
 
+    const isHost = this.isHost();
     const totalPlayers = this.getTotalPlayerCount();
     const maxPlayers = this.room.maxPlayers || 10;
-    const canStart = totalPlayers === maxPlayers;
+    const allPlayersReturned = this.areAllPlayersReturned();
+    const canStart = totalPlayers === maxPlayers && allPlayersReturned;
+    const hintText = this.getStartHintText(isHost, totalPlayers, maxPlayers, allPlayersReturned);
 
     startBtn.disabled = !canStart;
 
     const hint = this.element.querySelector('.start-game-hint');
     if (hint) {
-      if (!canStart) {
-        hint.textContent = `需要 ${maxPlayers} 名玩家才能开始（当前 ${totalPlayers} 人）`;
+      if (hintText) {
+        hint.textContent = hintText;
         hint.style.display = '';
       } else {
         hint.style.display = 'none';
@@ -380,8 +438,18 @@ export class WaitingRoom {
     this.avatars.clear();
 
     // Render human players
+    const returnStatus = this.room.returnStatus || {};
+    const showReturnStatus = this.isReturnToRoomPhase();
     this.room.players.forEach(player => {
-      const avatar = new PlayerAvatar(player);
+      const hasReturned = !!returnStatus[player.id];
+      const badges = showReturnStatus
+        ? [{
+            type: hasReturned ? 'done' : 'skip',
+            text: hasReturned ? '已返回' : '未返回',
+            color: hasReturned ? 'var(--success-600)' : 'var(--warning-600)'
+          }]
+        : [];
+      const avatar = new PlayerAvatar(player, { badges });
       this.avatars.set(player.id, avatar);
       grid.appendChild(avatar.getElement());
     });
@@ -525,6 +593,14 @@ export class WaitingRoom {
    */
   updatePlayers(players) {
     this.room.players = players;
+    if (this.isReturnToRoomPhase()) {
+      const nextStatus = {};
+      const prev = this.room.returnStatus || {};
+      players.forEach((player) => {
+        nextStatus[player.id] = !!prev[player.id];
+      });
+      this.room.returnStatus = nextStatus;
+    }
     this._render();
     if (this.roleSetupPanel) {
       this.roleSetupPanel.setMinTotal(players.length);
@@ -556,6 +632,18 @@ export class WaitingRoom {
       this._updateStartButton();
       this._updateHeaderCounts();
     }
+  }
+
+  /**
+   * Update return-to-room readiness status
+   * @param {Object} statusByPlayer - { [playerId]: boolean }
+   * @param {boolean} allReturned - Whether all players are back in room
+   */
+  updateReturnStatus(statusByPlayer, allReturned) {
+    this.room.returnToRoomPhase = true;
+    this.room.returnStatus = { ...(statusByPlayer || {}) };
+    this.room.allPlayersReturned = !!allReturned;
+    this._render();
   }
 
   /**

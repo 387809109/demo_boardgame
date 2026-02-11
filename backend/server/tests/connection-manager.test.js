@@ -182,6 +182,28 @@ describe('ConnectionManager', () => {
     });
   });
 
+  describe('sessionId', () => {
+    it('should set and get sessionId for an existing connection', () => {
+      const connId = manager.addConnection(mockWs);
+
+      const setResult = manager.setSessionId(connId, 'sess-1');
+      const sessionId = manager.getSessionId(connId);
+
+      expect(setResult).toBe(true);
+      expect(sessionId).toBe('sess-1');
+    });
+
+    it('should return false when setting sessionId for non-existent connection', () => {
+      const setResult = manager.setSessionId('non-existent', 'sess-1');
+      expect(setResult).toBe(false);
+    });
+
+    it('should return null when getting sessionId for non-existent connection', () => {
+      const sessionId = manager.getSessionId('non-existent');
+      expect(sessionId).toBeNull();
+    });
+  });
+
   describe('getActiveConnections', () => {
     it('should return 0 initially', () => {
       expect(manager.getActiveConnections()).toBe(0);

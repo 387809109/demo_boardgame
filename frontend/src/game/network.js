@@ -156,9 +156,14 @@ export class NetworkClient extends EventEmitter {
    * @param {string} roomId - Room ID
    * @param {string} nickname - Player nickname
    * @param {string} gameType - Game type
+   * @param {string|null} [sessionId=null] - Reconnect session ID
    */
-  joinRoom(roomId, nickname, gameType) {
-    this.send('JOIN', { roomId, nickname, gameType });
+  joinRoom(roomId, nickname, gameType, sessionId = null) {
+    const payload = { roomId, nickname, gameType };
+    if (sessionId) {
+      payload.sessionId = sessionId;
+    }
+    this.send('JOIN', payload);
   }
 
   /**
@@ -181,9 +186,10 @@ export class NetworkClient extends EventEmitter {
    * Send a game action
    * @param {string} actionType - Action type
    * @param {Object} actionData - Action data
+   * @param {Object} [extraData={}] - Extra fields (e.g., playerId, gameState)
    */
-  sendGameAction(actionType, actionData) {
-    this.send('GAME_ACTION', { actionType, actionData });
+  sendGameAction(actionType, actionData, extraData = {}) {
+    this.send('GAME_ACTION', { actionType, actionData, ...extraData });
   }
 
   /**
@@ -193,6 +199,22 @@ export class NetworkClient extends EventEmitter {
    */
   sendChat(message, isPublic = true) {
     this.send('CHAT_MESSAGE', { message, isPublic });
+  }
+
+  /**
+   * Request reconnect to an existing room session
+   * @param {string} roomId - Room ID
+   * @param {string} sessionId - Session ID
+   */
+  requestReconnect(roomId, sessionId) {
+    this.send('RECONNECT_REQUEST', { roomId, sessionId });
+  }
+
+  /**
+   * Notify server that player has returned to waiting room after result screen
+   */
+  returnToRoom() {
+    this.send('RETURN_TO_ROOM', {});
   }
 
   /**
@@ -343,6 +365,14 @@ export class NetworkClient extends EventEmitter {
       throw new Error('Cannot change URL while connected');
     }
     this.serverUrl = url;
+  }
+
+  /**
+   * Get reconnect delay used by UI retry flow
+   * @returns {number}
+   */
+  getReconnectDelay() {
+    return RECONNECT_DELAY;
   }
 }
 

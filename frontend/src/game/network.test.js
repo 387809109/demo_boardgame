@@ -586,6 +586,18 @@ describe('NetworkClient', () => {
           gameType: 'uno'
         });
       });
+
+      it('should include sessionId when provided', () => {
+        client.joinRoom('room123', 'TestPlayer', 'uno', 'sess-1');
+
+        const sent = JSON.parse(mockWs.lastSent);
+        expect(sent.data).toEqual({
+          roomId: 'room123',
+          nickname: 'TestPlayer',
+          gameType: 'uno',
+          sessionId: 'sess-1'
+        });
+      });
     });
 
     describe('leaveRoom', () => {
@@ -622,6 +634,44 @@ describe('NetworkClient', () => {
           actionType: 'playCard',
           actionData: { cardId: 'card-1' }
         });
+      });
+
+      it('should include extraData in GAME_ACTION message', () => {
+        client.sendGameAction('playCard', { cardId: 'card-1' }, {
+          playerId: 'ai-1',
+          gameState: { turn: 2 }
+        });
+
+        const sent = JSON.parse(mockWs.lastSent);
+        expect(sent.data).toEqual({
+          actionType: 'playCard',
+          actionData: { cardId: 'card-1' },
+          playerId: 'ai-1',
+          gameState: { turn: 2 }
+        });
+      });
+    });
+
+    describe('requestReconnect', () => {
+      it('should send RECONNECT_REQUEST message', () => {
+        client.requestReconnect('room123', 'sess-1');
+
+        const sent = JSON.parse(mockWs.lastSent);
+        expect(sent.type).toBe('RECONNECT_REQUEST');
+        expect(sent.data).toEqual({
+          roomId: 'room123',
+          sessionId: 'sess-1'
+        });
+      });
+    });
+
+    describe('returnToRoom', () => {
+      it('should send RETURN_TO_ROOM message', () => {
+        client.returnToRoom();
+
+        const sent = JSON.parse(mockWs.lastSent);
+        expect(sent.type).toBe('RETURN_TO_ROOM');
+        expect(sent.data).toEqual({});
       });
     });
 
@@ -689,6 +739,12 @@ describe('NetworkClient', () => {
 
       expect(() => client.setServerUrl('ws://newserver:8080'))
         .toThrow('Cannot change URL while connected');
+    });
+  });
+
+  describe('getReconnectDelay', () => {
+    it('should return reconnect delay in milliseconds', () => {
+      expect(client.getReconnectDelay()).toBe(3000);
     });
   });
 

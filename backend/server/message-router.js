@@ -6,6 +6,7 @@
  */
 
 import { validateMessage, validateRoomId, validateNickname } from './utils/validator.js';
+import { config } from './config.js';
 import { debug, info, warn, error } from './utils/logger.js';
 
 export class MessageRouter {
@@ -35,6 +36,9 @@ export class MessageRouter {
 
     // Bind player to connection on first message
     this.connectionManager.bindPlayer(connId, playerId);
+    if (data?.sessionId && typeof data.sessionId === 'string') {
+      this.connectionManager.setSessionId(connId, data.sessionId);
+    }
 
     debug('Routing message', { type, playerId, connId });
 
@@ -59,6 +63,12 @@ export class MessageRouter {
         break;
       case 'GAME_SETTINGS_UPDATE':
         this.handleGameSettingsUpdate(connId, playerId, data);
+        break;
+      case 'RETURN_TO_ROOM':
+        this.handleReturnToRoom(connId, playerId, data);
+        break;
+      case 'RECONNECT_REQUEST':
+        this.handleReconnectRequest(connId, playerId, data);
         break;
       case 'PING':
         this.handlePing(connId, playerId);
@@ -188,6 +198,12 @@ export class MessageRouter {
         }))
       }
     });
+
+    this.roomManager.updateGameSnapshot(roomId, {
+      gameState: data?.gameConfig?.initialState || null,
+      lastAction: null,
+      lastActionId: null
+    });
   }
 
   /**
@@ -232,6 +248,109 @@ export class MessageRouter {
         gameState: data?.gameState
       }
     });
+
+    this.roomManager.updateGameSnapshot(roomId, {
+      gameState: data?.gameState ?? null,
+      lastAction: {
+        playerId: actionPlayerId,
+        actionType: data?.actionType,
+        actionData: data?.actionData
+      },
+      lastActionId: Date.now().toString()
+    });
+  }
+
+  /**
+   * Handle RECONNECT_REQUEST message
+   * @param {string} connId - Connection ID
+   * @param {string} playerId - Player ID
+   * @param {object} data - Message data
+   */
+  handleReconnectRequest(connId, playerId, data) {
+    if (!config.enableReconnect) {
+      this._sendReconnectRejected(connId, playerId, 'RECONNECT_NOT_SUPPORTED', 'Reconnect is not enabled');
+      return;
+    }
+
+    const { roomId, sessionId } = data || {};
+
+    const roomValidation = validateRoomId(roomId);
+    if (!roomValidation.valid) {
+      this._sendReconnectRejected(connId, playerId, 'INVALID_MESSAGE_FORMAT', roomValidation.error);
+      return;
+    }
+
+    if (!sessionId || typeof sessionId !== 'string') {
+      this._sendReconnectRejected(connId, playerId, 'INVALID_MESSAGE_FORMAT', 'sessionId is required');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(roomId);
+    if (!room) {
+      this._sendReconnectRejected(connId, playerId, 'GAME_NOT_FOUND', 'Room not found');
+      return;
+    }
+
+    if (!room.gameStarted) {
+      this._sendReconnectRejected(connId, playerId, 'INVALID_ACTION', 'Game not started');
+      return;
+    }
+
+    const reconnectResult = this.roomManager.reconnectPlayer(roomId, playerId, sessionId);
+    if (!reconnectResult.success) {
+      this._sendReconnectRejected(
+        connId,
+        playerId,
+        reconnectResult.code || 'RECONNECT_SESSION_EXPIRED',
+        reconnectResult.error || 'Reconnect rejected'
+      );
+      return;
+    }
+
+    this._sendToConnection(connId, {
+      type: 'RECONNECT_ACCEPTED',
+      timestamp: Date.now(),
+      playerId: 'server',
+      data: {
+        roomId,
+        snapshotRequired: true
+      }
+    });
+
+    const snapshot = this.roomManager.getGameSnapshot(roomId);
+    if (snapshot) {
+      this._sendToConnection(connId, {
+        type: 'GAME_SNAPSHOT',
+        timestamp: Date.now(),
+        playerId: 'server',
+        data: snapshot
+      });
+    }
+
+    const players = this.roomManager.getPlayers(roomId);
+    this.broadcast(roomId, {
+      type: 'PLAYER_RECONNECTED',
+      timestamp: Date.now(),
+      playerId,
+      data: {
+        playerCount: players.length,
+        players: players.map(p => ({
+          id: p.id,
+          nickname: p.nickname,
+          isHost: p.isHost
+        }))
+      }
+    });
+
+    const returnStatus = this.roomManager.getReturnToRoomStatus(roomId);
+    if (returnStatus) {
+      this._sendToConnection(connId, {
+        type: 'RETURN_TO_ROOM_STATUS',
+        timestamp: Date.now(),
+        playerId: 'server',
+        data: returnStatus
+      });
+    }
   }
 
   /**
@@ -325,6 +444,34 @@ export class MessageRouter {
   }
 
   /**
+   * Handle RETURN_TO_ROOM message
+   * Player indicates they have left result screen and returned to waiting room.
+   * @param {string} connId - Connection ID
+   * @param {string} playerId - Player ID
+   */
+  handleReturnToRoom(connId, playerId) {
+    const roomId = this.roomManager.findPlayerRoom(playerId);
+    if (!roomId) {
+      this.sendError(connId, playerId, 'GAME_NOT_FOUND', 'Player not in any room', 'warning');
+      return;
+    }
+
+    const result = this.roomManager.markPlayerReturned(roomId, playerId);
+    if (!result.success) {
+      this.sendError(connId, playerId, 'INVALID_ACTION', result.error || 'Cannot return to room', 'warning');
+      return;
+    }
+
+    const status = this.roomManager.getReturnToRoomStatus(roomId);
+    this.broadcast(roomId, {
+      type: 'RETURN_TO_ROOM_STATUS',
+      timestamp: Date.now(),
+      playerId: 'server',
+      data: status
+    });
+  }
+
+  /**
    * Handle CHAT_MESSAGE
    * @param {string} connId - Connection ID
    * @param {string} playerId - Player ID
@@ -391,6 +538,39 @@ export class MessageRouter {
 
     const roomId = this.roomManager.findPlayerRoom(playerId);
     if (roomId) {
+      const room = this.roomManager.getRoom(roomId);
+      const disconnectedPlayer = room?.players?.find(p => p.id === playerId);
+      const disconnectedSessionId = this.connectionManager.getSessionId(connId) || `legacy-${playerId}`;
+
+      if (
+        config.enableReconnect
+        && room?.gameStarted
+        && disconnectedPlayer
+        && !disconnectedPlayer.isHost
+      ) {
+        this.roomManager.createReconnectSession(
+          roomId,
+          playerId,
+          disconnectedPlayer.nickname,
+          disconnectedSessionId
+        );
+
+        const markResult = this.roomManager.markPlayerDisconnected(roomId, playerId);
+        if (markResult.success) {
+          const status = this.roomManager.getReturnToRoomStatus(roomId);
+          if (status) {
+            this.broadcast(roomId, {
+              type: 'RETURN_TO_ROOM_STATUS',
+              timestamp: Date.now(),
+              playerId: 'server',
+              data: status
+            });
+          }
+          info('Player disconnected with reconnect session retained', { roomId, playerId });
+          return;
+        }
+      }
+
       this.removePlayerFromRoom(roomId, playerId, 'disconnected');
     }
   }
@@ -530,6 +710,45 @@ export class MessageRouter {
         error('Failed to send error message', { connId, error: err.message });
       }
     }
+  }
+
+  /**
+   * Send a protocol message to a specific connection
+   * @private
+   * @param {string} connId - Connection ID
+   * @param {object} message - Protocol message
+   */
+  _sendToConnection(connId, message) {
+    const ws = this.connectionManager.getWebSocket(connId);
+    if (!ws || ws.readyState !== 1) {
+      return;
+    }
+
+    try {
+      ws.send(JSON.stringify(message));
+    } catch (err) {
+      error('Failed to send message to connection', { connId, error: err.message });
+    }
+  }
+
+  /**
+   * Send RECONNECT_REJECTED response
+   * @private
+   * @param {string} connId - Connection ID
+   * @param {string} playerId - Player ID
+   * @param {string} reasonCode - Reject reason code
+   * @param {string} message - Human-readable reason
+   */
+  _sendReconnectRejected(connId, playerId, reasonCode, message) {
+    this._sendToConnection(connId, {
+      type: 'RECONNECT_REJECTED',
+      timestamp: Date.now(),
+      playerId: 'server',
+      data: {
+        reasonCode,
+        message
+      }
+    });
   }
 }
 

@@ -1,7 +1,7 @@
 # WebSocket 通信协议规范
 
-**版本**: v1.0.0
-**最后更新**: 2026-01-22
+**版本**: v1.2.0
+**最后更新**: 2026-02-11
 
 本文档定义了前端（浏览器客户端）与后端（WebSocket服务器）之间的通信协议。前后端开发者必须严格遵循此协议以确保系统正常工作。
 
@@ -33,7 +33,7 @@
 1. **极简**: 仅传输必要信息
 2. **无状态**: 每条消息包含完整上下文
 3. **单向权威**: 服务器负责状态广播，客户端仅发送操作
-4. **容错性**: 连接断开时游戏终止，不支持重连
+4. **容错性**: 默认策略下连接断开时游戏终止；启用扩展协议后支持短时重连
 
 ---
 
@@ -90,6 +90,43 @@ wss.on('connection', (ws, req) => {
   ws.on('close', handleDisconnect);
 });
 ```
+
+### 断线重连流程（扩展，需显式启用）
+
+> 说明: 本节为扩展协议。未启用时，仍按“断线即结束/返回大厅”处理。
+
+```
+客户端A（断线玩家）                服务器/房主                     其他玩家
+       |                              |                              |
+       |--- WebSocket 重连 ----------->|                              |
+       |<-- 101 -----------------------|                              |
+       |--- RECONNECT_REQUEST -------->|                              |
+       |<-- RECONNECT_ACCEPTED --------|                              |
+       |<-- GAME_SNAPSHOT -------------|                              |
+       |                              |--- PLAYER_RECONNECTED ------->|
+       |====== 本地状态恢复并继续对局 ======|                              |
+```
+
+**关键约束**:
+- 服务器应维护可重连会话窗口（建议 30-120 秒，按房间配置）。
+- 客户端应持久化 `roomId`、`playerId`、`sessionId`（建议 `sessionStorage`）。
+- 超过会话窗口或身份校验失败时，返回 `RECONNECT_REJECTED`，客户端回大厅。
+
+### 云端模式连接说明（Supabase Realtime）
+
+云端模式不使用自建 WebSocket 服务器，使用 Supabase Realtime Channel + Presence，并在客户端转换为同一套协议消息。
+
+| WebSocket 协议语义 | 云端等效实现 |
+|-------------------|-------------|
+| `connect()` | `channel.subscribe()` |
+| `send(message)` | `channel.send({ type: 'broadcast', event, payload })` |
+| `PLAYER_JOINED` | Presence `join/sync` 事件转换 |
+| `PLAYER_LEFT` | Presence `leave` 事件转换 |
+| `PING/PONG` | 由 Supabase 连接层自动维护（业务侧可不显式发送） |
+
+**兼容要求**:
+- 上层（`main.js` / 游戏逻辑）仅依赖协议消息，不依赖底层传输差异。
+- 云端模式同样可实现 `RECONNECT_REQUEST` / `GAME_SNAPSHOT` 扩展流程。
 
 ---
 
@@ -280,7 +317,53 @@ wss.on('connection', (ws, req) => {
 
 ---
 
-#### 2.3 GAME_ACTION - 游戏操作
+#### 2.3 RETURN_TO_ROOM - 返回房间（局后）
+
+**方向**: 客户端 → 服务器
+
+**说明**: 玩家在结算页点击“回到房间”后上报已返回。仅对已结束的一局生效。
+
+**消息格式**:
+```json
+{
+  "type": "RETURN_TO_ROOM",
+  "timestamp": 1705901050000,
+  "playerId": "player-uuid-123",
+  "data": {}
+}
+```
+
+**响应**: 服务器广播 `RETURN_TO_ROOM_STATUS`
+
+---
+
+#### 2.4 RETURN_TO_ROOM_STATUS - 返回房间状态广播
+
+**方向**: 服务器 → 所有客户端（广播）
+
+**说明**: 同步“已返回/未返回”状态；当 `allReturned=true` 时，房主可再次开始游戏。
+
+**消息格式**:
+```json
+{
+  "type": "RETURN_TO_ROOM_STATUS",
+  "timestamp": 1705901050100,
+  "playerId": "server",
+  "data": {
+    "players": [
+      { "id": "player-1", "nickname": "玩家1", "isHost": true, "returned": true },
+      { "id": "player-2", "nickname": "玩家2", "isHost": false, "returned": false }
+    ],
+    "allReturned": false,
+    "returnedCount": 1,
+    "totalPlayers": 2
+  }
+}
+```
+
+---
+
+#### 2.5 GAME_ACTION - 游戏操作
 
 **方向**: 客户端 → 服务器
 
@@ -312,7 +395,7 @@ wss.on('connection', (ws, req) => {
 
 ---
 
-#### 2.4 GAME_STATE_UPDATE - 游戏状态更新
+#### 2.6 GAME_STATE_UPDATE - 游戏状态更新
 
 **方向**: 服务器 → 所有客户端（广播）
 
@@ -343,7 +426,7 @@ wss.on('connection', (ws, req) => {
 
 ---
 
-#### 2.5 GAME_ENDED - 游戏结束
+#### 2.7 GAME_ENDED - 游戏结束
 
 **方向**: 服务器 → 所有客户端（广播）
 
@@ -455,6 +538,128 @@ wss.on('connection', (ws, req) => {
 
 ---
 
+### 5. 断线重连（扩展）
+
+#### 5.1 RECONNECT_REQUEST - 申请恢复会话
+
+**方向**: 客户端 → 服务器（或房主权威端）
+
+**说明**: 断线后重新连接，申请恢复原对局会话。
+
+**消息格式**:
+```json
+{
+  "type": "RECONNECT_REQUEST",
+  "timestamp": 1705902600000,
+  "playerId": "player-uuid-123",
+  "data": {
+    "roomId": "room-abc-123",
+    "sessionId": "sess-xyz-001",
+    "lastAckActionId": "act-105"
+  }
+}
+```
+
+---
+
+#### 5.2 RECONNECT_ACCEPTED - 会话恢复已接受
+
+**方向**: 服务器（或房主权威端）→ 重连客户端
+
+**说明**: 重连校验通过，后续应下发 `GAME_SNAPSHOT`。
+
+**消息格式**:
+```json
+{
+  "type": "RECONNECT_ACCEPTED",
+  "timestamp": 1705902600050,
+  "playerId": "server",
+  "data": {
+    "roomId": "room-abc-123",
+    "resumeFromActionId": "act-106",
+    "snapshotRequired": true
+  }
+}
+```
+
+---
+
+#### 5.3 RECONNECT_REJECTED - 会话恢复被拒绝
+
+**方向**: 服务器（或房主权威端）→ 重连客户端
+
+**说明**: 重连失败，客户端应结束当前对局并返回大厅。
+
+**消息格式**:
+```json
+{
+  "type": "RECONNECT_REJECTED",
+  "timestamp": 1705902600050,
+  "playerId": "server",
+  "data": {
+    "reasonCode": "RECONNECT_SESSION_EXPIRED",
+    "message": "重连窗口已过期"
+  }
+}
+```
+
+---
+
+#### 5.4 GAME_SNAPSHOT - 对局快照同步
+
+**方向**: 服务器（或房主权威端）→ 重连客户端
+
+**说明**: 发送恢复所需的最小完整状态。客户端收到后覆盖本地状态并刷新 UI。
+
+**消息格式**:
+```json
+{
+  "type": "GAME_SNAPSHOT",
+  "timestamp": 1705902600100,
+  "playerId": "server",
+  "data": {
+    "roomId": "room-abc-123",
+    "gameType": "uno",
+    "players": [
+      { "id": "player-1", "nickname": "玩家1", "isHost": true },
+      { "id": "player-2", "nickname": "玩家2", "isHost": false }
+    ],
+    "gameState": {
+      "turnNumber": 12,
+      "currentPlayer": "player-2",
+      "gameSpecificData": {}
+    },
+    "lastActionId": "act-106"
+  }
+}
+```
+
+---
+
+#### 5.5 PLAYER_RECONNECTED - 玩家已重连（广播）
+
+**方向**: 服务器（或房主权威端）→ 房间内所有客户端（广播）
+
+**说明**: 通知其他玩家某玩家已恢复在线状态。
+
+**消息格式**:
+```json
+{
+  "type": "PLAYER_RECONNECTED",
+  "timestamp": 1705902600120,
+  "playerId": "player-uuid-123",
+  "data": {
+    "playerCount": 4,
+    "players": [
+      { "id": "player-1", "nickname": "玩家1", "isHost": true },
+      { "id": "player-2", "nickname": "玩家2", "isHost": false }
+    ]
+  }
+}
+```
+
+---
+
 ## 错误处理
 
 ### 错误消息格式
@@ -485,6 +690,9 @@ wss.on('connection', (ws, req) => {
 | `ROOM_FULL` | 房间已满 | error |
 | `GAME_NOT_FOUND` | 游戏不存在 | error |
 | `PERMISSION_DENIED` | 权限不足（非房主操作） | error |
+| `RECONNECT_NOT_SUPPORTED` | 当前房间未启用断线重连扩展 | warning |
+| `RECONNECT_SESSION_EXPIRED` | 重连会话已过期 | warning |
+| `RECONNECT_IDENTITY_MISMATCH` | 会话身份校验失败 | error |
 | `SERVER_ERROR` | 服务器内部错误 | fatal |
 
 ### 错误处理流程
@@ -862,6 +1070,8 @@ new GameServer(7777);
 
 | 版本 | 日期 | 变更说明 |
 |------|------|---------|
+| v1.2.0 | 2026-02-11 | 新增局后回房流程：`RETURN_TO_ROOM` / `RETURN_TO_ROOM_STATUS` |
+| v1.1.0 | 2026-02-11 | 新增断线重连扩展协议；新增云端模式映射说明 |
 | v1.0.0 | 2026-01-22 | 初始版本 |
 
 ---

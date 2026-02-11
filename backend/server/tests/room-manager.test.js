@@ -272,6 +272,152 @@ describe('RoomManager', () => {
     it('should return false for non-existent room', () => {
       expect(manager.startGame('non-existent')).toBe(false);
     });
+
+    it('should initialize return status as false for all players', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+
+      manager.startGame('room-1');
+      const status = manager.getReturnToRoomStatus('room-1');
+
+      expect(status.players).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: 'host-1', returned: false }),
+        expect.objectContaining({ id: 'player-2', returned: false })
+      ]));
+      expect(status.allReturned).toBe(false);
+    });
+  });
+
+  describe('return to room status', () => {
+    it('should mark player returned and reset room startability when all returned', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      const first = manager.markPlayerReturned('room-1', 'host-1');
+      expect(first.success).toBe(true);
+      expect(first.allReturned).toBe(false);
+      expect(manager.getRoom('room-1').gameStarted).toBe(true);
+
+      const second = manager.markPlayerReturned('room-1', 'player-2');
+      expect(second.success).toBe(true);
+      expect(second.allReturned).toBe(true);
+      expect(manager.getRoom('room-1').gameStarted).toBe(false);
+    });
+
+    it('should return full return-status snapshot', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+      manager.markPlayerReturned('room-1', 'host-1');
+
+      const status = manager.getReturnToRoomStatus('room-1');
+      expect(status.totalPlayers).toBe(2);
+      expect(status.returnedCount).toBe(1);
+      expect(status.allReturned).toBe(false);
+      expect(status.players).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: 'host-1', returned: true }),
+        expect.objectContaining({ id: 'player-2', returned: false })
+      ]));
+    });
+
+    it('should keep allReturned false while a player is disconnected', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      manager.markPlayerReturned('room-1', 'host-1');
+      manager.markPlayerDisconnected('room-1', 'player-2');
+
+      const second = manager.markPlayerReturned('room-1', 'player-2');
+      expect(second.success).toBe(true);
+      expect(second.allReturned).toBe(false);
+      expect(manager.getRoom('room-1').gameStarted).toBe(true);
+    });
+  });
+
+  describe('reconnect and snapshot', () => {
+    it('should reconnect in place when disconnected player is still in room', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      manager.createReconnectSession('room-1', 'player-2', 'Bob', 'sess-1');
+      manager.markPlayerDisconnected('room-1', 'player-2');
+
+      const result = manager.reconnectPlayer('room-1', 'player-2', 'sess-1');
+      const room = manager.getRoom('room-1');
+
+      expect(result.success).toBe(true);
+      expect(room.players.filter(player => player.id === 'player-2')).toHaveLength(1);
+      expect(room.disconnectedPlayers.has('player-2')).toBe(false);
+      expect(room.returnStatus.get('player-2')).toBe(false);
+    });
+
+    it('should allow reconnecting a disconnected non-host player with valid session', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      manager.removePlayer('room-1', 'player-2');
+      manager.createReconnectSession('room-1', 'player-2', 'Bob', 'sess-1');
+
+      const result = manager.reconnectPlayer('room-1', 'player-2', 'sess-1');
+
+      expect(result.success).toBe(true);
+      expect(manager.findPlayerRoom('player-2')).toBe('room-1');
+      expect(manager.getPlayers('room-1').some(p => p.id === 'player-2')).toBe(true);
+    });
+
+    it('should reject reconnect when session ID does not match', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      manager.removePlayer('room-1', 'player-2');
+      manager.createReconnectSession('room-1', 'player-2', 'Bob', 'sess-1');
+
+      const result = manager.reconnectPlayer('room-1', 'player-2', 'sess-2');
+
+      expect(result.success).toBe(false);
+      expect(result.code).toBe('RECONNECT_IDENTITY_MISMATCH');
+    });
+
+    it('should reject reconnect when session is expired', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      manager.removePlayer('room-1', 'player-2');
+      manager.createReconnectSession('room-1', 'player-2', 'Bob', 'sess-1');
+
+      const room = manager.getRoom('room-1');
+      const session = room.reconnectSessions.get('player-2');
+      session.expiresAt = Date.now() - 1;
+      room.reconnectSessions.set('player-2', session);
+
+      const result = manager.reconnectPlayer('room-1', 'player-2', 'sess-1');
+      expect(result.success).toBe(false);
+      expect(result.code).toBe('RECONNECT_SESSION_EXPIRED');
+    });
+
+    it('should update and return game snapshot', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.startGame('room-1');
+
+      manager.updateGameSnapshot('room-1', {
+        gameState: { turn: 3 },
+        lastAction: { actionType: 'PLAY_CARD' },
+        lastActionId: 'act-3'
+      });
+
+      const snapshot = manager.getGameSnapshot('room-1');
+      expect(snapshot.roomId).toBe('room-1');
+      expect(snapshot.gameType).toBe('uno');
+      expect(snapshot.gameState).toEqual({ turn: 3 });
+      expect(snapshot.lastAction.actionType).toBe('PLAY_CARD');
+      expect(snapshot.lastActionId).toBe('act-3');
+    });
   });
 
   describe('getRoomCount', () => {

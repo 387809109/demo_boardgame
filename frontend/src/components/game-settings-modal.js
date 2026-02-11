@@ -13,6 +13,7 @@ export class GameSettingsModal {
    * @param {Object} options
    * @param {Object} options.gameConfig - Game configuration with settingsSchema
    * @param {string} options.mode - 'offline' or 'online'
+   * @param {Object} [options.initialSettings] - Initial settings override (e.g. cached host defaults)
    * @param {Function} options.onConfirm - Called with settings when confirmed
    * @param {Function} options.onCancel - Called when cancelled
    */
@@ -26,6 +27,8 @@ export class GameSettingsModal {
     this.roleCounts = null;
     this.roleSetupPanel = null;
 
+    this._applyInitialSettings(options.initialSettings);
+
     if (this.hasRoleSetup) {
       this._initRoleCounts();
     }
@@ -38,10 +41,34 @@ export class GameSettingsModal {
    * @private
    */
   _initRoleCounts() {
+    const initialRoleCounts = this.options.initialSettings?.roleCounts;
+    if (initialRoleCounts && typeof initialRoleCounts === 'object') {
+      this.roleCounts = { ...initialRoleCounts };
+      return;
+    }
+
     const presets = this.gameConfig.defaultRoleCounts;
     const firstKey = Object.keys(presets)[0];
     if (firstKey) {
       this.roleCounts = { ...presets[firstKey] };
+    }
+  }
+
+  /**
+   * Apply initial settings overrides (schema keys only)
+   * @private
+   * @param {Object} initialSettings - Initial settings payload
+   */
+  _applyInitialSettings(initialSettings) {
+    if (!initialSettings || typeof initialSettings !== 'object') {
+      return;
+    }
+
+    const schema = this.gameConfig.settingsSchema || {};
+    for (const key of Object.keys(schema)) {
+      if (Object.prototype.hasOwnProperty.call(initialSettings, key)) {
+        this.settings[key] = initialSettings[key];
+      }
     }
   }
 

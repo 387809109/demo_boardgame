@@ -10,6 +10,8 @@ import {
   saveSessionData,
   loadSessionData,
   clearSessionData,
+  saveRoomCreatePreset,
+  loadRoomCreatePreset,
   importConfig
 } from './storage.js';
 
@@ -335,6 +337,66 @@ describe('Storage Utilities', () => {
       clearSessionData(null);
 
       expect(mockSessionStorage.clear).toHaveBeenCalled();
+    });
+  });
+
+  describe('room create preset', () => {
+    it('should save room-create preset by key', () => {
+      const preset = {
+        settings: { stackDrawCards: true },
+        maxPlayers: 6,
+        serverUrl: 'ws://localhost:7777'
+      };
+
+      saveRoomCreatePreset('local:uno', preset);
+
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+        'boardgame_room_create_presets',
+        JSON.stringify({ 'local:uno': preset })
+      );
+    });
+
+    it('should merge with existing presets when saving', () => {
+      mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
+        'local:uno': { maxPlayers: 4 }
+      }));
+
+      saveRoomCreatePreset('cloud:werewolf', { maxPlayers: 12 });
+
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+        'boardgame_room_create_presets',
+        JSON.stringify({
+          'local:uno': { maxPlayers: 4 },
+          'cloud:werewolf': { maxPlayers: 12 }
+        })
+      );
+    });
+
+    it('should load room-create preset by key', () => {
+      const preset = { settings: { discussionTime: 180 }, maxPlayers: 9 };
+      mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
+        'local:werewolf': preset
+      }));
+
+      const result = loadRoomCreatePreset('local:werewolf');
+      expect(result).toEqual(preset);
+    });
+
+    it('should return null when preset key does not exist', () => {
+      mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
+        'local:uno': { maxPlayers: 4 }
+      }));
+
+      const result = loadRoomCreatePreset('local:werewolf');
+      expect(result).toBeNull();
+    });
+
+    it('should handle invalid preset JSON gracefully', () => {
+      mockLocalStorage.getItem.mockReturnValue('invalid json');
+
+      const result = loadRoomCreatePreset('local:uno');
+      expect(result).toBeNull();
+      expect(console.error).toHaveBeenCalled();
     });
   });
 

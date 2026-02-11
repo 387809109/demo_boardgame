@@ -14,6 +14,7 @@
 | Phase C3: CloudNetworkClient | ✅ 完成 | Realtime 网络客户端 (单元测试待补) |
 | Phase C4: 前端集成 | ✅ 完成 | 大厅改造、模式切换、手动测试通过 |
 | Phase C5: 文档更新 | 🔶 进行中 | CLAUDE.md/PROGRESS.md 已更新，PROTOCOL.md 待更新 |
+| Phase C6: 断线重连支持 | ⬜ 未开始 | 断线自动恢复、会话重建、状态快照同步 |
 
 ---
 
@@ -397,10 +398,26 @@
 - [ ] **T-C042** 创建 `docs/prd/cloud/TASKS.md` (本文件)
   - ✅ 已创建
 
-- [ ] **T-C043** 更新 `docs/PROTOCOL.md`
+- [x] **T-C043** 更新 `docs/PROTOCOL.md`
   - 增加 "云端模式" 章节
   - 说明 Supabase Realtime Broadcast 与 WebSocket 消息的对应关系
   - 说明 Presence 替代服务端房间管理的机制
+
+---
+
+## Phase C6: 断线重连支持 (P1)
+
+- [ ] **T-C044** CloudNetworkClient 断线重连与会话恢复
+  - 监听 Realtime Channel 状态（`CLOSED` / `CHANNEL_ERROR` / `TIMED_OUT`）
+  - 实现自动重订阅（指数退避 + 最大重试次数）
+  - 重连成功后自动 `track()` Presence 并触发会话恢复请求
+  - 对接统一恢复协议：`RECONNECT_REQUEST` / `RECONNECT_ACCEPTED` / `GAME_SNAPSHOT`
+  - UI 暴露连接状态事件（重连中、重连成功、重连失败）
+  - 验收:
+    - 非房主玩家网络闪断后可恢复到原对局
+    - 长时间离线/房间已销毁时给出明确失败提示
+    - 不影响现有本地模式和云端正常联机流程
+  - 依赖: T-C025, T-C032, T-C034
 
 ---
 
@@ -438,11 +455,11 @@ T-C003 → T-C004 → T-C005 ──────────┤
                          T-C032 ────┤
                          T-C033     │
                            │        │
-                         T-C034     │
-                                    │
-                         T-C040 ────┘
-                         T-C041
-                         T-C043
+                          T-C034 → T-C044
+                                     │
+                          T-C040 ────┘
+                          T-C041
+                          T-C043
 ```
 
 ---

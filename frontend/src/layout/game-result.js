@@ -16,12 +16,14 @@ export class GameResult {
    * @param {string} options.playerId - Current player ID
    * @param {Function} options.onPlayAgain - Called to play again
    * @param {Function} options.onBackToLobby - Called to return to lobby
+   * @param {string} [options.playAgainLabel='再来一局'] - Label for the primary action
    */
   constructor(options = {}) {
     this.options = options;
     this.element = null;
     this.result = options.result || {};
     this.playerId = options.playerId || '';
+    this.playAgainLabel = options.playAgainLabel || '再来一局';
 
     this._create();
   }
@@ -169,7 +171,7 @@ export class GameResult {
           <!-- Actions -->
           <div style="display: flex; gap: var(--spacing-3); justify-content: center;">
             <button class="btn btn-secondary back-btn">返回大厅</button>
-            <button class="btn btn-primary play-again-btn">再来一局</button>
+            <button class="btn btn-primary play-again-btn">${this._escapeHtml(this.playAgainLabel)}</button>
           </div>
         </div>
       </div>

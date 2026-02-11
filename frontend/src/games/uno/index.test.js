@@ -560,6 +560,20 @@ describe('UnoGame', () => {
         expect(result.valid).toBe(false);
       });
     });
+
+    describe('TEST_FORCE_WIN', () => {
+      it('should allow force-win even when not player turn', () => {
+        const state = createTestState({ currentPlayer: 'player2' });
+        const move = {
+          actionType: UNO_ACTIONS.TEST_FORCE_WIN,
+          actionData: {},
+          playerId: 'player1'
+        };
+
+        const result = game.validateMove(move, state);
+        expect(result.valid).toBe(true);
+      });
+    });
   });
 
   describe('processMove', () => {
@@ -960,6 +974,28 @@ describe('UnoGame', () => {
         const newState = game.processMove(move, state);
         // In 2-player game, reverse acts like skip, so player1 should play again
         expect(newState.currentPlayer).toBe('player1');
+      });
+    });
+
+    describe('TEST_FORCE_WIN', () => {
+      it('should empty hand and make player win immediately', () => {
+        const state = createTestState({ currentPlayer: 'player2' });
+        const move = {
+          actionType: UNO_ACTIONS.TEST_FORCE_WIN,
+          actionData: {},
+          playerId: 'player1'
+        };
+
+        const validated = game.validateMove(move, state);
+        expect(validated.valid).toBe(true);
+
+        const newState = game.processMove(move, state);
+        expect(newState.hands.player1).toHaveLength(0);
+        expect(newState.players.find(p => p.id === 'player1')?.cardCount).toBe(0);
+
+        const endCheck = game.checkGameEnd(newState);
+        expect(endCheck.ended).toBe(true);
+        expect(endCheck.winner).toBe('player1');
       });
     });
   });

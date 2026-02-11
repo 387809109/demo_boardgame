@@ -13,6 +13,8 @@ export const config = {
   // Room settings
   maxPlayersPerRoom: 10,
   maxRoomsPerServer: 100,
+  enableReconnect: true,
+  reconnectSessionTtlMs: 60000, // 60 seconds
 
   // Message settings
   maxMessageSize: 64 * 1024, // 64 KB

@@ -7,7 +7,13 @@ import './theme/default.css';
 
 import { registerGame, createGame, hasGame } from './game/registry.js';
 import { NetworkClient } from './game/network.js';
-import { loadConfig, saveSessionData, loadSessionData } from './utils/storage.js';
+import {
+  loadConfig,
+  saveSessionData,
+  loadSessionData,
+  saveRoomCreatePreset,
+  loadRoomCreatePreset
+} from './utils/storage.js';
 
 import { GameLobby } from './layout/game-lobby.js';
 import { WaitingRoom } from './layout/waiting-room.js';
@@ -18,7 +24,7 @@ import { AuthPage } from './layout/auth-page.js';
 
 import { getModal } from './components/modal.js';
 import { showNotification, showToast } from './components/notification.js';
-import { showLoading, hideLoading } from './components/loading.js';
+import { showLoading, hideLoading, updateLoadingMessage } from './components/loading.js';
 import { GameSettingsModal } from './components/game-settings-modal.js';
 
 import { isCloudAvailable, getSupabaseClient } from './cloud/supabase-client.js';
@@ -33,6 +39,13 @@ import { canPlayCard, COLORS, CARD_TYPES } from './games/uno/rules.js';
 import WerewolfGame from './games/werewolf/index.js';
 import werewolfConfig from './games/werewolf/config.json';
 import { WerewolfUI } from './games/werewolf/ui.js';
+
+const RECONNECT_CONTEXT_KEY = 'reconnectContext';
+const RECONNECT_RESPONSE_TIMEOUT_MS = 8000;
+const DEFAULT_RECONNECT_DELAY_MS = 3000;
+const MAX_RECONNECT_ATTEMPTS = 3;
+const RECONNECT_COUNTDOWN_STEP_MS = 1000;
+const DEFAULT_LOCAL_SERVER_URL = 'ws://localhost:7777';
 
 /**
  * Application class
@@ -51,6 +64,15 @@ class App {
     /** @type {Object|null} */
     this.currentView = null;
 
+    /** @type {GameResult|null} */
+    this._resultScreen = null;
+
+    /** @type {Object|null} */
+    this._lastGameResult = null;
+
+    /** @type {boolean} */
+    this._returnToRoomPromptOpen = false;
+
     /** @type {string} */
     this.playerId = '';
 
@@ -65,6 +87,33 @@ class App {
 
     /** @type {AuthService|null} */
     this.authService = null;
+
+    /** @type {string} */
+    this.sessionId = '';
+
+    /** @type {boolean} */
+    this._manualDisconnect = false;
+
+    /** @type {boolean} */
+    this._isReconnecting = false;
+
+    /** @type {number|null} */
+    this._reconnectAttemptTimer = null;
+
+    /** @type {number|null} */
+    this._reconnectResponseTimer = null;
+
+    /** @type {number|null} */
+    this._reconnectCountdownTimer = null;
+
+    /** @type {number} */
+    this._reconnectAttempts = 0;
+
+    /** @type {Object|null} */
+    this._reconnectContext = null;
+
+    /** @type {Object|null} */
+    this._joinRoomPrefill = null;
 
     this._init();
   }
@@ -81,6 +130,8 @@ class App {
     // Generate or load player ID (used for local mode)
     this.playerId = loadSessionData('playerId') || this._generatePlayerId();
     saveSessionData('playerId', this.playerId);
+    this.sessionId = loadSessionData('sessionId') || this._generateSessionId();
+    saveSessionData('sessionId', this.sessionId);
 
     // Initialize cloud auth if available
     if (isCloudAvailable()) {
@@ -103,10 +154,443 @@ class App {
   }
 
   /**
+   * Generate reconnect session ID
+   * @private
+   */
+  _generateSessionId() {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 11);
+    return `sess-${timestamp}-${random}`;
+  }
+
+  /**
+   * Rotate session ID when entering a new online room
+   * @private
+   */
+  _refreshSessionId() {
+    this.sessionId = this._generateSessionId();
+    saveSessionData('sessionId', this.sessionId);
+  }
+
+  /**
+   * Build room-create preset key by runtime mode and game type
+   * @private
+   * @param {string} gameType - Game ID
+   * @returns {string}
+   */
+  _getRoomCreatePresetKey(gameType) {
+    return `${this.mode}:${gameType}`;
+  }
+
+  /**
+   * Load room-create preset and sanitize values for current game config
+   * @private
+   * @param {string} gameType - Game ID
+   * @param {Object} gameConfig - Game config
+   * @returns {Object|null}
+   */
+  _loadRoomCreatePreset(gameType, gameConfig = {}) {
+    const preset = loadRoomCreatePreset(this._getRoomCreatePresetKey(gameType));
+    if (!preset || typeof preset !== 'object') {
+      return null;
+    }
+
+    const schema = gameConfig.settingsSchema || {};
+    const settings = {};
+    for (const key of Object.keys(schema)) {
+      if (Object.prototype.hasOwnProperty.call(preset.settings || {}, key)) {
+        settings[key] = preset.settings[key];
+      }
+    }
+
+    if (gameConfig.defaultRoleCounts && preset.settings?.roleCounts) {
+      settings.roleCounts = { ...preset.settings.roleCounts };
+    }
+
+    const minPlayers = gameConfig.minPlayers || 2;
+    const maxPlayersLimit = gameConfig.maxPlayers || 10;
+    const cachedMaxPlayers = Number.parseInt(preset.maxPlayers, 10);
+    const maxPlayers = Number.isFinite(cachedMaxPlayers)
+      ? Math.max(minPlayers, Math.min(maxPlayersLimit, cachedMaxPlayers))
+      : minPlayers;
+
+    const serverUrl = typeof preset.serverUrl === 'string' && preset.serverUrl.trim()
+      ? preset.serverUrl.trim()
+      : DEFAULT_LOCAL_SERVER_URL;
+
+    return {
+      settings,
+      maxPlayers,
+      serverUrl
+    };
+  }
+
+  /**
+   * Save room-create preset for future host sessions
+   * @private
+   * @param {string} gameType - Game ID
+   * @param {Object} preset - Preset payload
+   */
+  _saveRoomCreatePreset(gameType, preset = {}) {
+    const payload = {
+      settings: { ...(preset.settings || {}) },
+      maxPlayers: preset.maxPlayers
+    };
+
+    if (typeof preset.serverUrl === 'string') {
+      payload.serverUrl = preset.serverUrl;
+    }
+
+    saveRoomCreatePreset(this._getRoomCreatePresetKey(gameType), payload);
+  }
+
+  /**
+   * Save reconnect context to session storage
+   * @private
+   */
+  _saveReconnectContext(overrides = {}) {
+    if (this.mode !== 'local' || !this.currentRoom?.id || !(this.network instanceof NetworkClient)) {
+      return;
+    }
+
+    const self = this.currentRoom.players?.find(p => p.id === this.playerId);
+    const context = {
+      roomId: this.currentRoom.id,
+      playerId: this.playerId,
+      sessionId: this.sessionId,
+      serverUrl: this.network.serverUrl,
+      gameType: this.currentRoom.gameType || 'unknown',
+      nickname: self?.nickname || this.currentRoom.nickname || this.config.game.defaultNickname,
+      updatedAt: Date.now(),
+      ...overrides
+    };
+
+    saveSessionData(RECONNECT_CONTEXT_KEY, context);
+  }
+
+  /**
+   * Load reconnect context from session storage
+   * @private
+   */
+  _loadReconnectContext() {
+    return loadSessionData(RECONNECT_CONTEXT_KEY);
+  }
+
+  /**
+   * Clear reconnect context and running reconnect timers
+   * @private
+   */
+  _clearReconnectContext() {
+    saveSessionData(RECONNECT_CONTEXT_KEY, null);
+  }
+
+  /**
+   * Cancel pending reconnect timers
+   * @private
+   */
+  _clearReconnectPendingTimers() {
+    if (this._reconnectAttemptTimer) {
+      clearTimeout(this._reconnectAttemptTimer);
+      this._reconnectAttemptTimer = null;
+    }
+    if (this._reconnectResponseTimer) {
+      clearTimeout(this._reconnectResponseTimer);
+      this._reconnectResponseTimer = null;
+    }
+    if (this._reconnectCountdownTimer) {
+      clearInterval(this._reconnectCountdownTimer);
+      this._reconnectCountdownTimer = null;
+    }
+  }
+
+  /**
+   * Cancel pending reconnect timers and reset reconnect state
+   * @private
+   */
+  _cancelReconnectTimers() {
+    this._clearReconnectPendingTimers();
+    this._isReconnecting = false;
+    this._reconnectAttempts = 0;
+    this._reconnectContext = null;
+  }
+
+  /**
+   * Update reconnect loading text
+   * @private
+   */
+  _updateReconnectLoadingMessage(nextAttempt, secondsLeft) {
+    const base = `重连中（第 ${nextAttempt}/${MAX_RECONNECT_ATTEMPTS} 次）`;
+    if (secondsLeft > 0) {
+      updateLoadingMessage(`${base}，${secondsLeft}s 后重试...`);
+    } else {
+      updateLoadingMessage(`${base}，正在连接...`);
+    }
+  }
+
+  /**
+   * Schedule the next reconnect attempt with countdown
+   * @private
+   */
+  _scheduleReconnectAttempt(delayMs) {
+    if (!this._isReconnecting) return;
+
+    const nextAttempt = this._reconnectAttempts + 1;
+    let secondsLeft = Math.max(0, Math.ceil(delayMs / 1000));
+    this._updateReconnectLoadingMessage(nextAttempt, secondsLeft);
+
+    if (secondsLeft > 0) {
+      this._reconnectCountdownTimer = setInterval(() => {
+        if (!this._isReconnecting) return;
+        secondsLeft = Math.max(0, secondsLeft - 1);
+        this._updateReconnectLoadingMessage(nextAttempt, secondsLeft);
+      }, RECONNECT_COUNTDOWN_STEP_MS);
+    }
+
+    this._reconnectAttemptTimer = setTimeout(() => {
+      this._runReconnectAttempt();
+    }, delayMs);
+  }
+
+  /**
+   * Execute one reconnect attempt
+   * @private
+   */
+  async _runReconnectAttempt() {
+    if (!this._isReconnecting || !this._reconnectContext || !(this.network instanceof NetworkClient)) {
+      return;
+    }
+
+    this._clearReconnectPendingTimers();
+    this._reconnectAttempts += 1;
+    updateLoadingMessage(`重连中（第 ${this._reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} 次），正在连接...`);
+
+    try {
+      await this.network.connect();
+      this.network.requestReconnect(this._reconnectContext.roomId, this._reconnectContext.sessionId);
+      this._reconnectResponseTimer = setTimeout(() => {
+        this._handleReconnectTransientFailure('重连请求超时');
+      }, RECONNECT_RESPONSE_TIMEOUT_MS);
+    } catch (err) {
+      this._handleReconnectTransientFailure(err?.message || '连接失败');
+    }
+  }
+
+  /**
+   * Handle retryable reconnect failures
+   * @private
+   */
+  _handleReconnectTransientFailure(reason) {
+    if (!this._isReconnecting) return;
+
+    this._clearReconnectPendingTimers();
+
+    if (this._reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      this._handleReconnectFailure(reason);
+      return;
+    }
+
+    const reconnectDelay = this.network?.getReconnectDelay?.() ?? DEFAULT_RECONNECT_DELAY_MS;
+    showNotification(`重连失败（${reason}），准备重试`, 'warning', 2000);
+    this._scheduleReconnectAttempt(reconnectDelay);
+  }
+
+  /**
+   * Start reconnect flow from a known reconnect context
+   * @private
+   * @param {Object} ctx - Reconnect context
+   * @param {number} [initialDelayMs=DEFAULT_RECONNECT_DELAY_MS] - Delay before first attempt
+   */
+  _startReconnectFlow(ctx, initialDelayMs = DEFAULT_RECONNECT_DELAY_MS) {
+    if (!(this.network instanceof NetworkClient)) {
+      return;
+    }
+
+    this._closeResultScreen(true);
+    this._clearReconnectPendingTimers();
+    this._isReconnecting = true;
+    this._reconnectAttempts = 0;
+    this._reconnectContext = ctx;
+    showLoading('连接中，正在恢复对局...');
+    this._scheduleReconnectAttempt(initialDelayMs);
+  }
+
+  /**
+   * Manual retry reconnect after max attempts
+   * @private
+   * @param {Object} ctx - Reconnect context
+   */
+  _retryReconnectFromContext(ctx) {
+    if (!ctx?.serverUrl || !ctx?.roomId || !ctx?.sessionId) {
+      showNotification('重连上下文缺失，请手动加入房间', 'warning');
+      return;
+    }
+
+    this.mode = 'local';
+    this.sessionId = ctx.sessionId;
+    saveSessionData('sessionId', this.sessionId);
+    saveSessionData(RECONNECT_CONTEXT_KEY, ctx);
+
+    this.currentRoom = {
+      id: ctx.roomId,
+      gameType: ctx.gameType || 'unknown',
+      nickname: ctx.nickname || this.config.game.defaultNickname,
+      players: []
+    };
+
+    this.network = new NetworkClient(ctx.serverUrl);
+    this.network.playerId = this.playerId;
+    this._setupNetworkHandlers();
+    this._startReconnectFlow(ctx, 0);
+  }
+
+  /**
+   * Whether current runtime state can attempt reconnect
+   * @private
+   */
+  _canAttemptReconnect() {
+    return this.mode === 'local'
+      && this.network instanceof NetworkClient
+      && !!this.currentGame
+      && !!this.currentRoom?.id;
+  }
+
+  /**
+   * Attempt reconnect and restore game state snapshot
+   * @private
+   */
+  _attemptReconnect() {
+    if (this._isReconnecting || !(this.network instanceof NetworkClient)) {
+      return;
+    }
+
+    const ctx = this._loadReconnectContext();
+    if (
+      !ctx
+      || ctx.playerId !== this.playerId
+      || !ctx.roomId
+      || !ctx.sessionId
+      || !ctx.serverUrl
+    ) {
+      this._handleReconnectFailure('缺少重连上下文');
+      return;
+    }
+
+    const reconnectDelay = this.network.getReconnectDelay?.() ?? DEFAULT_RECONNECT_DELAY_MS;
+    this._startReconnectFlow(ctx, reconnectDelay);
+  }
+
+  /**
+   * Handle reconnect accepted signal
+   * @private
+   */
+  _handleReconnectAccepted() {
+    if (!this._isReconnecting) return;
+
+    this._clearReconnectPendingTimers();
+    updateLoadingMessage('重连已通过，正在同步对局快照...');
+
+    // Snapshot is expected next; this fallback prevents indefinite loading.
+    if (this._reconnectResponseTimer) {
+      clearTimeout(this._reconnectResponseTimer);
+    }
+
+    this._reconnectResponseTimer = setTimeout(() => {
+      this._cancelReconnectTimers();
+      hideLoading();
+      showToast('重连成功');
+    }, 2000);
+
+    showToast('重连成功，正在同步状态...');
+  }
+
+  /**
+   * Handle snapshot after reconnect
+   * @private
+   */
+  _handleGameSnapshot(data) {
+    const snapshotState = data?.gameState;
+    if (!snapshotState || typeof snapshotState !== 'object') {
+      if (this._isReconnecting) {
+        this._handleReconnectFailure('快照数据无效');
+      }
+      return;
+    }
+
+    const gameType = this.currentRoom?.gameType;
+    if (!gameType || !hasGame(gameType)) {
+      this._handleReconnectFailure('无法识别游戏类型');
+      return;
+    }
+
+    const snapshotSettings = data?.gameSettings && typeof data.gameSettings === 'object'
+      ? data.gameSettings
+      : null;
+    const players = snapshotState.players || this.currentRoom?.players || [];
+    const settings = snapshotSettings || this.currentRoom?.gameSettings || this._currentGameSettings || {};
+
+    if (this.currentRoom) {
+      this.currentRoom.players = players;
+      this.currentRoom.gameType = gameType;
+      if (snapshotSettings) {
+        this.currentRoom.gameSettings = snapshotSettings;
+      }
+    }
+    this._currentGameSettings = settings;
+
+    this._startGame(gameType, players, 'online', settings, snapshotState);
+    this._cancelReconnectTimers();
+    hideLoading();
+    showToast('已恢复到最新对局状态');
+  }
+
+  /**
+   * Handle reconnect rejected/failed
+   * @private
+   */
+  _handleReconnectFailure(reason = '重连失败') {
+    const lastContext = this._reconnectContext || this._loadReconnectContext();
+    this._cancelReconnectTimers();
+    this._closeResultScreen(true);
+    hideLoading();
+
+    const prefill = lastContext && lastContext.roomId && lastContext.serverUrl
+      ? {
+          serverUrl: lastContext.serverUrl,
+          roomId: lastContext.roomId,
+          nickname: lastContext.nickname || this.config.game.defaultNickname
+        }
+      : null;
+
+    this._clearReconnectContext();
+    this.currentRoom = null;
+    this.currentGame = null;
+    this.showLobby();
+
+    if (prefill && this.mode === 'local') {
+      this._joinRoomPrefill = prefill;
+      showNotification(`重连失败: ${reason}`, 'error');
+      const modal = getModal();
+      modal.confirm(
+        '重连失败',
+        '是否继续使用上次会话恢复对局？',
+        { confirmText: '继续重连', cancelText: '稍后' }
+      ).then((shouldJoin) => {
+        if (shouldJoin) {
+          this._retryReconnectFromContext(lastContext);
+        }
+      });
+      return;
+    }
+
+    showNotification(`重连失败: ${reason}`, 'error');
+  }
+
+  /**
    * Clear current view
    * @private
    */
   _clearView() {
+    this._closeResultScreen();
     if (this.currentView?.unmount) {
       this.currentView.unmount();
     }
@@ -115,9 +599,38 @@ class App {
   }
 
   /**
+   * Close result overlay when leaving result state
+   * @private
+   * @param {boolean} [immediate=false] - Remove overlay immediately when true
+   */
+  _closeResultScreen(immediate = false) {
+    if (!this._resultScreen) {
+      return;
+    }
+
+    const resultScreen = this._resultScreen;
+    this._resultScreen = null;
+
+    const element = typeof resultScreen.getElement === 'function'
+      ? resultScreen.getElement()
+      : null;
+
+    if (immediate && element?.remove) {
+      element.remove();
+      return;
+    }
+
+    if (typeof resultScreen.close === 'function') {
+      resultScreen.close();
+    }
+  }
+
+  /**
    * Show game lobby
    */
   showLobby() {
+    this._lastGameResult = null;
+    this._returnToRoomPromptOpen = false;
     this._clearView();
 
     this.currentView = new GameLobby({
@@ -214,16 +727,20 @@ class App {
 
     // Get game config for settings
     const gameConfig = this._getGameConfig(gameId);
+    const cachedRoomPreset = mode === 'online'
+      ? this._loadRoomCreatePreset(gameId, gameConfig)
+      : null;
 
     // Show settings modal
     const settingsModal = new GameSettingsModal({
       gameConfig,
       mode,
+      initialSettings: cachedRoomPreset?.settings,
       onConfirm: ({ settings, aiCount }) => {
         if (mode === 'offline') {
           this._startOfflineGame(gameId, settings, aiCount);
         } else {
-          this._showCreateRoomDialog(gameId, settings, gameConfig);
+          this._showCreateRoomDialog(gameId, settings, gameConfig, cachedRoomPreset);
         }
       },
       onCancel: () => {
@@ -273,6 +790,9 @@ class App {
    */
   _startGame(gameType, players, mode, options = {}, initialState = null) {
     this._clearView();
+    if (!this._isReconnecting) {
+      this._lastGameResult = null;
+    }
 
     // Create game instance
     const game = createGame(gameType, mode);
@@ -289,6 +809,28 @@ class App {
     }
 
     this.currentGame = game;
+    if (this.currentRoom) {
+      this.currentRoom.gameType = gameType;
+      const humanPlayers = (players || []).filter((player) => {
+        if (!player?.id) return false;
+        return !player.isAI && !String(player.id).startsWith('ai-');
+      });
+      if (humanPlayers.length > 0) {
+        this.currentRoom.players = humanPlayers;
+      }
+      if (mode === 'online') {
+        const nextReturnStatus = {};
+        (this.currentRoom.players || []).forEach((player) => {
+          nextReturnStatus[player.id] = false;
+        });
+        this.currentRoom.returnToRoomPhase = false;
+        this.currentRoom.returnStatus = nextReturnStatus;
+        this.currentRoom.allPlayersReturned = false;
+      }
+    }
+    if (mode === 'online' && this.mode === 'local') {
+      this._saveReconnectContext({ gameType });
+    }
 
     // Get visible state for player
     const visibleState = game.getVisibleState
@@ -393,7 +935,9 @@ class App {
 
     // In online mode, send to server
     if (this.network?.isConnected()) {
-      this.network.sendGameAction(action.actionType, action.actionData);
+      this.network.sendGameAction(action.actionType, action.actionData, {
+        gameState: this.currentGame.getState()
+      });
     }
 
     // Simulate AI moves for offline mode
@@ -452,10 +996,9 @@ class App {
 
     // In online mode, broadcast to other players
     if (this.currentGame?.mode === 'online' && this.network?.isConnected()) {
-      this.network.send('GAME_ACTION', {
-        actionType,
-        actionData,
-        playerId // Include AI player ID
+      this.network.sendGameAction(actionType, actionData, {
+        playerId, // Include AI player ID
+        gameState: this.currentGame.getState()
       });
     }
   }
@@ -571,12 +1114,102 @@ class App {
       }
 
       if (this.network?.isConnected()) {
+        this._manualDisconnect = true;
         this.network.leaveRoom();
         this.network.disconnect();
       }
 
+      this._cancelReconnectTimers();
+      this._clearReconnectContext();
+      this.currentRoom = null;
       this.showLobby();
     }
+  }
+
+  /**
+   * Return from result screen to waiting room in online mode
+   * @private
+   */
+  _returnToRoomFromResult() {
+    this._returnToRoomPromptOpen = false;
+
+    if (!this.currentRoom) {
+      this.currentGame = null;
+      this.showLobby();
+      return;
+    }
+
+    const players = this.currentRoom.players || [];
+    const nextStatus = {};
+    const prevStatus = this.currentRoom.returnStatus || {};
+    players.forEach((player) => {
+      nextStatus[player.id] = !!prevStatus[player.id];
+    });
+    nextStatus[this.playerId] = true;
+
+    this.currentRoom.returnToRoomPhase = true;
+    this.currentRoom.returnStatus = nextStatus;
+    this.currentRoom.allPlayersReturned = players.length > 0
+      && players.every(player => !!nextStatus[player.id]);
+
+    this.currentGame = null;
+    this._showWaitingRoom();
+
+    if (this.network?.isConnected()) {
+      if (typeof this.network.returnToRoom === 'function') {
+        this.network.returnToRoom();
+      } else {
+        this.network.send('RETURN_TO_ROOM', {});
+      }
+    }
+  }
+
+  /**
+   * Recover a "return to room" entry point when client is in return phase but no result dialog is visible.
+   * @private
+   */
+  _promptReturnToRoomIfNeeded() {
+    if (!this.currentRoom?.returnToRoomPhase) {
+      return;
+    }
+
+    if (this.currentRoom?.returnStatus?.[this.playerId]) {
+      return;
+    }
+
+    if (this.currentView instanceof WaitingRoom) {
+      return;
+    }
+
+    if (this._resultScreen) {
+      return;
+    }
+
+    if (this._lastGameResult) {
+      this._showGameResult(this._lastGameResult);
+      return;
+    }
+
+    if (this._returnToRoomPromptOpen) {
+      return;
+    }
+    this._returnToRoomPromptOpen = true;
+
+    const modal = getModal();
+    modal.confirm(
+      '对局已结束',
+      '是否回到房间？',
+      { confirmText: '回到房间', cancelText: '稍后' }
+    ).then((shouldReturn) => {
+      this._returnToRoomPromptOpen = false;
+      if (
+        shouldReturn
+        && this.currentRoom?.returnToRoomPhase
+        && !this.currentRoom?.returnStatus?.[this.playerId]
+      ) {
+        this._returnToRoomFromResult();
+      }
+    });
   }
 
   /**
@@ -584,10 +1217,24 @@ class App {
    * @private
    */
   _showGameResult(result) {
+    this._closeResultScreen(true);
+    this._lastGameResult = result || null;
+
+    const isOnlineRound = this.currentGame?.mode === 'online'
+      && !!this.currentRoom
+      && this.network?.isConnected();
+
     const resultScreen = new GameResult({
       result,
       playerId: this.playerId,
+      playAgainLabel: isOnlineRound ? '回到房间' : '再来一局',
       onPlayAgain: () => {
+        this._resultScreen = null;
+        if (isOnlineRound) {
+          this._returnToRoomFromResult();
+          return;
+        }
+
         // Start new game with same settings
         if (this.currentGame) {
           // Note: config.gameType is used because start() overwrites config with runtime config
@@ -598,11 +1245,13 @@ class App {
         }
       },
       onBackToLobby: () => {
+        this._resultScreen = null;
         this.currentGame = null;
         this.showLobby();
       }
     });
 
+    this._resultScreen = resultScreen;
     resultScreen.show();
   }
 
@@ -610,7 +1259,7 @@ class App {
    * Show create room dialog
    * @private
    */
-  async _showCreateRoomDialog(gameType, settings = {}, gameConfig = {}) {
+  async _showCreateRoomDialog(gameType, settings = {}, gameConfig = {}, cachedPreset = null) {
     const modal = getModal();
     const content = document.createElement('div');
 
@@ -629,11 +1278,14 @@ class App {
            ${roleTotal || minP} 人（由角色配置决定）
          </div>`
       : (() => {
+          const defaultMaxPlayers = Number.isFinite(cachedPreset?.maxPlayers)
+            ? Math.max(minP, Math.min(maxP, cachedPreset.maxPlayers))
+            : minP;
           const playerOptions = Array.from(
             { length: maxP - minP + 1 },
             (_, i) => {
               const n = minP + i;
-              return `<option value="${n}" ${n === minP ? 'selected' : ''}>${n} 人</option>`;
+              return `<option value="${n}" ${n === defaultMaxPlayers ? 'selected' : ''}>${n} 人</option>`;
             }
           ).join('');
           return `<select class="input max-players-select">${playerOptions}</select>`;
@@ -646,12 +1298,15 @@ class App {
     const defaultNickname = isCloud
       ? cloudNickname
       : this.config.game.defaultNickname;
+    const defaultServerUrl = (!isCloud && cachedPreset?.serverUrl)
+      ? cachedPreset.serverUrl
+      : DEFAULT_LOCAL_SERVER_URL;
 
     content.innerHTML = `
       ${!isCloud ? `
         <div class="input-group" style="margin-bottom: var(--spacing-4);">
           <label class="input-label">服务器地址</label>
-          <input type="text" class="input server-input" value="ws://localhost:7777" placeholder="ws://IP:端口">
+          <input type="text" class="input server-input" value="${defaultServerUrl}" placeholder="ws://IP:端口">
         </div>
       ` : ''}
       <div class="input-group" style="margin-bottom: var(--spacing-4);">
@@ -691,6 +1346,12 @@ class App {
         return;
       }
 
+      this._saveRoomCreatePreset(gameType, {
+        settings,
+        maxPlayers,
+        serverUrl: isCloud ? '' : serverUrl
+      });
+
       modal.hide();
       // Store settings and config for when game starts
       this._pendingGameSettings = settings;
@@ -707,22 +1368,26 @@ class App {
   async _showJoinRoomDialog() {
     const modal = getModal();
     const content = document.createElement('div');
+    const prefill = this._joinRoomPrefill;
+    this._joinRoomPrefill = null;
 
     const isCloud = this.mode === 'cloud';
+    const defaultServerUrl = prefill?.serverUrl || 'ws://localhost:7777';
+    const defaultRoomId = prefill?.roomId || '';
     const defaultNickname = isCloud
       ? (this.authService?.getCurrentUser()?.nickname || '')
-      : this.config.game.defaultNickname;
+      : (prefill?.nickname || this.config.game.defaultNickname);
 
     content.innerHTML = `
       ${!isCloud ? `
         <div class="input-group" style="margin-bottom: var(--spacing-4);">
           <label class="input-label">服务器地址</label>
-          <input type="text" class="input server-input" value="ws://localhost:7777" placeholder="ws://IP:端口">
+          <input type="text" class="input server-input" value="${defaultServerUrl}" placeholder="ws://IP:端口">
         </div>
       ` : ''}
       <div class="input-group" style="margin-bottom: var(--spacing-4);">
         <label class="input-label">房间 ID</label>
-        <input type="text" class="input room-input" placeholder="输入房间ID">
+        <input type="text" class="input room-input" value="${defaultRoomId}" placeholder="输入房间ID">
       </div>
       <div class="input-group" style="margin-bottom: var(--spacing-4);">
         <label class="input-label">你的昵称</label>
@@ -759,6 +1424,9 @@ class App {
     showLoading('连接服务器...');
 
     try {
+      if (this.mode === 'local') {
+        this._refreshSessionId();
+      }
       if (this.mode === 'cloud') {
         this.network = new CloudNetworkClient(getSupabaseClient());
       } else {
@@ -770,18 +1438,24 @@ class App {
 
       this._setupNetworkHandlers();
 
-      this.network.joinRoom(roomId, nickname, gameType);
+      const reconnectSessionId = this.mode === 'local' ? this.sessionId : null;
+      this.network.joinRoom(roomId, nickname, gameType, reconnectSessionId);
 
       this.currentRoom = {
         id: roomId,
         gameType,
         maxPlayers,
         supportsAI,
+        nickname,
         players: [{ id: this.playerId, nickname, isHost: true }],
         aiPlayers: [], // AI players managed by host
         gameConfig: this._pendingGameConfig || this._getGameConfig(gameType),
-        gameSettings: this._pendingGameSettings || {}
+        gameSettings: this._pendingGameSettings || {},
+        returnToRoomPhase: false,
+        returnStatus: { [this.playerId]: true },
+        allPlayersReturned: true
       };
+      this._saveReconnectContext();
 
       hideLoading();
       this._showWaitingRoom();
@@ -800,6 +1474,9 @@ class App {
     showLoading('连接服务器...');
 
     try {
+      if (this.mode === 'local') {
+        this._refreshSessionId();
+      }
       if (this.mode === 'cloud') {
         this.network = new CloudNetworkClient(getSupabaseClient());
       } else {
@@ -811,13 +1488,19 @@ class App {
 
       this._setupNetworkHandlers();
 
-      this.network.joinRoom(roomId, nickname, 'unknown');
+      const reconnectSessionId = this.mode === 'local' ? this.sessionId : null;
+      this.network.joinRoom(roomId, nickname, 'unknown', reconnectSessionId);
 
       this.currentRoom = {
         id: roomId,
         gameType: 'unknown',
-        players: []
+        nickname,
+        players: [],
+        returnToRoomPhase: false,
+        returnStatus: {},
+        allPlayersReturned: true
       };
+      this._saveReconnectContext();
 
       hideLoading();
       // Waiting room will be shown when PLAYER_JOINED is received
@@ -844,18 +1527,43 @@ class App {
       const gameSettings = hasLocalSettings
         ? existingSettings
         : (data.gameSettings || {});
+      const wasReturnToRoomPhase = !!this.currentRoom?.returnToRoomPhase;
+      const previousReturnStatus = this.currentRoom?.returnStatus || {};
+      const nextReturnStatus = {};
+      (data.players || []).forEach((player) => {
+        if (Object.prototype.hasOwnProperty.call(previousReturnStatus, player.id)) {
+          nextReturnStatus[player.id] = !!previousReturnStatus[player.id];
+          return;
+        }
+        // New players in non-started room are considered already back in room.
+        nextReturnStatus[player.id] = true;
+      });
+      const allPlayersReturned = wasReturnToRoomPhase
+        ? (data.players || []).length > 0
+          && (data.players || []).every(player => !!nextReturnStatus[player.id])
+        : true;
 
       this.currentRoom = {
         ...this.currentRoom,
         players: data.players,
         aiPlayers: data.aiPlayers || this.currentRoom?.aiPlayers || [],
-        gameSettings
+        gameSettings,
+        returnToRoomPhase: wasReturnToRoomPhase,
+        returnStatus: nextReturnStatus,
+        allPlayersReturned
       };
+      this._saveReconnectContext();
 
       if (!this.currentView || !(this.currentView instanceof WaitingRoom)) {
         this._showWaitingRoom();
       } else {
         this.currentView.updatePlayers(data.players);
+        if (this.currentRoom.returnToRoomPhase) {
+          this.currentView.updateReturnStatus(
+            this.currentRoom.returnStatus || {},
+            this.currentRoom.allPlayersReturned
+          );
+        }
         // Sync AI players if provided
         if (data.aiPlayers) {
           this.currentView.updateAIPlayers(data.aiPlayers);
@@ -883,10 +1591,26 @@ class App {
     net.onMessage('PLAYER_LEFT', (data) => {
       if (this.currentRoom) {
         this.currentRoom.players = data.players;
+        if (this.currentRoom.returnToRoomPhase) {
+          const nextReturnStatus = {};
+          const previousReturnStatus = this.currentRoom.returnStatus || {};
+          (data.players || []).forEach((player) => {
+            nextReturnStatus[player.id] = !!previousReturnStatus[player.id];
+          });
+          this.currentRoom.returnStatus = nextReturnStatus;
+          this.currentRoom.allPlayersReturned = (data.players || []).length > 0
+            && (data.players || []).every(player => !!nextReturnStatus[player.id]);
+        }
       }
 
       if (this.currentView instanceof WaitingRoom) {
         this.currentView.updatePlayers(data.players);
+        if (this.currentRoom?.returnToRoomPhase) {
+          this.currentView.updateReturnStatus(
+            this.currentRoom.returnStatus || {},
+            this.currentRoom.allPlayersReturned
+          );
+        }
         this.currentView.addSystemMessage(`玩家离开了房间`);
       }
     });
@@ -897,8 +1621,11 @@ class App {
 
       // Disconnect and return to lobby
       if (this.network) {
+        this._manualDisconnect = true;
         this.network.disconnect();
       }
+      this._cancelReconnectTimers();
+      this._clearReconnectContext();
       this.currentRoom = null;
       this.currentGame = null;
       this.showLobby();
@@ -944,6 +1671,7 @@ class App {
           this.currentRoom.maxPlayers = metaMaxPlayers;
         }
       }
+      this._saveReconnectContext({ gameType: this.currentRoom?.gameType || 'unknown' });
 
       if (this.currentView instanceof WaitingRoom) {
         this.currentView.updateGameSettings(gameSettings);
@@ -960,8 +1688,40 @@ class App {
       const settings = data.gameSettings || this._pendingGameSettings || {};
       // Store for display in GameBoard
       this._currentGameSettings = settings;
+      this._saveReconnectContext({ gameType: data.gameType });
       // Use initialState from host if provided
       this._startGame(data.gameType, players, 'online', settings, data.initialState);
+    });
+
+    net.onMessage('RETURN_TO_ROOM_STATUS', (data) => {
+      if (!this.currentRoom) {
+        return;
+      }
+
+      const statusPlayers = Array.isArray(data?.players) ? data.players : [];
+      const roomPlayers = statusPlayers.map(player => ({
+        id: player.id,
+        nickname: player.nickname,
+        isHost: player.isHost
+      }));
+      const statusByPlayer = {};
+      roomPlayers.forEach((player, index) => {
+        statusByPlayer[player.id] = !!statusPlayers[index]?.returned;
+      });
+
+      this.currentRoom.players = roomPlayers;
+      this.currentRoom.returnToRoomPhase = true;
+      this.currentRoom.returnStatus = statusByPlayer;
+      this.currentRoom.allPlayersReturned = typeof data?.allReturned === 'boolean'
+        ? data.allReturned
+        : roomPlayers.length > 0 && roomPlayers.every(player => !!statusByPlayer[player.id]);
+
+      if (this.currentView instanceof WaitingRoom) {
+        this.currentView.updatePlayers(roomPlayers);
+        this.currentView.updateReturnStatus(statusByPlayer, this.currentRoom.allPlayersReturned);
+      }
+
+      this._promptReturnToRoomIfNeeded();
     });
 
     net.onMessage('GAME_STATE_UPDATE', (data) => {
@@ -992,7 +1752,44 @@ class App {
       showNotification(data.message, 'error');
     });
 
+    net.onMessage('RECONNECT_ACCEPTED', () => {
+      this._handleReconnectAccepted();
+    });
+
+    net.onMessage('RECONNECT_REJECTED', (data) => {
+      if (!this._isReconnecting) return;
+      this._handleReconnectFailure(data?.message || data?.reasonCode || '服务器拒绝重连');
+    });
+
+    net.onMessage('GAME_SNAPSHOT', (data) => {
+      this._handleGameSnapshot(data);
+    });
+
+    net.onMessage('PLAYER_RECONNECTED', (data, message) => {
+      if (this.currentRoom && Array.isArray(data?.players)) {
+        this.currentRoom.players = data.players;
+      }
+      if (message?.playerId && message.playerId !== this.playerId) {
+        showToast(`玩家 ${message.playerId.slice(0, 8)} 已重连`);
+      }
+    });
+
     net.on('disconnected', () => {
+      if (this._manualDisconnect) {
+        this._manualDisconnect = false;
+        return;
+      }
+
+      if (this._canAttemptReconnect()) {
+        showNotification('与服务器断开连接，正在尝试重连', 'warning');
+        this._attemptReconnect();
+        return;
+      }
+
+      this._cancelReconnectTimers();
+      this._clearReconnectContext();
+      this.currentRoom = null;
+      this.currentGame = null;
       showNotification('与服务器断开连接', 'warning');
       this.showLobby();
     });
@@ -1008,6 +1805,12 @@ class App {
    */
   _showWaitingRoom() {
     this._clearView();
+    const canSyncRoomSettings = () => {
+      if (!this.currentRoom?.returnToRoomPhase) {
+        return true;
+      }
+      return !!this.currentRoom?.allPlayersReturned;
+    };
 
     this.currentView = new WaitingRoom({
       room: this.currentRoom,
@@ -1022,6 +1825,14 @@ class App {
 
           if (totalPlayers !== requiredPlayers) {
             showToast(`需要 ${requiredPlayers} 名玩家才能开始（当前 ${totalPlayers} 人）`);
+            return;
+          }
+
+          const returnStatus = this.currentRoom.returnStatus || {};
+          const allPlayersReturned = !this.currentRoom.returnToRoomPhase
+            || humanPlayers.every(player => !!returnStatus[player.id]);
+          if (this.currentRoom.returnToRoomPhase && !allPlayersReturned) {
+            showToast('等待所有玩家返回房间后可开始新一局');
             return;
           }
 
@@ -1043,9 +1854,12 @@ class App {
       },
       onLeave: () => {
         if (this.network) {
+          this._manualDisconnect = true;
           this.network.leaveRoom();
           this.network.disconnect();
         }
+        this._cancelReconnectTimers();
+        this._clearReconnectContext();
         this.currentRoom = null;
         this.showLobby();
       },
@@ -1117,6 +1931,10 @@ class App {
       onSettingsChange: (settings) => {
         // Update local room settings
         this.currentRoom.gameSettings = settings;
+        if (!canSyncRoomSettings()) {
+          showToast('请等待所有玩家返回房间后再修改设置');
+          return;
+        }
         // Sync to server for other players (include room metadata)
         if (this.network?.isConnected()) {
           this.network.send('GAME_SETTINGS_UPDATE', {
@@ -1134,7 +1952,7 @@ class App {
 
     // Host sends initial GAME_SETTINGS_UPDATE so server persists settings
     // and late-joining players receive them
-    if (this._isHost() && this.network?.isConnected()) {
+    if (this._isHost() && this.network?.isConnected() && canSyncRoomSettings()) {
       const settings = this.currentRoom.gameSettings || {};
       this.network.send('GAME_SETTINGS_UPDATE', {
         gameSettings: {

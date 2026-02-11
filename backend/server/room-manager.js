@@ -6,7 +6,7 @@
  * - playerRooms: Map<playerId, roomId>
  *
  * Room {
- *   id, gameType, host, players[], createdAt, gameStarted
+ *   id, gameType, host, players[], createdAt, gameStarted, returnStatus, disconnectedPlayers
  * }
  *
  * Player {
@@ -49,6 +49,14 @@ export class RoomManager {
       players: [],
       aiPlayers: [],
       gameSettings: {},
+      returnStatus: new Map(), // playerId -> hasReturnedToRoom
+      disconnectedPlayers: new Set(), // playerId currently disconnected but recoverable
+      reconnectSessions: new Map(), // playerId -> { sessionId, nickname, expiresAt }
+      gameSnapshot: {
+        gameState: null,
+        lastAction: null,
+        lastActionId: null
+      },
       createdAt: Date.now(),
       gameStarted: false
     };
@@ -114,6 +122,11 @@ export class RoomManager {
 
     room.players.push(player);
     this.playerRooms.set(playerId, roomId);
+    room.disconnectedPlayers.delete(playerId);
+    // Pre-game lobby players are implicitly "in room" state.
+    if (!room.gameStarted) {
+      room.returnStatus.set(playerId, true);
+    }
 
     info('Player joined room', { roomId, playerId, nickname });
     return { success: true, isNewRoom };
@@ -139,6 +152,8 @@ export class RoomManager {
     const wasHost = room.host === playerId;
     room.players.splice(playerIndex, 1);
     this.playerRooms.delete(playerId);
+    room.returnStatus.delete(playerId);
+    room.disconnectedPlayers.delete(playerId);
 
     info('Player removed from room', { roomId, playerId, wasHost });
 
@@ -156,6 +171,10 @@ export class RoomManager {
       room.host = newHost;
       room.players[0].isHost = true;
       info('Host transferred', { roomId, newHost });
+    }
+
+    if (room.gameStarted && this._areAllPlayersReturned(room)) {
+      room.gameStarted = false;
     }
 
     return { success: true, wasHost, newHost, roomDeleted: false };
@@ -232,8 +251,103 @@ export class RoomManager {
       return false;
     }
     room.gameStarted = true;
+    room.returnStatus = new Map(room.players.map(player => [player.id, false]));
+    room.disconnectedPlayers = new Set();
     info('Game started in room', { roomId });
     return true;
+  }
+
+  /**
+   * Mark a connected in-room player as temporarily disconnected (recoverable).
+   * @param {string} roomId - Room ID
+   * @param {string} playerId - Player ID
+   * @returns {{ success: boolean, error?: string }}
+   */
+  markPlayerDisconnected(roomId, playerId) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const playerInRoom = room.players.some(player => player.id === playerId);
+    if (!playerInRoom) {
+      return { success: false, error: 'Player not in room' };
+    }
+
+    if (!(room.disconnectedPlayers instanceof Set)) {
+      room.disconnectedPlayers = new Set();
+    }
+
+    room.disconnectedPlayers.add(playerId);
+    // A disconnected player is not considered "returned to room".
+    room.returnStatus.set(playerId, false);
+    return { success: true };
+  }
+
+  /**
+   * Mark a player as returned to room after a finished round
+   * When all in-room players returned, room becomes startable again.
+   * @param {string} roomId - Room ID
+   * @param {string} playerId - Player ID
+   * @returns {{ success: boolean, error?: string, allReturned?: boolean }}
+   */
+  markPlayerReturned(roomId, playerId) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const playerInRoom = room.players.some(player => player.id === playerId);
+    if (!playerInRoom) {
+      return { success: false, error: 'Player not in room' };
+    }
+
+    if (!room.returnStatus || !(room.returnStatus instanceof Map)) {
+      room.returnStatus = new Map();
+    }
+
+    for (const player of room.players) {
+      if (!room.returnStatus.has(player.id)) {
+        room.returnStatus.set(player.id, false);
+      }
+    }
+
+    room.returnStatus.set(playerId, true);
+    const allReturned = this._areAllPlayersReturned(room);
+    if (allReturned) {
+      room.gameStarted = false;
+    }
+
+    return { success: true, allReturned };
+  }
+
+  /**
+   * Get room return-to-room status payload
+   * @param {string} roomId - Room ID
+   * @returns {{ players: Array, allReturned: boolean, returnedCount: number, totalPlayers: number }|null}
+   */
+  getReturnToRoomStatus(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return null;
+    }
+
+    const players = room.players.map(player => ({
+      id: player.id,
+      nickname: player.nickname,
+      isHost: player.isHost,
+      returned: !!room.returnStatus.get(player.id)
+    }));
+
+    const returnedCount = players.filter(player => player.returned).length;
+    const totalPlayers = players.length;
+
+    return {
+      players,
+      allReturned: totalPlayers > 0 && returnedCount === totalPlayers,
+      returnedCount,
+      totalPlayers
+    };
   }
 
   /**
@@ -302,6 +416,176 @@ export class RoomManager {
     room.gameSettings = gameSettings || {};
     debug('Game settings updated', { roomId });
     return true;
+  }
+
+  /**
+   * Store/refresh reconnect session for a disconnected player
+   * @param {string} roomId - Room ID
+   * @param {string} playerId - Player ID
+   * @param {string} nickname - Player nickname
+   * @param {string} sessionId - Session ID
+   * @returns {boolean} Success
+   */
+  createReconnectSession(roomId, playerId, nickname, sessionId) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return false;
+    }
+
+    this._pruneExpiredReconnectSessions(room);
+    room.reconnectSessions.set(playerId, {
+      sessionId,
+      nickname,
+      expiresAt: Date.now() + config.reconnectSessionTtlMs
+    });
+    debug('Reconnect session created', { roomId, playerId });
+    return true;
+  }
+
+  /**
+   * Reconnect a previously disconnected player to an in-progress room
+   * @param {string} roomId - Room ID
+   * @param {string} playerId - Player ID
+   * @param {string} sessionId - Session ID
+   * @returns {{ success: boolean, code?: string, error?: string }}
+   */
+  reconnectPlayer(roomId, playerId, sessionId) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return { success: false, code: 'GAME_NOT_FOUND', error: 'Room not found' };
+    }
+
+    this._pruneExpiredReconnectSessions(room);
+
+    const reconnectSession = room.reconnectSessions.get(playerId);
+    if (!reconnectSession) {
+      return { success: false, code: 'RECONNECT_SESSION_EXPIRED', error: 'Reconnect session not found' };
+    }
+
+    if (reconnectSession.sessionId !== sessionId) {
+      return { success: false, code: 'RECONNECT_IDENTITY_MISMATCH', error: 'Session identity mismatch' };
+    }
+
+    const existingPlayer = room.players.find(p => p.id === playerId);
+    if (existingPlayer) {
+      if (!room.disconnectedPlayers.has(playerId)) {
+        return { success: false, code: 'INVALID_ACTION', error: 'Player already connected' };
+      }
+
+      room.disconnectedPlayers.delete(playerId);
+      this.playerRooms.set(playerId, roomId);
+      room.returnStatus.set(playerId, false);
+      room.reconnectSessions.delete(playerId);
+
+      info('Player reconnected to room', { roomId, playerId });
+      return { success: true };
+    }
+
+    if (room.players.length >= config.maxPlayersPerRoom) {
+      return { success: false, code: 'ROOM_FULL', error: 'Room is full' };
+    }
+
+    const player = {
+      id: playerId,
+      nickname: reconnectSession.nickname,
+      isHost: playerId === room.host,
+      joinedAt: Date.now()
+    };
+
+    room.players.push(player);
+    this.playerRooms.set(playerId, roomId);
+    room.disconnectedPlayers.delete(playerId);
+    room.returnStatus.set(playerId, false);
+    room.reconnectSessions.delete(playerId);
+
+    info('Player reconnected to room', { roomId, playerId });
+    return { success: true };
+  }
+
+  /**
+   * Update room snapshot used for reconnect synchronization
+   * @param {string} roomId - Room ID
+   * @param {Object} snapshot - Partial snapshot data
+   * @returns {boolean} Success
+   */
+  updateGameSnapshot(roomId, snapshot) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return false;
+    }
+
+    const nextSnapshot = snapshot || {};
+    room.gameSnapshot = {
+      ...room.gameSnapshot,
+      ...nextSnapshot
+    };
+    return true;
+  }
+
+  /**
+   * Get reconnect snapshot for a room
+   * @param {string} roomId - Room ID
+   * @returns {Object|null} Snapshot
+   */
+  getGameSnapshot(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return null;
+    }
+
+    return {
+      roomId,
+      gameType: room.gameType,
+      players: room.players.map(p => ({
+        id: p.id,
+        nickname: p.nickname,
+        isHost: p.isHost
+      })),
+      gameSettings: { ...(room.gameSettings || {}) },
+      gameState: room.gameSnapshot?.gameState || null,
+      lastAction: room.gameSnapshot?.lastAction || null,
+      lastActionId: room.gameSnapshot?.lastActionId || null
+    };
+  }
+
+  /**
+   * Remove expired reconnect sessions
+   * @private
+   * @param {Object} room - Room object
+   */
+  _pruneExpiredReconnectSessions(room) {
+    const now = Date.now();
+    for (const [playerId, session] of [...room.reconnectSessions.entries()]) {
+      if (!session || session.expiresAt <= now) {
+        room.reconnectSessions.delete(playerId);
+        if (room.disconnectedPlayers?.has(playerId)) {
+          room.disconnectedPlayers.delete(playerId);
+          const playerIndex = room.players.findIndex(player => player.id === playerId);
+          if (playerIndex !== -1) {
+            room.players.splice(playerIndex, 1);
+          }
+          room.returnStatus.delete(playerId);
+          this.playerRooms.delete(playerId);
+        }
+      }
+    }
+  }
+
+  /**
+   * Check whether all currently in-room players have returned
+   * @private
+   * @param {Object} room - Room object
+   * @returns {boolean}
+   */
+  _areAllPlayersReturned(room) {
+    if (!room.players.length) {
+      return false;
+    }
+    return room.players.every((player) => {
+      const returned = !!room.returnStatus.get(player.id);
+      const connected = !room.disconnectedPlayers.has(player.id);
+      return returned && connected;
+    });
   }
 }
 

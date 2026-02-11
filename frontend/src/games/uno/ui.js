@@ -573,9 +573,16 @@ export class UnoUI {
     unoBtn.disabled = myHand.length > 2;
     unoBtn.addEventListener('click', () => this._callUno());
 
+    // Test helper: force current player to win immediately
+    const forceWinBtn = document.createElement('button');
+    forceWinBtn.className = 'btn btn-danger';
+    forceWinBtn.textContent = '立刻胜利(测试)';
+    forceWinBtn.addEventListener('click', () => this._forceWinForTest());
+
     div.appendChild(drawBtn);
     div.appendChild(skipBtn);
     div.appendChild(unoBtn);
+    div.appendChild(forceWinBtn);
 
     return div;
   }
@@ -676,6 +683,17 @@ export class UnoUI {
   _callUno() {
     this.onAction?.({
       actionType: UNO_ACTIONS.CALL_UNO,
+      actionData: {}
+    });
+  }
+
+  /**
+   * Force-win helper for manual testing
+   * @private
+   */
+  _forceWinForTest() {
+    this.onAction?.({
+      actionType: UNO_ACTIONS.TEST_FORCE_WIN,
       actionData: {}
     });
   }

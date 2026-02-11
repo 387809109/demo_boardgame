@@ -4,6 +4,7 @@
  */
 
 const CONFIG_KEY = 'boardgame_config';
+const ROOM_CREATE_PRESET_KEY = 'boardgame_room_create_presets';
 
 /**
  * Get default configuration
@@ -108,6 +109,58 @@ export function clearSessionData(key) {
 }
 
 /**
+ * Save room-create preset for a specific game+mode key
+ * @param {string} key - Preset key (e.g. "local:uno")
+ * @param {Object} preset - Preset payload
+ */
+export function saveRoomCreatePreset(key, preset) {
+  if (!key || !preset || typeof preset !== 'object') {
+    return;
+  }
+
+  try {
+    const data = localStorage.getItem(ROOM_CREATE_PRESET_KEY);
+    const allPresets = data ? JSON.parse(data) : {};
+    const nextPresets = (allPresets && typeof allPresets === 'object')
+      ? { ...allPresets, [key]: preset }
+      : { [key]: preset };
+
+    localStorage.setItem(ROOM_CREATE_PRESET_KEY, JSON.stringify(nextPresets));
+  } catch (err) {
+    console.error('Failed to save room-create preset:', err);
+  }
+}
+
+/**
+ * Load room-create preset for a specific game+mode key
+ * @param {string} key - Preset key (e.g. "local:uno")
+ * @returns {Object|null} Preset payload or null
+ */
+export function loadRoomCreatePreset(key) {
+  if (!key) {
+    return null;
+  }
+
+  try {
+    const data = localStorage.getItem(ROOM_CREATE_PRESET_KEY);
+    if (!data) {
+      return null;
+    }
+
+    const allPresets = JSON.parse(data);
+    if (!allPresets || typeof allPresets !== 'object') {
+      return null;
+    }
+
+    const preset = allPresets[key];
+    return preset && typeof preset === 'object' ? preset : null;
+  } catch (err) {
+    console.error('Failed to load room-create preset:', err);
+    return null;
+  }
+}
+
+/**
  * Export config to downloadable JSON file
  */
 export function exportConfig() {
@@ -176,6 +229,8 @@ export default {
   saveSessionData,
   loadSessionData,
   clearSessionData,
+  saveRoomCreatePreset,
+  loadRoomCreatePreset,
   exportConfig,
   importConfig
 };

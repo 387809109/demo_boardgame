@@ -481,6 +481,30 @@
 
 ---
 
+## Phase 7: 断线重连支持 (P1)
+
+### 7.1 会话恢复协议
+
+- [x] **T-B114** 实现断线重连会话恢复 ✅（本地 WebSocket 模式）
+  - 新增消息类型: `RECONNECT_REQUEST`, `RECONNECT_ACCEPTED`, `RECONNECT_REJECTED`, `GAME_SNAPSHOT`
+  - `RoomManager` 支持已开局房间的“玩家回填”而非直接拒绝 `gameStarted` 房间加入
+  - 为房间维护短期会话窗口（TTL），在窗口内允许同 `playerId/sessionId` 重连
+  - `MessageRouter` 增加重连校验流程:
+    - 校验 roomId/playerId/sessionId
+    - 成功后广播 `PLAYER_RECONNECTED`
+    - 失败返回明确原因（会话过期、房间不存在、身份冲突）
+  - 验收:
+    - 非房主断线后可在 TTL 内恢复连接与玩家身份
+    - 超时/无效重连请求会被拒绝并返回错误码
+    - 不破坏现有 `JOIN/LEAVE/PLAYER_LEFT` 流程
+
+- [x] **T-B115** 断线重连测试 ✅（单元 + 集成）
+  - 覆盖 `ConnectionManager` / `RoomManager` / `MessageRouter` 单元测试
+  - 覆盖服务器集成测试（断线、重连、超时、房间销毁）
+  - 验证重连后广播与玩家列表一致性
+
+---
+
 ## 任务依赖图
 
 ```
@@ -498,7 +522,7 @@ T-B050 → T-B051
     ↓
 T-B060 → T-B062 → T-B064 → T-B066 → T-B068 → T-B070
     ↓
-T-B080 → T-B082
+T-B080 → T-B082 → T-B114 → T-B115
     ↓
 T-B090 → T-B092 → T-B093
     ↓

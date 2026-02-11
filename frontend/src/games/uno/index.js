@@ -26,7 +26,8 @@ export const UNO_ACTIONS = {
   DRAW_CARD: 'DRAW_CARD',
   SKIP_TURN: 'SKIP_TURN',
   CALL_UNO: 'CALL_UNO',
-  CHALLENGE_UNO: 'CHALLENGE_UNO'
+  CHALLENGE_UNO: 'CHALLENGE_UNO',
+  TEST_FORCE_WIN: 'TEST_FORCE_WIN'
 };
 
 /**
@@ -132,8 +133,13 @@ export class UnoGame extends GameEngine {
       return { valid: false, error: '游戏未在进行中' };
     }
 
-    // Check if it's the player's turn (except for CALL_UNO which can happen anytime)
-    if (actionType !== UNO_ACTIONS.CALL_UNO && state.currentPlayer !== playerId) {
+    // Check if it's the player's turn.
+    // CALL_UNO and TEST_FORCE_WIN are allowed anytime.
+    if (
+      actionType !== UNO_ACTIONS.CALL_UNO
+      && actionType !== UNO_ACTIONS.TEST_FORCE_WIN
+      && state.currentPlayer !== playerId
+    ) {
       return { valid: false, error: '不是你的回合' };
     }
 
@@ -212,6 +218,13 @@ export class UnoGame extends GameEngine {
           return { valid: false, error: '该玩家已经喊了UNO' };
         }
 
+        return { valid: true };
+      }
+
+      case UNO_ACTIONS.TEST_FORCE_WIN: {
+        if (!state.hands[playerId]) {
+          return { valid: false, error: '玩家不在对局中' };
+        }
         return { valid: true };
       }
 
@@ -373,6 +386,21 @@ export class UnoGame extends GameEngine {
           playerId,
           targetPlayerId,
           penaltyCount
+        };
+        break;
+      }
+
+      case UNO_ACTIONS.TEST_FORCE_WIN: {
+        // Testing helper: instantly empties player's hand and triggers normal end-check.
+        newState.hands[playerId] = [];
+        const playerIndex = newState.players.findIndex(p => p.id === playerId);
+        if (playerIndex !== -1) {
+          newState.players[playerIndex].cardCount = 0;
+        }
+        newState.drawPending = 0;
+        newState.lastAction = {
+          type: 'test-force-win',
+          playerId
         };
         break;
       }

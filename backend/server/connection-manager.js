@@ -2,7 +2,7 @@
  * ConnectionManager - Manages WebSocket connections and player bindings
  *
  * Data structures:
- * - connections: Map<connectionId, { ws, playerId, connectedAt }>
+ * - connections: Map<connectionId, { ws, playerId, sessionId, connectedAt, lastActivity }>
  * - playerConnections: Map<playerId, connectionId>
  */
 
@@ -38,6 +38,7 @@ export class ConnectionManager {
     this.connections.set(connId, {
       ws,
       playerId: null,
+      sessionId: null,
       connectedAt: now,
       lastActivity: now
     });
@@ -160,6 +161,32 @@ export class ConnectionManager {
   getPlayerId(connId) {
     const conn = this.connections.get(connId);
     return conn ? conn.playerId : null;
+  }
+
+  /**
+   * Set session ID for a connection
+   * @param {string} connId - Connection ID
+   * @param {string} sessionId - Session ID
+   * @returns {boolean} Success
+   */
+  setSessionId(connId, sessionId) {
+    const conn = this.connections.get(connId);
+    if (!conn) {
+      return false;
+    }
+
+    conn.sessionId = sessionId;
+    return true;
+  }
+
+  /**
+   * Get session ID by connection ID
+   * @param {string} connId - Connection ID
+   * @returns {string|null} Session ID
+   */
+  getSessionId(connId) {
+    const conn = this.connections.get(connId);
+    return conn ? conn.sessionId : null;
   }
 
   /**
