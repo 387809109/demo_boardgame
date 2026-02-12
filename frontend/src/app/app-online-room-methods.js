@@ -455,8 +455,26 @@ export function registerAppOnlineRoomMethods(App, deps) {
         const players = data.initialState?.players || this.currentRoom?.players || [];
         // Store AI players info for simulation
         this._aiPlayers = data.aiPlayers || [];
-        // Use gameSettings from host if provided, otherwise use local pending settings
-        const settings = data.gameSettings || this._pendingGameSettings || {};
+        const payloadSettings = data?.gameSettings && typeof data.gameSettings === 'object'
+          ? data.gameSettings
+          : null;
+        // Local backend legacy payload puts settings under data.gameConfig.
+        const embeddedSettings = data?.gameConfig?.gameSettings && typeof data.gameConfig.gameSettings === 'object'
+          ? data.gameConfig.gameSettings
+          : null;
+        // Initial snapshot for many games carries resolved options in state.options.
+        const snapshotOptions = data?.initialState?.options && typeof data.initialState.options === 'object'
+          ? data.initialState.options
+          : null;
+        const settings = payloadSettings
+          || embeddedSettings
+          || snapshotOptions
+          || this._pendingGameSettings
+          || this.currentRoom?.gameSettings
+          || {};
+        if (this.currentRoom) {
+          this.currentRoom.gameSettings = { ...settings };
+        }
         // Store for display in GameBoard
         this._currentGameSettings = settings;
         this._saveReconnectContext({ gameType: data.gameType });

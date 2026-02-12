@@ -304,6 +304,11 @@ wss.on('connection', (ws, req) => {
   "playerId": "server",
   "data": {
     "gameType": "uno",
+    "gameSettings": {
+      "initialCards": 13,
+      "stackDrawCards": true,
+      "forcePlay": true
+    },
     "initialState": {
       "currentPlayer": "player-1",
       "turnOrder": ["player-1", "player-2", "player-3"],
@@ -314,6 +319,10 @@ wss.on('connection', (ws, req) => {
   }
 }
 ```
+
+**字段说明**:
+- `data.gameSettings`: 本局生效的房间设置快照（建议客户端优先使用该字段恢复规则显示与本地初始化）
+- `data.initialState`: 对局初始状态快照（某些游戏会在 `initialState.options` 中携带等价设置）
 
 ---
 

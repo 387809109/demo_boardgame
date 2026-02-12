@@ -310,7 +310,7 @@
 
 ## 测试覆盖率
 
-### 前端测试统计 (519 tests passing)
+### 前端测试统计 (521 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -321,12 +321,13 @@
 | storage.test.js | 39 | ✅ |
 | validators.test.js | 75 | ✅ |
 | uno/index.test.js | 79 | ✅ |
+| uno/ui.test.js | 2 | ✅ |
 | uno/rules.test.js | 49 | ✅ |
 | waiting-room.test.js | 4 | ✅ |
 | werewolf/index.test.js | 101 | ✅ |
 | werewolf/ui.test.js | 3 | ✅ |
 | player-avatar.test.js | 4 | ✅ |
-| **总计** | **519** | ✅ |
+| **总计** | **521** | ✅ |
 
 ### 后端测试统计 (125 tests passing)
 
@@ -398,6 +399,12 @@
   - 将重连流程逻辑拆分到 `frontend/src/app/app-reconnect-methods.js`
   - `main.js` 从 `1755` 行降至 `826` 行，满足“单文件不超过 1000 行”要求
   - 前端验证通过：`npm run build`、`npm test`（`519` tests passing）
+
+- ✅ 联机开局设置一致性与 UNO 叠加交互修复
+  - 修复本地后端 `GAME_STARTED` 设置字段一致性，确保非房主端开局后规则栏与房主一致
+  - 前端 `GAME_STARTED` 增加多来源设置兜底（`gameSettings` / `gameConfig.gameSettings` / `initialState.options`）
+  - 修复 UNO 在 `drawPending > 0` 场景下前端误禁用叠加牌的问题，恢复 +2/+4 可点击叠加
+  - 新增回归测试 `frontend/src/games/uno/ui.test.js`，前端测试更新为 `521` 全通过
 
 ### 2026-02-11
 

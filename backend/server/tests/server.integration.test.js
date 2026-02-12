@@ -553,12 +553,13 @@ describe('GameServer Integration', () => {
         marker: 'initial'
       };
 
-      await sendAndReceive(host, {
+      const startResponse = await sendAndReceive(host, {
         type: 'START_GAME',
         timestamp: Date.now(),
         playerId: 'host-1',
         data: { gameConfig: { initialState } }
       }, 'GAME_STARTED');
+      expect(startResponse.data.gameSettings).toEqual(expect.objectContaining({ ruleSet: 'house' }));
 
       await waitForMessage(player, 'GAME_STARTED');
 

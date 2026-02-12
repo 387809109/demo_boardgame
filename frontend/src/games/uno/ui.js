@@ -346,9 +346,7 @@ export class UnoUI {
     const fragment = document.createDocumentFragment();
 
     displayOrder.forEach(({ card }) => {
-      const playable = isMyTurn &&
-                       this.state.drawPending === 0 &&
-                       canPlayCard(card, topCard, this.state.currentColor);
+      const playable = this._isCardPlayable(card, isMyTurn, topCard);
 
       // Store card data for event delegation
       this._cardDataMap.set(card.id, card);
@@ -363,6 +361,39 @@ export class UnoUI {
     });
 
     this._handContainer.appendChild(fragment);
+  }
+
+  /**
+   * Whether a hand card is playable in current turn context.
+   * Supports stacked response to pending +2/+4 when enabled.
+   * @private
+   * @param {Object} card
+   * @param {boolean} isMyTurn
+   * @param {Object|null} topCard
+   * @returns {boolean}
+   */
+  _isCardPlayable(card, isMyTurn, topCard) {
+    if (!isMyTurn || !card || !topCard) {
+      return false;
+    }
+
+    if (this.state.drawPending > 0) {
+      if (!this.state.options?.stackDrawCards) {
+        return false;
+      }
+
+      if (topCard.type === CARD_TYPES.DRAW_TWO) {
+        return card.type === CARD_TYPES.DRAW_TWO || card.type === CARD_TYPES.WILD_DRAW_FOUR;
+      }
+
+      if (topCard.type === CARD_TYPES.WILD_DRAW_FOUR) {
+        return card.type === CARD_TYPES.WILD_DRAW_FOUR;
+      }
+
+      return false;
+    }
+
+    return canPlayCard(card, topCard, this.state.currentColor);
   }
 
   /**

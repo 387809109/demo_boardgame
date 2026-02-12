@@ -180,6 +180,16 @@ export class MessageRouter {
 
     info('Game started', { roomId, playerId });
 
+    const startPayload = data?.gameConfig || {};
+    const payloadGameSettings = startPayload.gameSettings && typeof startPayload.gameSettings === 'object'
+      ? startPayload.gameSettings
+      : null;
+    const roomGameSettings = this.roomManager.getGameSettings(roomId);
+    const gameSettings = payloadGameSettings || roomGameSettings || {};
+    if (Object.keys(gameSettings).length > 0) {
+      this.roomManager.setGameSettings(roomId, gameSettings);
+    }
+
     // Broadcast GAME_STARTED with initial state from host
     const players = this.roomManager.getPlayers(roomId);
     this.broadcast(roomId, {
@@ -188,9 +198,10 @@ export class MessageRouter {
       playerId: 'server',
       data: {
         gameType: room.gameType,
-        gameConfig: data?.gameConfig || {},
-        initialState: data?.gameConfig?.initialState || null,
-        aiPlayers: data?.gameConfig?.aiPlayers || [],
+        gameConfig: startPayload,
+        initialState: startPayload.initialState || null,
+        aiPlayers: startPayload.aiPlayers || [],
+        gameSettings,
         players: players.map(p => ({
           id: p.id,
           nickname: p.nickname,
@@ -200,7 +211,7 @@ export class MessageRouter {
     });
 
     this.roomManager.updateGameSnapshot(roomId, {
-      gameState: data?.gameConfig?.initialState || null,
+      gameState: startPayload.initialState || null,
       lastAction: null,
       lastActionId: null
     });
