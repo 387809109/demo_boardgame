@@ -7,6 +7,7 @@ import { getGameList } from '../game/registry.js';
 import { loadConfig } from '../utils/storage.js';
 import { debounce } from '../utils/render-scheduler.js';
 import { showQueryPanel } from '../components/query-panel.js';
+import { showChatPanel } from '../components/chat-panel.js';
 
 /**
  * Game Lobby - Main menu for selecting and starting games
@@ -150,6 +151,9 @@ export class GameLobby {
           </div>
           <button class="btn btn-secondary query-btn">
             <span>🔍</span> 查询
+          </button>
+          <button class="btn btn-secondary chat-btn">
+            <span>💬</span> 规则问答
           </button>
           <button class="btn btn-secondary join-room-btn">
             <span>🌐</span> 加入房间
@@ -437,6 +441,11 @@ export class GameLobby {
     // Query panel
     this.element.querySelector('.query-btn')?.addEventListener('click', () => {
       showQueryPanel();
+    });
+
+    // Chat panel
+    this.element.querySelector('.chat-btn')?.addEventListener('click', () => {
+      showChatPanel();
     });
 
     // Join room

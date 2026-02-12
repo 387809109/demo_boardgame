@@ -35,11 +35,13 @@ api/
 │       ├── index.js         # v1 路由聚合
 │       ├── health.js        # GET /api/v1/health
 │       ├── games.js         # 游戏元数据路由
-│       └── cards.js         # 卡牌数据路由
+│       ├── cards.js         # 卡牌数据路由
+│       └── chat.js          # AI 规则问答路由
 ├── services/
 │   ├── supabase.js          # 服务端 Supabase 客户端
 │   ├── card-service.js      # 卡牌查询逻辑
-│   └── game-service.js      # 游戏元数据逻辑
+│   ├── game-service.js      # 游戏元数据逻辑
+│   └── chat-service.js      # AI 对话服务 (OpenAI)
 ├── utils/
 │   ├── logger.js            # 日志工具
 │   ├── validator.js         # 请求校验
@@ -61,6 +63,9 @@ api/
 | GET | `/api/v1/games/:gameId/categories` | 卡牌类别列表 |
 | GET | `/api/v1/games/:gameId/cards` | 卡牌列表 (?category=&search=&limit=&offset=) |
 | GET | `/api/v1/games/:gameId/cards/:cardId` | 卡牌详情 |
+| POST | `/api/v1/chat` | AI 规则问答 (发送消息/创建会话) |
+| GET | `/api/v1/chat/:sessionId` | 获取对话历史 |
+| DELETE | `/api/v1/chat/:sessionId` | 删除对话会话 |
 
 ### 需认证端点 (Supabase JWT)
 
@@ -90,6 +95,15 @@ api/
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role 密钥 | 是 |
 | `SUPABASE_ANON_KEY` | Supabase anon 密钥 | 是 |
 | `ALLOWED_ORIGINS` | 允许的 CORS 域名 (逗号分隔) | 是 |
+| `OPENAI_API_KEY` | OpenAI API 密钥 (AI 对话功能) | 是* |
+| `OPENAI_MODEL` | 使用的模型 (默认 gpt-4o-mini) | 否 |
+| `OPENAI_MAX_TOKENS` | 单次回复最大 token (默认 1000) | 否 |
+| `OPENAI_TEMPERATURE` | 生成温度 (默认 0.3) | 否 |
+| `CHAT_SESSION_TTL_MS` | 会话超时 ms (默认 1800000) | 否 |
+| `CHAT_MAX_HISTORY` | 最大对话轮数 (默认 20) | 否 |
+| `CHAT_RATE_LIMIT` | 每分钟最大消息数 (默认 20) | 否 |
+
+> *AI 对话功能需配置 `OPENAI_API_KEY`，未配置时该端点返回 503
 
 ## 数据库表
 

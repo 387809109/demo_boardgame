@@ -29,5 +29,21 @@ export const config = {
   pagination: {
     defaultLimit: 20,
     maxLimit: 100
+  },
+
+  // OpenAI
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY || '',
+    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS, 10) || 1000,
+    temperature: parseFloat(process.env.OPENAI_TEMPERATURE) || 0.3,
+  },
+
+  // Chat
+  chat: {
+    sessionTtlMs: parseInt(process.env.CHAT_SESSION_TTL_MS, 10) || 30 * 60 * 1000,
+    maxHistory: parseInt(process.env.CHAT_MAX_HISTORY, 10) || 20,
+    maxSessionTokens: 50000,
+    rateLimit: parseInt(process.env.CHAT_RATE_LIMIT, 10) || 20,
   }
 };

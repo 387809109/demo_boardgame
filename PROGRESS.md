@@ -108,6 +108,7 @@
 | T-F123 | 移动端响应式布局适配 | ⬜ |
 | T-F124 | 游戏数据查询面板 (API 集成) | ✅ |
 | T-F125 | 联机断线重连（客户端） | 🔶（本地完成，云端待 T-C044） |
+| T-F126 | AI 规则问答面板 (Chat API 集成) | ✅ |
 
 ### Phase 6: 可选功能 ⬜ 未开始
 
@@ -277,8 +278,10 @@
 | T-A020~T-A024 | 数据端点（迁移、游戏/卡牌服务与路由） | ✅ |
 | T-A030~T-A031 | 部署配置（Render 配置与部署验证） | ✅ |
 | T-A040~T-A046 | 单元测试（21 tests） | ✅ |
+| T-AC001~T-AC006 | AI 规则问答 Step 1（29 tests） | ✅ |
 | T-A050~T-A058 | 卡牌数据填充 | ⬜ |
 | T-A060~T-A066 | AI/MCP 接口 | ⬜ |
+| T-AC009~T-AC013 | AI 规则问答 Step 2 (RAG-lite) | ⬜ |
 
 ### API 端点
 
@@ -294,11 +297,15 @@
 | `PUT /api/v1/games/:id` | JWT | 更新游戏 |
 | `POST /api/v1/games/:id/cards` | JWT | 创建卡牌 |
 | `PUT /api/v1/games/:id/cards/:cardId` | JWT | 更新卡牌 |
+| `POST /api/v1/chat` | - | AI 规则问答 (发送消息) |
+| `GET /api/v1/chat/:sessionId` | - | 获取对话历史 |
+| `DELETE /api/v1/chat/:sessionId` | - | 删除对话会话 |
 
 ### 待办
 
 - T-A050~T-A058：卡牌数据填充 (按游戏分别实现)
 - T-A060~T-A066：AI/MCP 接口实现
+- T-AC009~T-AC013：AI 规则问答 Step 2 — 规则知识库增强 (RAG-lite)
 
 ---
 
@@ -387,6 +394,24 @@
 ## 最近完成的任务
 
 ### 2026-02-12
+
+- ✅ T-F126 前端 AI 规则问答面板
+  - 新增 `frontend/src/components/chat-panel.js` — 聊天面板组件 (模态对话框、消息气泡、建议问题、会话管理)
+  - 修改 `frontend/src/utils/api-client.js` — 新增 del/sendChatMessage/getChatHistory/deleteChatSession
+  - 修改 `frontend/src/layout/game-lobby.js` — 大厅添加「💬 规则问答」按钮
+  - 修改 `frontend/src/layout/game-board.js` — 游戏内顶栏添加「💬」规则问答按钮
+
+- ✅ AI 规则问答 Step 1 完成 (T-AC001~T-AC008)
+  - 新增 `api/services/chat-service.js` — 对话服务 (会话管理、OpenAI API 调用、历史维护、Token 统计)
+  - 新增 `api/routes/v1/chat.js` — 对话路由 (POST/GET/DELETE, 独立限流, 消息校验)
+  - 修改 `api/config.js` — 新增 openai/chat 配置区块
+  - 修改 `api/routes/v1/index.js` — 注册 chat 路由
+  - 修改 `api/.env.example` — 新增 OPENAI_API_KEY 等环境变量
+  - 安装 `openai` npm 依赖
+  - 新增 `api/tests/services/chat-service.test.js` — 14 个单元测试
+  - 新增 `api/tests/routes/v1/chat.test.js` — 12 个集成测试
+  - API 全部 50 个测试通过 (原有 24 + 新增 26)
+  - PRD 文档: `docs/prd/api/AI_CHAT_PRD.md` v1.1.0
 
 - ✅ 前端入口文件模块化拆分（`docs/dev_rules/CODE_STYLE_GUIDE.md` 合规）
   - 将 `frontend/src/main.js` 中联机房间逻辑拆分到 `frontend/src/app/app-online-room-methods.js`

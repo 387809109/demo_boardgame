@@ -95,6 +95,15 @@ export async function post(endpoint, body) {
 }
 
 /**
+ * DELETE request
+ * @param {string} endpoint
+ * @returns {Promise<Object>}
+ */
+export async function del(endpoint) {
+  return request(endpoint, { method: 'DELETE' });
+}
+
+/**
  * Check if API is configured
  * @returns {boolean}
  */
@@ -144,13 +153,51 @@ export async function fetchCards(gameId, options = {}) {
   return get(`/api/v1/games/${gameId}/cards`, options);
 }
 
+// Chat API functions
+
+/**
+ * Send a chat message and get AI reply
+ * @param {string} message - User message (1-1000 chars)
+ * @param {string} [sessionId] - Existing session ID to continue
+ * @returns {Promise<{ data: { sessionId: string, reply: string } }>}
+ */
+export async function sendChatMessage(message, sessionId) {
+  const body = { message };
+  if (sessionId) {
+    body.sessionId = sessionId;
+  }
+  return post('/api/v1/chat', body);
+}
+
+/**
+ * Get chat session history
+ * @param {string} sessionId
+ * @returns {Promise<{ data: { sessionId: string, messages: Array, tokenUsage: number } }>}
+ */
+export async function getChatHistory(sessionId) {
+  return get(`/api/v1/chat/${sessionId}`);
+}
+
+/**
+ * Delete a chat session
+ * @param {string} sessionId
+ * @returns {Promise<{ data: { deleted: boolean } }>}
+ */
+export async function deleteChatSession(sessionId) {
+  return del(`/api/v1/chat/${sessionId}`);
+}
+
 export default {
   get,
   post,
+  del,
   isApiConfigured,
   getApiBaseUrl,
   fetchGames,
   fetchGame,
   fetchCards,
+  sendChatMessage,
+  getChatHistory,
+  deleteChatSession,
   ApiError
 };

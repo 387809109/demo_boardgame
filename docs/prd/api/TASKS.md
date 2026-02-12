@@ -16,6 +16,8 @@
 | Phase A5: 测试 | ✅ 完成 | 21 个单元测试通过 |
 | Phase A6: 卡牌数据 | ⬜ 待开发 | 各游戏卡牌数据填充 |
 | Phase A7: AI/MCP 接口 | ⬜ 待开发 | AI 分析、走法建议、MCP 工具 |
+| Phase AC1~AC3: AI 对话 Step 1 | ✅ 完成 | AI 规则问答核心 (50 个测试通过) |
+| Phase AC4: AI 对话 Step 2 | ⬜ 待开发 | 规则知识库增强 (RAG-lite) |
 
 ---
 
@@ -173,6 +175,31 @@
   - `suggest_move` - 建议走法
 
 - [ ] **T-A066** MCP 工具测试
+
+---
+
+## Phase AC: AI 规则问答对话
+
+> 详细 PRD 见: `docs/prd/api/AI_CHAT_PRD.md`
+
+### Step 1: AI 对话核心 ✅ 完成
+
+- [x] **T-AC001** `config.js` 新增 openai/chat 配置区块 + `.env.example` 更新
+- [x] **T-AC002** 安装 `openai` npm 依赖
+- [x] **T-AC003** 创建 `services/chat-service.js` 对话服务
+- [x] **T-AC004** 创建 `routes/v1/chat.js` 对话路由 + 注册到 app
+- [x] **T-AC005** chat-service 单元测试 `tests/services/chat-service.test.js`
+- [x] **T-AC006** chat 路由集成测试 `tests/routes/v1/chat.test.js`
+- [x] **T-AC007** 更新 TASKS.md 和 PROGRESS.md
+- [x] **T-AC008** 更新 README.md 端点文档
+
+### Step 2: 规则知识库增强 ⬜ 待开发
+
+- [ ] **T-AC009** 创建 `services/rules-loader.js` 规则文档加载模块
+- [ ] **T-AC010** chat-service 集成 rules-loader，system prompt 注入规则上下文
+- [ ] **T-AC011** 新增 `GET /api/v1/chat/games` 端点 + POST 支持 gameId 参数
+- [ ] **T-AC012** rules-loader 单元测试
+- [ ] **T-AC013** 规则注入集成测试
 
 ---
 

@@ -6,6 +6,7 @@
 import { PlayerRing } from '../components/player-ring.js';
 import { GameSidebar } from '../components/game-sidebar.js';
 import { showQueryPanel } from '../components/query-panel.js';
+import { showChatPanel } from '../components/chat-panel.js';
 import { PhaseTimer } from '../components/phase-timer.js';
 
 /**
@@ -105,6 +106,7 @@ export class GameBoard {
         </div>
         <div style="display: flex; gap: var(--spacing-2);">
           <button class="btn btn-ghost btn-sm query-btn" title="游戏查询">🔍</button>
+          <button class="btn btn-ghost btn-sm chat-btn" title="规则问答">💬</button>
           <button class="btn btn-ghost btn-sm rules-btn" title="查看规则">📖 规则</button>
           <button class="btn btn-secondary btn-sm leave-btn">退出游戏</button>
         </div>
@@ -347,6 +349,10 @@ export class GameBoard {
 
     this.element.querySelector('.query-btn')?.addEventListener('click', () => {
       showQueryPanel();
+    });
+
+    this.element.querySelector('.chat-btn')?.addEventListener('click', () => {
+      showChatPanel();
     });
 
     this.element.querySelector('.rules-btn')?.addEventListener('click', () => {
