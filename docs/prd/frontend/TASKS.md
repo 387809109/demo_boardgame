@@ -528,6 +528,14 @@
     - UI 明确提示“退出后 X 秒内可恢复”并提供入口
   - 风险点: 需要避免和“真实退出房间（释放席位）”语义冲突
 
+- [x] **T-F127** 主入口文件模块化拆分（`main.js`）
+  - 背景: `frontend/src/main.js` 超过 1000 行，不符合 `docs/dev_rules/CODE_STYLE_GUIDE.md`
+  - 结果:
+    - 新增 `frontend/src/app/app-reconnect-methods.js` 承载重连相关方法
+    - 新增 `frontend/src/app/app-online-room-methods.js` 承载联机房间/网络处理方法
+    - `main.js` 保留应用编排与核心流程，并通过模块注册接入
+  - 验收: `main.js` 行数降至 1000 行以内，构建与测试通过
+
 ---
 
 ## 文档要求

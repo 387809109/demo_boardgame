@@ -1,6 +1,6 @@
 # 项目进度报告
 
-> 最后更新: 2026-02-11
+> 最后更新: 2026-02-12
 
 ---
 
@@ -310,24 +310,25 @@
 
 ## 测试覆盖率
 
-### 前端测试统计 (507 tests passing)
+### 前端测试统计 (519 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
 | registry.test.js | 22 | ✅ |
 | rules.test.js | 36 | ✅ |
 | engine.test.js | 47 | ✅ |
-| network.test.js | 59 | ✅ |
-| storage.test.js | 34 | ✅ |
+| network.test.js | 60 | ✅ |
+| storage.test.js | 39 | ✅ |
 | validators.test.js | 75 | ✅ |
-| uno/index.test.js | 77 | ✅ |
+| uno/index.test.js | 79 | ✅ |
 | uno/rules.test.js | 49 | ✅ |
+| waiting-room.test.js | 4 | ✅ |
 | werewolf/index.test.js | 101 | ✅ |
 | werewolf/ui.test.js | 3 | ✅ |
 | player-avatar.test.js | 4 | ✅ |
-| **总计** | **507** | ✅ |
+| **总计** | **519** | ✅ |
 
-### 后端测试统计 (119 tests passing)
+### 后端测试统计 (125 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -389,6 +390,14 @@
 ---
 
 ## 最近完成的任务
+
+### 2026-02-12
+
+- ✅ 前端入口文件模块化拆分（`docs/dev_rules/CODE_STYLE_GUIDE.md` 合规）
+  - 将 `frontend/src/main.js` 中联机房间逻辑拆分到 `frontend/src/app/app-online-room-methods.js`
+  - 将重连流程逻辑拆分到 `frontend/src/app/app-reconnect-methods.js`
+  - `main.js` 从 `1755` 行降至 `826` 行，满足“单文件不超过 1000 行”要求
+  - 前端验证通过：`npm run build`、`npm test`（`519` tests passing）
 
 ### 2026-02-11
 

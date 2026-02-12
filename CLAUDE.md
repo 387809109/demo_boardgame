@@ -46,6 +46,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 demo_boardgame/
 ├── frontend/              # Frontend source (Vite + vanilla JS)
 │   ├── src/
+│   │   ├── app/           # App method modules: reconnect, online-room, etc.
 │   │   ├── cloud/         # Cloud modules: supabase-client.js, cloud-network.js, auth.js
 │   │   ├── game/          # Core: engine.js, rules.js, network.js, registry.js
 │   │   ├── games/         # Game modules: uno/, werewolf/
@@ -53,7 +54,7 @@ demo_boardgame/
 │   │   ├── components/    # Common UI: modal.js, notification.js, loading.js
 │   │   ├── theme/         # CSS: variables.css, default.css
 │   │   ├── utils/         # Helpers: storage.js, validators.js, event-emitter.js
-│   │   └── main.js        # Application entry point
+│   │   └── main.js        # Application entry + orchestration
 │   ├── public/
 │   │   └── rules/         # User-facing rule books (HTML)
 │   │       └── uno.html   # UNO rules for players
