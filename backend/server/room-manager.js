@@ -336,7 +336,8 @@ export class RoomManager {
       id: player.id,
       nickname: player.nickname,
       isHost: player.isHost,
-      returned: !!room.returnStatus.get(player.id)
+      returned: !!room.returnStatus.get(player.id),
+      disconnected: room.disconnectedPlayers?.has(player.id) ?? false
     }));
 
     const returnedCount = players.filter(player => player.returned).length;
@@ -346,8 +347,22 @@ export class RoomManager {
       players,
       allReturned: totalPlayers > 0 && returnedCount === totalPlayers,
       returnedCount,
-      totalPlayers
+      totalPlayers,
+      isHostDisconnected: room.disconnectedPlayers?.has(room.host) ?? false
     };
+  }
+
+  /**
+   * Check if the host of a room is currently disconnected
+   * @param {string} roomId - Room ID
+   * @returns {boolean}
+   */
+  isHostDisconnected(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return false;
+    }
+    return room.disconnectedPlayers?.has(room.host) ?? false;
   }
 
   /**
@@ -569,6 +584,25 @@ export class RoomManager {
         }
       }
     }
+  }
+
+  /**
+   * Prune expired reconnect sessions across all rooms.
+   * Returns room IDs where the host's session expired (room should be destroyed).
+   * @returns {string[]} Room IDs with expired host sessions
+   */
+  pruneAllExpiredSessions() {
+    const expiredHostRooms = [];
+    for (const [roomId, room] of this.rooms) {
+      const hostId = room.host;
+      const hadHostSession = room.reconnectSessions.has(hostId);
+      this._pruneExpiredReconnectSessions(room);
+      const hostSessionGone = hadHostSession && !room.reconnectSessions.has(hostId);
+      if (hostSessionGone && !room.players.some(p => p.id === hostId)) {
+        expiredHostRooms.push(roomId);
+      }
+    }
+    return expiredHostRooms;
   }
 
   /**

@@ -339,6 +339,80 @@ describe('MessageRouter', () => {
       expect(sentMessages[0].data.code).toBe('INVALID_ACTION');
     });
 
+    it('should reject game action with HOST_DISCONNECTED when host is offline', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const hostConnId = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(hostConnId, 'host-1');
+      connectionManager.setSessionId(hostConnId, 'sess-host');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const playerConnId = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(playerConnId, 'player-2');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+
+      roomManager.startGame('room-1');
+
+      // Disconnect host
+      router.handleDisconnect(hostConnId);
+
+      // Player 2 tries to send action
+      playerWs.send.mockClear();
+      router.route(playerConnId, {
+        type: 'GAME_ACTION',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: { actionType: 'PLAY_CARD', actionData: { cardId: 'card-1' } }
+      });
+
+      const msgs = playerWs.send.mock.calls.map(c => JSON.parse(c[0]));
+      expect(msgs.some(m => m.type === 'ERROR' && m.data.code === 'HOST_DISCONNECTED')).toBe(true);
+    });
+
+    it('should allow game action after host reconnects', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const hostConnId = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(hostConnId, 'host-1');
+      connectionManager.setSessionId(hostConnId, 'sess-host');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const playerConnId = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(playerConnId, 'player-2');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+
+      roomManager.startGame('room-1');
+
+      // Disconnect host
+      router.handleDisconnect(hostConnId);
+
+      // Reconnect host
+      const reconnectWs = { readyState: 1, send: jest.fn() };
+      const reconnectConnId = connectionManager.addConnection(reconnectWs);
+      connectionManager.bindPlayer(reconnectConnId, 'host-1');
+
+      router.route(reconnectConnId, {
+        type: 'RECONNECT_REQUEST',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: { roomId: 'room-1', sessionId: 'sess-host' }
+      });
+
+      // Now player 2 should be able to send action
+      playerWs.send.mockClear();
+      router.route(playerConnId, {
+        type: 'GAME_ACTION',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: { actionType: 'PLAY_CARD', actionData: { cardId: 'card-1' } }
+      });
+
+      const msgs = playerWs.send.mock.calls.map(c => JSON.parse(c[0]));
+      expect(msgs.some(m => m.type === 'GAME_STATE_UPDATE')).toBe(true);
+    });
+
     it('should support AI player actions via host', () => {
       const connId = setupPlayerInRoom('host-1', 'Host', 'room-1');
       roomManager.startGame('room-1');
@@ -673,7 +747,40 @@ describe('MessageRouter', () => {
       ]));
     });
 
-    it('should destroy room when host disconnects during game', () => {
+    it('should create reconnect session when host disconnects during game (not destroy room)', () => {
+      const mockWs1 = { readyState: 1, send: jest.fn() };
+      const mockWs2 = { readyState: 1, send: jest.fn() };
+
+      const connId1 = connectionManager.addConnection(mockWs1);
+      connectionManager.bindPlayer(connId1, 'host-1');
+      connectionManager.setSessionId(connId1, 'sess-host');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const connId2 = connectionManager.addConnection(mockWs2);
+      connectionManager.bindPlayer(connId2, 'player-2');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+
+      roomManager.startGame('room-1');
+
+      router.handleDisconnect(connId1);
+
+      // Room should still exist
+      const room = roomManager.getRoom('room-1');
+      expect(room).not.toBeNull();
+      expect(room.disconnectedPlayers.has('host-1')).toBe(true);
+
+      // Player 2 should NOT receive ROOM_DESTROYED
+      const calls = mockWs2.send.mock.calls;
+      const messages = calls.map(c => JSON.parse(c[0]));
+      expect(messages.some(m => m.type === 'ROOM_DESTROYED')).toBe(false);
+
+      // Player 2 should receive RETURN_TO_ROOM_STATUS
+      expect(messages.some(m => m.type === 'RETURN_TO_ROOM_STATUS')).toBe(true);
+      const status = messages.find(m => m.type === 'RETURN_TO_ROOM_STATUS');
+      expect(status.data.isHostDisconnected).toBe(true);
+    });
+
+    it('should still destroy room when host disconnects before game starts', () => {
       const mockWs1 = { readyState: 1, send: jest.fn() };
       const mockWs2 = { readyState: 1, send: jest.fn() };
 
@@ -685,24 +792,86 @@ describe('MessageRouter', () => {
       connectionManager.bindPlayer(connId2, 'player-2');
       roomManager.joinRoom('room-1', 'player-2', 'Bob');
 
-      roomManager.startGame('room-1');
-
+      // Game NOT started
       router.handleDisconnect(connId1);
 
-      // Should receive ROOM_DESTROYED
       const calls = mockWs2.send.mock.calls;
       const messages = calls.map(c => JSON.parse(c[0]));
-
       expect(messages.some(m => m.type === 'ROOM_DESTROYED')).toBe(true);
-
-      const roomDestroyed = messages.find(m => m.type === 'ROOM_DESTROYED');
-      expect(roomDestroyed.data.reason).toBe('host_left');
     });
 
     it('should do nothing for unbound connection', () => {
       const connId = connectionManager.addConnection(mockWs);
 
       expect(() => router.handleDisconnect(connId)).not.toThrow();
+    });
+  });
+
+  describe('pruneExpiredSessions', () => {
+    it('should destroy room when host reconnect session expires', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const hostConnId = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(hostConnId, 'host-1');
+      connectionManager.setSessionId(hostConnId, 'sess-host');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const playerConnId = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(playerConnId, 'player-2');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+
+      roomManager.startGame('room-1');
+
+      // Disconnect host (creates reconnect session)
+      router.handleDisconnect(hostConnId);
+      expect(roomManager.getRoom('room-1')).not.toBeNull();
+
+      // Force host session expiry
+      const room = roomManager.getRoom('room-1');
+      room.reconnectSessions.get('host-1').expiresAt = Date.now() - 1;
+
+      // Prune
+      playerWs.send.mockClear();
+      router.pruneExpiredSessions();
+
+      // Player 2 should receive ROOM_DESTROYED
+      const msgs = playerWs.send.mock.calls.map(c => JSON.parse(c[0]));
+      expect(msgs.some(m => m.type === 'ROOM_DESTROYED')).toBe(true);
+      const destroyed = msgs.find(m => m.type === 'ROOM_DESTROYED');
+      expect(destroyed.data.reason).toBe('host_reconnect_timeout');
+    });
+
+    it('should not destroy room when non-host session expires', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const hostConnId = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(hostConnId, 'host-1');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const playerConnId = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(playerConnId, 'player-2');
+      connectionManager.setSessionId(playerConnId, 'sess-2');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+
+      roomManager.startGame('room-1');
+
+      // Disconnect non-host
+      router.handleDisconnect(playerConnId);
+
+      // Force session expiry
+      const room = roomManager.getRoom('room-1');
+      room.reconnectSessions.get('player-2').expiresAt = Date.now() - 1;
+
+      // Prune
+      hostWs.send.mockClear();
+      router.pruneExpiredSessions();
+
+      // Room should still exist, no ROOM_DESTROYED
+      expect(roomManager.getRoom('room-1')).not.toBeNull();
+      const msgs = hostWs.send.mock.calls.map(c => JSON.parse(c[0]));
+      expect(msgs.some(m => m.type === 'ROOM_DESTROYED')).toBe(false);
     });
   });
 

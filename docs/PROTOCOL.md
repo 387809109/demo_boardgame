@@ -699,6 +699,7 @@ wss.on('connection', (ws, req) => {
 | `ROOM_FULL` | 房间已满 | error |
 | `GAME_NOT_FOUND` | 游戏不存在 | error |
 | `PERMISSION_DENIED` | 权限不足（非房主操作） | error |
+| `HOST_DISCONNECTED` | 房主断线中，操作被冻结 | warning |
 | `RECONNECT_NOT_SUPPORTED` | 当前房间未启用断线重连扩展 | warning |
 | `RECONNECT_SESSION_EXPIRED` | 重连会话已过期 | warning |
 | `RECONNECT_IDENTITY_MISMATCH` | 会话身份校验失败 | error |

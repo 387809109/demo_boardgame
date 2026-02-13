@@ -237,6 +237,13 @@ export class MessageRouter {
       return;
     }
 
+    // Freeze game actions while host is disconnected
+    if (this.roomManager.isHostDisconnected(roomId)) {
+      this.sendError(connId, playerId, 'HOST_DISCONNECTED',
+        'Host is disconnected, game actions are frozen', 'warning');
+      return;
+    }
+
     // Use data.playerId for AI players (host sends on behalf of AI)
     // Otherwise use the message sender's playerId
     const actionPlayerId = data?.playerId || playerId;
@@ -557,7 +564,6 @@ export class MessageRouter {
         config.enableReconnect
         && room?.gameStarted
         && disconnectedPlayer
-        && !disconnectedPlayer.isHost
       ) {
         this.roomManager.createReconnectSession(
           roomId,
@@ -650,6 +656,32 @@ export class MessageRouter {
         }))
       }
     });
+  }
+
+  /**
+   * Prune expired reconnect sessions across all rooms.
+   * Destroys rooms where the host's reconnect session has expired.
+   */
+  pruneExpiredSessions() {
+    const expiredHostRooms = this.roomManager.pruneAllExpiredSessions();
+    for (const roomId of expiredHostRooms) {
+      this.broadcast(roomId, {
+        type: 'ROOM_DESTROYED',
+        timestamp: Date.now(),
+        playerId: 'server',
+        data: {
+          reason: 'host_reconnect_timeout',
+          message: '房主重连超时，房间已解散'
+        }
+      });
+
+      const players = this.roomManager.getPlayers(roomId);
+      for (const player of players) {
+        this.roomManager.removePlayer(roomId, player.id);
+      }
+
+      info('Room destroyed due to host reconnect timeout', { roomId });
+    }
   }
 
   /**

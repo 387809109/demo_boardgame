@@ -99,6 +99,9 @@ export class GameServer {
         ws.close(4000, 'Heartbeat timeout');
       }
     }
+
+    // Prune expired reconnect sessions and destroy rooms with expired host sessions
+    this.messageRouter.pruneExpiredSessions();
   }
 
   /**

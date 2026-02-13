@@ -503,6 +503,59 @@
   - 覆盖服务器集成测试（断线、重连、超时、房间销毁）
   - 验证重连后广播与玩家列表一致性
 
+### 7.2 重连机制改进
+
+- [x] **T-B116** 支持房主断线重连 ✅（高优先级，T-C044 前置）
+  - 当前问题: 房主断线时房间立即销毁，所有玩家丢失对局
+  - 修改 `message-router.js` `handleDisconnect`: 移除 `!disconnectedPlayer.isHost` 限制，房主断线同样创建 reconnectSession
+  - 房主断线期间冻结房间（不接受新的 GAME_ACTION），其他玩家 UI 显示"房主断线，等待重连..."
+  - 房主重连后恢复正常转发
+  - 超时后才销毁房间（与非房主 TTL 一致或更长）
+  - 验收:
+    - 房主短暂断线后可在 TTL 内恢复连接与房主身份
+    - 超时后房间正常销毁
+    - 不破坏现有非房主重连流程
+
+- [ ] **T-B117** 广播 PLAYER_DISCONNECTED 通知 ⬜（高优先级，T-C044 前置）
+  - 当前问题: 玩家断线进入重连窗口期间，其他玩家没有任何断线提示，需等到重连或超时才有反馈
+  - 修改 `message-router.js` `handleDisconnect`: 创建 reconnectSession 后立即广播 `PLAYER_DISCONNECTED` 消息
+  - 消息格式: `{ type: 'PLAYER_DISCONNECTED', data: { playerId, nickname, reconnectWindowMs } }`
+  - 前端收到后在 UI 显示"玩家 X 断线中，等待重连..."
+  - 重连成功后 `PLAYER_RECONNECTED` 广播清除断线状态
+  - 更新 `docs/PROTOCOL.md` 增加 `PLAYER_DISCONNECTED` 消息类型
+  - 依赖: T-B114
+  - 验收:
+    - 玩家断线后其他玩家立即看到断线提示
+    - 重连成功后提示消失
+    - 超时后正常触发 PLAYER_LEFT
+
+- [ ] **T-B118** 按需快照替代逐 action 全量传输 ⬜（中优先级）
+  - 当前问题: 每次 GAME_ACTION 都携带 `gameState: this.currentGame.getState()`，即完整内部状态（含所有玩家手牌、隐藏信息），既浪费带宽又泄露隐藏信息
+  - 方案: GAME_ACTION 不再附带 gameState；仅在收到 RECONNECT_REQUEST 时由服务器向房主请求快照（新增 `SNAPSHOT_REQUEST` → 房主回复 `SNAPSHOT_RESPONSE`）
+  - 服务器收到 `SNAPSHOT_RESPONSE` 后转发为 `GAME_SNAPSHOT` 给重连玩家
+  - 房主使用 `getVisibleState(playerId)` 生成针对重连玩家的可见状态
+  - 修改: `message-router.js`, `room-manager.js` (移除 gameSnapshot 存储), 前端 `main.js`, `network.js`
+  - 依赖: T-B114
+  - 验收:
+    - GAME_ACTION 消息体减小（不含 gameState）
+    - 重连快照仅含重连玩家应可见的信息
+    - 不影响现有游戏同步流程
+
+- [x] **T-B119** 定期清理过期重连会话 ✅（低优先级，T-B116 中一并实现）
+  - 当前问题: `_pruneExpiredReconnectSessions` 仅在 create/reconnect 时懒执行，若无后续断线/重连事件则过期会话和 ghost 玩家驻留内存
+  - 方案: 在现有心跳检查循环 (`heartbeatCheckInterval: 15s`) 中增加对所有房间的过期会话清理
+  - 修改: `index.js` 心跳检查逻辑, `room-manager.js` 新增 `pruneAllExpiredSessions()` 方法
+  - 依赖: T-B114
+  - 验收:
+    - 过期会话在 15~30s 内自动清理
+    - ghost 玩家从 players 列表移除并广播 PLAYER_LEFT
+
+- [ ] **T-B120** 使用 crypto.randomUUID 生成 sessionId ⬜（低优先级）
+  - 当前问题: 前端使用 `Math.random().toString(36)` 生成 sessionId，不具备密码学安全性
+  - 方案: 前端 `_generateSessionId()` 改用 `crypto.randomUUID()`（所有现代浏览器支持）
+  - 修改: `frontend/src/main.js` `_generateSessionId` 方法
+  - 验收: sessionId 格式为标准 UUID v4
+
 ---
 
 ## 任务依赖图
@@ -522,8 +575,11 @@ T-B050 → T-B051
     ↓
 T-B060 → T-B062 → T-B064 → T-B066 → T-B068 → T-B070
     ↓
-T-B080 → T-B082 → T-B114 → T-B115
-    ↓
+T-B080 → T-B082 → T-B114 → T-B115 → T-B116 → T-B117
+    ↓                                    ↓
+                                       T-B118
+                                       T-B119
+                                       T-B120
 T-B090 → T-B092 → T-B093
     ↓
 T-B100 → T-B110

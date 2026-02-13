@@ -14,7 +14,7 @@
 | Phase C3: CloudNetworkClient | ✅ 完成 | Realtime 网络客户端 (单元测试待补) |
 | Phase C4: 前端集成 | ✅ 完成 | 大厅改造、模式切换、手动测试通过 |
 | Phase C5: 文档更新 | 🔶 进行中 | CLAUDE.md/PROGRESS.md 已更新，PROTOCOL.md 待更新 |
-| Phase C6: 断线重连支持 | ⬜ 未开始 | 断线自动恢复、会话重建、状态快照同步 |
+| Phase C6: 断线重连支持 | ⬜ 未开始 | Host-Relayed 方案，前置: T-B116+T-B117 |
 
 ---
 
@@ -407,17 +407,36 @@
 
 ## Phase C6: 断线重连支持 (P1)
 
+> **前置条件**: T-B116（房主断线重连）和 T-B117（PLAYER_DISCONNECTED 广播）必须先完成。
+> 云端重连设计复用本地模式的协议和前端逻辑，但将服务端验证职责转移到房主客户端（Host-Relayed 方案）。
+> 详见本地重连改进任务: `docs/prd/backend/TASKS.md` Phase 7.2
+
 - [ ] **T-C044** CloudNetworkClient 断线重连与会话恢复
-  - 监听 Realtime Channel 状态（`CLOSED` / `CHANNEL_ERROR` / `TIMED_OUT`）
+  - **方案**: Host-Relayed Reconnection — 房主客户端充当重连验证方，无需新增数据库或 API
+  - CloudNetworkClient 改造:
+    - 新增 `_disconnectedPlayers` Map 和 `_gameActive` 标志
+    - 监听 Realtime Channel 状态（`CLOSED` / `CHANNEL_ERROR` / `TIMED_OUT`）
+    - 修改 Presence `leave` 处理: 游戏进行中分发 `PLAYER_DISCONNECTED` 而非立即 `PLAYER_LEFT`，启动宽限计时
+    - 修改 Presence `join` 处理: 若 playerId 在 `_disconnectedPlayers` 中，视为重连候选
+    - 新增 `requestReconnect(roomId, sessionId)`: 重新加入 Channel + track Presence + 广播 `RECONNECT_REQUEST`
+    - 新增广播监听: `RECONNECT_REQUEST`, `RECONNECT_ACCEPTED`, `RECONNECT_REJECTED`, `GAME_SNAPSHOT`, `PLAYER_DISCONNECTED`
+  - 前端 reconnect 方法适配:
+    - 移除 `app-reconnect-methods.js` 中的 `mode === 'local'` / `instanceof NetworkClient` 限制
+    - `_saveReconnectContext` 适配云端字段（无 serverUrl，使用 userId）
+    - `_runReconnectAttempt` 云端分支: 调用 `cloudNetwork.requestReconnect()` 而非 WS connect + requestReconnect
+  - 房主端处理（main.js）:
+    - 收到 `RECONNECT_REQUEST` 广播时: 校验 playerId 是否在 disconnectedPlayers 中
+    - 校验通过: 广播 `RECONNECT_ACCEPTED` + `GAME_SNAPSHOT`（使用 `getVisibleState(playerId)` 生成）
+    - 校验失败: 广播 `RECONNECT_REJECTED`
+    - 快照广播含 `targetPlayerId` 字段，其他客户端忽略非自己的快照
   - 实现自动重订阅（指数退避 + 最大重试次数）
-  - 重连成功后自动 `track()` Presence 并触发会话恢复请求
-  - 对接统一恢复协议：`RECONNECT_REQUEST` / `RECONNECT_ACCEPTED` / `GAME_SNAPSHOT`
   - UI 暴露连接状态事件（重连中、重连成功、重连失败）
   - 验收:
     - 非房主玩家网络闪断后可恢复到原对局
+    - 房主断线后其他玩家看到等待提示（依赖 T-B116/T-B117 协议一致）
     - 长时间离线/房间已销毁时给出明确失败提示
     - 不影响现有本地模式和云端正常联机流程
-  - 依赖: T-C025, T-C032, T-C034
+  - **依赖**: T-B116, T-B117, T-C025, T-C032, T-C034
 
 ---
 
@@ -455,9 +474,10 @@ T-C003 → T-C004 → T-C005 ──────────┤
                          T-C032 ────┤
                          T-C033     │
                            │        │
-                          T-C034 → T-C044
-                                     │
-                          T-C040 ────┘
+                          T-C034 ──┐
+                                   ├── T-C044
+                    T-B116, T-B117 ┘      │
+                          T-C040 ─────────┘
                           T-C041
                           T-C043
 ```

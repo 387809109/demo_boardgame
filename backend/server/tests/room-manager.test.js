@@ -420,6 +420,129 @@ describe('RoomManager', () => {
     });
   });
 
+  describe('isHostDisconnected', () => {
+    it('should return false when host is connected', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      expect(manager.isHostDisconnected('room-1')).toBe(false);
+    });
+
+    it('should return true when host is in disconnectedPlayers', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      manager.markPlayerDisconnected('room-1', 'host-1');
+
+      expect(manager.isHostDisconnected('room-1')).toBe(true);
+    });
+
+    it('should return false after host reconnects', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      manager.createReconnectSession('room-1', 'host-1', 'Host', 'sess-host');
+      manager.markPlayerDisconnected('room-1', 'host-1');
+      expect(manager.isHostDisconnected('room-1')).toBe(true);
+
+      manager.reconnectPlayer('room-1', 'host-1', 'sess-host');
+      expect(manager.isHostDisconnected('room-1')).toBe(false);
+    });
+
+    it('should return false for non-existent room', () => {
+      expect(manager.isHostDisconnected('non-existent')).toBe(false);
+    });
+  });
+
+  describe('getReturnToRoomStatus enriched fields', () => {
+    it('should include disconnected field per player', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      manager.markPlayerDisconnected('room-1', 'player-2');
+      const status = manager.getReturnToRoomStatus('room-1');
+
+      const host = status.players.find(p => p.id === 'host-1');
+      const player = status.players.find(p => p.id === 'player-2');
+      expect(host.disconnected).toBe(false);
+      expect(player.disconnected).toBe(true);
+    });
+
+    it('should include isHostDisconnected at top level', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      expect(manager.getReturnToRoomStatus('room-1').isHostDisconnected).toBe(false);
+
+      manager.markPlayerDisconnected('room-1', 'host-1');
+      expect(manager.getReturnToRoomStatus('room-1').isHostDisconnected).toBe(true);
+    });
+  });
+
+  describe('pruneAllExpiredSessions', () => {
+    it('should return empty array when no expired sessions', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.startGame('room-1');
+
+      expect(manager.pruneAllExpiredSessions()).toEqual([]);
+    });
+
+    it('should return room ID when host reconnect session expires', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      manager.createReconnectSession('room-1', 'host-1', 'Host', 'sess-host');
+      manager.markPlayerDisconnected('room-1', 'host-1');
+
+      // Force expiry
+      const room = manager.getRoom('room-1');
+      room.reconnectSessions.get('host-1').expiresAt = Date.now() - 1;
+
+      const expired = manager.pruneAllExpiredSessions();
+      expect(expired).toContain('room-1');
+    });
+
+    it('should not return room ID when non-host session expires', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+
+      manager.createReconnectSession('room-1', 'player-2', 'Bob', 'sess-2');
+      manager.markPlayerDisconnected('room-1', 'player-2');
+
+      // Force expiry
+      const room = manager.getRoom('room-1');
+      room.reconnectSessions.get('player-2').expiresAt = Date.now() - 1;
+
+      const expired = manager.pruneAllExpiredSessions();
+      expect(expired).toEqual([]);
+    });
+
+    it('should prune across multiple rooms', () => {
+      manager.joinRoom('room-1', 'host-1', 'Host1', 'uno');
+      manager.joinRoom('room-1', 'player-2', 'Bob');
+      manager.startGame('room-1');
+      manager.createReconnectSession('room-1', 'host-1', 'Host1', 'sess-1');
+      manager.markPlayerDisconnected('room-1', 'host-1');
+
+      manager.joinRoom('room-2', 'host-3', 'Host2', 'uno');
+      manager.startGame('room-2');
+
+      // Force expiry only for room-1 host
+      const room1 = manager.getRoom('room-1');
+      room1.reconnectSessions.get('host-1').expiresAt = Date.now() - 1;
+
+      const expired = manager.pruneAllExpiredSessions();
+      expect(expired).toEqual(['room-1']);
+    });
+  });
+
   describe('getRoomCount', () => {
     it('should return 0 initially', () => {
       expect(manager.getRoomCount()).toBe(0);
