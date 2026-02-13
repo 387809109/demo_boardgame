@@ -547,6 +547,50 @@ describe('GameServer Integration', () => {
 
       client2.close();
     });
+
+    it('should broadcast PLAYER_DISCONNECTED to other players when a player disconnects during game', async () => {
+      const client1 = await createClient();
+      const client2 = await createClient();
+      const roomId = `pd-notif-${Date.now().toString(36)}`;
+
+      await sendAndReceive(client1, {
+        type: 'JOIN',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: { roomId, nickname: 'Host', gameType: 'uno', sessionId: 'sess-host' }
+      }, 'PLAYER_JOINED');
+
+      await sendAndReceive(client2, {
+        type: 'JOIN',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: { roomId, nickname: 'Player2', sessionId: 'sess-p2' }
+      }, 'PLAYER_JOINED');
+
+      await sendAndReceive(client1, {
+        type: 'START_GAME',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: {}
+      }, 'GAME_STARTED');
+
+      await waitForMessage(client2, 'GAME_STARTED');
+
+      // Listen for PLAYER_DISCONNECTED
+      const disconnectPromise = waitForMessage(client1, 'PLAYER_DISCONNECTED');
+
+      // Player 2 disconnects
+      client2.close();
+
+      const msg = await disconnectPromise;
+      expect(msg.type).toBe('PLAYER_DISCONNECTED');
+      expect(msg.playerId).toBe('server');
+      expect(msg.data.playerId).toBe('player-2');
+      expect(msg.data.nickname).toBe('Player2');
+      expect(msg.data.reconnectWindowMs).toBe(60000);
+
+      client1.close();
+    });
   });
 
   describe('Reconnect Flow', () => {

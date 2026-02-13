@@ -516,7 +516,7 @@
     - 超时后房间正常销毁
     - 不破坏现有非房主重连流程
 
-- [ ] **T-B117** 广播 PLAYER_DISCONNECTED 通知 ⬜（高优先级，T-C044 前置）
+- [x] **T-B117** 广播 PLAYER_DISCONNECTED 通知 ✅（高优先级，T-C044 前置）
   - 当前问题: 玩家断线进入重连窗口期间，其他玩家没有任何断线提示，需等到重连或超时才有反馈
   - 修改 `message-router.js` `handleDisconnect`: 创建 reconnectSession 后立即广播 `PLAYER_DISCONNECTED` 消息
   - 消息格式: `{ type: 'PLAYER_DISCONNECTED', data: { playerId, nickname, reconnectWindowMs } }`

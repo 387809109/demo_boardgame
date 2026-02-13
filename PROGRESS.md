@@ -198,7 +198,7 @@
 | T-B114 | 断线重连会话恢复 | ✅ |
 | T-B115 | 断线重连测试 | ✅ |
 | T-B116 | 房主断线重连（T-C044 前置） | ✅ |
-| T-B117 | 广播 PLAYER_DISCONNECTED 通知（T-C044 前置） | ⬜ |
+| T-B117 | 广播 PLAYER_DISCONNECTED 通知（T-C044 前置） | ✅ |
 | T-B118 | 按需快照替代逐 action 全量传输 | ⬜ |
 | T-B119 | 定期清理过期重连会话 | ✅ |
 | T-B120 | 使用 crypto.randomUUID 生成 sessionId | ⬜ |
@@ -335,15 +335,15 @@
 | player-avatar.test.js | 4 | ✅ |
 | **总计** | **521** | ✅ |
 
-### 后端测试统计 (125 tests passing)
+### 后端测试统计 (150 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
 | connection-manager.test.js | 31 | ✅ |
-| room-manager.test.js | 44 | ✅ |
-| message-router.test.js | 33 | ✅ |
-| server.integration.test.js | 17 | ✅ |
-| **总计** | **125** | ✅ |
+| room-manager.test.js | 56 | ✅ |
+| message-router.test.js | 42 | ✅ |
+| server.integration.test.js | 21 | ✅ |
+| **总计** | **150** | ✅ |
 
 ### 代码覆盖率
 
@@ -357,9 +357,9 @@
 ### 测试文件
 
 - `tests/connection-manager.test.js` - 连接管理器单元测试 (31 tests)
-- `tests/room-manager.test.js` - 房间管理器单元测试 (44 tests)
-- `tests/message-router.test.js` - 消息路由器单元测试 (33 tests)
-- `tests/server.integration.test.js` - 服务器集成测试 (17 tests)
+- `tests/room-manager.test.js` - 房间管理器单元测试 (56 tests)
+- `tests/message-router.test.js` - 消息路由器单元测试 (42 tests)
+- `tests/server.integration.test.js` - 服务器集成测试 (21 tests)
 - `test-client.js` - 单客户端手动测试
 - `test-two-players.js` - 双玩家手动测试
 
@@ -369,20 +369,18 @@
 
 ### 高优先级
 
-1. **房主断线重连** - 房主断线不再立即销毁房间，支持 TTL 内恢复 (T-B116，T-C044 前置)
-2. **PLAYER_DISCONNECTED 广播** - 断线玩家即时通知其他玩家 (T-B117，T-C044 前置)
-3. **云端断线重连** - Host-Relayed 方案，CloudNetworkClient 会话恢复 (T-C044，依赖 T-B116+T-B117)
-4. **云端后端单元测试** - AuthService + CloudNetworkClient 单元测试 (T-C013, T-C026)
-5. **狼人杀手动测试** - UI 渲染及完整游戏流程端到端验证 (T-F075)
-6. **集成测试** - 端到端测试 (T-F112)
+1. **云端断线重连** - Host-Relayed 方案，CloudNetworkClient 会话恢复 (T-C044，依赖 T-B116+T-B117，前置已完成)
+2. **云端后端单元测试** - AuthService + CloudNetworkClient 单元测试 (T-C013, T-C026)
+3. **狼人杀手动测试** - UI 渲染及完整游戏流程端到端验证 (T-F075)
+4. **集成测试** - 端到端测试 (T-F112)
 
 ### 中优先级
 
-7. **按需快照替代逐 action 全量传输** - 减少带宽消耗和隐藏信息泄露 (T-B118)
-8. **狼人杀 P1 角色** - 守卫、丘比特、警长等 7 角色 (T-F077)
-9. **移动端适配** - 响应式布局，手机可用 (T-F123)
-10. **后端广播优化** - 广播器实现 (T-B100-T-B102)
-11. **监控与日志** - 统计信息和健康检查 (T-B110-T-B113)
+5. **按需快照替代逐 action 全量传输** - 减少带宽消耗和隐藏信息泄露 (T-B118)
+6. **狼人杀 P1 角色** - 守卫、丘比特、警长等 7 角色 (T-F077)
+7. **移动端适配** - 响应式布局，手机可用 (T-F123)
+8. **后端广播优化** - 广播器实现 (T-B100-T-B102)
+9. **监控与日志** - 统计信息和健康检查 (T-B110-T-B113)
 
 ### 低优先级
 
@@ -402,6 +400,15 @@
 ---
 
 ## 最近完成的任务
+
+### 2026-02-13
+
+- ✅ T-B117 广播 PLAYER_DISCONNECTED 通知
+  - 修改 `backend/server/message-router.js` — handleDisconnect 中创建 reconnectSession 后立即广播 PLAYER_DISCONNECTED (playerId, nickname, reconnectWindowMs)
+  - 更新 `docs/PROTOCOL.md` — 新增 5.6 PLAYER_DISCONNECTED 消息类型定义
+  - 新增 3 项单元测试 (`message-router.test.js`): 非房主断线广播、房主断线广播、游戏未开始不广播
+  - 新增 1 项集成测试 (`server.integration.test.js`): 端到端断线通知验证
+  - 后端测试通过: `150` (原 146 + 新增 4)
 
 ### 2026-02-12
 

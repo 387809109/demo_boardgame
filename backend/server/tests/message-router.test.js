@@ -780,6 +780,76 @@ describe('MessageRouter', () => {
       expect(status.data.isHostDisconnected).toBe(true);
     });
 
+    it('should broadcast PLAYER_DISCONNECTED when non-host disconnects during started game', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const hostConnId = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(hostConnId, 'host-1');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const playerConnId = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(playerConnId, 'player-2');
+      connectionManager.setSessionId(playerConnId, 'sess-2');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+
+      roomManager.startGame('room-1');
+
+      router.handleDisconnect(playerConnId);
+
+      const hostMessages = hostWs.send.mock.calls.map(c => JSON.parse(c[0]));
+      const disconnectMsg = hostMessages.find(m => m.type === 'PLAYER_DISCONNECTED');
+      expect(disconnectMsg).toBeDefined();
+      expect(disconnectMsg.playerId).toBe('server');
+      expect(disconnectMsg.data.playerId).toBe('player-2');
+      expect(disconnectMsg.data.nickname).toBe('Bob');
+      expect(disconnectMsg.data.reconnectWindowMs).toBe(60000);
+    });
+
+    it('should broadcast PLAYER_DISCONNECTED when host disconnects during started game', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const hostConnId = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(hostConnId, 'host-1');
+      connectionManager.setSessionId(hostConnId, 'sess-host');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const playerConnId = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(playerConnId, 'player-2');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+
+      roomManager.startGame('room-1');
+
+      router.handleDisconnect(hostConnId);
+
+      const playerMessages = playerWs.send.mock.calls.map(c => JSON.parse(c[0]));
+      const disconnectMsg = playerMessages.find(m => m.type === 'PLAYER_DISCONNECTED');
+      expect(disconnectMsg).toBeDefined();
+      expect(disconnectMsg.data.playerId).toBe('host-1');
+      expect(disconnectMsg.data.nickname).toBe('Host');
+      expect(disconnectMsg.data.reconnectWindowMs).toBe(60000);
+    });
+
+    it('should not broadcast PLAYER_DISCONNECTED when game has not started', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const connId1 = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(connId1, 'host-1');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const connId2 = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(connId2, 'player-2');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+
+      // Game NOT started
+      router.handleDisconnect(connId2);
+
+      const hostMessages = hostWs.send.mock.calls.map(c => JSON.parse(c[0]));
+      expect(hostMessages.some(m => m.type === 'PLAYER_DISCONNECTED')).toBe(false);
+    });
+
     it('should still destroy room when host disconnects before game starts', () => {
       const mockWs1 = { readyState: 1, send: jest.fn() };
       const mockWs2 = { readyState: 1, send: jest.fn() };

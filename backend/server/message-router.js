@@ -574,6 +574,17 @@ export class MessageRouter {
 
         const markResult = this.roomManager.markPlayerDisconnected(roomId, playerId);
         if (markResult.success) {
+          this.broadcast(roomId, {
+            type: 'PLAYER_DISCONNECTED',
+            timestamp: Date.now(),
+            playerId: 'server',
+            data: {
+              playerId,
+              nickname: disconnectedPlayer.nickname,
+              reconnectWindowMs: config.reconnectSessionTtlMs
+            }
+          });
+
           const status = this.roomManager.getReturnToRoomStatus(roomId);
           if (status) {
             this.broadcast(roomId, {

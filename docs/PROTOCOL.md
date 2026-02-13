@@ -669,6 +669,34 @@ wss.on('connection', (ws, req) => {
 
 ---
 
+#### 5.6 PLAYER_DISCONNECTED - 玩家断线通知（广播）
+
+**方向**: 服务器 → 房间内其他客户端（广播）
+
+**说明**: 当游戏进行中某玩家断线并进入重连窗口时，立即通知房间内其他玩家。前端收到后应在 UI 显示"玩家 X 断线中，等待重连..."。当该玩家重连成功时，服务器会广播 `PLAYER_RECONNECTED` 消除断线状态；若重连窗口超时，服务器会广播 `PLAYER_LEFT`（reason: `"reconnect_timeout"`）。
+
+**消息格式**:
+```json
+{
+  "type": "PLAYER_DISCONNECTED",
+  "timestamp": 1705902600050,
+  "playerId": "server",
+  "data": {
+    "playerId": "player-uuid-123",
+    "nickname": "玩家1",
+    "reconnectWindowMs": 60000
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `data.playerId` | string | 断线玩家的 ID |
+| `data.nickname` | string | 断线玩家的昵称 |
+| `data.reconnectWindowMs` | number | 重连窗口时长（毫秒），超时后玩家将被移除 |
+
+---
+
 ## 错误处理
 
 ### 错误消息格式
