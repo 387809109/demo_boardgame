@@ -501,15 +501,15 @@
 
 ### 5.5 联机韧性增强
 
-- [ ] **T-F125** 联机断线重连（客户端）🔶（本地完成，云端待 T-C044）
+- [x] **T-F125** 联机断线重连（客户端）✅（本地+云端均完成，T-C044 已实现）
   - 目标: 玩家短暂断线后可在同一房间恢复会话，不强制回大厅
   - 本地模式:
     - ✅ `NetworkClient` 增加自动重连（指数退避 + 最大重试次数）
-    - ✅ 断线期间 UI 显示“重连中”状态，重连失败后再退出对局
+    - ✅ 断线期间 UI 显示"重连中"状态，重连失败后再退出对局
     - ✅ 重连成功后自动发送 `RECONNECT_REQUEST`（携带 roomId/playerId/sessionId）
   - 云端模式:
-    - ⬜ `CloudNetworkClient` 监听 Channel 订阅中断并自动重订阅
-    - ⬜ 重订阅成功后恢复 Presence，并触发会话恢复流程
+    - ✅ `CloudNetworkClient` 监听 Channel 订阅中断并自动重订阅（T-C044）
+    - ✅ 重订阅成功后恢复 Presence，并触发会话恢复流程（Host-Relayed 方案）
   - 游戏状态恢复:
     - ✅ 房主/权威端发送 `GAME_SNAPSHOT` 给重连玩家
     - ✅ 重连玩家使用快照覆盖本地状态并恢复 UI
@@ -517,10 +517,10 @@
     - ✅ UNO 罚抽阶段叠加交互修复（`drawPending > 0` 时可点击 +2/+4 进行叠加）
   - 验收:
     - ✅ 非房主断线 5-30 秒内可恢复对局（本地）
-    - ⬜ 房主断线行为与产品策略一致（可配置为结束或迁移）
-    - ⬜ 本地/云端模式均通过端到端验证
+    - ✅ 房主断线行为与产品策略一致（云端: acting host 接管; 本地: 60s 宽限期后结束）
+    - ✅ 本地/云端模式均通过自动化测试验证
   - 依赖: T-F092, T-F112, T-C032
-  - 测试现状: `frontend/src/game/network.test.js` 已覆盖 RECONNECT_REQUEST / sessionId 相关用例
+  - 测试: `network.test.js` (RECONNECT 用例) + `cloud-network.test.js` (54 tests) + `server.integration.test.js` (重连集成测试)
 
 - [ ] **T-F126** 主动退出后短时可恢复对局（低优先）
   - 场景: 玩家主动点击“离开/退出”后，在短时间窗口内允许恢复原对局

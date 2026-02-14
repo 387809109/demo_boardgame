@@ -588,6 +588,13 @@ class App {
   _handleGameAction(action) {
     if (!this.currentGame) return;
 
+    // Block actions while host is disconnected in local mode
+    // (server freezes GAME_ACTION; executing locally would cause desync)
+    if (this._hostDisconnectedPaused) {
+      showToast('房主断线中，操作暂停');
+      return;
+    }
+
     const move = {
       ...action,
       playerId: this.playerId

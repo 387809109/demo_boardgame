@@ -110,7 +110,11 @@ export class CloudNetworkClient extends EventEmitter {
     this._setupBroadcastListeners();
     this._setupPresenceListeners();
 
+    const activeChannel = this._channel;
     this._channel.subscribe(async (status) => {
+      // Ignore callbacks from a replaced channel
+      if (this._channel !== activeChannel) return;
+
       if (status === 'SUBSCRIBED') {
         await this._channel.track({
           playerId: this.playerId,
@@ -143,7 +147,7 @@ export class CloudNetworkClient extends EventEmitter {
 
     if (this._channel) {
       this._channel.untrack();
-      this._channel.unsubscribe();
+      this._supabase.removeChannel(this._channel);
       this._channel = null;
     }
     this._roomId = null;
@@ -274,6 +278,12 @@ export class CloudNetworkClient extends EventEmitter {
    * @returns {Promise<void>}
    */
   async requestReconnect(roomId) {
+    // Remove old channel so Supabase creates a fresh one
+    if (this._channel) {
+      this._supabase.removeChannel(this._channel);
+      this._channel = null;
+    }
+
     this._roomId = roomId;
 
     this._channel = this._supabase.channel(`room:${roomId}`, {
@@ -283,12 +293,17 @@ export class CloudNetworkClient extends EventEmitter {
     this._setupBroadcastListeners();
     this._setupPresenceListeners();
 
+    const activeChannel = this._channel;
     let settled = false;
     return new Promise((resolve, reject) => {
       this._channel.subscribe(async (status) => {
+        // Ignore callbacks from a replaced channel
+        if (this._channel !== activeChannel) return;
+
         if (status === 'SUBSCRIBED') {
           if (settled) return;
           settled = true;
+          this.connected = true;
           try {
             await this._channel.track({
               playerId: this.playerId,
@@ -407,9 +422,10 @@ export class CloudNetworkClient extends EventEmitter {
       return;
     }
 
-    // RECONNECT_REQUEST: only acting host processes
+    // RECONNECT_REQUEST: acting host (excluding reconnecting player) processes
     if (type === 'RECONNECT_REQUEST') {
-      if (playerId !== this.playerId && this._isActingHost()) {
+      const requestingId = data?.playerId || playerId;
+      if (requestingId !== this.playerId && this._isActingHostExcluding(requestingId)) {
         this._handleReconnectRequest(payload);
       }
       return;
@@ -588,6 +604,20 @@ export class CloudNetworkClient extends EventEmitter {
    */
   _isActingHost() {
     const players = this._getPlayerList();
+    return players.length > 0 && players[0].id === this.playerId;
+  }
+
+  /**
+   * Whether this client is the acting host, excluding a specific player from
+   * the calculation. Used for RECONNECT_REQUEST: the reconnecting player may
+   * have already re-joined Presence (with an earlier joinedAt) before the
+   * broadcast arrives, so we must exclude them to find the true responder.
+   * @private
+   * @param {string} excludeId - Player ID to exclude
+   * @returns {boolean}
+   */
+  _isActingHostExcluding(excludeId) {
+    const players = this._getPlayerList().filter(p => p.id !== excludeId);
     return players.length > 0 && players[0].id === this.playerId;
   }
 

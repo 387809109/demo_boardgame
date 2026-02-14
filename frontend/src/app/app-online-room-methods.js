@@ -487,6 +487,12 @@ export function registerAppOnlineRoomMethods(App, deps) {
           return;
         }
 
+        // Ignore stale status when the game is still in progress
+        // (server may send this during reconnection even if no one returned)
+        if (this.currentGame?.isRunning) {
+          return;
+        }
+
         const statusPlayers = Array.isArray(data?.players) ? data.players : [];
         const roomPlayers = statusPlayers.map(player => ({
           id: player.id,
@@ -564,11 +570,33 @@ export function registerAppOnlineRoomMethods(App, deps) {
           const nickname = data?.nickname || reconnectedId.slice(0, 8);
           showToast(`${nickname} 已重连`);
         }
+
+        // Clear host-disconnected pause if the host reconnected
+        if (this._hostDisconnectedPaused && reconnectedId) {
+          const isHost = this.currentRoom?.players?.some(
+            p => p.id === reconnectedId && p.isHost
+          );
+          if (isHost) {
+            this._hostDisconnectedPaused = false;
+          }
+        }
       });
 
       net.onMessage('PLAYER_DISCONNECTED', (data) => {
         const nickname = data?.nickname || data?.playerId?.slice(0, 8) || '未知';
         showToast(`${nickname} 已断线，等待重连中...`);
+
+        // In local mode, the backend freezes game actions while host is disconnected.
+        // Block local game actions to prevent desync (local executeMove would advance
+        // state that the server won't accept).
+        if (this.mode === 'local' && data?.playerId) {
+          const isHost = this.currentRoom?.players?.some(
+            p => p.id === data.playerId && p.isHost
+          );
+          if (isHost) {
+            this._hostDisconnectedPaused = true;
+          }
+        }
       });
 
       net.onMessage('RECONNECT_REQUEST', (data) => {

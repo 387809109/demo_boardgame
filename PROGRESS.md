@@ -10,7 +10,7 @@
 |------|------|------|
 | **前端** | 87% | 🔶 部分完成 |
 | **后端 (本地)** | 88% | 🔶 基本完成 (重连改进待实现) |
-| **后端 (云端)** | 95% | ✅ 基本完成 (含断线重连) |
+| **后端 (云端)** | 96% | ✅ 基本完成 (含断线重连+单元测试) |
 | **API 服务 (Render)** | 100% | ✅ 完成 |
 | **整体** | 89% | 🔶 开发中 |
 
@@ -239,7 +239,7 @@
 | T-C023 | Broadcast 消息收发 | ✅ |
 | T-C024 | Host 判定和权限逻辑 | ✅ |
 | T-C025 | 完整消息类型实现 | ✅ |
-| T-C026 | CloudNetworkClient 单元测试 | ⬜ |
+| T-C026 | CloudNetworkClient 单元测试 (54 tests) | ✅ |
 
 ### Phase C4: 前端集成 ✅ 完成
 
@@ -316,7 +316,7 @@
 
 ## 测试覆盖率
 
-### 前端测试统计 (521 tests passing)
+### 前端测试统计 (575 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -324,6 +324,7 @@
 | rules.test.js | 36 | ✅ |
 | engine.test.js | 47 | ✅ |
 | network.test.js | 60 | ✅ |
+| cloud-network.test.js | 54 | ✅ |
 | storage.test.js | 39 | ✅ |
 | validators.test.js | 75 | ✅ |
 | uno/index.test.js | 79 | ✅ |
@@ -333,17 +334,17 @@
 | werewolf/index.test.js | 101 | ✅ |
 | werewolf/ui.test.js | 3 | ✅ |
 | player-avatar.test.js | 4 | ✅ |
-| **总计** | **521** | ✅ |
+| **总计** | **575** | ✅ |
 
-### 后端测试统计 (150 tests passing)
+### 后端测试统计 (153 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
 | connection-manager.test.js | 31 | ✅ |
 | room-manager.test.js | 56 | ✅ |
 | message-router.test.js | 42 | ✅ |
-| server.integration.test.js | 21 | ✅ |
-| **总计** | **150** | ✅ |
+| server.integration.test.js | 24 | ✅ |
+| **总计** | **153** | ✅ |
 
 ### 代码覆盖率
 
@@ -359,9 +360,21 @@
 - `tests/connection-manager.test.js` - 连接管理器单元测试 (31 tests)
 - `tests/room-manager.test.js` - 房间管理器单元测试 (56 tests)
 - `tests/message-router.test.js` - 消息路由器单元测试 (42 tests)
-- `tests/server.integration.test.js` - 服务器集成测试 (21 tests)
+- `tests/server.integration.test.js` - 服务器集成测试 (24 tests, 含断线重连场景)
 - `test-client.js` - 单客户端手动测试
 - `test-two-players.js` - 双玩家手动测试
+
+### 前端测试文件
+
+- `src/cloud/cloud-network.test.js` - CloudNetworkClient 单元测试 (54 tests, 含重连/grace timer/acting host)
+- `src/game/network.test.js` - NetworkClient 单元测试 (60 tests)
+- `src/game/engine.test.js` - GameEngine 单元测试 (47 tests)
+- `src/game/rules.test.js` - 规则引擎测试 (36 tests)
+- `src/game/registry.test.js` - 游戏注册表测试 (22 tests)
+- `src/utils/storage.test.js` - 存储工具测试 (39 tests)
+- `src/utils/validators.test.js` - 验证器测试 (75 tests)
+- `src/games/uno/*.test.js` - UNO 游戏测试 (130 tests)
+- `src/games/werewolf/*.test.js` - 狼人杀测试 (104 tests)
 
 ---
 
@@ -401,6 +414,15 @@
 ## 最近完成的任务
 
 ### 2026-02-14
+
+- ✅ T-C026 CloudNetworkClient 单元测试 (54 tests)
+  - 新增 `frontend/src/cloud/cloud-network.test.js` — Mock Supabase client 完整测试套件
+  - 覆盖: connect/disconnect, joinRoom/leaveRoom, Presence sync, Host 判定, broadcast 消息收发, requestReconnect, grace timer, RECONNECT_REQUEST handling, _isActingHostExcluding, onMessage 分发, setGameActive, sendChat
+- ✅ 后端断线重连集成测试扩充 (server.integration.test.js: 21→24)
+  - Bug 7 测试: 主机断线期间非主机 GAME_ACTION 被拒绝、快照保持一致
+  - Bug 6 测试: 重连时 RETURN_TO_ROOM_STATUS 发送验证
+  - 多次重连循环测试: 断线→重连→操作→再断线→再重连、快照累积正确
+- ✅ T-F125 联机断线重连（客户端）标记完成 — 云端模式断线重连已通过 T-C044 实现并通过自动化测试验证
 
 - ✅ T-C044 CloudNetworkClient 断线重连与会话恢复 (Host-Relayed 方案)
   - 修改 `frontend/src/cloud/cloud-network.js` — 新增断线宽限期 (60s)、重连协议 (RECONNECT_REQUEST/ACCEPTED/REJECTED/GAME_SNAPSHOT/PLAYER_DISCONNECTED/PLAYER_RECONNECTED)、acting host 验证、targetPlayerId 广播过滤、Channel 状态监听 (CLOSED/TIMED_OUT)

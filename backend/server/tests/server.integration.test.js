@@ -979,6 +979,285 @@ describe('GameServer Integration', () => {
       host.close();
       reconnectClient.close();
     });
+
+    it('should preserve snapshot when non-host action is rejected during host disconnect (Bug 7)', async () => {
+      const host = await createClient();
+      const player = await createClient();
+      const roomId = `bug7-desync-${Date.now().toString(36)}`;
+      const hostSessionId = 'sess-host-b7';
+
+      // Join room
+      await sendAndReceive(host, {
+        type: 'JOIN',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: { roomId, nickname: 'Host', gameType: 'uno', sessionId: hostSessionId }
+      }, 'PLAYER_JOINED');
+
+      await sendAndReceive(player, {
+        type: 'JOIN',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: { roomId, nickname: 'Player2', sessionId: 'sess-p2-b7' }
+      }, 'PLAYER_JOINED');
+
+      // Start game with an initial state
+      await sendAndReceive(host, {
+        type: 'START_GAME',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: {
+          gameConfig: {
+            initialState: { turn: 0, hands: { 'host-1': [1, 2], 'player-2': [3, 4] } }
+          }
+        }
+      }, 'GAME_STARTED');
+      await waitForMessage(player, 'GAME_STARTED');
+
+      // Player-2 plays a card (advances state)
+      // Set up host listener before sending to avoid race condition
+      const hostUpdatePromise = waitForMessage(host, 'GAME_STATE_UPDATE');
+      await sendAndReceive(player, {
+        type: 'GAME_ACTION',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: {
+          actionType: 'PLAY_CARD',
+          actionData: { cardId: 'card-3' },
+          gameState: { turn: 1, lastCard: 'card-3' }
+        }
+      }, 'GAME_STATE_UPDATE');
+      await hostUpdatePromise;
+
+      // Host disconnects — server freezes actions
+      const disconnectPromise = waitForMessage(player, 'PLAYER_DISCONNECTED');
+      host.close();
+      await disconnectPromise;
+
+      // Player-2 tries to play another card — should be rejected
+      const errorResponse = await sendAndReceive(player, {
+        type: 'GAME_ACTION',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: {
+          actionType: 'PLAY_CARD',
+          actionData: { cardId: 'card-4' },
+          gameState: { turn: 2, lastCard: 'card-4' }
+        }
+      }, 'ERROR');
+      expect(errorResponse.data.code).toBe('HOST_DISCONNECTED');
+
+      // Snapshot should NOT have advanced to turn 2
+      const room = server.roomManager.getRoom(roomId);
+      expect(room.gameSnapshot.gameState).toEqual(
+        expect.objectContaining({ turn: 1, lastCard: 'card-3' })
+      );
+
+      // Host reconnects — gets the turn-1 snapshot (not turn-2)
+      const reconnectHost = await createClient();
+      const acceptedPromise = waitForMessage(reconnectHost, 'RECONNECT_ACCEPTED');
+      const snapshotPromise = waitForMessage(reconnectHost, 'GAME_SNAPSHOT');
+      const playerReconnectedPromise = waitForMessage(player, 'PLAYER_RECONNECTED');
+
+      reconnectHost.send(JSON.stringify({
+        type: 'RECONNECT_REQUEST',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: { roomId, sessionId: hostSessionId }
+      }));
+
+      await acceptedPromise;
+      const snapshot = await snapshotPromise;
+      await playerReconnectedPromise;
+
+      // Verify the snapshot is at turn 1 (not turn 2 which was rejected)
+      expect(snapshot.data.gameState).toEqual(
+        expect.objectContaining({ turn: 1, lastCard: 'card-3' })
+      );
+
+      // After reconnection, game should be unfrozen — host can send actions
+      const update = await sendAndReceive(reconnectHost, {
+        type: 'GAME_ACTION',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: {
+          actionType: 'PLAY_CARD',
+          actionData: { cardId: 'card-4' },
+          gameState: { turn: 2, lastCard: 'card-4' }
+        }
+      }, 'GAME_STATE_UPDATE');
+
+      expect(update.data.lastAction.actionData.cardId).toBe('card-4');
+
+      reconnectHost.close();
+      player.close();
+    });
+
+    it('should send RETURN_TO_ROOM_STATUS during reconnection (Bug 6 context)', async () => {
+      const host = await createClient();
+      const player = await createClient();
+      const roomId = `bug6-rtr-${Date.now().toString(36)}`;
+      const playerSessionId = 'sess-p-b6';
+
+      await sendAndReceive(host, {
+        type: 'JOIN',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: { roomId, nickname: 'Host', gameType: 'uno', sessionId: 'sess-h-b6' }
+      }, 'PLAYER_JOINED');
+
+      await sendAndReceive(player, {
+        type: 'JOIN',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: { roomId, nickname: 'Player2', sessionId: playerSessionId }
+      }, 'PLAYER_JOINED');
+
+      await sendAndReceive(host, {
+        type: 'START_GAME',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: { gameConfig: { initialState: { turn: 0 } } }
+      }, 'GAME_STARTED');
+      await waitForMessage(player, 'GAME_STARTED');
+
+      // Player disconnects
+      const disconnectPromise = waitForMessage(host, 'PLAYER_DISCONNECTED');
+      player.close();
+      await disconnectPromise;
+
+      // Player reconnects — should receive RETURN_TO_ROOM_STATUS
+      const reconnectPlayer = await createClient();
+      const snapshotPromise = waitForMessage(reconnectPlayer, 'GAME_SNAPSHOT');
+      const rtrStatusPromise = waitForMessage(reconnectPlayer, 'RETURN_TO_ROOM_STATUS');
+
+      reconnectPlayer.send(JSON.stringify({
+        type: 'RECONNECT_REQUEST',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: { roomId, sessionId: playerSessionId }
+      }));
+
+      const snapshot = await snapshotPromise;
+      const rtrStatus = await rtrStatusPromise;
+
+      // Server sends both snapshot and return-to-room status
+      expect(snapshot.type).toBe('GAME_SNAPSHOT');
+      expect(rtrStatus.type).toBe('RETURN_TO_ROOM_STATUS');
+      // The frontend guards this with isRunning check (Bug 6 fix)
+
+      host.close();
+      reconnectPlayer.close();
+    });
+
+    it('should handle multiple reconnect-disconnect cycles for same player', async () => {
+      const host = await createClient();
+      let player = await createClient();
+      const roomId = `multi-rc-${Date.now().toString(36)}`;
+      const playerSessionId = 'sess-multi-p';
+
+      await sendAndReceive(host, {
+        type: 'JOIN',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: { roomId, nickname: 'Host', gameType: 'uno', sessionId: 'sess-multi-h' }
+      }, 'PLAYER_JOINED');
+
+      await sendAndReceive(player, {
+        type: 'JOIN',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: { roomId, nickname: 'Player2', sessionId: playerSessionId }
+      }, 'PLAYER_JOINED');
+
+      await sendAndReceive(host, {
+        type: 'START_GAME',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: { gameConfig: { initialState: { turn: 0 } } }
+      }, 'GAME_STARTED');
+      await waitForMessage(player, 'GAME_STARTED');
+
+      // -- First disconnect/reconnect cycle --
+      let disconnectPromise = waitForMessage(host, 'PLAYER_DISCONNECTED');
+      player.close();
+      await disconnectPromise;
+
+      player = await createClient();
+      let acceptedPromise = waitForMessage(player, 'RECONNECT_ACCEPTED');
+      let reconnectedPromise = waitForMessage(host, 'PLAYER_RECONNECTED');
+
+      player.send(JSON.stringify({
+        type: 'RECONNECT_REQUEST',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: { roomId, sessionId: playerSessionId }
+      }));
+
+      await acceptedPromise;
+      await reconnectedPromise;
+
+      // Verify game works after first reconnect
+      const action1Promise = waitForMessage(host, 'GAME_STATE_UPDATE');
+      player.send(JSON.stringify({
+        type: 'GAME_ACTION',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: {
+          actionType: 'PLAY_CARD',
+          actionData: { cardId: 'c1' },
+          gameState: { turn: 1 }
+        }
+      }));
+      const action1 = await action1Promise;
+      expect(action1.data.lastAction.actionData.cardId).toBe('c1');
+
+      // -- Second disconnect/reconnect cycle --
+      disconnectPromise = waitForMessage(host, 'PLAYER_DISCONNECTED');
+      player.close();
+      await disconnectPromise;
+
+      player = await createClient();
+      acceptedPromise = waitForMessage(player, 'RECONNECT_ACCEPTED');
+      reconnectedPromise = waitForMessage(host, 'PLAYER_RECONNECTED');
+
+      player.send(JSON.stringify({
+        type: 'RECONNECT_REQUEST',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: { roomId, sessionId: playerSessionId }
+      }));
+
+      await acceptedPromise;
+      await reconnectedPromise;
+
+      // Verify snapshot reflects state from first reconnect cycle
+      const snapshotPromise = waitForMessage(player, 'GAME_SNAPSHOT');
+      // Snapshot was already sent during reconnect — re-request won't resend,
+      // but we can verify via the room state
+      const room = server.roomManager.getRoom(roomId);
+      expect(room.gameSnapshot.gameState).toEqual(
+        expect.objectContaining({ turn: 1 })
+      );
+
+      // Verify game still works
+      const action2Promise = waitForMessage(host, 'GAME_STATE_UPDATE');
+      player.send(JSON.stringify({
+        type: 'GAME_ACTION',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: {
+          actionType: 'DRAW_CARD',
+          actionData: {},
+          gameState: { turn: 2 }
+        }
+      }));
+      const action2 = await action2Promise;
+      expect(action2.data.lastAction.actionType).toBe('DRAW_CARD');
+
+      host.close();
+      player.close();
+    });
   });
 
   describe('Error Handling', () => {

@@ -312,17 +312,18 @@
 
 ### C3.2 测试
 
-- [ ] **T-C026** CloudNetworkClient 单元测试
+- [x] **T-C026** CloudNetworkClient 单元测试 ✅
   - Mock Supabase client (channel, presence, broadcast)
-  - 测试 connect / disconnect
-  - 测试 joinRoom → presence track
-  - 测试 leaveRoom → untrack + unsubscribe
-  - 测试 Presence sync → PLAYER_JOINED/LEFT 消息生成
-  - 测试 Host 判定逻辑
-  - 测试 send → channel.send 调用
-  - 测试 onMessage → 正确分发
-  - 测试 sendGameAction / startGame / sendChat
-  - 目标覆盖率: 80%+
+  - ✅ 测试 connect / disconnect
+  - ✅ 测试 joinRoom → presence track
+  - ✅ 测试 leaveRoom → untrack + unsubscribe
+  - ✅ 测试 Presence sync → PLAYER_JOINED/LEFT 消息生成
+  - ✅ 测试 Host 判定逻辑 (含 _isActingHostExcluding)
+  - ✅ 测试 send → channel.send 调用
+  - ✅ 测试 onMessage → 正确分发
+  - ✅ 测试 sendGameAction / startGame / sendChat
+  - ✅ 测试 requestReconnect / grace timer / RECONNECT_REQUEST handling
+  - 测试文件: `frontend/src/cloud/cloud-network.test.js` (54 tests)
   - 依赖: T-C025
 
 ---
