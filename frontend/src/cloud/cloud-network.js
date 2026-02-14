@@ -283,9 +283,12 @@ export class CloudNetworkClient extends EventEmitter {
     this._setupBroadcastListeners();
     this._setupPresenceListeners();
 
+    let settled = false;
     return new Promise((resolve, reject) => {
       this._channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
+          if (settled) return;
+          settled = true;
           try {
             await this._channel.track({
               playerId: this.playerId,
@@ -304,8 +307,15 @@ export class CloudNetworkClient extends EventEmitter {
           } catch (err) {
             reject(err);
           }
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          reject(new Error(`Channel ${status}`));
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (!settled) {
+            settled = true;
+            reject(new Error(`Channel ${status}`));
+          } else if (this._gameActive) {
+            // Post-reconnect disconnection — trigger reconnect flow again
+            this.connected = false;
+            this.emit('disconnected', { code: 1006, reason: `Channel ${status}` });
+          }
         }
       });
     });
