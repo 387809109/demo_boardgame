@@ -439,12 +439,15 @@ export class CloudNetworkClient extends EventEmitter {
 
       const joinedId = joined.playerId;
 
-      // If this player was in the disconnected list, it's a reconnection —
-      // clear grace timer and let the reconnect flow handle the rest
-      if (this._disconnectedPlayers.has(joinedId)) {
+      // During active game, never dispatch PLAYER_JOINED —
+      // reconnections are handled entirely by the RECONNECT_REQUEST protocol.
+      // Only clear the grace timer (don't delete the entry so
+      // _handleReconnectRequest can still find and verify it).
+      if (this._gameActive) {
         const entry = this._disconnectedPlayers.get(joinedId);
-        clearTimeout(entry.timer);
-        this._disconnectedPlayers.delete(joinedId);
+        if (entry) {
+          clearTimeout(entry.timer);
+        }
         return;
       }
 
