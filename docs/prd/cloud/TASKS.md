@@ -411,7 +411,7 @@
 > 云端重连设计复用本地模式的协议和前端逻辑，但将服务端验证职责转移到房主客户端（Host-Relayed 方案）。
 > 详见本地重连改进任务: `docs/prd/backend/TASKS.md` Phase 7.2
 
-- [ ] **T-C044** CloudNetworkClient 断线重连与会话恢复
+- [x] **T-C044** CloudNetworkClient 断线重连与会话恢复 ✅
   - **方案**: Host-Relayed Reconnection — 房主客户端充当重连验证方，无需新增数据库或 API
   - CloudNetworkClient 改造:
     - 新增 `_disconnectedPlayers` Map 和 `_gameActive` 标志

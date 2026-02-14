@@ -558,9 +558,32 @@ export function registerAppOnlineRoomMethods(App, deps) {
         if (this.currentRoom && Array.isArray(data?.players)) {
           this.currentRoom.players = data.players;
         }
-        if (message?.playerId && message.playerId !== this.playerId) {
-          showToast(`玩家 ${message.playerId.slice(0, 8)} 已重连`);
+        // data.playerId is reliable in both local and cloud modes
+        const reconnectedId = data?.playerId || message?.playerId;
+        if (reconnectedId && reconnectedId !== this.playerId && reconnectedId !== 'cloud') {
+          const nickname = data?.nickname || reconnectedId.slice(0, 8);
+          showToast(`${nickname} 已重连`);
         }
+      });
+
+      net.onMessage('PLAYER_DISCONNECTED', (data) => {
+        const nickname = data?.nickname || data?.playerId?.slice(0, 8) || '未知';
+        showToast(`${nickname} 已断线，等待重连中...`);
+      });
+
+      net.onMessage('RECONNECT_REQUEST', (data) => {
+        // Cloud acting host: send game snapshot to reconnecting player
+        if (!this.currentGame || !data?.playerId) return;
+
+        const gameState = this.currentGame.getState();
+        const gameSettings = this.currentRoom?.gameSettings
+          || this._currentGameSettings || {};
+
+        this.network.send('GAME_SNAPSHOT', {
+          targetPlayerId: data.playerId,
+          gameState,
+          gameSettings
+        });
       });
 
       net.on('disconnected', () => {

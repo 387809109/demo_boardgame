@@ -489,8 +489,11 @@ class App {
         this.currentRoom.allPlayersReturned = false;
       }
     }
-    if (mode === 'online' && this.mode === 'local') {
+    if (mode === 'online') {
       this._saveReconnectContext({ gameType });
+      if (this.network && typeof this.network.setGameActive === 'function') {
+        this.network.setGameActive(true);
+      }
     }
 
     // Get visible state for player
@@ -545,6 +548,9 @@ class App {
     });
 
     game.on('gameEnded', (result) => {
+      if (this.network && typeof this.network.setGameActive === 'function') {
+        this.network.setGameActive(false);
+      }
       this._showGameResult(result);
     });
 
@@ -774,10 +780,15 @@ class App {
         this.currentGame = null;
       }
 
-      if (this.network?.isConnected()) {
-        this._manualDisconnect = true;
-        this.network.leaveRoom();
-        this.network.disconnect();
+      if (this.network) {
+        if (typeof this.network.setGameActive === 'function') {
+          this.network.setGameActive(false);
+        }
+        if (this.network.isConnected()) {
+          this._manualDisconnect = true;
+          this.network.leaveRoom();
+          this.network.disconnect();
+        }
       }
 
       this._cancelReconnectTimers();
@@ -935,6 +946,8 @@ class App {
 
 registerAppReconnectMethods(App, {
   NetworkClient,
+  CloudNetworkClient,
+  getSupabaseClient,
   hasGame,
   saveSessionData,
   loadSessionData,

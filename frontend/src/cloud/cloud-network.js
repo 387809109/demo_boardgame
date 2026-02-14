@@ -8,6 +8,12 @@
 
 import { EventEmitter } from '../utils/event-emitter.js';
 
+/** Grace period before a disconnected player is considered gone (ms) */
+const CLOUD_RECONNECT_GRACE_MS = 60000;
+
+/** Delay between reconnect attempts (ms) */
+const CLOUD_RECONNECT_DELAY_MS = 3000;
+
 /**
  * CloudNetworkClient — uses Supabase Realtime Channels
  * for message relay, Presence for room management.
@@ -48,6 +54,18 @@ export class CloudNetworkClient extends EventEmitter {
 
     /** @type {number} */
     this._joinedAt = 0;
+
+    /** @type {Map<string, { nickname: string, timer: number }>} */
+    this._disconnectedPlayers = new Map();
+
+    /** @type {boolean} */
+    this._gameActive = false;
+
+    /** @type {string} */
+    this._gameType = '';
+
+    /** @type {string|null} */
+    this._originalHostId = null;
   }
 
   /**
@@ -83,6 +101,7 @@ export class CloudNetworkClient extends EventEmitter {
     this._roomId = roomId;
     this._nickname = nickname;
     this._joinedAt = Date.now();
+    this._gameType = gameType;
 
     this._channel = this._supabase.channel(`room:${roomId}`, {
       config: { broadcast: { self: true } }
@@ -100,8 +119,13 @@ export class CloudNetworkClient extends EventEmitter {
           joinedAt: this._joinedAt,
           isHost: false // will be recalculated on sync
         });
-      } else if (status === 'CHANNEL_ERROR') {
-        this.emit('error', new Error('Failed to join room channel'));
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        if (this._gameActive) {
+          this.connected = false;
+          this.emit('disconnected', { code: 1006, reason: `Channel ${status}` });
+        } else {
+          this.emit('error', new Error('Failed to join room channel'));
+        }
       }
     });
   }
@@ -110,6 +134,13 @@ export class CloudNetworkClient extends EventEmitter {
    * Leave the current room
    */
   leaveRoom() {
+    // Clear all grace timers
+    for (const entry of this._disconnectedPlayers.values()) {
+      clearTimeout(entry.timer);
+    }
+    this._disconnectedPlayers.clear();
+    this._gameActive = false;
+
     if (this._channel) {
       this._channel.untrack();
       this._channel.unsubscribe();
@@ -201,6 +232,7 @@ export class CloudNetworkClient extends EventEmitter {
   disconnect() {
     this.leaveRoom();
     this.connected = false;
+    this._originalHostId = null;
     this.emit('disconnected', { code: 1000, reason: 'Client disconnect' });
   }
 
@@ -220,6 +252,72 @@ export class CloudNetworkClient extends EventEmitter {
     return 0;
   }
 
+  /**
+   * Get reconnect delay for retry scheduling
+   * @returns {number}
+   */
+  getReconnectDelay() {
+    return CLOUD_RECONNECT_DELAY_MS;
+  }
+
+  /**
+   * Set whether a game is actively in progress
+   * @param {boolean} active
+   */
+  setGameActive(active) {
+    this._gameActive = active;
+  }
+
+  /**
+   * Request reconnection to a room after disconnect
+   * @param {string} roomId
+   * @returns {Promise<void>}
+   */
+  async requestReconnect(roomId) {
+    this._roomId = roomId;
+
+    this._channel = this._supabase.channel(`room:${roomId}`, {
+      config: { broadcast: { self: true } }
+    });
+
+    this._setupBroadcastListeners();
+    this._setupPresenceListeners();
+
+    return new Promise((resolve, reject) => {
+      this._channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          try {
+            await this._channel.track({
+              playerId: this.playerId,
+              nickname: this._nickname,
+              gameType: this._gameType,
+              joinedAt: this._joinedAt,
+              isHost: false
+            });
+
+            // Broadcast reconnect request to the acting host
+            this.send('RECONNECT_REQUEST', {
+              playerId: this.playerId,
+              nickname: this._nickname
+            });
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          reject(new Error(`Channel ${status}`));
+        }
+      });
+    });
+  }
+
+  /**
+   * Notify the room that this player is returning to the waiting room
+   */
+  returnToRoom() {
+    this.send('RETURN_TO_ROOM', {});
+  }
+
   // ── Private: Broadcast ──────────────────────────────────
 
   /**
@@ -231,7 +329,9 @@ export class CloudNetworkClient extends EventEmitter {
     const broadcastEvents = [
       'START_GAME', 'GAME_ACTION', 'GAME_STATE_UPDATE',
       'CHAT_MESSAGE', 'AI_PLAYER_UPDATE', 'GAME_SETTINGS_UPDATE',
-      'GAME_ENDED'
+      'GAME_ENDED',
+      'RECONNECT_REQUEST', 'RECONNECT_ACCEPTED', 'RECONNECT_REJECTED',
+      'GAME_SNAPSHOT', 'PLAYER_DISCONNECTED', 'PLAYER_RECONNECTED'
     ];
 
     for (const event of broadcastEvents) {
@@ -297,6 +397,27 @@ export class CloudNetworkClient extends EventEmitter {
       return;
     }
 
+    // RECONNECT_REQUEST: only acting host processes
+    if (type === 'RECONNECT_REQUEST') {
+      if (playerId !== this.playerId && this._isActingHost()) {
+        this._handleReconnectRequest(payload);
+      }
+      return;
+    }
+
+    // Targeted reconnect messages: only intended recipient processes
+    if (type === 'RECONNECT_ACCEPTED' || type === 'RECONNECT_REJECTED' || type === 'GAME_SNAPSHOT') {
+      if (data?.targetPlayerId !== this.playerId) return;
+      this._dispatchMessage(type, data);
+      return;
+    }
+
+    // PLAYER_DISCONNECTED / PLAYER_RECONNECTED: dispatch as-is
+    if (type === 'PLAYER_DISCONNECTED' || type === 'PLAYER_RECONNECTED') {
+      this._dispatchMessage(type, data);
+      return;
+    }
+
     // All other messages: dispatch as-is
     this._dispatchMessage(type, data);
   }
@@ -314,27 +435,68 @@ export class CloudNetworkClient extends EventEmitter {
 
     this._channel.on('presence', { event: 'join' }, ({ newPresences }) => {
       const joined = newPresences?.[0];
-      if (joined) {
-        const players = this._getPlayerList();
-        this._dispatchMessage('PLAYER_JOINED', {
-          nickname: joined.nickname || '',
-          playerCount: players.length,
-          players,
-          aiPlayers: [],
-          gameSettings: {}
-        });
+      if (!joined) return;
+
+      const joinedId = joined.playerId;
+
+      // If this player was in the disconnected list, it's a reconnection —
+      // clear grace timer and let the reconnect flow handle the rest
+      if (this._disconnectedPlayers.has(joinedId)) {
+        const entry = this._disconnectedPlayers.get(joinedId);
+        clearTimeout(entry.timer);
+        this._disconnectedPlayers.delete(joinedId);
+        return;
       }
+
+      const players = this._getPlayerList();
+      this._dispatchMessage('PLAYER_JOINED', {
+        nickname: joined.nickname || '',
+        playerCount: players.length,
+        players,
+        aiPlayers: [],
+        gameSettings: {}
+      });
     });
 
     this._channel.on('presence', { event: 'leave' }, ({ leftPresences }) => {
       const left = leftPresences?.[0];
       if (!left) return;
 
+      const leftPlayerId = left.playerId;
       const players = this._getPlayerList();
 
-      // If the host left, destroy the room
+      // During an active game, use grace period before declaring the player gone
+      if (this._gameActive && leftPlayerId !== this.playerId) {
+        const nickname = left.nickname || leftPlayerId.slice(0, 8);
+        const isOriginalHost = leftPlayerId === this._originalHostId;
+
+        const timer = setTimeout(() => {
+          this._disconnectedPlayers.delete(leftPlayerId);
+          if (isOriginalHost) {
+            this._dispatchMessage('ROOM_DESTROYED', {
+              message: '房主断线超时，房间已解散'
+            });
+          } else {
+            this._dispatchMessage('PLAYER_LEFT', {
+              reason: 'timeout',
+              playerCount: this._getPlayerList().length,
+              players: this._getPlayerList()
+            });
+          }
+        }, CLOUD_RECONNECT_GRACE_MS);
+
+        this._disconnectedPlayers.set(leftPlayerId, { nickname, timer });
+        this._dispatchMessage('PLAYER_DISCONNECTED', {
+          playerId: leftPlayerId,
+          nickname,
+          reconnectWindowMs: CLOUD_RECONNECT_GRACE_MS
+        });
+        return;
+      }
+
+      // Not in active game — immediate leave / destroy
       const wasHost = this._isHostPlayer(left);
-      if (wasHost && left.playerId !== this.playerId) {
+      if (wasHost && leftPlayerId !== this.playerId) {
         this._dispatchMessage('ROOM_DESTROYED', {
           message: '房主已离开，房间已解散'
         });
@@ -355,6 +517,10 @@ export class CloudNetworkClient extends EventEmitter {
    */
   _handlePresenceSync() {
     this._players = this._getPlayerList();
+    // Track the original host (first sync only)
+    if (!this._originalHostId && this._players.length > 0) {
+      this._originalHostId = this._players[0].id;
+    }
   }
 
   /**
@@ -398,6 +564,60 @@ export class CloudNetworkClient extends EventEmitter {
     // The host was the first joiner; if they left,
     // they'd have the earliest joinedAt among all who were present
     return presence.playerId === players[0]?.id;
+  }
+
+  // ── Private: Reconnect Helpers ─────────────────────────
+
+  /**
+   * Whether this client is the acting host (earliest joinedAt among present members)
+   * @private
+   * @returns {boolean}
+   */
+  _isActingHost() {
+    const players = this._getPlayerList();
+    return players.length > 0 && players[0].id === this.playerId;
+  }
+
+  /**
+   * Handle a reconnect request from a disconnected player (acting host only)
+   * @private
+   * @param {Object} payload - Full broadcast payload
+   */
+  _handleReconnectRequest(payload) {
+    const requestingId = payload.data?.playerId || payload.playerId;
+    if (!requestingId) return;
+
+    // Verify the player was previously disconnected
+    if (!this._disconnectedPlayers.has(requestingId)) {
+      this.send('RECONNECT_REJECTED', {
+        targetPlayerId: requestingId,
+        reasonCode: 'NOT_IN_ROOM'
+      });
+      return;
+    }
+
+    // Clear grace timer
+    const entry = this._disconnectedPlayers.get(requestingId);
+    clearTimeout(entry.timer);
+    this._disconnectedPlayers.delete(requestingId);
+
+    // Accept the reconnection
+    this.send('RECONNECT_ACCEPTED', {
+      targetPlayerId: requestingId
+    });
+
+    // Dispatch RECONNECT_REQUEST to app layer so it can generate and send GAME_SNAPSHOT
+    this._dispatchMessage('RECONNECT_REQUEST', {
+      playerId: requestingId,
+      nickname: entry.nickname
+    });
+
+    // Notify all clients that the player reconnected
+    const players = this._getPlayerList();
+    this.send('PLAYER_RECONNECTED', {
+      playerId: requestingId,
+      players
+    });
   }
 
   // ── Private: Message Dispatch ───────────────────────────

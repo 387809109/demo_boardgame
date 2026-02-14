@@ -1,6 +1,6 @@
 # 项目进度报告
 
-> 最后更新: 2026-02-12
+> 最后更新: 2026-02-14
 
 ---
 
@@ -10,7 +10,7 @@
 |------|------|------|
 | **前端** | 87% | 🔶 部分完成 |
 | **后端 (本地)** | 88% | 🔶 基本完成 (重连改进待实现) |
-| **后端 (云端)** | 90% | ✅ 基本完成 |
+| **后端 (云端)** | 95% | ✅ 基本完成 (含断线重连) |
 | **API 服务 (Render)** | 100% | ✅ 完成 |
 | **整体** | 89% | 🔶 开发中 |
 
@@ -107,7 +107,7 @@
 | T-F112 | 集成测试 | ⬜ |
 | T-F123 | 移动端响应式布局适配 | ⬜ |
 | T-F124 | 游戏数据查询面板 (API 集成) | ✅ |
-| T-F125 | 联机断线重连（客户端） | 🔶（本地完成，云端待 T-C044，前置 T-B116+T-B117） |
+| T-F125 | 联机断线重连（客户端） | ✅（本地 + 云端） |
 | T-F126 | AI 规则问答面板 (Chat API 集成) | ✅ |
 
 ### Phase 6: 可选功能 ⬜ 未开始
@@ -260,11 +260,11 @@
 | T-C042 | 创建 cloud/TASKS.md | ✅ |
 | T-C043 | 更新 PROTOCOL.md | ✅ |
 
-### Phase C6: 断线重连支持 ⬜ 未开始
+### Phase C6: 断线重连支持 ✅ 完成
 
 | 任务 ID | 描述 | 状态 |
 |---------|------|------|
-| T-C044 | CloudNetworkClient 断线重连与会话恢复（依赖 T-B116, T-B117） | ⬜ |
+| T-C044 | CloudNetworkClient 断线重连与会话恢复（依赖 T-B116, T-B117） | ✅ |
 
 ---
 
@@ -369,10 +369,9 @@
 
 ### 高优先级
 
-1. **云端断线重连** - Host-Relayed 方案，CloudNetworkClient 会话恢复 (T-C044，依赖 T-B116+T-B117，前置已完成)
-2. **云端后端单元测试** - AuthService + CloudNetworkClient 单元测试 (T-C013, T-C026)
-3. **狼人杀手动测试** - UI 渲染及完整游戏流程端到端验证 (T-F075)
-4. **集成测试** - 端到端测试 (T-F112)
+1. **云端后端单元测试** - AuthService + CloudNetworkClient 单元测试 (T-C013, T-C026)
+2. **狼人杀手动测试** - UI 渲染及完整游戏流程端到端验证 (T-F075)
+3. **集成测试** - 端到端测试 (T-F112)
 
 ### 中优先级
 
@@ -400,6 +399,16 @@
 ---
 
 ## 最近完成的任务
+
+### 2026-02-14
+
+- ✅ T-C044 CloudNetworkClient 断线重连与会话恢复 (Host-Relayed 方案)
+  - 修改 `frontend/src/cloud/cloud-network.js` — 新增断线宽限期 (60s)、重连协议 (RECONNECT_REQUEST/ACCEPTED/REJECTED/GAME_SNAPSHOT/PLAYER_DISCONNECTED/PLAYER_RECONNECTED)、acting host 验证、targetPlayerId 广播过滤、Channel 状态监听 (CLOSED/TIMED_OUT)
+  - 新增方法: `requestReconnect()`, `getReconnectDelay()`, `setGameActive()`, `returnToRoom()`, `_isActingHost()`, `_handleReconnectRequest()`
+  - 修改 `frontend/src/app/app-reconnect-methods.js` — 移除所有 `instanceof NetworkClient` 本地模式硬限制，支持 CloudNetworkClient 重连、重试、上下文保存/恢复
+  - 修改 `frontend/src/app/app-online-room-methods.js` — 新增 `PLAYER_DISCONNECTED` handler (断线提示)、`RECONNECT_REQUEST` handler (acting host 发送 GAME_SNAPSHOT)、修复 `PLAYER_RECONNECTED` 云端兼容
+  - 修改 `frontend/src/main.js` — 注入 `CloudNetworkClient`/`getSupabaseClient` 到重连模块依赖、`_startGame` 中调用 `setGameActive(true)`、游戏结束/离开时调用 `setGameActive(false)`
+  - 前端构建验证通过: `npm run build`
 
 ### 2026-02-13
 

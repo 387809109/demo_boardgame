@@ -12,6 +12,8 @@
 export function registerAppReconnectMethods(App, deps) {
   const {
     NetworkClient,
+    CloudNetworkClient,
+    getSupabaseClient,
     hasGame,
     saveSessionData,
     loadSessionData,
@@ -34,22 +36,26 @@ export function registerAppReconnectMethods(App, deps) {
      * @private
      */
     _saveReconnectContext(overrides = {}) {
-      if (this.mode !== 'local' || !this.currentRoom?.id || !(this.network instanceof NetworkClient)) {
+      if (!this.currentRoom?.id || !this.network) {
         return;
       }
 
       const self = this.currentRoom.players?.find(p => p.id === this.playerId);
       const context = {
+        mode: this.mode,
         roomId: this.currentRoom.id,
         playerId: this.playerId,
         sessionId: this.sessionId,
-        serverUrl: this.network.serverUrl,
         gameType: this.currentRoom.gameType || 'unknown',
         maxPlayers: this.currentRoom.maxPlayers,
         nickname: self?.nickname || this.currentRoom.nickname || this.config.game.defaultNickname,
         updatedAt: Date.now(),
         ...overrides
       };
+
+      if (this.mode === 'local' && this.network instanceof NetworkClient) {
+        context.serverUrl = this.network.serverUrl;
+      }
 
       saveSessionData(RECONNECT_CONTEXT_KEY, context);
     },
@@ -142,7 +148,7 @@ export function registerAppReconnectMethods(App, deps) {
      * @private
      */
     async _runReconnectAttempt() {
-      if (!this._isReconnecting || !this._reconnectContext || !(this.network instanceof NetworkClient)) {
+      if (!this._isReconnecting || !this._reconnectContext || !this.network) {
         return;
       }
 
@@ -150,9 +156,18 @@ export function registerAppReconnectMethods(App, deps) {
       this._reconnectAttempts += 1;
       updateLoadingMessage(`重连中（第 ${this._reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} 次），正在连接...`);
 
+      const ctx = this._reconnectContext;
+
       try {
-        await this.network.connect();
-        this.network.requestReconnect(this._reconnectContext.roomId, this._reconnectContext.sessionId);
+        if (this.network instanceof CloudNetworkClient) {
+          // Cloud mode: requestReconnect handles subscribe + track + send in one call
+          await this.network.connect();
+          await this.network.requestReconnect(ctx.roomId);
+        } else {
+          // Local mode: connect then send reconnect request with sessionId
+          await this.network.connect();
+          this.network.requestReconnect(ctx.roomId, ctx.sessionId);
+        }
         this._reconnectResponseTimer = setTimeout(() => {
           this._handleReconnectTransientFailure('重连请求超时');
         }, RECONNECT_RESPONSE_TIMEOUT_MS);
@@ -187,7 +202,7 @@ export function registerAppReconnectMethods(App, deps) {
      * @param {number} [initialDelayMs=DEFAULT_RECONNECT_DELAY_MS] - Delay before first attempt
      */
     _startReconnectFlow(ctx, initialDelayMs = DEFAULT_RECONNECT_DELAY_MS) {
-      if (!(this.network instanceof NetworkClient)) {
+      if (!this.network) {
         return;
       }
 
@@ -206,14 +221,23 @@ export function registerAppReconnectMethods(App, deps) {
      * @param {Object} ctx - Reconnect context
      */
     _retryReconnectFromContext(ctx) {
-      if (!ctx?.serverUrl || !ctx?.roomId || !ctx?.sessionId) {
+      if (!ctx?.roomId) {
         showNotification('重连上下文缺失，请手动加入房间', 'warning');
         return;
       }
 
-      this.mode = 'local';
-      this.sessionId = ctx.sessionId;
-      saveSessionData('sessionId', this.sessionId);
+      const isCloud = ctx.mode === 'cloud';
+
+      if (!isCloud && (!ctx.serverUrl || !ctx.sessionId)) {
+        showNotification('重连上下文缺失，请手动加入房间', 'warning');
+        return;
+      }
+
+      this.mode = isCloud ? 'cloud' : 'local';
+      if (ctx.sessionId) {
+        this.sessionId = ctx.sessionId;
+        saveSessionData('sessionId', this.sessionId);
+      }
       saveSessionData(RECONNECT_CONTEXT_KEY, ctx);
 
       const reconnectGameType = ctx.gameType || 'unknown';
@@ -232,7 +256,11 @@ export function registerAppReconnectMethods(App, deps) {
         gameSettings: {}
       };
 
-      this.network = new NetworkClient(ctx.serverUrl);
+      if (isCloud) {
+        this.network = new CloudNetworkClient(getSupabaseClient());
+      } else {
+        this.network = new NetworkClient(ctx.serverUrl);
+      }
       this.network.playerId = this.playerId;
       this._setupNetworkHandlers();
       this._startReconnectFlow(ctx, 0);
@@ -243,8 +271,7 @@ export function registerAppReconnectMethods(App, deps) {
      * @private
      */
     _canAttemptReconnect() {
-      return this.mode === 'local'
-        && this.network instanceof NetworkClient
+      return !!this.network
         && !!this.currentGame
         && !!this.currentRoom?.id;
     },
@@ -254,18 +281,18 @@ export function registerAppReconnectMethods(App, deps) {
      * @private
      */
     _attemptReconnect() {
-      if (this._isReconnecting || !(this.network instanceof NetworkClient)) {
+      if (this._isReconnecting || !this.network) {
         return;
       }
 
       const ctx = this._loadReconnectContext();
-      if (
-        !ctx
-        || ctx.playerId !== this.playerId
-        || !ctx.roomId
-        || !ctx.sessionId
-        || !ctx.serverUrl
-      ) {
+      if (!ctx || ctx.playerId !== this.playerId || !ctx.roomId) {
+        this._handleReconnectFailure('缺少重连上下文');
+        return;
+      }
+
+      // Local mode requires sessionId and serverUrl
+      if (ctx.mode === 'local' && (!ctx.sessionId || !ctx.serverUrl)) {
         this._handleReconnectFailure('缺少重连上下文');
         return;
       }
@@ -378,9 +405,12 @@ export function registerAppReconnectMethods(App, deps) {
       this._closeResultScreen(true);
       hideLoading();
 
-      const prefill = lastContext && lastContext.roomId && lastContext.serverUrl
+      const hasValidContext = lastContext && lastContext.roomId
+        && (lastContext.mode === 'cloud' || lastContext.serverUrl);
+
+      const prefill = hasValidContext
         ? {
-            serverUrl: lastContext.serverUrl,
+            serverUrl: lastContext.serverUrl || '',
             roomId: lastContext.roomId,
             nickname: lastContext.nickname || this.config.game.defaultNickname
           }
@@ -391,7 +421,7 @@ export function registerAppReconnectMethods(App, deps) {
       this.currentGame = null;
       this.showLobby();
 
-      if (prefill && this.mode === 'local') {
+      if (prefill) {
         this._joinRoomPrefill = prefill;
         showNotification(`重连失败: ${reason}`, 'error');
         const modal = getModal();
