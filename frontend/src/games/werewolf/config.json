@@ -86,15 +86,6 @@
         "description": "首夜连结两名玩家成为恋人，恋人一方死亡时另一方殉情",
         "winCondition": "连结后变为普通村民，跟随村民阵营获胜（如自己是恋人则跟随恋人阵营）"
       },
-      "sheriff": {
-        "id": "sheriff",
-        "name": "警长",
-        "team": "village",
-        "priority": "P1",
-        "actionTypes": ["NIGHT_SHERIFF_CHECK"],
-        "description": "夜晚查验返回可疑或无辜",
-        "winCondition": "消灭所有狼人"
-      },
       "vigilante": {
         "id": "vigilante",
         "name": "私刑者",
@@ -130,15 +121,6 @@
         "actionTypes": ["NIGHT_PIPER_CHARM"],
         "description": "每晚魅惑玩家，当所有存活玩家都被魅惑时胜利",
         "winCondition": "魅惑所有存活玩家"
-      },
-      "captain": {
-        "id": "captain",
-        "name": "队长",
-        "team": "village",
-        "priority": "P1",
-        "actionTypes": ["DAY_REVEAL_CAPTAIN"],
-        "description": "白天公开身份后获得加倍票权",
-        "winCondition": "消灭所有狼人"
       }
     },
     "p2": {
@@ -272,7 +254,7 @@
     { "priority": 2, "roles": ["thief"], "description": "交换角色 (仅首夜)" },
     { "priority": 3, "roles": ["jailer"], "description": "监禁目标" },
     { "priority": 4, "roles": ["roleblocker"], "description": "阻止目标行动" },
-    { "priority": 5, "roles": ["seer", "sheriff", "detective"], "description": "查验" },
+    { "priority": 5, "roles": ["seer", "detective"], "description": "查验" },
     { "priority": 6, "roles": ["tracker", "watcher"], "description": "追踪/监视" },
     { "priority": 7, "roles": ["doctor", "bodyguard", "guardian_angel"], "description": "保护" },
     { "priority": 8, "roles": ["werewolf"], "description": "击杀" },

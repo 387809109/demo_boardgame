@@ -112,15 +112,13 @@
 |------|-----|------|------|
 | 守卫 | `bodyguard` | village | 保护目标免于击杀 |
 | 丘比特 | `cupid` | neutral | 首夜连结恋人 |
-| 警长 | `sheriff` | village | 查验返回可疑/无辜 |
 | 私刑者 | `vigilante` | village | 夜晚射杀一人 |
 | 白痴 | `idiot` | village | 被投票处决时不死，失去投票权 |
 | 小丑 | `jester` | neutral | 被投票处决时胜利 |
 | 魔笛手 | `piper` | neutral | 魅惑全体则胜 |
-| 队长 | `captain` | village | 加倍票权 |
 
 **验收标准:**
-- [ ] 8 个 P1 角色全部可用
+- [ ] 6 个 P1 角色全部可用
 - [ ] 恋人机制正确实现
 - [ ] 中立阵营胜利条件正确
 - [ ] 单元测试覆盖所有 P1 角色

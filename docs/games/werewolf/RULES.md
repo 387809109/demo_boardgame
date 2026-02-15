@@ -89,12 +89,10 @@ const TEAMS = {
 |------|-----|------|----------|------|
 | 守卫 | `bodyguard` | village | NIGHT_BODYGUARD_PROTECT | 保护目标免于夜晚击杀 |
 | 丘比特 | `cupid` | neutral | NIGHT_CUPID_LINK | 首夜连结两名恋人 |
-| 警长 | `sheriff` | village | NIGHT_SHERIFF_CHECK | 夜晚查验返回"可疑/无辜" |
 | 私刑者 | `vigilante` | village | NIGHT_VIGILANTE_KILL | 夜晚射杀一人 |
 | 白痴 | `idiot` | village | 无 | 被投票处决时不死，失去投票权 |
 | 小丑 | `jester` | neutral | 无 | 被投票处决时胜利 |
 | 魔笛手 | `piper` | neutral | NIGHT_PIPER_CHARM | 夜晚魅惑玩家，魅惑全体则胜 |
-| 队长 | `captain` | village | DAY_REVEAL_CAPTAIN | 白天公开后获得加倍票权 |
 
 ### 3.4 高级角色 (P2 - 扩展)
 
@@ -472,7 +470,6 @@ const ACTION_TYPES = {
 
 | 操作 | 效果 | 条件 |
 |------|------|------|
-| DAY_REVEAL_CAPTAIN | 公布队长身份并获得加倍票权 | 仅 Captain，白天阶段 |
 | DAY_VOTE | 计票处决候选人 | 白天阶段 |
 | DAY_SKIP_VOTE | 放弃投票 | 白天阶段 |
 | LAST_WORDS | 允许被处决者在规则允许时发言（可选实现） | 通常仅白天处决触发 |

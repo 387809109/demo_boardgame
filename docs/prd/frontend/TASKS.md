@@ -351,9 +351,9 @@
   - 医生 `doctor`、猎人 `hunter`、女巫 `witch`
   - 验收: 基础游戏流程完整、胜利条件正确
 
-- [ ] **T-F077** 实现 P1 进阶角色 (7 角色)
-  - 守卫 `bodyguard`、丘比特 `cupid`、警长 `sheriff`
-  - 私刑者 `vigilante`、白痴 `idiot`、小丑 `jester`、魔笛手 `piper`、队长 `captain`
+- [ ] **T-F077** 实现 P1 进阶角色 (6 角色)
+  - 守卫 `bodyguard`、丘比特 `cupid`、私刑者 `vigilante`
+  - 白痴 `idiot`、小丑 `jester`、魔笛手 `piper`
   - 验收: 恋人机制、中立阵营胜利条件
 
 - [ ] **T-F078** 实现 P2 高级角色 (11 角色)
