@@ -33,6 +33,7 @@ export const ACTION_TYPES = {
   NIGHT_WOLF_TENTATIVE: 'NIGHT_WOLF_TENTATIVE',
   NIGHT_SEER_CHECK: 'NIGHT_SEER_CHECK',
   NIGHT_DOCTOR_PROTECT: 'NIGHT_DOCTOR_PROTECT',
+  NIGHT_BODYGUARD_PROTECT: 'NIGHT_BODYGUARD_PROTECT',
   NIGHT_WITCH_SAVE: 'NIGHT_WITCH_SAVE',
   NIGHT_WITCH_POISON: 'NIGHT_WITCH_POISON',
   HUNTER_SHOOT: 'HUNTER_SHOOT',
@@ -94,6 +95,7 @@ export class WerewolfGame extends GameEngine {
       lastWordsOrder: options.lastWordsOrder ?? config.rules.lastWordsOrder,
       witchCanSaveSelf: options.witchCanSaveSelf ?? config.rules.witchCanSaveSelf,
       witchSaveFirstNightOnly: options.witchSaveFirstNightOnly ?? config.rules.witchSaveFirstNightOnly,
+      guardWitchInteraction: options.guardWitchInteraction ?? config.rules.guardWitchInteraction,
       protectAgainstPoison: options.protectAgainstPoison ?? config.rules.protectAgainstPoison,
       protectAgainstVigilante: options.protectAgainstVigilante ?? config.rules.protectAgainstVigilante
     };

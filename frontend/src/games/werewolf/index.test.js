@@ -2067,3 +2067,300 @@ describe('WerewolfGame', () => {
     });
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BODYGUARD (P1) TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('Bodyguard (P1)', () => {
+  // Role counts with bodyguard (8 players)
+  const P1_BODYGUARD_COUNTS = {
+    werewolf: 2,
+    seer: 1,
+    doctor: 1,
+    bodyguard: 1,
+    witch: 1,
+    hunter: 1,
+    villager: 1
+  };
+
+  const EIGHT_PLAYERS = [
+    ...SEVEN_PLAYERS,
+    { id: 'p8', nickname: 'Player8' }
+  ];
+
+  // ─── Basic Functionality Tests ───
+
+  describe('Basic Functionality', () => {
+    it('should successfully protect a player from wolf kill', () => {
+      const { game } = setupGame({
+        players: EIGHT_PLAYERS,
+        roleCounts: P1_BODYGUARD_COUNTS,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'bodyguard', p6: 'witch',
+          p7: 'hunter', p8: 'villager'
+        }
+      });
+
+      // Night: bodyguard protects p8, wolves kill p8
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p8' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const state = game.getState();
+      expect(state.phase).toBe(PHASES.DAY_ANNOUNCE);
+      expect(state.playerMap.p8.alive).toBe(true);
+      expect(state.nightDeaths).toEqual([]);
+    });
+
+    it('should not protect against witch poison', () => {
+      const { game } = setupGame({
+        players: EIGHT_PLAYERS,
+        roleCounts: P1_BODYGUARD_COUNTS,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'bodyguard', p6: 'witch',
+          p7: 'hunter', p8: 'villager'
+        }
+      });
+
+      // Bodyguard protects p8, witch poisons p8
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p8' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p8' });
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const state = game.getState();
+      expect(state.playerMap.p8.alive).toBe(false);
+      expect(state.nightDeaths).toContainEqual({ playerId: 'p8', cause: 'witch_poison' });
+    });
+
+    it('should allow self-protection when allowDoctorSelfProtect is true', () => {
+      const { game } = setupGame({
+        players: EIGHT_PLAYERS,
+        roleCounts: P1_BODYGUARD_COUNTS,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'bodyguard', p6: 'witch',
+          p7: 'hunter', p8: 'villager'
+        },
+        options: { allowDoctorSelfProtect: true }
+      });
+
+      // Bodyguard protects self, wolves kill bodyguard
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p5' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const state = game.getState();
+      expect(state.playerMap.p5.alive).toBe(true);
+    });
+
+    it('should reject self-protection when allowDoctorSelfProtect is false', () => {
+      const { game, state } = setupGame({
+        players: EIGHT_PLAYERS,
+        roleCounts: P1_BODYGUARD_COUNTS,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'bodyguard', p6: 'witch',
+          p7: 'hunter', p8: 'villager'
+        },
+        options: { allowDoctorSelfProtect: false }
+      });
+
+      // Ensure bodyguard is in pending roles for validation
+      if (!state.pendingNightRoles.includes('p5')) {
+        state.pendingNightRoles.push('p5');
+      }
+
+      const result = game.validateMove(
+        { playerId: 'p5', actionType: ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, actionData: { targetId: 'p5' } },
+        state
+      );
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('守卫不能保护自己');
+    });
+
+    it('should reject protecting same player consecutively when allowRepeatedProtect is false', () => {
+      const { game } = setupGame({
+        players: EIGHT_PLAYERS,
+        roleCounts: P1_BODYGUARD_COUNTS,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'bodyguard', p6: 'witch',
+          p7: 'hunter', p8: 'villager'
+        },
+        options: { allowRepeatedProtect: false }
+      });
+
+      // Night 1: protect p8
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p8' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+      // Skip day and return to night
+      advanceToNight(game);
+
+      // Night 2: try to protect p8 again (skip earlier roles first)
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      const result = submitNight(game, 'p5', ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p8' });
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('不能连续两晚保护同一人');
+    });
+  });
+
+  // ─── Guard-Witch Interaction Tests ───
+
+  describe('Guard-Witch Interaction', () => {
+    it('should allow guard + witch save to coexist (guardWitchInteraction = "coexist")', () => {
+      const { game } = setupGame({
+        players: EIGHT_PLAYERS,
+        roleCounts: P1_BODYGUARD_COUNTS,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'bodyguard', p6: 'witch',
+          p7: 'hunter', p8: 'villager'
+        },
+        options: { guardWitchInteraction: 'coexist' }
+      });
+
+      // Bodyguard + witch both protect p8
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p8' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const state = game.getState();
+      expect(state.playerMap.p8.alive).toBe(true);
+      expect(state.nightDeaths).toEqual([]);
+    });
+
+    it('should trigger guard-witch conflict (guardWitchInteraction = "conflict")', () => {
+      const { game } = setupGame({
+        players: EIGHT_PLAYERS,
+        roleCounts: P1_BODYGUARD_COUNTS,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'bodyguard', p6: 'witch',
+          p7: 'hunter', p8: 'villager'
+        },
+        options: { guardWitchInteraction: 'conflict' }
+      });
+
+      // Guard + witch conflict → target dies
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p8' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const state = game.getState();
+      expect(state.playerMap.p8.alive).toBe(false);
+      expect(state.nightDeaths).toContainEqual({ playerId: 'p8', cause: 'wolf_kill' });
+    });
+
+    it('should not trigger conflict when only guard protects', () => {
+      const { game } = setupGame({
+        players: EIGHT_PLAYERS,
+        roleCounts: P1_BODYGUARD_COUNTS,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'bodyguard', p6: 'witch',
+          p7: 'hunter', p8: 'villager'
+        },
+        options: { guardWitchInteraction: 'conflict' }
+      });
+
+      // Only guard protects, witch skips
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p8' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const state = game.getState();
+      expect(state.playerMap.p8.alive).toBe(true);
+    });
+  });
+
+  // ─── Role Interaction Tests ───
+
+  describe('Interactions with Other Roles', () => {
+    it('should work alongside doctor protection (double protection)', () => {
+      const { game } = setupGame({
+        players: EIGHT_PLAYERS,
+        roleCounts: P1_BODYGUARD_COUNTS,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'bodyguard', p6: 'witch',
+          p7: 'hunter', p8: 'villager'
+        }
+      });
+
+      // Both guard and doctor protect p8
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p8' });
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p8' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const state = game.getState();
+      expect(state.playerMap.p8.alive).toBe(true);
+    });
+
+    it('should prevent hunter trigger when protecting hunter', () => {
+      const { game } = setupGame({
+        players: EIGHT_PLAYERS,
+        roleCounts: P1_BODYGUARD_COUNTS,
+        roleMap: {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'bodyguard', p6: 'witch',
+          p7: 'hunter', p8: 'villager'
+        }
+      });
+
+      // Guard protects hunter from wolf kill
+      submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+      submitNight(game, 'p5', ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p7' });
+      submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+      submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+      const state = game.getState();
+      expect(state.playerMap.p7.alive).toBe(true);
+      expect(state.phase).toBe(PHASES.DAY_ANNOUNCE);
+    });
+  });
+});

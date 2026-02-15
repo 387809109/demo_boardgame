@@ -325,7 +325,8 @@ export function resolveNightActions(state) {
       action.actionType === 'NIGHT_WITCH_SAVE' ||
       (action.actionType === 'NIGHT_WITCH_COMBINED' && action.actionData?.usedSave)
     ) {
-      const wolfKill = kills.find(k => k.cause === 'wolf_kill' && !k.cancelled);
+      // Find wolf kill regardless of whether it's already cancelled (for guard-witch conflict detection)
+      const wolfKill = kills.find(k => k.cause === 'wolf_kill');
       if (wolfKill) {
         wolfKill.cancelled = true;
         witchUsedSave = true;
