@@ -34,6 +34,7 @@ export const ACTION_TYPES = {
   NIGHT_SEER_CHECK: 'NIGHT_SEER_CHECK',
   NIGHT_DOCTOR_PROTECT: 'NIGHT_DOCTOR_PROTECT',
   NIGHT_BODYGUARD_PROTECT: 'NIGHT_BODYGUARD_PROTECT',
+  NIGHT_CUPID_LINK: 'NIGHT_CUPID_LINK',
   NIGHT_WITCH_SAVE: 'NIGHT_WITCH_SAVE',
   NIGHT_WITCH_POISON: 'NIGHT_WITCH_POISON',
   HUNTER_SHOOT: 'HUNTER_SHOOT',
@@ -97,7 +98,10 @@ export class WerewolfGame extends GameEngine {
       witchSaveFirstNightOnly: options.witchSaveFirstNightOnly ?? config.rules.witchSaveFirstNightOnly,
       guardWitchInteraction: options.guardWitchInteraction ?? config.rules.guardWitchInteraction,
       protectAgainstPoison: options.protectAgainstPoison ?? config.rules.protectAgainstPoison,
-      protectAgainstVigilante: options.protectAgainstVigilante ?? config.rules.protectAgainstVigilante
+      protectAgainstVigilante: options.protectAgainstVigilante ?? config.rules.protectAgainstVigilante,
+      cupidCanSelfLove: options.cupidCanSelfLove ?? config.rules.cupidCanSelfLove,
+      sameSideLoversSeparate: options.sameSideLoversSeparate ?? config.rules.sameSideLoversSeparate,
+      loversNightChat: options.loversNightChat ?? config.rules.loversNightChat
     };
 
     // Determine role counts
@@ -189,9 +193,12 @@ export class WerewolfGame extends GameEngine {
         witchSaveUsed: false,
         witchPoisonUsed: false,
         doctorLastProtect: null,
-        bodyguardLastProtect: null
+        bodyguardLastProtect: null,
+        cupidLinked: false
       },
-      links: {},
+      links: {
+        lovers: null
+      },
 
       // Seer check results
       seerChecks: {},
@@ -665,6 +672,33 @@ export class WerewolfGame extends GameEngine {
       state.roleStates.bodyguardLastProtect = actionData?.targetId || null;
     }
 
+    // Cupid link: create lovers
+    if (actionType === ACTION_TYPES.NIGHT_CUPID_LINK && actionData?.lovers) {
+      const [lover1Id, lover2Id] = actionData.lovers;
+      state.links.lovers = [lover1Id, lover2Id];
+      state.roleStates.cupidLinked = true;
+
+      const lover1 = state.playerMap[lover1Id];
+      const lover2 = state.playerMap[lover2Id];
+
+      // Check if cross-faction lovers
+      const isCrossFaction = lover1.team !== lover2.team;
+      const sameFactionSeparate = state.options.sameSideLoversSeparate;
+
+      if (isCrossFaction || sameFactionSeparate) {
+        // Update teams to "lovers" (they leave their original factions)
+        lover1.team = 'lovers';
+        lover2.team = 'lovers';
+      }
+
+      // Notify both lovers
+      state.dayAnnouncements.push({
+        type: 'lovers_linked',
+        lovers: [lover1Id, lover2Id],
+        message: '恋人已连结'
+      });
+    }
+
     // Remove from pending
     const idx = state.pendingNightRoles.indexOf(playerId);
     if (idx !== -1) {
@@ -698,6 +732,11 @@ export class WerewolfGame extends GameEngine {
 
       // Hunter shoot eligibility
       if (deadPlayer.roleId === 'hunter') {
+        // Hunter cannot shoot if death is from lover martyrdom
+        if (cause === 'lover_death') {
+          // Martyrdom takes priority over hunter ability
+          continue;
+        }
         const canShoot = cause !== 'witch_poison' ||
                          state.options.hunterShootOnPoison;
         if (canShoot) {

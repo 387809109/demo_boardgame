@@ -80,11 +80,11 @@
       "cupid": {
         "id": "cupid",
         "name": "丘比特",
-        "team": "neutral",
+        "team": "village",
         "priority": "P1",
         "actionTypes": ["NIGHT_CUPID_LINK"],
-        "description": "首夜连结两名玩家成为恋人",
-        "winCondition": "恋人存活到最后"
+        "description": "首夜连结两名玩家成为恋人，恋人一方死亡时另一方殉情",
+        "winCondition": "连结后变为普通村民，跟随村民阵营获胜（如自己是恋人则跟随恋人阵营）"
       },
       "sheriff": {
         "id": "sheriff",
@@ -295,7 +295,10 @@
     "witchSaveFirstNightOnly": false,
     "protectAgainstPoison": false,
     "protectAgainstVigilante": true,
-    "guardWitchInteraction": "coexist"
+    "guardWitchInteraction": "coexist",
+    "cupidCanSelfLove": true,
+    "sameSideLoversSeparate": false,
+    "loversNightChat": false
   },
 
   "timing": {
@@ -416,6 +419,24 @@
         { "value": "coexist", "label": "共存（两者都生效，目标存活）" },
         { "value": "conflict", "label": "冲突（守药同死，目标死亡）" }
       ]
+    },
+    "cupidCanSelfLove": {
+      "type": "boolean",
+      "label": "丘比特可自恋",
+      "description": "是否允许丘比特将自己选为恋人之一",
+      "default": true
+    },
+    "sameSideLoversSeparate": {
+      "type": "boolean",
+      "label": "同阵营恋人脱离阵营",
+      "description": "如果设为 true，即使两名恋人同属一个阵营，也会脱离原阵营形成独立的恋人阵营",
+      "default": false
+    },
+    "loversNightChat": {
+      "type": "boolean",
+      "label": "恋人夜间私聊",
+      "description": "恋人是否可以在夜间私聊",
+      "default": false
     }
   }
 }

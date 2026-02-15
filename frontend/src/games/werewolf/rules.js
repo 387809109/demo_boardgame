@@ -195,6 +195,40 @@ export function validateNightAction(move, state) {
       }
       break;
     }
+    case 'NIGHT_CUPID_LINK': {
+      // Cupid can only link on the first night
+      if (state.round > 1) {
+        return { valid: false, error: '丘比特只能在首夜连结恋人' };
+      }
+      // Check if already linked
+      if (state.roleStates?.cupidLinked) {
+        return { valid: false, error: '你已经连结过恋人了' };
+      }
+      // Must provide exactly 2 lovers
+      const lovers = actionData?.lovers;
+      if (!lovers || !Array.isArray(lovers) || lovers.length !== 2) {
+        return { valid: false, error: '必须选择正好两名玩家成为恋人' };
+      }
+      // Check both targets exist and are alive
+      const [lover1Id, lover2Id] = lovers;
+      const lover1 = state.playerMap[lover1Id];
+      const lover2 = state.playerMap[lover2Id];
+      if (!lover1 || !lover2) {
+        return { valid: false, error: '目标玩家不存在' };
+      }
+      if (!lover1.alive || !lover2.alive) {
+        return { valid: false, error: '目标玩家已死亡' };
+      }
+      // Check no duplicates
+      if (lover1Id === lover2Id) {
+        return { valid: false, error: '不能选择同一名玩家两次' };
+      }
+      // Check self-love option
+      if (!state.options.cupidCanSelfLove && (lover1Id === playerId || lover2Id === playerId)) {
+        return { valid: false, error: '丘比特不能将自己选为恋人' };
+      }
+      break;
+    }
   }
 
   return { valid: true };
@@ -425,6 +459,22 @@ export function calculateVoteResult(votes, options = {}) {
  */
 export function checkWinConditions(state) {
   const alivePlayers = Object.values(state.playerMap).filter(p => p.alive);
+
+  // Check for lovers team win condition
+  if (state.links.lovers) {
+    const [lover1Id, lover2Id] = state.links.lovers;
+    const lover1 = state.playerMap[lover1Id];
+    const lover2 = state.playerMap[lover2Id];
+
+    // If both lovers are alive and they form a separate team
+    if (lover1?.alive && lover2?.alive && (lover1.team === 'lovers' || lover2.team === 'lovers')) {
+      // Lovers win if ONLY they remain alive
+      if (alivePlayers.length === 2) {
+        return { ended: true, winner: 'lovers', reason: 'only_lovers_remain' };
+      }
+    }
+  }
+
   const wolves = alivePlayers.filter(p => p.team === 'werewolf').length;
   const villagers = alivePlayers.filter(p => p.team === 'village').length;
 
@@ -461,6 +511,11 @@ export function getActiveNightRoles(state) {
       a => a.startsWith('NIGHT_')
     );
     if (!hasNightAction) continue;
+
+    // Cupid only acts on first night (before linking)
+    if (player.roleId === 'cupid' && state.roleStates?.cupidLinked) {
+      continue;
+    }
 
     // Find priority
     let priority = 99;

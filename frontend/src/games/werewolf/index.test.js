@@ -85,6 +85,7 @@ function findRoleConfig(roleId) {
     seer: { team: 'village', actionTypes: ['NIGHT_SEER_CHECK'] },
     doctor: { team: 'village', actionTypes: ['NIGHT_DOCTOR_PROTECT'] },
     bodyguard: { team: 'village', actionTypes: ['NIGHT_BODYGUARD_PROTECT'] },
+    cupid: { team: 'village', actionTypes: ['NIGHT_CUPID_LINK'] },
     hunter: { team: 'village', actionTypes: ['HUNTER_SHOOT'] },
     witch: { team: 'village', actionTypes: ['NIGHT_WITCH_SAVE', 'NIGHT_WITCH_POISON'] }
   };
@@ -2361,6 +2362,619 @@ describe('Bodyguard (P1)', () => {
       const state = game.getState();
       expect(state.playerMap.p7.alive).toBe(true);
       expect(state.phase).toBe(PHASES.DAY_ANNOUNCE);
+    });
+  });
+
+  // ─── Cupid Role Tests ───
+
+  describe('Cupid Role', () => {
+    const CUPID_COUNTS = {
+      werewolf: 2,
+      seer: 1,
+      doctor: 1,
+      cupid: 1,
+      witch: 1,
+      hunter: 1
+    };
+
+    // ─── Basic Linking Tests ───
+
+    describe('Basic Linking Functionality', () => {
+      it('should allow cupid to link two players on first night', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links p4 and p5
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+
+        const state = game.getState();
+        expect(state.links.lovers).toEqual(['p4', 'p5']);
+        expect(state.roleStates.cupidLinked).toBe(true);
+      });
+
+      it('should prevent cupid from linking on subsequent nights', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // First night - link
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        // Advance to day and next night
+        playVoteRound(game, {}); // No execution
+
+        // Second night - cupid should not be in pending roles
+        const state = game.getState();
+        expect(state.pendingNightRoles).not.toContain('p3');
+      });
+
+      it('should allow cupid to include themselves as a lover (cupidCanSelfLove=true)', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          },
+          options: { cupidCanSelfLove: true }
+        });
+
+        // Cupid links themselves with p4
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p3', 'p4'] });
+
+        const state = game.getState();
+        expect(state.links.lovers).toEqual(['p3', 'p4']);
+      });
+
+      it('should reject linking if cupid tries to include themselves when cupidCanSelfLove=false', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          },
+          options: { cupidCanSelfLove: false }
+        });
+
+        const result = game.validateMove({
+          playerId: 'p3',
+          actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
+          actionData: { lovers: ['p3', 'p4'] }
+        });
+
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('不能将自己');
+      });
+
+      it('should require exactly 2 players to be selected', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        const result1 = game.validateMove({
+          playerId: 'p3',
+          actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
+          actionData: { lovers: ['p4'] }
+        });
+        expect(result1.valid).toBe(false);
+
+        const result2 = game.validateMove({
+          playerId: 'p3',
+          actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
+          actionData: { lovers: ['p4', 'p5', 'p6'] }
+        });
+        expect(result2.valid).toBe(false);
+      });
+
+      it('should prevent selecting the same player twice', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        const result = game.validateMove({
+          playerId: 'p3',
+          actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
+          actionData: { lovers: ['p4', 'p4'] }
+        });
+
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('同一名玩家');
+      });
+    });
+
+    // ─── Martyrdom Mechanism Tests ───
+
+    describe('Lover Martyrdom', () => {
+      it('should trigger martyrdom when one lover dies from wolf kill', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links p4 and p5
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        const state = game.getState();
+        expect(state.playerMap.p4.alive).toBe(false);
+        expect(state.playerMap.p5.alive).toBe(false);
+        expect(state.playerMap.p5.deathCause).toBe('lover_death');
+      });
+
+      it('should trigger martyrdom when one lover is executed during day', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links p4 and p5
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        // Execute p4
+        playVoteRound(game, { p1: 'p4', p2: 'p4', p3: 'p4', p4: null, p5: 'p4', p6: 'p4', p7: 'p4' });
+
+        const state = game.getState();
+        expect(state.playerMap.p4.alive).toBe(false);
+        expect(state.playerMap.p5.alive).toBe(false);
+        expect(state.playerMap.p5.deathCause).toBe('lover_death');
+      });
+
+      it('should trigger martyrdom when one lover is poisoned by witch', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links p4 and p7
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p7'] });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p4' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        const state = game.getState();
+        expect(state.playerMap.p4.alive).toBe(false);
+        expect(state.playerMap.p7.alive).toBe(false);
+        expect(state.playerMap.p7.deathCause).toBe('lover_death');
+      });
+
+      it('should prevent hunter from shooting when dying from martyrdom', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links p4 and p7 (hunter)
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p7'] });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        const state = game.getState();
+        expect(state.playerMap.p4.alive).toBe(false);
+        expect(state.playerMap.p7.alive).toBe(false);
+        expect(state.hunterPendingShoot).toBeNull(); // Hunter cannot shoot
+      });
+    });
+
+    // ─── Interactions with Other Roles Tests ───
+
+    describe('Interactions with Other Roles', () => {
+      it('should allow doctor to protect a lover from wolf kill (no martyrdom)', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links p5 and p8
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p5', 'p8'] });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p5' });
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        const state = game.getState();
+        expect(state.playerMap.p5.alive).toBe(true);
+        expect(state.playerMap.p8.alive).toBe(true); // No martyrdom because p5 survived
+      });
+
+      it('should trigger martyrdom even if witch saves the lover\'s killer', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links p4 and p5
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        const state = game.getState();
+        expect(state.playerMap.p4.alive).toBe(true); // Saved by witch
+        expect(state.playerMap.p5.alive).toBe(true); // No martyrdom
+      });
+
+      it('should change teams to "lovers" when linking cross-faction players', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links p1 (werewolf) and p4 (village)
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p1', 'p4'] });
+
+        const state = game.getState();
+        expect(state.playerMap.p1.team).toBe('lovers');
+        expect(state.playerMap.p4.team).toBe('lovers');
+      });
+
+      it('should keep original teams when linking same-faction players (sameSideLoversSeparate=false)', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          },
+          options: { sameSideLoversSeparate: false }
+        });
+
+        // Cupid links p4 and p5 (both village)
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+
+        const state = game.getState();
+        expect(state.playerMap.p4.team).toBe('village');
+        expect(state.playerMap.p5.team).toBe('village');
+      });
+
+      it('should change teams even for same-faction players when sameSideLoversSeparate=true', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          },
+          options: { sameSideLoversSeparate: true }
+        });
+
+        // Cupid links p4 and p5 (both village)
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+
+        const state = game.getState();
+        expect(state.playerMap.p4.team).toBe('lovers');
+        expect(state.playerMap.p5.team).toBe('lovers');
+      });
+    });
+
+    // ─── Win Condition Tests ───
+
+    describe('Lover Win Conditions', () => {
+      it('should allow lovers team to win when only lovers remain (cross-faction)', () => {
+        const { game } = setupGame({
+          players: ['p1', 'p2', 'p3', 'p4'].map(id => ({ id, nickname: id })),
+          roleCounts: { werewolf: 1, cupid: 1, seer: 1, villager: 1 },
+          roleMap: {
+            p1: 'werewolf',
+            p2: 'cupid',
+            p3: 'seer',
+            p4: 'villager'
+          }
+        });
+
+        // Cupid links p1 (werewolf) and p3 (seer) - cross-faction
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p1', 'p3'] });
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p2' });
+
+        const state1 = game.getState();
+        expect(state1.playerMap.p1.team).toBe('lovers');
+        expect(state1.playerMap.p3.team).toBe('lovers');
+
+        // Execute p4 - now only lovers remain
+        playVoteRound(game, { p1: 'p4', p3: 'p4' });
+
+        const finalState = game.getState();
+        expect(finalState.status).toBe('ended');
+        expect(finalState.winner).toBe('lovers');
+      });
+
+      it('should not allow lovers to win if non-lovers are alive', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links p1 (werewolf) and p4 (doctor) - cross-faction
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p1', 'p4'] });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        const state = game.getState();
+        expect(state.status).toBe('playing'); // Game continues
+      });
+
+      it('should allow original faction to win when same-faction lovers are linked', () => {
+        const { game } = setupGame({
+          players: ['p1', 'p2', 'p3', 'p4'].map(id => ({ id, nickname: id })),
+          roleCounts: { werewolf: 1, cupid: 1, seer: 1, doctor: 1 },
+          roleMap: {
+            p1: 'werewolf',
+            p2: 'cupid',
+            p3: 'seer',
+            p4: 'doctor'
+          },
+          options: { sameSideLoversSeparate: false }
+        });
+
+        // Cupid links p3 and p4 (both village)
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p3', 'p4'] });
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p2' });
+
+        // Execute p1 - village wins
+        playVoteRound(game, { p2: 'p1', p3: 'p1', p4: 'p1' });
+
+        const state = game.getState();
+        expect(state.status).toBe('ended');
+        expect(state.winner).toBe('village'); // Not lovers, because same faction
+      });
+    });
+
+    // ─── Edge Cases Tests ───
+
+    describe('Edge Cases', () => {
+      it('should handle cupid skipping their action (becomes villager)', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid skips
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+
+        const state = game.getState();
+        expect(state.links.lovers).toBeNull();
+        expect(state.roleStates.cupidLinked).toBe(false);
+      });
+
+      it('should preserve lover relationship even after cupid dies', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links p4 and p5
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' }); // Kill cupid
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        const state1 = game.getState();
+        expect(state1.playerMap.p3.alive).toBe(false);
+        expect(state1.links.lovers).toEqual(['p4', 'p5']); // Lovers still linked
+
+        // Advance to next night, kill one lover
+        playVoteRound(game, {});
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        const state2 = game.getState();
+        expect(state2.playerMap.p4.alive).toBe(false);
+        expect(state2.playerMap.p5.alive).toBe(false); // Martyrdom still works
+      });
+
+      it('should handle both lovers being killed simultaneously (no duplicate martyrdom)', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links p4 and p5
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+        submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+        submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+        submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p5' }); // Both die
+        submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        const state = game.getState();
+        expect(state.playerMap.p4.alive).toBe(false);
+        expect(state.playerMap.p5.alive).toBe(false);
+        // No error should occur from double martyrdom
+      });
+
+      it('should allow linking two werewolves (same faction)', () => {
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Cupid links two werewolves
+        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p1', 'p2'] });
+
+        const state = game.getState();
+        expect(state.links.lovers).toEqual(['p1', 'p2']);
+        expect(state.playerMap.p1.team).toBe('werewolf'); // Same faction, no team change
+        expect(state.playerMap.p2.team).toBe('werewolf');
+      });
+
+      it('should not trigger martyrdom if a lover is dead but died before linking', () => {
+        // This is a theoretical edge case - cupid can only link alive players
+        const { game } = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: CUPID_COUNTS,
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'cupid', p4: 'doctor',
+            p5: 'seer', p6: 'witch',
+            p7: 'hunter', p8: 'villager'
+          }
+        });
+
+        // Try to link a dead player
+        const result = game.validateMove({
+          playerId: 'p3',
+          actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
+          actionData: { lovers: ['p4', 'p8'] }
+        });
+
+        // Mark p8 as dead manually to test validation
+        const state = game.getState();
+        state.playerMap.p8.alive = false;
+
+        const result2 = game.validateMove({
+          playerId: 'p3',
+          actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
+          actionData: { lovers: ['p4', 'p8'] }
+        });
+
+        expect(result2.valid).toBe(false);
+        expect(result2.error).toContain('已死亡');
+      });
     });
   });
 });

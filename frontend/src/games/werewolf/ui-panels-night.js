@@ -99,6 +99,10 @@ export function renderNightPanel(ctx) {
       el.appendChild(renderBodyguardPanel(ctx));
       break;
 
+    case 'cupid':
+      el.appendChild(renderCupidPanel(ctx));
+      break;
+
     case 'witch':
       el.appendChild(renderWitchPanel(ctx));
       break;
@@ -214,6 +218,134 @@ export function renderDoctorPanel(ctx) {
     el.appendChild(selectBox);
   } else {
     el.appendChild(createInfoBox('点击环形布局中的玩家头像选择要保护的玩家'));
+  }
+
+  return el;
+}
+
+/**
+ * Render cupid panel for linking lovers
+ * @param {Object} ctx - Rendering context
+ * @returns {HTMLElement}
+ */
+export function renderCupidPanel(ctx) {
+  const { state, playerId, onAction } = ctx;
+  const el = document.createElement('div');
+  el.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  `;
+
+  // Check if cupid has already linked lovers
+  if (state.roleStates?.cupidLinked) {
+    const loversInfo = document.createElement('div');
+    loversInfo.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+    `;
+    loversInfo.innerHTML = `
+      <span style="color: var(--text-secondary);">你已连结恋人，变为普通村民</span>
+    `;
+    el.appendChild(loversInfo);
+    return el;
+  }
+
+  // Show instructions
+  el.appendChild(createInfoBox('选择两名玩家成为恋人（可多选，点击玩家头像切换选择状态）'));
+
+  // Create lover selection UI
+  const alivePlayers = state.players.filter(p => {
+    const playerData = state.playerMap[p.id];
+    return playerData?.alive;
+  });
+
+  // Filter out cupid if cupidCanSelfLove is false
+  const selectablePlayers = state.options.cupidCanSelfLove
+    ? alivePlayers
+    : alivePlayers.filter(p => p.id !== playerId);
+
+  // Create a container for selected lovers state
+  if (!window._cupidSelectedLovers) {
+    window._cupidSelectedLovers = new Set();
+  }
+
+  // Player selection list
+  const listContainer = document.createElement('div');
+  listContainer.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    max-height: 300px;
+    overflow-y: auto;
+  `;
+
+  selectablePlayers.forEach(player => {
+    const isSelected = window._cupidSelectedLovers.has(player.id);
+    const playerBtn = document.createElement('button');
+    playerBtn.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: ${isSelected ? 'var(--primary-100)' : 'var(--bg-secondary)'};
+      border: 2px solid ${isSelected ? 'var(--primary-500)' : 'transparent'};
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      text-align: left;
+      font-size: var(--text-sm);
+      transition: all 0.2s;
+    `;
+    playerBtn.innerHTML = `
+      ${isSelected ? '✓ ' : ''}${getDisplayName(player, playerId, state.seerChecks, player.id)}
+    `;
+    playerBtn.onclick = () => {
+      if (isSelected) {
+        window._cupidSelectedLovers.delete(player.id);
+      } else {
+        if (window._cupidSelectedLovers.size >= 2) {
+          // Remove the first selected player to maintain max 2
+          const firstId = Array.from(window._cupidSelectedLovers)[0];
+          window._cupidSelectedLovers.delete(firstId);
+        }
+        window._cupidSelectedLovers.add(player.id);
+      }
+      // Re-render by triggering a state update
+      const event = new CustomEvent('cupid-selection-changed');
+      document.dispatchEvent(event);
+    };
+    listContainer.appendChild(playerBtn);
+  });
+
+  el.appendChild(listContainer);
+
+  // Show current selection count
+  const selectionCount = window._cupidSelectedLovers.size;
+  const countBox = document.createElement('div');
+  countBox.style.cssText = `
+    padding: var(--spacing-2) var(--spacing-3);
+    background: ${selectionCount === 2 ? 'var(--success-50)' : 'var(--warning-50)'};
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    text-align: center;
+  `;
+  countBox.innerHTML = `
+    已选择 ${selectionCount} / 2 名玩家
+    ${selectionCount === 2 ? '<br><span style="color: var(--success-600);">✓ 可以确认</span>' : ''}
+  `;
+  el.appendChild(countBox);
+
+  // Confirm button (only enabled when 2 players are selected)
+  if (selectionCount === 2) {
+    const confirmBtn = createButton('确认连结', () => {
+      const lovers = Array.from(window._cupidSelectedLovers);
+      onAction({
+        actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
+        actionData: { lovers }
+      });
+      // Clear selection after submission
+      window._cupidSelectedLovers.clear();
+    }, false, 'primary');
+    el.appendChild(confirmBtn);
   }
 
   return el;
@@ -341,6 +473,16 @@ export function renderMyNightAction(ctx, action) {
       actionLabel = '使用毒药';
       actionIcon = '☠';
       break;
+    case ACTION_TYPES.NIGHT_CUPID_LINK: {
+      const lovers = actionData?.lovers || [];
+      const loverNames = lovers.map(id => {
+        const p = findPlayer(state.players, id);
+        return getDisplayName(p, playerId, state.seerChecks, id);
+      }).join(' 和 ');
+      actionLabel = `连结恋人: ${loverNames}`;
+      actionIcon = '💘';
+      break;
+    }
     case ACTION_TYPES.NIGHT_SKIP:
       actionLabel = '跳过行动';
       actionIcon = '⏭';
