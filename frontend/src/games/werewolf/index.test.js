@@ -84,6 +84,7 @@ function findRoleConfig(roleId) {
     werewolf: { team: 'werewolf', actionTypes: ['NIGHT_WOLF_KILL'] },
     seer: { team: 'village', actionTypes: ['NIGHT_SEER_CHECK'] },
     doctor: { team: 'village', actionTypes: ['NIGHT_DOCTOR_PROTECT'] },
+    bodyguard: { team: 'village', actionTypes: ['NIGHT_BODYGUARD_PROTECT'] },
     hunter: { team: 'village', actionTypes: ['HUNTER_SHOOT'] },
     witch: { team: 'village', actionTypes: ['NIGHT_WITCH_SAVE', 'NIGHT_WITCH_POISON'] }
   };

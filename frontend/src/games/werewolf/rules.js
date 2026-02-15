@@ -156,6 +156,16 @@ export function validateNightAction(move, state) {
       }
       break;
     }
+    case 'NIGHT_BODYGUARD_PROTECT': {
+      if (!state.options.allowDoctorSelfProtect && targetId === playerId) {
+        return { valid: false, error: '守卫不能保护自己' };
+      }
+      if (!state.options.allowRepeatedProtect &&
+          state.roleStates?.bodyguardLastProtect === targetId) {
+        return { valid: false, error: '不能连续两晚保护同一人' };
+      }
+      break;
+    }
     case 'NIGHT_WITCH_SAVE': {
       if (state.roleStates?.witchSaveUsed) {
         return { valid: false, error: '救人药水已用完' };
@@ -285,6 +295,9 @@ export function resolveNightActions(state) {
     if (action.actionType === 'NIGHT_DOCTOR_PROTECT' && action.actionData?.targetId) {
       protections.push({ targetId: action.actionData.targetId, type: 'doctor_protect' });
     }
+    if (action.actionType === 'NIGHT_BODYGUARD_PROTECT' && action.actionData?.targetId) {
+      protections.push({ targetId: action.actionData.targetId, type: 'bodyguard_protect' });
+    }
   }
 
   // ── Step 4: Seer check ──
@@ -319,6 +332,27 @@ export function resolveNightActions(state) {
         announcements.push({
           type: 'witch_save',
           message: '女巫救人成功'
+        });
+      }
+    }
+  }
+
+  // ── Step 6.5: Guard-Witch Interaction (if conflict mode) ──
+  // If guardWitchInteraction = "conflict", check if bodyguard + witch save both acted on wolf victim
+  if (state.options.guardWitchInteraction === 'conflict' && witchUsedSave && wolfTarget) {
+    const bodyguardProtectedWolfTarget = protections.some(
+      p => p.type === 'bodyguard_protect' && p.targetId === wolfTarget
+    );
+    if (bodyguardProtectedWolfTarget) {
+      // Both bodyguard and witch protected the wolf victim → conflict, target dies
+      const wolfKill = kills.find(k => k.cause === 'wolf_kill');
+      if (wolfKill && wolfKill.cancelled) {
+        // Re-enable the wolf kill (cancel the protections)
+        wolfKill.cancelled = false;
+        announcements.push({
+          type: 'guard_witch_conflict',
+          targetId: wolfTarget,
+          message: '守卫与女巫同时保护，目标死亡'
         });
       }
     }

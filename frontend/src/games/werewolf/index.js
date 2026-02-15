@@ -186,7 +186,8 @@ export class WerewolfGame extends GameEngine {
       roleStates: {
         witchSaveUsed: false,
         witchPoisonUsed: false,
-        doctorLastProtect: null
+        doctorLastProtect: null,
+        bodyguardLastProtect: null
       },
       links: {},
 
@@ -657,6 +658,9 @@ export class WerewolfGame extends GameEngine {
     // Update role states
     if (actionType === ACTION_TYPES.NIGHT_DOCTOR_PROTECT) {
       state.roleStates.doctorLastProtect = actionData?.targetId || null;
+    }
+    if (actionType === ACTION_TYPES.NIGHT_BODYGUARD_PROTECT) {
+      state.roleStates.bodyguardLastProtect = actionData?.targetId || null;
     }
 
     // Remove from pending

@@ -95,6 +95,10 @@ export function renderNightPanel(ctx) {
       el.appendChild(renderDoctorPanel(ctx));
       break;
 
+    case 'bodyguard':
+      el.appendChild(renderBodyguardPanel(ctx));
+      break;
+
     case 'witch':
       el.appendChild(renderWitchPanel(ctx));
       break;
@@ -210,6 +214,66 @@ export function renderDoctorPanel(ctx) {
     el.appendChild(selectBox);
   } else {
     el.appendChild(createInfoBox('点击环形布局中的玩家头像选择要保护的玩家'));
+  }
+
+  return el;
+}
+
+/**
+ * Render bodyguard panel with last protection info
+ * @param {Object} ctx - Rendering context
+ * @returns {HTMLElement}
+ */
+export function renderBodyguardPanel(ctx) {
+  const { state, playerId, selectedTarget } = ctx;
+  const el = document.createElement('div');
+  el.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  `;
+
+  // Show last night's protection target
+  const lastProtect = state.roleStates?.bodyguardLastProtect;
+  if (lastProtect) {
+    const lastPlayer = findPlayer(state.players, lastProtect);
+    const infoBox = document.createElement('div');
+    infoBox.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+    `;
+    infoBox.innerHTML = `
+      <span style="color: var(--text-secondary);">昨晚守护: </span>
+      <span style="color: var(--primary-600); font-weight: var(--font-medium);">
+        ${getDisplayName(lastPlayer, playerId, state.seerChecks, lastProtect)}
+      </span>
+      ${!state.options?.allowRepeatedProtect ? '<span style="color: var(--warning-600);"> (今晚不可再选)</span>' : ''}
+    `;
+    el.appendChild(infoBox);
+  }
+
+  // Show current selection
+  if (selectedTarget) {
+    const targetPlayer = findPlayer(state.players, selectedTarget);
+    const selectBox = document.createElement('div');
+    selectBox.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--primary-50);
+      border-radius: var(--radius-md);
+      border-left: 3px solid var(--primary-500);
+      font-size: var(--text-sm);
+    `;
+    selectBox.innerHTML = `
+      <span style="color: var(--text-secondary);">已选择守护: </span>
+      <span style="color: var(--primary-600); font-weight: var(--font-medium);">
+        ${getDisplayName(targetPlayer, playerId, state.seerChecks, selectedTarget)}
+      </span>
+    `;
+    el.appendChild(selectBox);
+  } else {
+    el.appendChild(createInfoBox('点击环形布局中的玩家头像选择要守护的玩家'));
   }
 
   return el;
@@ -692,6 +756,7 @@ export default {
   renderNightPanel,
   renderLastDayResult,
   renderDoctorPanel,
+  renderBodyguardPanel,
   renderMyNightAction,
   renderWitchPanel,
   renderNightProgress,

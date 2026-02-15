@@ -74,7 +74,7 @@
         "team": "village",
         "priority": "P1",
         "actionTypes": ["NIGHT_BODYGUARD_PROTECT"],
-        "description": "保护目标免于夜晚击杀，但会替死",
+        "description": "每晚可以保护一名玩家免于狼人击杀",
         "winCondition": "消灭所有狼人"
       },
       "cupid": {
@@ -294,7 +294,8 @@
     "witchCanSaveSelf": true,
     "witchSaveFirstNightOnly": false,
     "protectAgainstPoison": false,
-    "protectAgainstVigilante": true
+    "protectAgainstVigilante": true,
+    "guardWitchInteraction": "coexist"
   },
 
   "timing": {
@@ -405,6 +406,16 @@
       "default": 30,
       "min": 15,
       "max": 60
+    },
+    "guardWitchInteraction": {
+      "type": "select",
+      "label": "守卫与女巫解药的交互",
+      "description": "守卫保护 + 女巫解药同时作用时的结算方式",
+      "default": "coexist",
+      "options": [
+        { "value": "coexist", "label": "共存（两者都生效，目标存活）" },
+        { "value": "conflict", "label": "冲突（守药同死，目标死亡）" }
+      ]
     }
   }
 }
