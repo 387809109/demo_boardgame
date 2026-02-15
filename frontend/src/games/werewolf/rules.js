@@ -475,8 +475,20 @@ export function checkWinConditions(state) {
     }
   }
 
-  const wolves = alivePlayers.filter(p => p.team === 'werewolf').length;
-  const villagers = alivePlayers.filter(p => p.team === 'village').length;
+  // Count by role faction, not current team (lovers may have changed team)
+  let wolves = 0;
+  let villagers = 0;
+
+  for (const player of alivePlayers) {
+    const roleConfig = _findRoleConfig(player.roleId, state.roleDefinitions);
+    const roleFaction = roleConfig?.team || player.team; // Fallback to player.team if no config
+
+    if (roleFaction === 'werewolf') {
+      wolves++;
+    } else if (roleFaction === 'village') {
+      villagers++;
+    }
+  }
 
   if (wolves === 0) {
     return { ended: true, winner: 'village', reason: 'all_wolves_eliminated' };
@@ -599,7 +611,8 @@ function _findRoleConfig(roleId, roleDefinitions) {
 function _actionRequiresTarget(actionType) {
   const noTargetActions = [
     'NIGHT_SKIP',
-    'NIGHT_WITCH_SAVE'
+    'NIGHT_WITCH_SAVE',
+    'NIGHT_CUPID_LINK'
   ];
   return !noTargetActions.includes(actionType);
 }

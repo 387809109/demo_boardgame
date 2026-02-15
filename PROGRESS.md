@@ -1,6 +1,6 @@
 # 项目进度报告
 
-> 最后更新: 2026-02-14
+> 最后更新: 2026-02-15
 
 ---
 
@@ -316,7 +316,7 @@
 
 ## 测试覆盖率
 
-### 前端测试统计 (575 tests passing)
+### 前端测试统计 (608 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -331,10 +331,10 @@
 | uno/ui.test.js | 2 | ✅ |
 | uno/rules.test.js | 49 | ✅ |
 | waiting-room.test.js | 4 | ✅ |
-| werewolf/index.test.js | 101 | ✅ |
+| werewolf/index.test.js | 134 | ✅ |
 | werewolf/ui.test.js | 3 | ✅ |
 | player-avatar.test.js | 4 | ✅ |
-| **总计** | **575** | ✅ |
+| **总计** | **608** | ✅ |
 
 ### 后端测试统计 (153 tests passing)
 
@@ -412,6 +412,17 @@
 ---
 
 ## 最近完成的任务
+
+### 2026-02-15
+
+- ✅ 狼人杀丘比特角色测试修复 (Cupid Role Test Fixes)
+  - 修复 `frontend/src/games/werewolf/rules.js` — `_actionRequiresTarget()` 添加 `NIGHT_CUPID_LINK` 到 `noTargetActions`，允许 cupid 使用 `lovers` 数组而非 `targetId`
+  - 修复 `frontend/src/games/werewolf/rules.js` — `checkWinConditions()` 改为按角色原始阵营 (`roleConfig.team`) 而非当前队伍 (`player.team`) 计数，修复恋人胜利条件检测
+  - 修复 `frontend/src/games/werewolf/index.test.js` — 4 个验证测试添加 `state` 参数到 `validateMove()` 调用
+  - 修复 `frontend/src/games/werewolf/index.test.js` — 4 个白天执行测试添加阶段推进逻辑 (`advanceToDiscussion()` + `DAY_DISCUSSION` 完成)，确保 `playVoteRound()` 在正确阶段执行
+  - 丘比特测试通过率: 5/23 → 23/23 (100%)
+  - 狼人杀总测试数: 101 → 134 (+33 cupid tests)
+  - 前端总测试数: 575 → 608 (+33 tests)
 
 ### 2026-02-14
 

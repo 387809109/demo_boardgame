@@ -39,6 +39,11 @@ const SEVEN_PLAYERS = [
   { id: 'p7', nickname: 'Player7' }
 ];
 
+const EIGHT_PLAYERS = [
+  ...SEVEN_PLAYERS,
+  { id: 'p8', nickname: 'Player8' }
+];
+
 /**
  * Initialize a game and patch playerMap so roles are deterministic.
  * @param {Object} [opts]
@@ -2364,10 +2369,11 @@ describe('Bodyguard (P1)', () => {
       expect(state.phase).toBe(PHASES.DAY_ANNOUNCE);
     });
   });
+});
 
-  // ─── Cupid Role Tests ───
+// ─── Cupid Role Tests ───
 
-  describe('Cupid Role', () => {
+describe('Cupid Role', () => {
     const CUPID_COUNTS = {
       werewolf: 2,
       seer: 1,
@@ -2392,8 +2398,17 @@ describe('Bodyguard (P1)', () => {
           }
         });
 
+        // Diagnostic: Check if cupid is in pending roles
+        const stateBeforeAction = game.getState();
+        expect(stateBeforeAction.pendingNightRoles).toContain('p3');
+        expect(stateBeforeAction.playerMap.p3.roleId).toBe('cupid');
+
         // Cupid links p4 and p5
-        submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+        const result = submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+        if (!result.success) {
+          console.log('Action failed with error:', result.error);
+        }
+        expect(result.success).toBe(true); // Diagnostic: check if action succeeded
 
         const state = game.getState();
         expect(state.links.lovers).toEqual(['p4', 'p5']);
@@ -2449,7 +2464,7 @@ describe('Bodyguard (P1)', () => {
       });
 
       it('should reject linking if cupid tries to include themselves when cupidCanSelfLove=false', () => {
-        const { game } = setupGame({
+        const { game, state } = setupGame({
           players: EIGHT_PLAYERS,
           roleCounts: CUPID_COUNTS,
           roleMap: {
@@ -2465,14 +2480,14 @@ describe('Bodyguard (P1)', () => {
           playerId: 'p3',
           actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
           actionData: { lovers: ['p3', 'p4'] }
-        });
+        }, state);
 
         expect(result.valid).toBe(false);
         expect(result.error).toContain('不能将自己');
       });
 
       it('should require exactly 2 players to be selected', () => {
-        const { game } = setupGame({
+        const { game, state } = setupGame({
           players: EIGHT_PLAYERS,
           roleCounts: CUPID_COUNTS,
           roleMap: {
@@ -2487,19 +2502,19 @@ describe('Bodyguard (P1)', () => {
           playerId: 'p3',
           actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
           actionData: { lovers: ['p4'] }
-        });
+        }, state);
         expect(result1.valid).toBe(false);
 
         const result2 = game.validateMove({
           playerId: 'p3',
           actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
           actionData: { lovers: ['p4', 'p5', 'p6'] }
-        });
+        }, state);
         expect(result2.valid).toBe(false);
       });
 
       it('should prevent selecting the same player twice', () => {
-        const { game } = setupGame({
+        const { game, state } = setupGame({
           players: EIGHT_PLAYERS,
           roleCounts: CUPID_COUNTS,
           roleMap: {
@@ -2514,7 +2529,7 @@ describe('Bodyguard (P1)', () => {
           playerId: 'p3',
           actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
           actionData: { lovers: ['p4', 'p4'] }
-        });
+        }, state);
 
         expect(result.valid).toBe(false);
         expect(result.error).toContain('同一名玩家');
@@ -2569,6 +2584,18 @@ describe('Bodyguard (P1)', () => {
         submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
         submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
         submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+        // Advance through day phases to reach voting
+        advanceToDiscussion(game);
+        while (game.getState().phase === PHASES.DAY_DISCUSSION) {
+          const cur = game.getState().currentSpeaker;
+          if (!cur) break;
+          game.executeMove({
+            playerId: cur,
+            actionType: ACTION_TYPES.SPEECH_DONE,
+            actionData: {}
+          });
+        }
 
         // Execute p4
         playVoteRound(game, { p1: 'p4', p2: 'p4', p3: 'p4', p4: null, p5: 'p4', p6: 'p4', p7: 'p4' });
@@ -2775,6 +2802,16 @@ describe('Bodyguard (P1)', () => {
         expect(state1.playerMap.p3.team).toBe('lovers');
 
         // Execute p4 - now only lovers remain
+        advanceToDiscussion(game);
+        while (game.getState().phase === PHASES.DAY_DISCUSSION) {
+          const cur = game.getState().currentSpeaker;
+          if (!cur) break;
+          game.executeMove({
+            playerId: cur,
+            actionType: ACTION_TYPES.SPEECH_DONE,
+            actionData: {}
+          });
+        }
         playVoteRound(game, { p1: 'p4', p3: 'p4' });
 
         const finalState = game.getState();
@@ -2826,6 +2863,16 @@ describe('Bodyguard (P1)', () => {
         submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p2' });
 
         // Execute p1 - village wins
+        advanceToDiscussion(game);
+        while (game.getState().phase === PHASES.DAY_DISCUSSION) {
+          const cur = game.getState().currentSpeaker;
+          if (!cur) break;
+          game.executeMove({
+            playerId: cur,
+            actionType: ACTION_TYPES.SPEECH_DONE,
+            actionData: {}
+          });
+        }
         playVoteRound(game, { p2: 'p1', p3: 'p1', p4: 'p1' });
 
         const state = game.getState();
@@ -2882,6 +2929,16 @@ describe('Bodyguard (P1)', () => {
         expect(state1.links.lovers).toEqual(['p4', 'p5']); // Lovers still linked
 
         // Advance to next night, kill one lover
+        advanceToDiscussion(game);
+        while (game.getState().phase === PHASES.DAY_DISCUSSION) {
+          const cur = game.getState().currentSpeaker;
+          if (!cur) break;
+          game.executeMove({
+            playerId: cur,
+            actionType: ACTION_TYPES.SPEECH_DONE,
+            actionData: {}
+          });
+        }
         playVoteRound(game, {});
         submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
         submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
@@ -2944,7 +3001,7 @@ describe('Bodyguard (P1)', () => {
 
       it('should not trigger martyrdom if a lover is dead but died before linking', () => {
         // This is a theoretical edge case - cupid can only link alive players
-        const { game } = setupGame({
+        const { game, state } = setupGame({
           players: EIGHT_PLAYERS,
           roleCounts: CUPID_COUNTS,
           roleMap: {
@@ -2960,21 +3017,19 @@ describe('Bodyguard (P1)', () => {
           playerId: 'p3',
           actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
           actionData: { lovers: ['p4', 'p8'] }
-        });
+        }, state);
 
         // Mark p8 as dead manually to test validation
-        const state = game.getState();
         state.playerMap.p8.alive = false;
 
         const result2 = game.validateMove({
           playerId: 'p3',
           actionType: ACTION_TYPES.NIGHT_CUPID_LINK,
           actionData: { lovers: ['p4', 'p8'] }
-        });
+        }, state);
 
         expect(result2.valid).toBe(false);
         expect(result2.error).toContain('已死亡');
       });
     });
   });
-});
