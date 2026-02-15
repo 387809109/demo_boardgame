@@ -107,6 +107,15 @@
       "idiot": {
         "id": "idiot",
         "name": "白痴",
+        "team": "village",
+        "priority": "P1",
+        "actionTypes": [],
+        "description": "被投票处决时不死，但失去投票权",
+        "winCondition": "消灭所有狼人"
+      },
+      "jester": {
+        "id": "jester",
+        "name": "小丑",
         "team": "neutral",
         "priority": "P1",
         "actionTypes": [],

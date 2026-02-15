@@ -91,7 +91,8 @@ const TEAMS = {
 | 丘比特 | `cupid` | neutral | NIGHT_CUPID_LINK | 首夜连结两名恋人 |
 | 警长 | `sheriff` | village | NIGHT_SHERIFF_CHECK | 夜晚查验返回"可疑/无辜" |
 | 私刑者 | `vigilante` | village | NIGHT_VIGILANTE_KILL | 夜晚射杀一人 |
-| 白痴 | `idiot` | neutral | 无 | 仅当被投票处决时胜利 |
+| 白痴 | `idiot` | village | 无 | 被投票处决时不死，失去投票权 |
+| 小丑 | `jester` | neutral | 无 | 被投票处决时胜利 |
 | 魔笛手 | `piper` | neutral | NIGHT_PIPER_CHARM | 夜晚魅惑玩家，魅惑全体则胜 |
 | 队长 | `captain` | village | DAY_REVEAL_CAPTAIN | 白天公开后获得加倍票权 |
 
