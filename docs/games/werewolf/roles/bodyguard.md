@@ -28,7 +28,7 @@
 
 守卫的保护仅对**狼人击杀**生效，不能阻止：
 - 女巫的毒药（`NIGHT_WITCH_POISON`）
-- 私刑者的射杀（`NIGHT_VIGILANTE_KILL`）
+- 义警的射杀（`NIGHT_VIGILANTE_KILL`）
 - 其他非狼刀的致死效果
 
 ---
@@ -247,7 +247,7 @@ if (isProtectedByGuard && isSavedByWitch) {
 |----------|----------------|
 | 狼人击杀 (`NIGHT_WOLF_KILL`) | ✅ 是 |
 | 女巫毒药 (`NIGHT_WITCH_POISON`) | ❌ 否 |
-| 私刑者射杀 (`NIGHT_VIGILANTE_KILL`) | ❌ 否 |
+| 义警射杀 (`NIGHT_VIGILANTE_KILL`) | ❌ 否 |
 | 炸弹人反杀 (`bomb` 触发) | ❌ 否 |
 
 **场景示例**：
