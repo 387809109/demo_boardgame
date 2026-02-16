@@ -34,7 +34,9 @@ export const ACTION_TYPES = {
   NIGHT_SEER_CHECK: 'NIGHT_SEER_CHECK',
   NIGHT_DOCTOR_PROTECT: 'NIGHT_DOCTOR_PROTECT',
   NIGHT_BODYGUARD_PROTECT: 'NIGHT_BODYGUARD_PROTECT',
+  NIGHT_VIGILANTE_KILL: 'NIGHT_VIGILANTE_KILL',
   NIGHT_CUPID_LINK: 'NIGHT_CUPID_LINK',
+  NIGHT_PIPER_CHARM: 'NIGHT_PIPER_CHARM',
   NIGHT_WITCH_SAVE: 'NIGHT_WITCH_SAVE',
   NIGHT_WITCH_POISON: 'NIGHT_WITCH_POISON',
   HUNTER_SHOOT: 'HUNTER_SHOOT',
@@ -99,9 +101,20 @@ export class WerewolfGame extends GameEngine {
       guardWitchInteraction: options.guardWitchInteraction ?? config.rules.guardWitchInteraction,
       protectAgainstPoison: options.protectAgainstPoison ?? config.rules.protectAgainstPoison,
       protectAgainstVigilante: options.protectAgainstVigilante ?? config.rules.protectAgainstVigilante,
+      vigilanteMaxShots: options.vigilanteMaxShots ?? config.rules.vigilanteMaxShots,
+      vigilanteCanShootFirstNight: options.vigilanteCanShootFirstNight ??
+        config.rules.vigilanteCanShootFirstNight,
+      vigilanteMisfirePenalty: options.vigilanteMisfirePenalty ??
+        config.rules.vigilanteMisfirePenalty,
       cupidCanSelfLove: options.cupidCanSelfLove ?? config.rules.cupidCanSelfLove,
       sameSideLoversSeparate: options.sameSideLoversSeparate ?? config.rules.sameSideLoversSeparate,
-      loversNightChat: options.loversNightChat ?? config.rules.loversNightChat
+      loversNightChat: options.loversNightChat ?? config.rules.loversNightChat,
+      piperCharmTargetsPerNight: options.piperCharmTargetsPerNight ??
+        config.rules.piperCharmTargetsPerNight,
+      piperCanCharmSelf: options.piperCanCharmSelf ?? config.rules.piperCanCharmSelf,
+      piperCanRecharm: options.piperCanRecharm ?? config.rules.piperCanRecharm,
+      piperNeedsAliveToWin: options.piperNeedsAliveToWin ?? config.rules.piperNeedsAliveToWin,
+      piperRevealCharmedList: options.piperRevealCharmedList ?? config.rules.piperRevealCharmedList
     };
 
     // Determine role counts
@@ -194,8 +207,14 @@ export class WerewolfGame extends GameEngine {
         witchPoisonUsed: false,
         doctorLastProtect: null,
         bodyguardLastProtect: null,
+        vigilanteShotsUsed: 0,
+        vigilanteLastTarget: null,
+        vigilanteLocked: false,
+        vigilantePendingSuicide: false,
         cupidLinked: false,
-        idiotRevealedIds: []
+        idiotRevealedIds: [],
+        piperCharmedIds: [],
+        piperLastCharmedIds: []
       },
       links: {
         lovers: null
@@ -348,6 +367,8 @@ export class WerewolfGame extends GameEngine {
       case ACTION_TYPES.NIGHT_WOLF_KILL:
       case ACTION_TYPES.NIGHT_SEER_CHECK:
       case ACTION_TYPES.NIGHT_DOCTOR_PROTECT:
+      case ACTION_TYPES.NIGHT_VIGILANTE_KILL:
+      case ACTION_TYPES.NIGHT_PIPER_CHARM:
       case ACTION_TYPES.NIGHT_WITCH_SAVE:
       case ACTION_TYPES.NIGHT_WITCH_POISON:
       case ACTION_TYPES.NIGHT_SKIP:
@@ -677,6 +698,10 @@ export class WerewolfGame extends GameEngine {
     if (actionType === ACTION_TYPES.NIGHT_BODYGUARD_PROTECT) {
       state.roleStates.bodyguardLastProtect = actionData?.targetId || null;
     }
+    if (actionType === ACTION_TYPES.NIGHT_VIGILANTE_KILL) {
+      state.roleStates.vigilanteLastTarget = actionData?.targetId || null;
+      state.roleStates.vigilanteShotsUsed += 1;
+    }
 
     // Cupid link: create lovers
     if (actionType === ACTION_TYPES.NIGHT_CUPID_LINK && actionData?.lovers) {
@@ -830,9 +855,28 @@ export class WerewolfGame extends GameEngine {
       visible.doctorLastProtect = state.roleStates.doctorLastProtect;
     }
 
+    if (player.roleId === 'vigilante') {
+      visible.vigilanteShotsUsed = state.roleStates.vigilanteShotsUsed;
+      visible.vigilanteLastTarget = state.roleStates.vigilanteLastTarget;
+      visible.vigilanteLocked = state.roleStates.vigilanteLocked;
+      visible.vigilantePendingSuicide = state.roleStates.vigilantePendingSuicide;
+      visible.vigilanteMaxShots = state.options?.vigilanteMaxShots ?? 1;
+    }
+
     if (player.roleId === 'idiot') {
       const revealedIds = state.roleStates?.idiotRevealedIds || [];
       visible.idiotRevealed = revealedIds.includes(playerId);
+    }
+
+    if (player.roleId === 'piper' || state.options?.piperRevealCharmedList) {
+      visible.piperCharmedIds = [...(state.roleStates?.piperCharmedIds || [])];
+      visible.piperLastCharmedIds = [...(state.roleStates?.piperLastCharmedIds || [])];
+    }
+
+    if (player.roleId === 'piper') {
+      visible.piperCharmTargetsPerNight = state.options?.piperCharmTargetsPerNight ?? 2;
+      visible.piperCanCharmSelf = Boolean(state.options?.piperCanCharmSelf);
+      visible.piperCanRecharm = Boolean(state.options?.piperCanRecharm);
     }
 
     return visible;

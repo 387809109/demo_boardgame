@@ -99,6 +99,14 @@ export function renderNightPanel(ctx) {
       el.appendChild(renderBodyguardPanel(ctx));
       break;
 
+    case 'vigilante':
+      el.appendChild(renderVigilantePanel(ctx));
+      break;
+
+    case 'piper':
+      el.appendChild(renderPiperPanel(ctx));
+      break;
+
     case 'cupid':
       el.appendChild(renderCupidPanel(ctx));
       break;
@@ -412,6 +420,322 @@ export function renderBodyguardPanel(ctx) {
 }
 
 /**
+ * Render vigilante panel with shot status
+ * @param {Object} ctx - Rendering context
+ * @returns {HTMLElement}
+ */
+export function renderVigilantePanel(ctx) {
+  const { state, playerId, selectedTarget } = ctx;
+  const el = document.createElement('div');
+  el.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  `;
+
+  const roleStates = state.roleStates || {};
+  const maxShots = state.options?.vigilanteMaxShots ?? 1;
+  const shotsUsed = roleStates.vigilanteShotsUsed ?? 0;
+  const remainingShots = Math.max(0, maxShots - shotsUsed);
+  const lastTarget = roleStates.vigilanteLastTarget;
+  const isLocked = Boolean(roleStates.vigilanteLocked);
+  const pendingSuicide = Boolean(roleStates.vigilantePendingSuicide);
+
+  const statusBox = document.createElement('div');
+  statusBox.style.cssText = `
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+  `;
+  statusBox.innerHTML = `
+    <div>
+      <span style="color: var(--text-secondary);">剩余射击: </span>
+      <span style="color: var(--primary-600); font-weight: var(--font-medium);">
+        ${remainingShots} / ${maxShots}
+      </span>
+    </div>
+  `;
+  el.appendChild(statusBox);
+
+  if (lastTarget) {
+    const lastTargetPlayer = findPlayer(state.players, lastTarget);
+    const lastTargetBox = document.createElement('div');
+    lastTargetBox.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+    `;
+    lastTargetBox.innerHTML = `
+      <span style="color: var(--text-secondary);">上次射击: </span>
+      <span style="color: var(--primary-600); font-weight: var(--font-medium);">
+        ${getDisplayName(lastTargetPlayer, playerId, state.seerChecks, lastTarget)}
+      </span>
+    `;
+    el.appendChild(lastTargetBox);
+  }
+
+  if (isLocked || pendingSuicide) {
+    const lockReason = pendingSuicide
+      ? '你将于今夜反噬死亡，无法执行射杀。'
+      : '你已失去射杀能力，今晚只能跳过行动。';
+    const lockedBox = document.createElement('div');
+    lockedBox.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--warning-50);
+      border-radius: var(--radius-md);
+      border-left: 3px solid var(--warning-500);
+      font-size: var(--text-sm);
+      color: var(--warning-700);
+    `;
+    lockedBox.textContent = lockReason;
+    el.appendChild(lockedBox);
+  } else if (remainingShots <= 0) {
+    const noShotBox = document.createElement('div');
+    noShotBox.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--warning-50);
+      border-radius: var(--radius-md);
+      border-left: 3px solid var(--warning-500);
+      font-size: var(--text-sm);
+      color: var(--warning-700);
+    `;
+    noShotBox.textContent = '射击次数已用完，今晚只能跳过行动。';
+    el.appendChild(noShotBox);
+  }
+
+  if (selectedTarget && !isLocked && !pendingSuicide && remainingShots > 0) {
+    const targetPlayer = findPlayer(state.players, selectedTarget);
+    const selectBox = document.createElement('div');
+    selectBox.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--error-50);
+      border-radius: var(--radius-md);
+      border-left: 3px solid var(--error-500);
+      font-size: var(--text-sm);
+    `;
+    selectBox.innerHTML = `
+      <span style="color: var(--text-secondary);">已选择射击: </span>
+      <span style="color: var(--error-700); font-weight: var(--font-medium);">
+        ${getDisplayName(targetPlayer, playerId, state.seerChecks, selectedTarget)}
+      </span>
+    `;
+    el.appendChild(selectBox);
+  } else if (!isLocked && !pendingSuicide && remainingShots > 0) {
+    el.appendChild(createInfoBox('点击环形布局中的玩家头像选择要射击的玩家'));
+  }
+
+  return el;
+}
+
+/**
+ * Render piper panel with multi-target charm selection.
+ * @param {Object} ctx - Rendering context
+ * @returns {HTMLElement}
+ */
+export function renderPiperPanel(ctx) {
+  const { state, playerId, onAction } = ctx;
+  const el = document.createElement('div');
+  el.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  `;
+
+  const roleStates = state.roleStates || {};
+  const maxTargets = Math.max(1, state.options?.piperCharmTargetsPerNight ?? 2);
+  const canCharmSelf = Boolean(state.options?.piperCanCharmSelf);
+  const canRecharm = Boolean(state.options?.piperCanRecharm);
+  const alreadyCharmed = new Set(roleStates.piperCharmedIds || []);
+  const lastCharmedIds = roleStates.piperLastCharmedIds || [];
+
+  const statusBox = document.createElement('div');
+  statusBox.style.cssText = `
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+  `;
+  statusBox.innerHTML = `
+    <div>
+      <span style="color: var(--text-secondary);">已魅惑玩家: </span>
+      <span style="color: var(--primary-600); font-weight: var(--font-medium);">
+        ${alreadyCharmed.size}
+      </span>
+    </div>
+  `;
+  el.appendChild(statusBox);
+
+  if (lastCharmedIds.length > 0) {
+    const lastBox = document.createElement('div');
+    const lastNames = lastCharmedIds.map(id => {
+      const player = findPlayer(state.players, id);
+      return getDisplayName(player, playerId, state.seerChecks, id);
+    }).join('、');
+    lastBox.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+    `;
+    lastBox.innerHTML = `
+      <span style="color: var(--text-secondary);">上一夜新增魅惑: </span>
+      <span style="color: var(--primary-600); font-weight: var(--font-medium);">
+        ${escapeHtml(lastNames)}
+      </span>
+    `;
+    el.appendChild(lastBox);
+  }
+
+  const selectablePlayers = state.players.filter(player => {
+    if (!player.alive) return false;
+    if (!canCharmSelf && player.id === playerId) return false;
+    if (!canRecharm && alreadyCharmed.has(player.id)) return false;
+    return true;
+  });
+
+  if (!window._piperSelectedTargetsByPlayer) {
+    window._piperSelectedTargetsByPlayer = {};
+  }
+  if (!(window._piperSelectedTargetsByPlayer[playerId] instanceof Set)) {
+    window._piperSelectedTargetsByPlayer[playerId] = new Set();
+  }
+  const selectedTargets = window._piperSelectedTargetsByPlayer[playerId];
+
+  // Remove stale selections to keep state valid across rounds/re-renders.
+  for (const selectedId of [...selectedTargets]) {
+    if (!selectablePlayers.some(p => p.id === selectedId)) {
+      selectedTargets.delete(selectedId);
+    }
+  }
+
+  const selectHint = createInfoBox(
+    `选择 1-${maxTargets} 名玩家施加魅惑（每晚最多 ${maxTargets} 名）`
+  );
+  el.appendChild(selectHint);
+
+  if (selectablePlayers.length === 0) {
+    const emptyBox = createInfoBox('当前没有可魅惑目标，你可以直接跳过行动');
+    el.appendChild(emptyBox);
+
+    const skipBtn = createButton('跳过行动', () => {
+      onAction({
+        actionType: ACTION_TYPES.NIGHT_SKIP,
+        actionData: {}
+      });
+    }, false, 'secondary');
+    el.appendChild(skipBtn);
+    return el;
+  }
+
+  const listContainer = document.createElement('div');
+  listContainer.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    max-height: 280px;
+    overflow-y: auto;
+  `;
+
+  const countBox = document.createElement('div');
+  countBox.style.cssText = `
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--warning-50);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    text-align: center;
+  `;
+
+  const actionRow = document.createElement('div');
+  actionRow.style.cssText = `
+    display: flex;
+    gap: var(--spacing-2);
+    justify-content: center;
+  `;
+
+  const confirmBtn = createButton('确认魅惑', () => {
+    const targetIds = Array.from(selectedTargets);
+    if (targetIds.length === 0) return;
+    onAction({
+      actionType: ACTION_TYPES.NIGHT_PIPER_CHARM,
+      actionData: { targetIds }
+    });
+    selectedTargets.clear();
+  }, selectedTargets.size === 0, 'primary');
+
+  const skipBtn = createButton('跳过行动', () => {
+    onAction({
+      actionType: ACTION_TYPES.NIGHT_SKIP,
+      actionData: {}
+    });
+  }, false, 'secondary');
+
+  const buttonMap = new Map();
+
+  const updateSelectionUI = () => {
+    for (const [targetId, button] of buttonMap.entries()) {
+      const selected = selectedTargets.has(targetId);
+      button.style.background = selected ? 'var(--primary-100)' : 'var(--bg-secondary)';
+      button.style.border = `2px solid ${selected ? 'var(--primary-500)' : 'transparent'}`;
+      const player = findPlayer(state.players, targetId);
+      const mark = selected ? '✓ ' : '';
+      button.textContent = `${mark}${getDisplayName(player, playerId, state.seerChecks, targetId)}`;
+    }
+
+    const count = selectedTargets.size;
+    const reachedLimit = count >= maxTargets;
+    countBox.style.background = reachedLimit ? 'var(--success-50)' : 'var(--warning-50)';
+    countBox.innerHTML = `
+      已选择 ${count} / ${maxTargets}
+      ${count > 0 ? '<br><span style="color: var(--success-600);">可提交魅惑</span>' : ''}
+    `;
+
+    confirmBtn.disabled = count === 0;
+    confirmBtn.style.cursor = count === 0 ? 'not-allowed' : 'pointer';
+    confirmBtn.style.opacity = count === 0 ? '0.5' : '1';
+  };
+
+  selectablePlayers.forEach(player => {
+    const button = document.createElement('button');
+    button.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--bg-secondary);
+      border: 2px solid transparent;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      text-align: left;
+      font-size: var(--text-sm);
+      transition: all 0.2s;
+    `;
+    button.onclick = () => {
+      if (selectedTargets.has(player.id)) {
+        selectedTargets.delete(player.id);
+      } else {
+        if (selectedTargets.size >= maxTargets) {
+          const earliestSelected = selectedTargets.values().next().value;
+          selectedTargets.delete(earliestSelected);
+        }
+        selectedTargets.add(player.id);
+      }
+      updateSelectionUI();
+    };
+
+    buttonMap.set(player.id, button);
+    listContainer.appendChild(button);
+  });
+
+  actionRow.appendChild(confirmBtn);
+  actionRow.appendChild(skipBtn);
+  el.appendChild(listContainer);
+  el.appendChild(countBox);
+  el.appendChild(actionRow);
+
+  updateSelectionUI();
+  return el;
+}
+
+/**
  * Render the action that was submitted by the player
  * @param {Object} ctx - Rendering context
  * @param {Object} action - The submitted action
@@ -465,6 +789,10 @@ export function renderMyNightAction(ctx, action) {
       actionLabel = '保护目标';
       actionIcon = '🛡';
       break;
+    case ACTION_TYPES.NIGHT_VIGILANTE_KILL:
+      actionLabel = '射杀目标';
+      actionIcon = '🔫';
+      break;
     case ACTION_TYPES.NIGHT_WITCH_SAVE:
       actionLabel = '使用解药';
       actionIcon = '💊';
@@ -481,6 +809,16 @@ export function renderMyNightAction(ctx, action) {
       }).join(' 和 ');
       actionLabel = `连结恋人: ${loverNames}`;
       actionIcon = '💘';
+      break;
+    }
+    case ACTION_TYPES.NIGHT_PIPER_CHARM: {
+      const targetIds = Array.isArray(actionData?.targetIds) ? actionData.targetIds : [];
+      const targetNames = targetIds.map(id => {
+        const p = findPlayer(state.players, id);
+        return getDisplayName(p, playerId, state.seerChecks, id);
+      }).join('、');
+      actionLabel = targetNames ? `魅惑目标: ${targetNames}` : '魅惑目标';
+      actionIcon = '🎵';
       break;
     }
     case ACTION_TYPES.NIGHT_SKIP:
@@ -899,6 +1237,8 @@ export default {
   renderLastDayResult,
   renderDoctorPanel,
   renderBodyguardPanel,
+  renderVigilantePanel,
+  renderPiperPanel,
   renderMyNightAction,
   renderWitchPanel,
   renderNightProgress,

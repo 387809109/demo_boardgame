@@ -400,7 +400,8 @@ export function buildNightSteps(state) {
 export function getNightStepLabel(priority) {
   const labels = {
     5: '预言家查验', 7: '医生保护',
-    8: '狼人行动', 10: '女巫行动'
+    8: '狼人行动', 9: '义警射杀', 10: '女巫行动',
+    11: '魔笛手魅惑'
   };
   return labels[priority] || '夜间行动';
 }

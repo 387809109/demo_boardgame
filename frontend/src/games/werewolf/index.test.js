@@ -90,6 +90,8 @@ function findRoleConfig(roleId) {
     seer: { team: 'village', actionTypes: ['NIGHT_SEER_CHECK'] },
     doctor: { team: 'village', actionTypes: ['NIGHT_DOCTOR_PROTECT'] },
     bodyguard: { team: 'village', actionTypes: ['NIGHT_BODYGUARD_PROTECT'] },
+    vigilante: { team: 'village', actionTypes: ['NIGHT_VIGILANTE_KILL'] },
+    piper: { team: 'neutral', actionTypes: ['NIGHT_PIPER_CHARM'] },
     cupid: { team: 'village', actionTypes: ['NIGHT_CUPID_LINK'] },
     idiot: { team: 'village', actionTypes: [] },
     jester: { team: 'neutral', actionTypes: [] },
@@ -103,7 +105,9 @@ function findRoleConfig(roleId) {
 function getNightStepLabel(priority) {
   const labels = {
     5: '预言家查验', 7: '医生保护',
-    8: '狼人行动', 10: '女巫行动'
+    9: '义警射杀',
+    8: '狼人行动', 10: '女巫行动',
+    11: '魔笛手魅惑'
   };
   return labels[priority] || '夜间行动';
 }
@@ -2846,6 +2850,593 @@ describe('Bodyguard (P1)', () => {
       expect(state.playerMap.p7.alive).toBe(true);
       expect(state.phase).toBe(PHASES.DAY_ANNOUNCE);
     });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VIGILANTE (P1) TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('Vigilante (P1)', () => {
+  const P1_VIGILANTE_COUNTS = {
+    werewolf: 2,
+    seer: 1,
+    doctor: 1,
+    vigilante: 1,
+    witch: 1,
+    hunter: 1,
+    villager: 1
+  };
+
+  function setupVigilanteGame(options = {}) {
+    return setupGame({
+      players: EIGHT_PLAYERS,
+      roleCounts: P1_VIGILANTE_COUNTS,
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf',
+        p3: 'seer', p4: 'doctor',
+        p5: 'vigilante', p6: 'witch',
+        p7: 'hunter', p8: 'villager'
+      },
+      options
+    });
+  }
+
+  function advanceToNextNight(game, votePlan = {}) {
+    advanceToDiscussion(game);
+    while (game.getState().phase === PHASES.DAY_DISCUSSION) {
+      const speakerId = game.getState().currentSpeaker;
+      if (!speakerId) break;
+      game.executeMove({
+        playerId: speakerId,
+        actionType: ACTION_TYPES.SPEECH_DONE,
+        actionData: {}
+      });
+    }
+    if (game.getState().phase === PHASES.DAY_VOTE) {
+      playVoteRound(game, votePlan);
+    }
+    expect(game.getState().phase).toBe(PHASES.NIGHT);
+  }
+
+  it('should kill target with NIGHT_VIGILANTE_KILL', () => {
+    const { game } = setupVigilanteGame();
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_VIGILANTE_KILL, { targetId: 'p8' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    const state = game.getState();
+    expect(state.phase).toBe(PHASES.DAY_ANNOUNCE);
+    expect(state.playerMap.p8.alive).toBe(false);
+    expect(state.playerMap.p8.deathCause).toBe('vigilante_kill');
+    expect(state.roleStates.vigilanteShotsUsed).toBe(1);
+    expect(state.roleStates.vigilanteLastTarget).toBe('p8');
+  });
+
+  it('should reject self-target for vigilante', () => {
+    const { game } = setupVigilanteGame();
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+
+    const result = submitNight(
+      game,
+      'p5',
+      ACTION_TYPES.NIGHT_VIGILANTE_KILL,
+      { targetId: 'p5' }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('义警不能射击自己');
+  });
+
+  it('should enforce vigilante max shot limit', () => {
+    const { game } = setupVigilanteGame();
+
+    // Night 1: first shot
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_VIGILANTE_KILL, { targetId: 'p1' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    advanceToNextNight(game);
+
+    // Night 2: second shot should be rejected (default maxShots = 1)
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    const result = submitNight(
+      game,
+      'p5',
+      ACTION_TYPES.NIGHT_VIGILANTE_KILL,
+      { targetId: 'p2' }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('义警射击次数已用完');
+  });
+
+  it('should reject first-night shot when vigilanteCanShootFirstNight is false', () => {
+    const { game } = setupVigilanteGame({ vigilanteCanShootFirstNight: false });
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+
+    const result = submitNight(
+      game,
+      'p5',
+      ACTION_TYPES.NIGHT_VIGILANTE_KILL,
+      { targetId: 'p8' }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('义警首夜不能开枪');
+  });
+
+  it('should be blocked by doctor when protectAgainstVigilante is true', () => {
+    const { game } = setupVigilanteGame({ protectAgainstVigilante: true });
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p8' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_VIGILANTE_KILL, { targetId: 'p8' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    const state = game.getState();
+    expect(state.playerMap.p8.alive).toBe(true);
+    expect(state.nightDeaths).toEqual([]);
+  });
+
+  it('should bypass protection when protectAgainstVigilante is false', () => {
+    const { game } = setupVigilanteGame({ protectAgainstVigilante: false });
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p8' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_VIGILANTE_KILL, { targetId: 'p8' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    const state = game.getState();
+    expect(state.playerMap.p8.alive).toBe(false);
+    expect(state.nightDeaths).toContainEqual({ playerId: 'p8', cause: 'vigilante_kill' });
+  });
+
+  it('should lock vigilante after misfire when penalty is lose_ability', () => {
+    const { game } = setupVigilanteGame({
+      vigilanteMisfirePenalty: 'lose_ability',
+      vigilanteMaxShots: 2
+    });
+
+    // Night 1: misfire on villager
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_VIGILANTE_KILL, { targetId: 'p8' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    expect(game.getState().roleStates.vigilanteLocked).toBe(true);
+
+    advanceToNextNight(game);
+
+    // Night 2: cannot shoot because locked
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    const result = submitNight(
+      game,
+      'p5',
+      ACTION_TYPES.NIGHT_VIGILANTE_KILL,
+      { targetId: 'p1' }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('义警已失去射杀能力');
+  });
+
+  it('should not apply misfire penalty when penalty is none', () => {
+    const { game } = setupVigilanteGame({
+      vigilanteMisfirePenalty: 'none',
+      vigilanteMaxShots: 2
+    });
+
+    // Night 1: misfire on villager
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_VIGILANTE_KILL, { targetId: 'p8' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    const stateAfterNight1 = game.getState();
+    expect(stateAfterNight1.roleStates.vigilanteLocked).toBe(false);
+    expect(stateAfterNight1.roleStates.vigilantePendingSuicide).toBe(false);
+
+    advanceToNextNight(game);
+
+    // Night 2: can still shoot
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    const shootResult = submitNight(
+      game,
+      'p5',
+      ACTION_TYPES.NIGHT_VIGILANTE_KILL,
+      { targetId: 'p2' }
+    );
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    expect(shootResult.success).toBe(true);
+    expect(game.getState().playerMap.p2.alive).toBe(false);
+  });
+
+  it('should trigger unavoidable recoil death on next night after misfire', () => {
+    const { game } = setupVigilanteGame({
+      vigilanteMisfirePenalty: 'suicide_next_night'
+    });
+
+    // Night 1: misfire on villager
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_VIGILANTE_KILL, { targetId: 'p8' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    expect(game.getState().roleStates.vigilantePendingSuicide).toBe(true);
+
+    advanceToNextNight(game);
+
+    // Night 2: doctor protects vigilante but recoil should still kill
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p5' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    const state = game.getState();
+    expect(state.playerMap.p5.alive).toBe(false);
+    expect(state.playerMap.p5.deathCause).toBe('vigilante_recoil');
+  });
+
+  it('should reject vigilante kill when pending suicide is active', () => {
+    const { game } = setupVigilanteGame({
+      vigilanteMisfirePenalty: 'suicide_next_night'
+    });
+
+    // Night 1: misfire on villager
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_VIGILANTE_KILL, { targetId: 'p8' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    advanceToNextNight(game);
+
+    // Night 2: reaching vigilante step, active recoil should block shooting
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    const result = submitNight(
+      game,
+      'p5',
+      ACTION_TYPES.NIGHT_VIGILANTE_KILL,
+      { targetId: 'p1' }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('义警将于今夜反噬死亡，无法执行射杀');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PIPER (P1) TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('Piper (P1)', () => {
+  const P1_PIPER_COUNTS = {
+    werewolf: 2,
+    seer: 1,
+    doctor: 1,
+    piper: 1,
+    witch: 1,
+    hunter: 1,
+    villager: 1
+  };
+
+  function setupPiperGame(options = {}) {
+    return setupGame({
+      players: EIGHT_PLAYERS,
+      roleCounts: P1_PIPER_COUNTS,
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf',
+        p3: 'seer', p4: 'doctor',
+        p5: 'piper', p6: 'witch',
+        p7: 'hunter', p8: 'villager'
+      },
+      options
+    });
+  }
+
+  it('should accept NIGHT_PIPER_CHARM and store selected targetIds', () => {
+    const { game } = setupPiperGame();
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    const result = submitNight(game, 'p5', ACTION_TYPES.NIGHT_PIPER_CHARM, {
+      targetIds: ['p7', 'p8']
+    });
+
+    expect(result.success).toBe(true);
+    const state = game.getState();
+    expect(state.nightActions.p5.actionType).toBe(ACTION_TYPES.NIGHT_PIPER_CHARM);
+    expect(state.nightActions.p5.actionData.targetIds).toEqual(['p7', 'p8']);
+  });
+
+  it('should reject self charm when piperCanCharmSelf is false', () => {
+    const { game } = setupPiperGame();
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    const result = submitNight(game, 'p5', ACTION_TYPES.NIGHT_PIPER_CHARM, {
+      targetIds: ['p5']
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('魔笛手不能魅惑自己');
+  });
+
+  it('should reject duplicate targets in one charm action', () => {
+    const { game } = setupPiperGame();
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    const result = submitNight(game, 'p5', ACTION_TYPES.NIGHT_PIPER_CHARM, {
+      targetIds: ['p7', 'p7']
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('不能重复选择同一名玩家');
+  });
+
+  it('should allow selecting fewer targets than piperCharmTargetsPerNight', () => {
+    const { game } = setupPiperGame({ piperCharmTargetsPerNight: 2 });
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    const result = submitNight(game, 'p5', ACTION_TYPES.NIGHT_PIPER_CHARM, {
+      targetIds: ['p7']
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('should apply charm state after night settlement', () => {
+    const { game } = setupPiperGame();
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_PIPER_CHARM, {
+      targetIds: ['p7', 'p8']
+    });
+
+    const state = game.getState();
+    expect(state.phase).toBe(PHASES.DAY_ANNOUNCE);
+    expect(state.roleStates.piperCharmedIds).toEqual(['p7', 'p8']);
+    expect(state.roleStates.piperLastCharmedIds).toEqual(['p7', 'p8']);
+  });
+
+  it('should not apply charm to targets that die in the same night', () => {
+    const { game } = setupPiperGame();
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_PIPER_CHARM, {
+      targetIds: ['p7', 'p8']
+    });
+
+    const state = game.getState();
+    expect(state.playerMap.p8.alive).toBe(false);
+    expect(state.roleStates.piperCharmedIds).toEqual(['p7']);
+    expect(state.roleStates.piperLastCharmedIds).toEqual(['p7']);
+  });
+
+  it('should reject recharm by default when target is already charmed', () => {
+    const { game } = setupPiperGame();
+
+    // Night 1: charm p7 and p8
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_PIPER_CHARM, {
+      targetIds: ['p7', 'p8']
+    });
+
+    advanceToNight(game);
+
+    // Night 2: recharm p7 should fail
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    const result = submitNight(game, 'p5', ACTION_TYPES.NIGHT_PIPER_CHARM, {
+      targetIds: ['p7']
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('目标已被魅惑');
+  });
+
+  it('should allow recharm when piperCanRecharm is true', () => {
+    const { game } = setupPiperGame({ piperCanRecharm: true });
+
+    // Night 1: charm p7 and p8
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_PIPER_CHARM, {
+      targetIds: ['p7', 'p8']
+    });
+
+    advanceToNight(game);
+
+    // Night 2: recharm p7 should pass
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    const result = submitNight(game, 'p5', ACTION_TYPES.NIGHT_PIPER_CHARM, {
+      targetIds: ['p7']
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('should trigger piper win when all other alive players are charmed', () => {
+    const fourPlayers = [
+      { id: 'p1', nickname: 'Player1', isHost: true },
+      { id: 'p2', nickname: 'Player2' },
+      { id: 'p3', nickname: 'Player3' },
+      { id: 'p4', nickname: 'Player4' }
+    ];
+    const { game } = setupGame({
+      players: fourPlayers,
+      roleCounts: { piper: 1, werewolf: 1, seer: 1, villager: 1 },
+      roleMap: {
+        p1: 'piper',
+        p2: 'werewolf',
+        p3: 'seer',
+        p4: 'villager'
+      },
+      options: { piperCharmTargetsPerNight: 3 }
+    });
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_PIPER_CHARM, {
+      targetIds: ['p2', 'p3', 'p4']
+    });
+
+    const state = game.getState();
+    expect(state.status).toBe('ended');
+    expect(state.winner).toBe('piper');
+  });
+
+  it('should not grant piper win when piper is dead and piperNeedsAliveToWin is true', () => {
+    const { game, state } = setupGame({
+      players: [
+        { id: 'p1', nickname: 'Player1', isHost: true },
+        { id: 'p2', nickname: 'Player2' },
+        { id: 'p3', nickname: 'Player3' },
+        { id: 'p4', nickname: 'Player4' }
+      ],
+      roleCounts: { piper: 1, werewolf: 1, villager: 2 },
+      roleMap: {
+        p1: 'piper',
+        p2: 'werewolf',
+        p3: 'villager',
+        p4: 'villager'
+      }
+    });
+
+    state.playerMap.p1.alive = false;
+    state.roleStates.piperCharmedIds = ['p2', 'p3', 'p4'];
+
+    const end = game.checkGameEnd(state);
+    expect(end.ended).toBe(false);
+  });
+
+  it('should allow dead piper to win when piperNeedsAliveToWin is false', () => {
+    const { game, state } = setupGame({
+      players: [
+        { id: 'p1', nickname: 'Player1', isHost: true },
+        { id: 'p2', nickname: 'Player2' },
+        { id: 'p3', nickname: 'Player3' },
+        { id: 'p4', nickname: 'Player4' }
+      ],
+      roleCounts: { piper: 1, werewolf: 1, villager: 2 },
+      roleMap: {
+        p1: 'piper',
+        p2: 'werewolf',
+        p3: 'villager',
+        p4: 'villager'
+      },
+      options: { piperNeedsAliveToWin: false }
+    });
+
+    state.playerMap.p1.alive = false;
+    state.roleStates.piperCharmedIds = ['p2', 'p3', 'p4'];
+
+    const end = game.checkGameEnd(state);
+    expect(end.ended).toBe(true);
+    expect(end.winner).toBe('piper');
+    expect(end.rankings.filter(r => r.rank === 1).map(r => r.playerId)).toContain('p1');
+  });
+
+  it('should keep jester win priority over piper win condition', () => {
+    const { game, state } = setupGame({
+      players: [
+        { id: 'p1', nickname: 'Player1', isHost: true },
+        { id: 'p2', nickname: 'Player2' },
+        { id: 'p3', nickname: 'Player3' },
+        { id: 'p4', nickname: 'Player4' }
+      ],
+      roleCounts: { piper: 1, jester: 1, werewolf: 1, villager: 1 },
+      roleMap: {
+        p1: 'piper',
+        p2: 'jester',
+        p3: 'werewolf',
+        p4: 'villager'
+      }
+    });
+
+    state.jesterWinnerId = 'p2';
+    state.roleStates.piperCharmedIds = ['p2', 'p3', 'p4'];
+
+    const end = game.checkGameEnd(state);
+    expect(end.ended).toBe(true);
+    expect(end.winner).toBe('jester');
   });
 });
 

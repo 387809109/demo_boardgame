@@ -21,6 +21,8 @@ export const ROLE_NAMES = {
   werewolf: '狼人',
   seer: '预言家',
   doctor: '医生',
+  vigilante: '义警',
+  piper: '魔笛手',
   idiot: '白痴',
   jester: '小丑',
   hunter: '猎人',
@@ -33,6 +35,8 @@ export const ROLE_DESCRIPTIONS = {
   werewolf: '狼人阵营，每晚可以选择一名玩家击杀。',
   seer: '每晚可以查验一名玩家的阵营身份。',
   doctor: '每晚可以保护一名玩家免受狼人袭击。',
+  vigilante: '主动进攻角色，每晚可射杀一名玩家，误杀好人会触发惩罚。',
+  piper: '第三方控制角色，每晚魅惑玩家，魅惑所有存活玩家后获胜。',
   idiot: '白天首次被投票放逐时翻牌免死，但会永久失去投票权。',
   jester: '第三方角色，被白天投票放逐时立即单独获胜。',
   hunter: '死亡时可以开枪带走一名玩家。',
@@ -51,6 +55,8 @@ export const PHASE_NAMES = {
 /** Death cause display texts */
 export const DEATH_CAUSE_TEXTS = {
   wolf_kill: '被狼人袭击',
+  vigilante_kill: '被义警射杀',
+  vigilante_recoil: '因误杀反噬死亡',
   witch_poison: '被毒杀',
   execution: '被放逐',
   hunter_shoot: '被猎人射杀',
@@ -138,7 +144,7 @@ export function getDeathCauseText(cause) {
  * @returns {boolean}
  */
 export function roleHasNightAction(roleId) {
-  return ['werewolf', 'seer', 'doctor', 'witch'].includes(roleId);
+  return ['werewolf', 'seer', 'doctor', 'vigilante', 'witch'].includes(roleId);
 }
 
 /**
@@ -147,7 +153,7 @@ export function roleHasNightAction(roleId) {
  * @returns {boolean}
  */
 export function nightActionRequiresTarget(roleId) {
-  return ['werewolf', 'seer', 'doctor'].includes(roleId);
+  return ['werewolf', 'seer', 'doctor', 'vigilante'].includes(roleId);
 }
 
 /**

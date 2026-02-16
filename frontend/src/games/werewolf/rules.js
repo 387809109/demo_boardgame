@@ -166,6 +166,30 @@ export function validateNightAction(move, state) {
       }
       break;
     }
+    case 'NIGHT_VIGILANTE_KILL': {
+      if (targetId === playerId) {
+        return { valid: false, error: '义警不能射击自己' };
+      }
+
+      if (!state.options.vigilanteCanShootFirstNight && state.round === 1) {
+        return { valid: false, error: '义警首夜不能开枪' };
+      }
+
+      if (state.roleStates?.vigilanteLocked) {
+        return { valid: false, error: '义警已失去射杀能力' };
+      }
+
+      if (state.roleStates?.vigilantePendingSuicide) {
+        return { valid: false, error: '义警将于今夜反噬死亡，无法执行射杀' };
+      }
+
+      const maxShots = state.options?.vigilanteMaxShots ?? 1;
+      const shotsUsed = state.roleStates?.vigilanteShotsUsed ?? 0;
+      if (shotsUsed >= maxShots) {
+        return { valid: false, error: '义警射击次数已用完' };
+      }
+      break;
+    }
     case 'NIGHT_WITCH_SAVE': {
       if (state.roleStates?.witchSaveUsed) {
         return { valid: false, error: '救人药水已用完' };
@@ -226,6 +250,43 @@ export function validateNightAction(move, state) {
       // Check self-love option
       if (!state.options.cupidCanSelfLove && (lover1Id === playerId || lover2Id === playerId)) {
         return { valid: false, error: '丘比特不能将自己选为恋人' };
+      }
+      break;
+    }
+    case 'NIGHT_PIPER_CHARM': {
+      const targetIds = actionData?.targetIds;
+      if (!Array.isArray(targetIds) || targetIds.length === 0) {
+        return { valid: false, error: '必须选择目标玩家' };
+      }
+
+      const maxTargets = Math.max(1, state.options?.piperCharmTargetsPerNight ?? 2);
+      if (targetIds.length > maxTargets) {
+        return { valid: false, error: `每晚最多魅惑 ${maxTargets} 名玩家` };
+      }
+
+      const uniqueTargets = new Set(targetIds);
+      if (uniqueTargets.size !== targetIds.length) {
+        return { valid: false, error: '不能重复选择同一名玩家' };
+      }
+
+      const canCharmSelf = Boolean(state.options?.piperCanCharmSelf);
+      const canRecharm = Boolean(state.options?.piperCanRecharm);
+      const alreadyCharmed = new Set(state.roleStates?.piperCharmedIds || []);
+
+      for (const targetId of targetIds) {
+        const target = state.playerMap[targetId];
+        if (!target) {
+          return { valid: false, error: '目标玩家不存在' };
+        }
+        if (!target.alive) {
+          return { valid: false, error: '目标玩家已死亡' };
+        }
+        if (!canCharmSelf && targetId === playerId) {
+          return { valid: false, error: '魔笛手不能魅惑自己' };
+        }
+        if (!canRecharm && alreadyCharmed.has(targetId)) {
+          return { valid: false, error: '目标已被魅惑' };
+        }
       }
       break;
     }
@@ -311,14 +372,48 @@ export function validateDayVote(move, state) {
  */
 export function resolveNightActions(state) {
   const announcements = [];
+  const kills = [];
+  state.roleStates.piperLastCharmedIds = [];
+
+  // ── Step 0: Resolve vigilante recoil from previous misfire ──
+  if (state.roleStates?.vigilantePendingSuicide) {
+    const aliveVigilantes = Object.values(state.playerMap).filter(
+      player => player.alive && player.roleId === 'vigilante'
+    );
+
+    for (const vigilante of aliveVigilantes) {
+      kills.push({
+        targetId: vigilante.id,
+        cause: 'vigilante_recoil',
+        bypassesProtection: true
+      });
+      announcements.push({
+        type: 'vigilante_recoil',
+        playerId: vigilante.id,
+        message: '义警因误杀反噬而死亡'
+      });
+    }
+    // Consumed once per next-night settlement.
+    state.roleStates.vigilantePendingSuicide = false;
+  }
 
   // ── Step 1: Resolve wolf consensus ──
   const wolfTarget = resolveWolfConsensus(state);
 
   // ── Step 2: Collect all kill events ──
-  const kills = [];
   if (wolfTarget) {
     kills.push({ targetId: wolfTarget, cause: 'wolf_kill', bypassesProtection: false });
+  }
+
+  // Vigilante kill
+  for (const [, action] of Object.entries(state.nightActions)) {
+    if (action.actionType === 'NIGHT_VIGILANTE_KILL' && action.actionData?.targetId) {
+      kills.push({
+        targetId: action.actionData.targetId,
+        cause: 'vigilante_kill',
+        bypassesProtection: !state.options.protectAgainstVigilante
+      });
+    }
   }
 
   // Witch poison — collected here, added to deaths in step 7
@@ -417,6 +512,62 @@ export function resolveNightActions(state) {
     .filter(k => !k.cancelled)
     .map(k => ({ playerId: k.targetId, cause: k.cause }));
 
+  // ── Step 7.5: Apply piper charm after final deaths are determined ──
+  const {
+    charmedIds,
+    lastCharmedIds,
+    charmAnnouncements
+  } = _resolvePiperCharm(state, deaths);
+  state.roleStates.piperCharmedIds = charmedIds;
+  state.roleStates.piperLastCharmedIds = lastCharmedIds;
+  announcements.push(...charmAnnouncements);
+
+  // ── Step 8: Apply vigilante misfire penalty ──
+  const misfirePenalty = state.options?.vigilanteMisfirePenalty || 'suicide_next_night';
+  if (misfirePenalty !== 'none') {
+    for (const [actorId, action] of Object.entries(state.nightActions)) {
+      if (action.actionType !== 'NIGHT_VIGILANTE_KILL' || !action.actionData?.targetId) {
+        continue;
+      }
+
+      const targetId = action.actionData.targetId;
+      const targetDiedFromVigilante = deaths.some(
+        d => d.playerId === targetId && d.cause === 'vigilante_kill'
+      );
+      if (!targetDiedFromVigilante) {
+        continue;
+      }
+
+      const targetPlayer = state.playerMap[targetId];
+      if (!targetPlayer) {
+        continue;
+      }
+
+      const targetRoleConfig = _findRoleConfig(targetPlayer.roleId, state.roleDefinitions);
+      const targetRoleFaction = targetRoleConfig?.team || targetPlayer.team;
+      if (targetRoleFaction !== 'village') {
+        continue;
+      }
+
+      if (misfirePenalty === 'lose_ability') {
+        state.roleStates.vigilanteLocked = true;
+      } else if (misfirePenalty === 'suicide_next_night') {
+        const actor = state.playerMap[actorId];
+        if (actor?.alive) {
+          state.roleStates.vigilantePendingSuicide = true;
+        }
+      }
+
+      announcements.push({
+        type: 'vigilante_misfire',
+        playerId: actorId,
+        targetId,
+        penalty: misfirePenalty,
+        message: '义警误杀好人，触发惩罚'
+      });
+    }
+  }
+
   return { deaths, announcements };
 }
 
@@ -487,6 +638,29 @@ export function checkWinConditions(state) {
   }
 
   const alivePlayers = Object.values(state.playerMap).filter(p => p.alive);
+
+  const allPipers = Object.values(state.playerMap).filter(p => p.roleId === 'piper');
+  const piperNeedsAliveToWin = state.options?.piperNeedsAliveToWin ?? true;
+  const winnerPipers = piperNeedsAliveToWin
+    ? allPipers.filter(p => p.alive)
+    : allPipers;
+
+  if (winnerPipers.length > 0) {
+    const winnerPiperIds = new Set(winnerPipers.map(p => p.id));
+    const charmedIds = new Set(state.roleStates?.piperCharmedIds || []);
+    const uncharmedAlive = alivePlayers.filter(
+      p => !winnerPiperIds.has(p.id) && !charmedIds.has(p.id)
+    );
+
+    if (uncharmedAlive.length === 0) {
+      return {
+        ended: true,
+        winner: 'piper',
+        reason: 'all_alive_charmed',
+        winnerPlayerIds: winnerPipers.map(p => p.id)
+      };
+    }
+  }
 
   // Check for lovers team win condition
   if (state.links.lovers) {
@@ -619,6 +793,64 @@ function _findPlayerByRole(state, roleId) {
 }
 
 /**
+ * Resolve piper charm effects after deaths are finalized.
+ * @private
+ * @param {Object} state
+ * @param {Array<{playerId: string, cause: string}>} deaths
+ * @returns {{ charmedIds: string[], lastCharmedIds: string[], charmAnnouncements: Object[] }}
+ */
+function _resolvePiperCharm(state, deaths) {
+  const deadIds = new Set((deaths || []).map(d => d.playerId));
+  const canCharmSelf = Boolean(state.options?.piperCanCharmSelf);
+  const canRecharm = Boolean(state.options?.piperCanRecharm);
+  const charmedSet = new Set(state.roleStates?.piperCharmedIds || []);
+  const lastNightSet = new Set();
+  const charmAnnouncements = [];
+
+  for (const [actorId, action] of Object.entries(state.nightActions || {})) {
+    if (action.actionType !== 'NIGHT_PIPER_CHARM') continue;
+
+    const actor = state.playerMap?.[actorId];
+    if (!actor || !actor.alive || deadIds.has(actorId)) continue;
+
+    const targetIds = Array.isArray(action.actionData?.targetIds)
+      ? action.actionData.targetIds
+      : [];
+    const appliedForActor = [];
+
+    for (const targetId of targetIds) {
+      const target = state.playerMap?.[targetId];
+      if (!target || !target.alive || deadIds.has(targetId)) continue;
+      if (!canCharmSelf && targetId === actorId) continue;
+      if (!canRecharm && charmedSet.has(targetId)) continue;
+
+      if (!charmedSet.has(targetId)) {
+        charmedSet.add(targetId);
+        lastNightSet.add(targetId);
+      }
+      if (!appliedForActor.includes(targetId)) {
+        appliedForActor.push(targetId);
+      }
+    }
+
+    if (appliedForActor.length > 0) {
+      charmAnnouncements.push({
+        type: 'piper_charm_applied',
+        playerId: actorId,
+        targetIds: appliedForActor,
+        message: '你的魅惑已生效'
+      });
+    }
+  }
+
+  return {
+    charmedIds: [...charmedSet],
+    lastCharmedIds: [...lastNightSet],
+    charmAnnouncements
+  };
+}
+
+/**
  * Find role config across priority tiers
  * @private
  */
@@ -640,7 +872,8 @@ function _actionRequiresTarget(actionType) {
   const noTargetActions = [
     'NIGHT_SKIP',
     'NIGHT_WITCH_SAVE',
-    'NIGHT_CUPID_LINK'
+    'NIGHT_CUPID_LINK',
+    'NIGHT_PIPER_CHARM'
   ];
   return !noTargetActions.includes(actionType);
 }

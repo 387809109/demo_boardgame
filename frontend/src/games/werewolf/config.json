@@ -88,7 +88,7 @@
       },
       "vigilante": {
         "id": "vigilante",
-        "name": "私刑者",
+        "name": "义警",
         "team": "village",
         "priority": "P1",
         "actionTypes": ["NIGHT_VIGILANTE_KILL"],
@@ -286,10 +286,18 @@
     "witchSaveFirstNightOnly": false,
     "protectAgainstPoison": false,
     "protectAgainstVigilante": true,
+    "vigilanteMaxShots": 1,
+    "vigilanteCanShootFirstNight": true,
+    "vigilanteMisfirePenalty": "suicide_next_night",
     "guardWitchInteraction": "coexist",
     "cupidCanSelfLove": true,
     "sameSideLoversSeparate": false,
-    "loversNightChat": false
+    "loversNightChat": false,
+    "piperCharmTargetsPerNight": 2,
+    "piperCanCharmSelf": false,
+    "piperCanRecharm": false,
+    "piperNeedsAliveToWin": true,
+    "piperRevealCharmedList": false
   },
 
   "timing": {
@@ -367,6 +375,63 @@
       "type": "boolean",
       "label": "女巫仅首夜可救",
       "description": "女巫的救人药水是否仅首夜可使用",
+      "default": false
+    },
+    "vigilanteMaxShots": {
+      "type": "number",
+      "label": "义警射击次数",
+      "description": "义警整局可射击的总次数",
+      "default": 1,
+      "min": 1,
+      "max": 3
+    },
+    "vigilanteCanShootFirstNight": {
+      "type": "boolean",
+      "label": "义警首夜可开枪",
+      "description": "是否允许义警在第 1 夜射杀目标",
+      "default": true
+    },
+    "vigilanteMisfirePenalty": {
+      "type": "select",
+      "label": "义警误杀惩罚",
+      "description": "义警误杀好人后触发的惩罚规则",
+      "default": "suicide_next_night",
+      "options": [
+        { "value": "none", "label": "无惩罚" },
+        { "value": "lose_ability", "label": "失去射杀能力" },
+        { "value": "suicide_next_night", "label": "下一夜自杀" }
+      ]
+    },
+    "piperCharmTargetsPerNight": {
+      "type": "number",
+      "label": "魔笛手每晚魅惑人数",
+      "description": "魔笛手每晚最多可魅惑的目标数量",
+      "default": 2,
+      "min": 1,
+      "max": 3
+    },
+    "piperCanCharmSelf": {
+      "type": "boolean",
+      "label": "魔笛手可魅惑自己",
+      "description": "是否允许魔笛手将自己加入魅惑目标",
+      "default": false
+    },
+    "piperCanRecharm": {
+      "type": "boolean",
+      "label": "允许重复魅惑",
+      "description": "是否允许再次选择已被魅惑的玩家",
+      "default": false
+    },
+    "piperNeedsAliveToWin": {
+      "type": "boolean",
+      "label": "魔笛手需存活获胜",
+      "description": "魔笛手是否必须存活时才能触发魅惑胜利",
+      "default": true
+    },
+    "piperRevealCharmedList": {
+      "type": "boolean",
+      "label": "公开魅惑名单",
+      "description": "是否向所有玩家公开被魅惑名单",
       "default": false
     },
     "nightActionTime": {

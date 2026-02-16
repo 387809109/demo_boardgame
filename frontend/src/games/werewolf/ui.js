@@ -221,6 +221,8 @@ export class WerewolfUI {
             this._nightActionBtn = btn;
             bar.appendChild(btn);
           }
+        } else if (role === 'piper' && isMyStep) {
+          bar.appendChild(createButton('请在上方面板选择魅惑目标', null, true));
         } else {
           const stepLabel = state.nightSteps?.[state.currentNightStep]?.label
             || '夜晚';
@@ -448,6 +450,19 @@ export class WerewolfUI {
           selectableIds = getAlivePlayerIds(this.state).filter(id => id !== this.playerId);
         }
         break;
+      case 'vigilante':
+        {
+          const roleStates = this.state.roleStates || {};
+          const maxShots = this.state.options?.vigilanteMaxShots ?? 1;
+          const shotsUsed = roleStates.vigilanteShotsUsed ?? 0;
+          if (roleStates.vigilanteLocked ||
+              roleStates.vigilantePendingSuicide ||
+              shotsUsed >= maxShots) {
+            return null;
+          }
+        }
+        selectableIds = getAlivePlayerIds(this.state).filter(id => id !== this.playerId);
+        break;
       case 'witch':
         const roleStates = this.state.roleStates || {};
         if (!roleStates.witchPoisonUsed) {
@@ -549,6 +564,9 @@ export class WerewolfUI {
         break;
       case 'doctor':
         actionType = ACTION_TYPES.NIGHT_DOCTOR_PROTECT;
+        break;
+      case 'vigilante':
+        actionType = ACTION_TYPES.NIGHT_VIGILANTE_KILL;
         break;
       default:
         return;
