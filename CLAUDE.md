@@ -248,6 +248,9 @@ Example: `docs/games/werewolf/PLAN.md`
 | `docs/dev_rules/README.md` | **开发规范总览** (必读) |
 | `docs/dev_rules/DEVELOPMENT_PRINCIPLES.md` | SOLID/DRY/KISS 原则详解 |
 | `docs/dev_rules/CODE_STYLE_GUIDE.md` | 代码风格、命名、格式规范 |
+| `docs/dev_rules/ROLE_DEVELOPMENT_AGENT.md` | **狼人杀角色开发 Agent** (完整工作流程) |
+| `docs/dev_rules/ROLE_AGENT_PROMPT.md` | 角色开发 Agent 提示词模板 |
+| `docs/dev_rules/ROLE_INPUT_TEMPLATE.md` | 角色描述输入模板 |
 | `docs/PROTOCOL.md` | WebSocket message specification |
 | `docs/prd/frontend/README.md` | Frontend implementation guide with templates |
 | `docs/prd/frontend/TASKS.md` | Frontend task checklist (T-F001 to T-F112) |
