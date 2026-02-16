@@ -91,6 +91,8 @@ function findRoleConfig(roleId) {
     doctor: { team: 'village', actionTypes: ['NIGHT_DOCTOR_PROTECT'] },
     bodyguard: { team: 'village', actionTypes: ['NIGHT_BODYGUARD_PROTECT'] },
     cupid: { team: 'village', actionTypes: ['NIGHT_CUPID_LINK'] },
+    idiot: { team: 'village', actionTypes: [] },
+    jester: { team: 'neutral', actionTypes: [] },
     hunter: { team: 'village', actionTypes: ['HUNTER_SHOOT'] },
     witch: { team: 'village', actionTypes: ['NIGHT_WITCH_SAVE', 'NIGHT_WITCH_POISON'] }
   };
@@ -2071,6 +2073,482 @@ describe('WerewolfGame', () => {
       expect(witchInfo).toBeDefined();
       expect(witchInfo.wolfTarget).toBe('p7');
     });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IDIOT (P1) TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('Idiot (P1)', () => {
+  const P1_IDIOT_COUNTS = {
+    werewolf: 2,
+    seer: 1,
+    doctor: 1,
+    idiot: 1,
+    witch: 1,
+    hunter: 1,
+    villager: 1
+  };
+
+  const P1_IDIOT_WITH_CUPID_COUNTS = {
+    werewolf: 2,
+    cupid: 1,
+    doctor: 1,
+    idiot: 1,
+    witch: 1,
+    hunter: 1,
+    villager: 1
+  };
+
+  function setupIdiotGame() {
+    return setupGame({
+      players: EIGHT_PLAYERS,
+      roleCounts: P1_IDIOT_COUNTS,
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf',
+        p3: 'seer', p4: 'doctor',
+        p5: 'idiot', p6: 'witch',
+        p7: 'hunter', p8: 'villager'
+      }
+    });
+  }
+
+  function advanceToVotePhase(game) {
+    advanceToDiscussion(game);
+    while (game.getState().phase === PHASES.DAY_DISCUSSION) {
+      const cur = game.getState().currentSpeaker;
+      if (!cur) break;
+      game.executeMove({
+        playerId: cur,
+        actionType: ACTION_TYPES.SPEECH_DONE,
+        actionData: {}
+      });
+    }
+  }
+
+  function voteOutIdiot(game, includeIdiotVote = true) {
+    const votePlan = includeIdiotVote
+      ? {
+          p1: 'p5',
+          p2: 'p5',
+          p3: 'p5',
+          p4: 'p5',
+          p5: null,
+          p6: 'p5',
+          p7: 'p5',
+          p8: 'p5'
+        }
+      : {
+          p1: 'p5',
+          p2: 'p5',
+          p3: 'p5',
+          p4: 'p5',
+          p6: 'p5',
+          p7: 'p5',
+          p8: 'p5'
+        };
+    playVoteRound(game, votePlan);
+  }
+
+  it('should survive first day execution and enter revealed state', () => {
+    const { game } = setupIdiotGame();
+
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+    voteOutIdiot(game, true);
+
+    const state = game.getState();
+    expect(state.phase).toBe(PHASES.NIGHT);
+    expect(state.playerMap.p5.alive).toBe(true);
+    expect(state.playerMap.p5.deathCause).toBeNull();
+    expect(state.roleStates.idiotRevealedIds).toContain('p5');
+    expect(state.publicRevealRoleIds.p5).toBe(true);
+    expect(state.lastDayExecution).toBeNull();
+  });
+
+  it('should keep lastWordsRemaining unchanged when idiot is first executed', () => {
+    const { game } = setupIdiotGame();
+
+    const before = game.getState().lastWordsRemaining;
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+    voteOutIdiot(game, true);
+
+    const state = game.getState();
+    expect(state.lastWordsRemaining).toBe(before);
+  });
+
+  it('should reveal idiot role to all players after first execution', () => {
+    const { game } = setupIdiotGame();
+
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+    voteOutIdiot(game, true);
+
+    const wolfView = game.getVisibleState('p1');
+    const villagerView = game.getVisibleState('p8');
+
+    const wolfSeenIdiot = wolfView.players.find(p => p.id === 'p5');
+    const villagerSeenIdiot = villagerView.players.find(p => p.id === 'p5');
+
+    expect(wolfSeenIdiot.roleId).toBe('idiot');
+    expect(villagerSeenIdiot.roleId).toBe('idiot');
+  });
+
+  it('should reject day vote for revealed idiot', () => {
+    const { game, state } = setupIdiotGame();
+
+    state.phase = PHASES.DAY_VOTE;
+    state.currentVoter = 'p5';
+    state.roleStates.idiotRevealedIds = ['p5'];
+
+    const result = game.validateMove(
+      { playerId: 'p5', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p1' } },
+      state
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.error).toBe('你已失去投票权');
+  });
+
+  it('should keep revealed idiot in discussion order but remove from voter queue', () => {
+    const { game } = setupIdiotGame();
+
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+    voteOutIdiot(game, true);
+
+    // Move to next day vote phase
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+
+    const state = game.getState();
+    expect(state.phase).toBe(PHASES.DAY_VOTE);
+    expect(state.baseSpeakerOrder).toContain('p5');
+    expect(state.voterQueue).not.toContain('p5');
+    expect(state.currentVoter).not.toBe('p5');
+  });
+
+  it('should die on second day execution', () => {
+    const { game } = setupIdiotGame();
+
+    // First execution: reveal only
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+    voteOutIdiot(game, true);
+
+    // Second execution: normal death
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+    voteOutIdiot(game, false);
+
+    const state = game.getState();
+    expect(state.playerMap.p5.alive).toBe(false);
+    expect(state.playerMap.p5.deathCause).toBe('execution');
+    expect(state.lastDayExecution).toBe('p5');
+  });
+
+  it('should die normally when killed at night', () => {
+    const { game } = setupIdiotGame();
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    const state = game.getState();
+    expect(state.playerMap.p5.alive).toBe(false);
+    expect(state.playerMap.p5.deathCause).toBe('wolf_kill');
+    expect(state.roleStates.idiotRevealedIds).not.toContain('p5');
+  });
+
+  it('should not trigger lover martyrdom when idiot survives first execution', () => {
+    const { game } = setupGame({
+      players: EIGHT_PLAYERS,
+      roleCounts: P1_IDIOT_WITH_CUPID_COUNTS,
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf',
+        p3: 'cupid', p4: 'doctor',
+        p5: 'idiot', p6: 'witch',
+        p7: 'hunter', p8: 'villager'
+      }
+    });
+
+    // Link idiot and villager
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p5', 'p8'] });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' }); // wolf tie
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    advanceToVotePhase(game);
+    voteOutIdiot(game, true);
+
+    const state = game.getState();
+    expect(state.playerMap.p5.alive).toBe(true);
+    expect(state.playerMap.p8.alive).toBe(true);
+  });
+
+  it('should trigger lover martyrdom when idiot dies on second execution', () => {
+    const { game } = setupGame({
+      players: EIGHT_PLAYERS,
+      roleCounts: P1_IDIOT_WITH_CUPID_COUNTS,
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf',
+        p3: 'cupid', p4: 'doctor',
+        p5: 'idiot', p6: 'witch',
+        p7: 'hunter', p8: 'villager'
+      }
+    });
+
+    // Night 1: cupid links idiot + villager
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p5', 'p8'] });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' }); // wolf tie
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    // Day 1: first execution triggers reveal only
+    advanceToVotePhase(game);
+    voteOutIdiot(game, true);
+
+    // Night 2: peaceful
+    skipAllNightActions(game);
+
+    // Day 2: second execution kills idiot, lover dies by martyrdom
+    advanceToVotePhase(game);
+    voteOutIdiot(game, false);
+
+    const state = game.getState();
+    expect(state.playerMap.p5.alive).toBe(false);
+    expect(state.playerMap.p5.deathCause).toBe('execution');
+    expect(state.playerMap.p8.alive).toBe(false);
+    expect(state.playerMap.p8.deathCause).toBe('lover_death');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// JESTER (P1) TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('Jester (P1)', () => {
+  const P1_JESTER_COUNTS = {
+    werewolf: 2,
+    seer: 1,
+    doctor: 1,
+    jester: 1,
+    witch: 1,
+    hunter: 1,
+    villager: 1
+  };
+
+  const EIGHT_PLAYERS = [
+    ...SEVEN_PLAYERS,
+    { id: 'p8', nickname: 'Player8' }
+  ];
+
+  function setupJesterGame() {
+    return setupGame({
+      players: EIGHT_PLAYERS,
+      roleCounts: P1_JESTER_COUNTS,
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf',
+        p3: 'seer', p4: 'doctor',
+        p5: 'jester', p6: 'witch',
+        p7: 'hunter', p8: 'villager'
+      }
+    });
+  }
+
+  function advanceToVotePhase(game) {
+    advanceToDiscussion(game);
+    while (game.getState().phase === PHASES.DAY_DISCUSSION) {
+      const cur = game.getState().currentSpeaker;
+      if (!cur) break;
+      game.executeMove({
+        playerId: cur,
+        actionType: ACTION_TYPES.SPEECH_DONE,
+        actionData: {}
+      });
+    }
+  }
+
+  it('should end game with jester winner when jester is executed', () => {
+    const { game } = setupJesterGame();
+
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+    playVoteRound(game, {
+      p1: 'p5', p2: 'p5', p3: 'p5', p4: 'p5',
+      p5: null, p6: 'p5', p7: 'p5', p8: 'p5'
+    });
+
+    const state = game.getState();
+    expect(state.status).toBe('ended');
+    expect(state.phase).toBe(PHASES.ENDED);
+    expect(state.winner).toBe('jester');
+    expect(state.playerMap.p5.alive).toBe(false);
+    expect(state.playerMap.p5.deathCause).toBe('execution');
+  });
+
+  it('should rank only jester as winner after jester execution', () => {
+    const { game } = setupJesterGame();
+
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+    playVoteRound(game, {
+      p1: 'p5', p2: 'p5', p3: 'p5', p4: 'p5',
+      p5: null, p6: 'p5', p7: 'p5', p8: 'p5'
+    });
+
+    const endCheck = game.checkGameEnd(game.getState());
+    const winners = endCheck.rankings.filter(r => r.rank === 1).map(r => r.playerId);
+    expect(winners).toEqual(['p5']);
+  });
+
+  it('should not win when killed by wolves at night', () => {
+    const { game } = setupJesterGame();
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    const state = game.getState();
+    expect(state.playerMap.p5.alive).toBe(false);
+    expect(state.playerMap.p5.deathCause).toBe('wolf_kill');
+    expect(state.winner).toBeNull();
+    expect(state.status).toBe('playing');
+  });
+
+  it('should not win when poisoned by witch', () => {
+    const { game } = setupJesterGame();
+
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p5' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+
+    const state = game.getState();
+    expect(state.playerMap.p5.alive).toBe(false);
+    expect(state.playerMap.p5.deathCause).toBe('witch_poison');
+    expect(state.winner).toBeNull();
+  });
+
+  it('should not win when no one is executed', () => {
+    const { game } = setupJesterGame();
+
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+    playVoteRound(game, {
+      p1: null, p2: null, p3: null, p4: null,
+      p5: null, p6: null, p7: null, p8: null
+    });
+
+    const state = game.getState();
+    expect(state.winner).toBeNull();
+    expect(state.status).toBe('playing');
+    expect(state.phase).toBe(PHASES.NIGHT);
+  });
+
+  it('should win when executed in second vote round after tie', () => {
+    const { game } = setupJesterGame();
+
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+
+    // Round 1 tie: p1 and p5 both get 3 votes, 2 abstain.
+    playVoteRound(game, {
+      p1: 'p5', p2: 'p5', p3: 'p1', p4: 'p1',
+      p5: 'p1', p6: 'p5', p7: null, p8: null
+    });
+
+    expect(game.getState().phase).toBe(PHASES.DAY_DISCUSSION);
+    expect(game.getState().voteRound).toBe(2);
+    expect(game.getState().tiedCandidates).toEqual(expect.arrayContaining(['p1', 'p5']));
+
+    while (game.getState().phase === PHASES.DAY_DISCUSSION) {
+      const cur = game.getState().currentSpeaker;
+      if (!cur) break;
+      game.executeMove({
+        playerId: cur,
+        actionType: ACTION_TYPES.SPEECH_DONE,
+        actionData: {}
+      });
+    }
+
+    playVoteRound(game, {
+      p1: 'p5', p2: 'p5', p3: 'p5', p4: 'p5',
+      p5: 'p1', p6: 'p5', p7: 'p5', p8: 'p5'
+    });
+
+    const state = game.getState();
+    expect(state.status).toBe('ended');
+    expect(state.winner).toBe('jester');
+    expect(state.playerMap.p5.deathCause).toBe('execution');
+  });
+
+  it('should prioritize jester win over werewolf parity condition', () => {
+    const { game } = setupGame({
+      players: [
+        { id: 'p1', nickname: 'P1' },
+        { id: 'p2', nickname: 'P2' },
+        { id: 'p3', nickname: 'P3' },
+        { id: 'p4', nickname: 'P4' },
+        { id: 'p5', nickname: 'P5' },
+        { id: 'p6', nickname: 'P6' }
+      ],
+      roleCounts: { werewolf: 2, cupid: 1, jester: 1, villager: 2 },
+      roleMap: {
+        p1: 'werewolf',
+        p2: 'werewolf',
+        p3: 'cupid',
+        p4: 'jester',
+        p5: 'villager',
+        p6: 'villager'
+      }
+    });
+
+    // Night 1: link jester + villager, then wolves disagree (no night death).
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p4', 'p5'] });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+
+    advanceToVotePhase(game);
+    playVoteRound(game, {
+      p1: 'p4',
+      p2: 'p4',
+      p3: 'p1',
+      p4: 'p1',
+      p5: 'p4',
+      p6: 'p4'
+    });
+
+    const state = game.getState();
+    expect(state.status).toBe('ended');
+    expect(state.winner).toBe('jester');
+  });
+
+  it('should expose jester-specific end reason and winnerPlayerIds', () => {
+    const { game } = setupJesterGame();
+
+    skipAllNightActions(game);
+    advanceToVotePhase(game);
+    playVoteRound(game, {
+      p1: 'p5', p2: 'p5', p3: 'p5', p4: 'p5',
+      p5: null, p6: 'p5', p7: 'p5', p8: 'p5'
+    });
+
+    const endCheck = game.checkGameEnd(game.getState());
+    expect(endCheck.ended).toBe(true);
+    expect(endCheck.winner).toBe('jester');
+    expect(endCheck.reason).toBe('jester_executed');
+    expect(endCheck.rankings.find(r => r.playerId === 'p5').rank).toBe(1);
   });
 });
 

@@ -11,7 +11,8 @@ import { PHASES, TEAMS } from './index.js';
 export const TEAM_COLORS = {
   [TEAMS.WEREWOLF]: 'var(--error-500)',
   [TEAMS.VILLAGE]: 'var(--success-500)',
-  [TEAMS.NEUTRAL]: 'var(--warning-500)'
+  [TEAMS.NEUTRAL]: 'var(--warning-500)',
+  jester: 'var(--warning-500)'
 };
 
 /** Role display names (Chinese) */
@@ -20,6 +21,8 @@ export const ROLE_NAMES = {
   werewolf: '狼人',
   seer: '预言家',
   doctor: '医生',
+  idiot: '白痴',
+  jester: '小丑',
   hunter: '猎人',
   witch: '女巫'
 };
@@ -30,6 +33,8 @@ export const ROLE_DESCRIPTIONS = {
   werewolf: '狼人阵营，每晚可以选择一名玩家击杀。',
   seer: '每晚可以查验一名玩家的阵营身份。',
   doctor: '每晚可以保护一名玩家免受狼人袭击。',
+  idiot: '白天首次被投票放逐时翻牌免死，但会永久失去投票权。',
+  jester: '第三方角色，被白天投票放逐时立即单独获胜。',
   hunter: '死亡时可以开枪带走一名玩家。',
   witch: '拥有一瓶救人药水和一瓶毒药，每种只能使用一次。'
 };

@@ -273,7 +273,9 @@ export class WerewolfUI {
         }
         break;
       case PHASES.DAY_VOTE:
-        if (state.currentVoter === playerId) {
+        if ((state.roleStates?.idiotRevealedIds || []).includes(playerId)) {
+          bar.appendChild(createButton('你已失去投票权', null, true));
+        } else if (state.currentVoter === playerId) {
           bar.appendChild(createButton('弃票', () => {
             onAction({ actionType: ACTION_TYPES.DAY_SKIP_VOTE });
           }));
@@ -397,8 +399,9 @@ export class WerewolfUI {
       }
     }
 
-    // Day vote - only when it's my turn
-    if (state.phase === PHASES.DAY_VOTE && state.currentVoter === this.playerId) {
+    // Day vote - only when it's my turn and player has vote rights
+    const hasVoteRight = !((state.roleStates?.idiotRevealedIds || []).includes(this.playerId));
+    if (state.phase === PHASES.DAY_VOTE && hasVoteRight && state.currentVoter === this.playerId) {
       const tiedCandidates = state.tiedCandidates;
       const voteRound = state.voteRound || 1;
       const filterIds = (voteRound === 2 && tiedCandidates?.length > 0)

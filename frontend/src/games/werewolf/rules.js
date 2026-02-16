@@ -235,6 +235,22 @@ export function validateNightAction(move, state) {
 }
 
 /**
+ * Check whether a player currently has day-vote rights.
+ * @param {Object} state - Game state
+ * @param {string} playerId - Player ID
+ * @returns {boolean}
+ */
+export function canPlayerVote(state, playerId) {
+  const player = state.playerMap?.[playerId];
+  if (!player || !player.alive) {
+    return false;
+  }
+
+  const revealedIdiots = state.roleStates?.idiotRevealedIds || [];
+  return !(player.roleId === 'idiot' && revealedIdiots.includes(playerId));
+}
+
+/**
  * Validate a day vote
  * @param {Object} move - { playerId, actionType, actionData: { targetId } }
  * @param {Object} state - Game state
@@ -246,6 +262,9 @@ export function validateDayVote(move, state) {
 
   if (!player || !player.alive) {
     return { valid: false, error: '你已死亡，无法投票' };
+  }
+  if (!canPlayerVote(state, playerId)) {
+    return { valid: false, error: '你已失去投票权' };
   }
   if (state.phase !== 'day_vote') {
     return { valid: false, error: '当前不是投票阶段' };
@@ -458,6 +477,15 @@ export function calculateVoteResult(votes, options = {}) {
  * @returns {{ ended: boolean, winner?: string, reason?: string }}
  */
 export function checkWinConditions(state) {
+  if (state.jesterWinnerId) {
+    return {
+      ended: true,
+      winner: 'jester',
+      reason: 'jester_executed',
+      winnerPlayerIds: [state.jesterWinnerId]
+    };
+  }
+
   const alivePlayers = Object.values(state.playerMap).filter(p => p.alive);
 
   // Check for lovers team win condition
@@ -620,6 +648,7 @@ function _actionRequiresTarget(actionType) {
 export default {
   assignRoles,
   validateNightAction,
+  canPlayerVote,
   validateDayVote,
   resolveNightActions,
   calculateVoteResult,

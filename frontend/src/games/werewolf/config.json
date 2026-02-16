@@ -101,7 +101,7 @@
         "team": "village",
         "priority": "P1",
         "actionTypes": [],
-        "description": "被投票处决时不死，但失去投票权",
+        "description": "白天首次被投票处决时翻牌免死并失去投票权，夜晚被杀则正常死亡",
         "winCondition": "消灭所有狼人"
       },
       "jester": {
@@ -110,7 +110,7 @@
         "team": "neutral",
         "priority": "P1",
         "actionTypes": [],
-        "description": "被投票处决时胜利",
+        "description": "白天被投票处决时立即单独获胜并结束游戏",
         "winCondition": "被村民投票处决"
       },
       "piper": {

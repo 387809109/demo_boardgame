@@ -242,10 +242,13 @@ export function renderVotePanel(ctx) {
   const currentVoter = state.currentVoter;
   const isMyTurn = currentVoter === playerId;
   const hasVoted = state.votes?.[playerId] !== undefined;
+  const isIdiotWithoutVote = (state.roleStates?.idiotRevealedIds || []).includes(playerId);
 
   // Info text based on state
   let infoText;
-  if (isMyTurn) {
+  if (isIdiotWithoutVote) {
+    infoText = '你已翻牌为白痴，当前无法参与投票，等待其他玩家...';
+  } else if (isMyTurn) {
     infoText = voteRound === 2 && tiedCandidates?.length > 0
       ? '轮到你投票了，点击平票候选人的头像进行投票'
       : '轮到你投票了，点击环形布局中的玩家头像选择要放逐的玩家';
@@ -373,7 +376,9 @@ export function renderEndedPanel(ctx) {
   // Winner banner
   const winner = state.winner;
   const winnerLabel = winner === TEAMS.WEREWOLF ? '狼人阵营获胜'
-    : winner === TEAMS.VILLAGE ? '好人阵营获胜' : '游戏结束';
+    : winner === TEAMS.VILLAGE ? '好人阵营获胜'
+      : winner === 'jester' ? '小丑获胜'
+        : '游戏结束';
   const winnerColor = TEAM_COLORS[winner] || 'var(--text-primary)';
 
   const banner = document.createElement('div');

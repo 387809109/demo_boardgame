@@ -9,6 +9,7 @@ import {
   resolveNightActions,
   calculateVoteResult,
   getActiveNightRoles,
+  canPlayerVote,
   resolveWolfConsensus
 } from './rules.js';
 import config from './config.json';
@@ -350,7 +351,9 @@ export function startDayVote(state, helpers) {
   const aliveIds = state.players
     .filter(p => state.playerMap[p.id].alive)
     .map(p => p.id);
-  const voterQueue = state.baseSpeakerOrder.filter(id => aliveIds.includes(id));
+  const voterQueue = state.baseSpeakerOrder
+    .filter(id => aliveIds.includes(id))
+    .filter(id => canPlayerVote(state, id));
 
   state.voterQueue = voterQueue;
   state.voterIndex = 0;
@@ -501,15 +504,41 @@ export function resolveVotes(state, helpers) {
   });
 
   if (result.executed) {
-    helpers.markPlayerDead(state, result.executed, 'execution');
+    const executedId = result.executed;
+    const executedPlayer = state.playerMap[executedId];
+    const revealedIdiots = state.roleStates?.idiotRevealedIds || [];
+    const isIdiotFirstReveal = executedPlayer?.roleId === 'idiot' &&
+      !revealedIdiots.includes(executedId);
+
     state.tiedCandidates = null;
-    state.lastDayExecution = result.executed;
+
+    if (isIdiotFirstReveal) {
+      state.roleStates.idiotRevealedIds = [...revealedIdiots, executedId];
+      state.publicRevealRoleIds = state.publicRevealRoleIds || {};
+      state.publicRevealRoleIds[executedId] = true;
+      state.lastDayExecution = null;
+
+      helpers.logEvent(state, 'idiot_revealed', {
+        playerId: executedId,
+        voteRound: state.voteRound
+      });
+
+      transitionPhase(state, PHASES.NIGHT, helpers);
+      return;
+    }
+
+    helpers.markPlayerDead(state, executedId, 'execution');
+    state.lastDayExecution = executedId;
+
+    if (executedPlayer?.roleId === 'jester') {
+      state.jesterWinnerId = executedId;
+    }
 
     if (state.options.lastWordsMode === 'limit_by_initial_wolves' && state.lastWordsRemaining > 0) {
       state.lastWordsRemaining--;
     }
 
-    helpers.processDeathTriggers(state, [result.executed], 'execution');
+    helpers.processDeathTriggers(state, [executedId], 'execution');
 
     if (!state.hunterPendingShoot) {
       transitionPhase(state, PHASES.NIGHT, helpers);

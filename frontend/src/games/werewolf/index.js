@@ -194,7 +194,8 @@ export class WerewolfGame extends GameEngine {
         witchPoisonUsed: false,
         doctorLastProtect: null,
         bodyguardLastProtect: null,
-        cupidLinked: false
+        cupidLinked: false,
+        idiotRevealedIds: []
       },
       links: {
         lovers: null
@@ -203,12 +204,14 @@ export class WerewolfGame extends GameEngine {
       // Seer check results
       seerChecks: {},
       forcedRevealRoleIds: {},
+      publicRevealRoleIds: {},
 
       // Dead player chat
       deadChat: [],
 
       // Meta
       initialWolfCount,
+      jesterWinnerId: null,
       roleDefinitions: config.roles,
       nightActionPriority: config.nightActionPriority,
       eventLog: [],
@@ -458,8 +461,11 @@ export class WerewolfGame extends GameEngine {
     state.status = 'ended';
     state.winner = result.winner;
 
+    const winnerIds = new Set(result.winnerPlayerIds || []);
     const rankings = Object.values(state.playerMap).map(p => {
-      const isWinner = p.team === result.winner;
+      const isWinner = winnerIds.size > 0
+        ? winnerIds.has(p.id)
+        : p.team === result.winner;
       return {
         playerId: p.id,
         nickname: p.nickname,
@@ -770,6 +776,7 @@ export class WerewolfGame extends GameEngine {
   _canSeeRole(viewerId, targetId, state) {
     if (viewerId === targetId) return true;
     if (state.phase === PHASES.ENDED) return true;
+    if (state.publicRevealRoleIds?.[targetId]) return true;
 
     const viewer = state.playerMap[viewerId];
     if (viewer && !viewer.alive) {
@@ -821,6 +828,11 @@ export class WerewolfGame extends GameEngine {
 
     if (player.roleId === 'doctor') {
       visible.doctorLastProtect = state.roleStates.doctorLastProtect;
+    }
+
+    if (player.roleId === 'idiot') {
+      const revealedIds = state.roleStates?.idiotRevealedIds || [];
+      visible.idiotRevealed = revealedIds.includes(playerId);
     }
 
     return visible;
