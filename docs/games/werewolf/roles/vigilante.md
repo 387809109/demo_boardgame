@@ -254,11 +254,60 @@ kills.push({
 
 ---
 
-## 10. 测试场景
+## 10. UI 呈现与交互方式
+
+### 选择模式
+
+`single` — 通过环形座位图点击单个玩家头像选择射击目标。
+
+义警已在 `roleHasNightAction()` 中注册，框架自动通过 `_getNightSelectionConfig()` 提供环形单选。当义警被锁定（`vigilanteLocked`）、待自杀（`vigilantePendingSuicide`）或射击次数用尽时，`_getNightSelectionConfig()` 返回 `null`，环形选择不可用。
+
+### 夜间面板内容
+
+面板文件：`ui-panels-roles.js` → `renderVigilantePanel(ctx)`
+
+显示内容：
+
+- **剩余射击次数**：显示"剩余射击: N / M"
+- **上次射击目标**：若 `vigilanteLastTarget` 有值，显示"上次射击: {玩家名}"
+- **锁定/自杀提示**：若 `vigilanteLocked` 或 `vigilantePendingSuicide`，显示警告信息
+  - 待自杀："你将于今夜反噬死亡，无法执行射杀。"
+  - 已锁定："你已失去射杀能力，今晚只能跳过行动。"
+- **次数用尽提示**：显示"射击次数已用完，今晚只能跳过行动。"
+- **当前选择**：若已点选目标且可射击，显示"已选择射击: {玩家名}"
+- **未选择提示**：显示"点击环形布局中的玩家头像选择要射击的玩家"
+
+### 操作栏按钮
+
+- **确认行动**：选择目标后启用
+  - 按钮文案：`确认行动`
+  - 启用条件：`selectedTarget !== null` 且未锁定且有剩余次数
+
+### 徽章显示
+
+无专属徽章。
+
+### 可见状态字段
+
+`_getVisibleRoleStates` 中暴露给义警玩家：
+
+- `vigilanteShotsUsed`: 已使用射击次数
+- `vigilanteLastTarget`: 上一晚射击的目标 ID
+- `vigilanteLocked`: 是否已被锁定（失去能力）
+- `vigilantePendingSuicide`: 是否待自杀（下一夜开始时死亡）
+- `vigilanteMaxShots`: 最大射击次数
+
+### 白天 UI 影响
+
+无特殊白天 UI 变化。
+
+---
+
+## 11. 测试场景
 
 以下为 P1 阶段建议测试清单（共 32 个）。
 
-### 10.1 基础功能（1-8）
+### 11.1 基础功能（1-8）
 
 1. 义警夜晚成功射杀目标。
 2. 义警射杀后进入白天，死亡列表包含 `vigilante_kill`。
@@ -269,7 +318,7 @@ kills.push({
 7. 义警非夜晚阶段提交行动被拒绝。
 8. 非义警玩家提交 `NIGHT_VIGILANTE_KILL` 被拒绝。
 
-### 10.2 次数与状态（9-14）
+### 11.2 次数与状态（9-14）
 
 9. `vigilanteMaxShots = 1` 时，第二次射击被拒绝。
 10. `vigilanteMaxShots = 2` 时，可连续两晚射击。
@@ -278,7 +327,7 @@ kills.push({
 13. `vigilanteLocked = true` 时，射击被拒绝。
 14. `vigilantePendingSuicide = true` 时，射击被拒绝。
 
-### 10.3 配置规则（15-19）
+### 11.3 配置规则（15-19）
 
 15. `vigilanteCanShootFirstNight = false` 时首夜射击失败。
 16. `vigilanteCanShootFirstNight = true` 时首夜射击成功。
@@ -286,7 +335,7 @@ kills.push({
 18. `protectAgainstVigilante = true` 时，守卫保护可抵消义警击杀。
 19. `protectAgainstVigilante = false` 时，保护无法抵消义警击杀。
 
-### 10.4 误杀惩罚（20-26）
+### 11.4 误杀惩罚（20-26）
 
 20. 误杀好人 + `none`：不触发惩罚。
 21. 误杀好人 + `lose_ability`：后续射击被拒绝。
@@ -296,7 +345,7 @@ kills.push({
 25. 已进入下一夜自杀后，不重复触发自杀事件。
 26. 义警进入下一夜自杀时，不可被守卫/医生/女巫解药阻止或救回。
 
-### 10.5 角色交互（27-31）
+### 11.5 角色交互（27-31）
 
 27. 义警射杀猎人，猎人触发开枪（按配置）。
 28. 义警射杀白痴，白痴正常死亡（不翻牌）。
@@ -304,7 +353,7 @@ kills.push({
 30. 义警射杀恋人之一，另一名恋人殉情。
 31. 义警射杀被女巫毒杀同一目标时，死亡记录稳定且无重复触发。
 
-### 10.6 流程与回归（32-33）
+### 11.6 流程与回归（32-33）
 
 32. 加入义警后夜间步骤顺序仍为 8(狼) → 9(义警) → 10(女巫)。
 33. 未包含义警的对局不受影响（回归测试）。

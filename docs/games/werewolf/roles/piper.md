@@ -241,11 +241,61 @@ if (alivePiperExists) {
 
 ---
 
-## 10. 测试场景
+## 10. UI 呈现与交互方式
+
+### 选择模式
+
+`multi` — 通过环形座位图点击多个玩家头像，选择 1 至 N 名魅惑目标（N 由 `piperCharmTargetsPerNight` 配置，默认 2）。
+
+魔笛手不在 `roleHasNightAction()` 中注册，需要在 `ui.js` 中实现专用的多选逻辑：
+
+- `_piperSelectedTargets: Set` — 构造函数中初始化
+- `_getPiperSelectionConfig()` — 返回 `{ multiSelect: true, maxSelect, selectedIds: [...] }`
+- `_handlePiperSelect(targetId, maxTargets)` — 切换选中，达上限时替换最早选中
+- `getSelectionConfig()` 中在 `roleHasNightAction` 判断之前检查魔笛手
+
+### 夜间面板内容
+
+面板文件：`ui-panels-roles.js` → `renderPiperPanel(ctx)`
+
+显示内容：
+
+- **已魅惑计数**：显示"已魅惑玩家: N"
+- **上夜新增**：若 `piperLastCharmedIds` 有值，显示"上一夜新增魅惑: {名字列表}"
+- **操作提示**：显示"点击左侧玩家头像选择 1-N 名魅惑目标"
+- **选择计数**：显示"已选择: {名字列表} (N/M)" 或 "已选择 0 / M 名玩家"
+- **确认按钮**：选中至少 1 人后启用
+- **跳过按钮**：始终可用
+
+### 操作栏按钮
+
+- **提示按钮**（不可点击）：`请在上方面板选择魅惑目标`
+
+### 徽章显示
+
+无专属徽章。魅惑状态对其他玩家不可见（除非 `piperRevealCharmedList` 配置开启）。
+
+### 可见状态字段
+
+`_getVisibleRoleStates` 中暴露：
+
+- `piperCharmedIds`: 已魅惑玩家 ID 列表（魔笛手可见；若 `piperRevealCharmedList` 为 true 则所有人可见）
+- `piperLastCharmedIds`: 上一夜新增魅惑 ID 列表（同上）
+- `piperCharmTargetsPerNight`: 每晚最大魅惑数（仅魔笛手可见）
+- `piperCanCharmSelf`: 是否可自我魅惑（仅魔笛手可见）
+- `piperCanRecharm`: 是否可重复魅惑（仅魔笛手可见）
+
+### 白天 UI 影响
+
+无特殊白天 UI 变化。
+
+---
+
+## 11. 测试场景
 
 以下为 P1 建议测试清单（共 34 条）。
 
-### 10.1 基础功能（1-8）
+### 11.1 基础功能（1-8）
 
 1. 魔笛手可在夜间提交 `NIGHT_PIPER_CHARM`。
 2. 成功魅惑 2 名未魅惑目标。
@@ -256,7 +306,7 @@ if (alivePiperExists) {
 7. 非本人步骤提交魅惑被拒绝。
 8. `NIGHT_SKIP` 对魔笛手可用且不新增魅惑。
 
-### 10.2 验证规则（9-16）
+### 11.2 验证规则（9-16）
 
 9. `targetIds` 缺失时验证失败。
 10. 目标数量不符合配置时失败。
@@ -267,7 +317,7 @@ if (alivePiperExists) {
 15. `piperCanCharmSelf = true` 时自魅成功。
 16. `piperCanRecharm = false` 时重复魅惑失败。
 
-### 10.3 胜利条件（17-24）
+### 11.3 胜利条件（17-24）
 
 17. piper 存活且其余存活玩家全被魅惑时立即胜利。
 18. 仅部分存活玩家被魅惑时不胜利。
@@ -278,7 +328,7 @@ if (alivePiperExists) {
 23. 与 village/werewolf 基础胜利冲突时，按既定优先级返回正确 winner。
 24. 与 jester 胜利冲突时，jester 优先（白天即结束）。
 
-### 10.4 交互测试（25-30）
+### 11.4 交互测试（25-30）
 
 25. 魔笛手被狼人夜杀后无法再魅惑。
 26. 守卫/医生保护不影响魅惑生效。
@@ -287,7 +337,7 @@ if (alivePiperExists) {
 29. 义警击杀魔笛手后，不再出现新增魅惑。
 30. 白痴/小丑被魅惑不改变其原有特殊机制。
 
-### 10.5 边界与回归（31-34）
+### 11.5 边界与回归（31-34）
 
 31. 可选目标不足时允许少选并正常推进（若采用少选策略）。
 32. 同夜 charm 目标与狼刀目标重叠时，最终状态与死亡统计一致。

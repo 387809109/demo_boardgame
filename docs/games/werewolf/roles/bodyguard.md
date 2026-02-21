@@ -456,7 +456,48 @@ if (isProtectedByGuard && isSavedByWitch) {
 
 ---
 
-## 10. 参考资料
+## 10. UI 呈现与交互方式
+
+### 选择模式
+
+`single` — 通过环形座位图点击单个玩家头像选择守护目标。
+
+守卫已在 `roleHasNightAction()` 中注册，框架自动通过 `_getNightSelectionConfig()` 提供环形单选。
+
+### 夜间面板内容
+
+面板文件：`ui-panels-roles.js` → `renderBodyguardPanel(ctx)`
+
+显示内容：
+
+- **上次守护信息**：若 `bodyguardLastProtect` 有值，显示"昨晚守护: {玩家名}"
+- **连续守护限制提示**：若 `allowRepeatedProtect` 为 false，显示"(今晚不可再选)"
+- **当前选择**：若已点选目标，显示"已选择守护: {玩家名}"
+- **未选择提示**：显示"点击环形布局中的玩家头像选择要守护的玩家"
+
+### 操作栏按钮
+
+- **确认行动**：选择目标后启用
+  - 按钮文案：`确认行动`
+  - 启用条件：`selectedTarget !== null`
+
+### 徽章显示
+
+无专属徽章。
+
+### 可见状态字段
+
+`_getVisibleRoleStates` 中暴露给守卫玩家：
+
+- `bodyguardLastProtect`: 上一晚守护的目标 ID
+
+### 白天 UI 影响
+
+无特殊白天 UI 变化。
+
+---
+
+## 11. 参考资料
 
 - **经典狼人杀规则**：[百度百科 - 狼人杀](https://baike.baidu.com/item/狼人杀)
 - **守药同死规则来源**：天黑请闭眼进阶规则、狼人杀 Online

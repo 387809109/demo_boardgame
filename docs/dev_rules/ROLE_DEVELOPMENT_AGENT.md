@@ -53,7 +53,8 @@ idiot, "白痴被投票处决时不会死亡，但会失去投票权。白痴被
 7. **与其他角色的交互** - 保护、击杀、特殊状态的交互
 8. **边界情况** - 至少 5 个特殊场景
 9. **配置选项** - 可选的游戏规则变体
-10. **测试场景** - 至少 30 个测试用例描述
+10. **UI 呈现与交互方式** - 面板内容、选择模式、徽章显示
+11. **测试场景** - 至少 30 个测试用例描述
 
 **关键决策点**：
 - **角色类型判断**：主动夜间技能 / 被动能力 / 首夜特殊 / 持续状态 / 第三方阵营
@@ -61,11 +62,12 @@ idiot, "白痴被投票处决时不会死亡，但会失去投票权。白痴被
 - **交互分析**：与现有角色的冲突、叠加、覆盖关系
 
 **输出验证**：
-- [ ] 所有 10 个章节完整
+- [ ] 所有 11 个章节完整
 - [ ] 边界情况 ≥ 5 个
 - [ ] 测试场景 ≥ 30 个
 - [ ] 数据结构清晰定义
 - [ ] 优先级合理分配
+- [ ] UI 交互方式明确定义（选择模式、面板内容、徽章）
 
 ### ⛔ 人工审核关卡（必须）
 
@@ -255,7 +257,51 @@ case '{roleId}':
 - 显示关键信息：上次行动、当前选择、限制提示
 - 参考 `renderDoctorPanel` 和 `renderBodyguardPanel`
 
-#### 2.5 代码质量检查
+#### 2.5 UI 选择模式集成 (`ui.js`)
+
+**位置**：`frontend/src/games/werewolf/ui.js`
+
+根据文档第 10 章（UI 呈现与交互方式）描述的选择模式，在 `ui.js` 中添加相应支持：
+
+##### 选择模式分类
+
+| 选择模式 | 说明 | 交互来源 | 示例角色 |
+|----------|------|----------|----------|
+| `single` | 通过环形座位图点击单个玩家头像选目标 | PlayerRing | doctor, bodyguard, seer, vigilante |
+| `multi` | 通过环形座位图点击多个玩家头像 | PlayerRing | cupid (固定2人), piper (1-N人) |
+| `none` | 无需选择玩家目标，使用按钮或自动触发 | 中央面板按钮 | witch (save), idiot, jester |
+
+##### single 模式（已由框架支持）
+
+在 `roleHasNightAction()` 中注册角色即可，框架自动通过 `_getNightSelectionConfig()` 提供环形选择。
+
+##### multi 模式
+
+需要在 `ui.js` 中添加：
+
+1. 在构造函数中添加 `this._{roleId}SelectedTargets = new Set()`
+2. 添加 `_get{Role}SelectionConfig()` 返回 `{ multiSelect: true, selectedIds, ... }`
+3. 添加 `_handle{Role}Select(targetId)` 切换选中状态，同步 `window._{roleId}SelectedTargets`
+4. 在 `getSelectionConfig()` 夜间分支中添加角色判断（置于 `roleHasNightAction` 之前）
+5. 在 `render()` 中同步 `window._{roleId}SelectedTargets = this._{roleId}SelectedTargets`
+
+**参考实现**：`_getCupidSelectionConfig()`, `_getPiperSelectionConfig()`
+
+##### none 模式
+
+无需修改 `ui.js` 选择逻辑，仅在面板中添加按钮即可。
+
+##### 徽章（Badges）
+
+如果角色需要在环形座位图上显示徽章（如恋人标记、魅惑标记），在 `game-board.js` 的 `_buildPlayerBadges()` 中添加。
+
+**徽章数据格式**：`{ type: 'badge_type', text: '显示文字' }`
+
+##### 可见状态（Visible State）
+
+在 `index.js` 的 `_getVisibleRoleStates()` 中暴露角色所需的状态字段，供 UI 面板读取。确保只暴露该玩家有权看到的信息。
+
+#### 2.6 代码质量检查
 
 **验证清单**：
 - [ ] ACTION_TYPES 已添加并导出
@@ -480,10 +526,12 @@ npm test -- src/games/werewolf/index.test.js
 ## 质量标准
 
 ### 文档质量
-- [ ] 所有章节完整且详细
+
+- [ ] 所有 11 个章节完整且详细
 - [ ] 边界情况覆盖全面（≥5 个）
 - [ ] 测试场景描述清晰（≥30 个）
 - [ ] 数据结构定义准确
+- [ ] UI 交互方式清晰（选择模式、面板内容、徽章、可见状态）
 
 ### 代码质量
 - [ ] 符合项目代码风格（SOLID, DRY, KISS）
