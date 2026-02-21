@@ -158,7 +158,10 @@ export class PlayerRing {
       const isSelectable = selectableIds.includes(player.id);
       const isDisabled = disabledIds.includes(player.id);
       const isDead = deadIds.includes(player.id);
-      const isSelected = player.id === selectedId;
+      const selectedIdsSet = this.options.selectedIds;
+      const isSelected = selectedIdsSet
+        ? selectedIdsSet.includes(player.id)
+        : player.id === selectedId;
       const playerBadges = badges[player.id] || [];
 
       // Add display suffix for self
@@ -351,12 +354,14 @@ export class PlayerRing {
    * @param {Array<string>} [config.disabledIds] - IDs that are disabled
    * @param {Function} config.onSelect - Selection callback
    * @param {string} [config.selectedId] - Currently selected player ID
+   * @param {Array<string>} [config.selectedIds] - Multiple selected player IDs
    */
   enableSelection(config) {
     this.options.selectableIds = config.selectableIds || [];
     this.options.disabledIds = config.disabledIds || [];
     this.options.onPlayerSelect = config.onSelect;
     this.options.selectedId = config.selectedId || null;
+    this.options.selectedIds = config.selectedIds || null;
     this._render();
   }
 

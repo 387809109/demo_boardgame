@@ -26,7 +26,9 @@ export const ROLE_NAMES = {
   idiot: '白痴',
   jester: '小丑',
   hunter: '猎人',
-  witch: '女巫'
+  witch: '女巫',
+  cupid: '丘比特',
+  bodyguard: '守卫'
 };
 
 /** Role descriptions */
@@ -40,13 +42,21 @@ export const ROLE_DESCRIPTIONS = {
   idiot: '白天首次被投票放逐时翻牌免死，但会永久失去投票权。',
   jester: '第三方角色，被白天投票放逐时立即单独获胜。',
   hunter: '死亡时可以开枪带走一名玩家。',
-  witch: '拥有一瓶救人药水和一瓶毒药，每种只能使用一次。'
+  witch: '拥有一瓶救人药水和一瓶毒药，每种只能使用一次。',
+  cupid: '第一晚选择两名玩家成为恋人，一方死亡另一方殉情。',
+  bodyguard: '每晚可以守护一名玩家，不能连续两晚守护同一人。'
 };
 
 /** Phase display names */
 export const PHASE_NAMES = {
   [PHASES.NIGHT]: '夜晚',
   [PHASES.DAY_ANNOUNCE]: '天亮了',
+  [PHASES.CAPTAIN_REGISTER]: '警长竞选 · 上警',
+  [PHASES.CAPTAIN_SPEECH]: '警长竞选 · 发言',
+  [PHASES.CAPTAIN_VOTE]: '警长竞选 · 投票',
+  [PHASES.CAPTAIN_RUNOFF_SPEECH]: '警长竞选 · 平票发言',
+  [PHASES.CAPTAIN_RUNOFF_VOTE]: '警长竞选 · 平票投票',
+  [PHASES.CAPTAIN_TRANSFER]: '警徽移交',
   [PHASES.DAY_DISCUSSION]: '自由讨论',
   [PHASES.DAY_VOTE]: '投票放逐',
   [PHASES.ENDED]: '游戏结束'
@@ -144,7 +154,7 @@ export function getDeathCauseText(cause) {
  * @returns {boolean}
  */
 export function roleHasNightAction(roleId) {
-  return ['werewolf', 'seer', 'doctor', 'vigilante', 'witch'].includes(roleId);
+  return ['werewolf', 'seer', 'doctor', 'bodyguard', 'vigilante', 'witch'].includes(roleId);
 }
 
 /**
@@ -153,7 +163,7 @@ export function roleHasNightAction(roleId) {
  * @returns {boolean}
  */
 export function nightActionRequiresTarget(roleId) {
-  return ['werewolf', 'seer', 'doctor', 'vigilante'].includes(roleId);
+  return ['werewolf', 'seer', 'doctor', 'bodyguard', 'vigilante'].includes(roleId);
 }
 
 /**

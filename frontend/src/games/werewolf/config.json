@@ -278,7 +278,9 @@
     "allowRepeatedProtect": false,
     "hunterShootOnPoison": false,
     "dayVoteMajority": true,
-    "leaderEnabled": true,
+    "captainEnabled": true,
+    "captainVoteWeight": 1.5,
+    "captainTieBreaker": "none",
     "lastWordsMode": "limit_by_initial_wolves",
     "lastWordsScope": "day_only",
     "lastWordsOrder": "seating_order",
@@ -304,45 +306,37 @@
     "nightActionTime": 30,
     "discussionTime": 300,
     "voteTime": 30,
-    "lastWordsTime": 30
+    "lastWordsTime": 30,
+    "captainRegisterTime": 30,
+    "captainTransferTime": 30
   },
+
+  "settingsGroups": [
+    { "id": "basic", "label": "基础规则" },
+    { "id": "captain", "label": "警长机制" },
+    { "id": "doctor_guard", "label": "医生/守卫" },
+    { "id": "hunter", "label": "猎人" },
+    { "id": "witch", "label": "女巫" },
+    { "id": "vigilante", "label": "义警" },
+    { "id": "piper", "label": "魔笛手" },
+    { "id": "cupid_lovers", "label": "丘比特/恋人" },
+    { "id": "timing", "label": "时间设置" }
+  ],
 
   "settingsSchema": {
     "revealRolesOnDeath": {
       "type": "boolean",
       "label": "死亡公开角色",
       "description": "玩家死亡时是否公开其角色身份",
-      "default": false
-    },
-    "allowDoctorSelfProtect": {
-      "type": "boolean",
-      "label": "医生可自保",
-      "description": "医生是否可以保护自己",
-      "default": true
-    },
-    "allowRepeatedProtect": {
-      "type": "boolean",
-      "label": "允许连续保护",
-      "description": "是否允许连续两晚保护同一人",
-      "default": false
-    },
-    "hunterShootOnPoison": {
-      "type": "boolean",
-      "label": "猎人被毒可开枪",
-      "description": "猎人被女巫毒死时是否能开枪",
-      "default": false
+      "default": false,
+      "group": "basic"
     },
     "dayVoteMajority": {
       "type": "boolean",
       "label": "多数票处决",
       "description": "是否要求得票数严格大于弃票数才可处决",
-      "default": true
-    },
-    "leaderEnabled": {
-      "type": "boolean",
-      "label": "启用领袖机制(未实装)",
-      "description": "是否启用 Leader 机制决定发言顺序",
-      "default": true
+      "default": true,
+      "group": "basic"
     },
     "lastWordsMode": {
       "type": "select",
@@ -353,7 +347,8 @@
         { "value": "none", "label": "无人有遗言" },
         { "value": "all", "label": "所有死亡玩家" },
         { "value": "limit_by_initial_wolves", "label": "等于初始狼人数" }
-      ]
+      ],
+      "group": "basic"
     },
     "lastWordsOrder": {
       "type": "select",
@@ -363,19 +358,101 @@
       "options": [
         { "value": "seating_order", "label": "座位顺序(随机起点)" },
         { "value": "death_resolution", "label": "死亡结算顺序" }
-      ]
+      ],
+      "group": "basic"
+    },
+    "captainEnabled": {
+      "type": "boolean",
+      "label": "启用警长机制",
+      "description": "是否在第一天白天进行警长竞选",
+      "default": true,
+      "group": "captain"
+    },
+    "captainVoteWeight": {
+      "type": "select",
+      "label": "警长投票权重",
+      "description": "警长在白天投票时的票数权重",
+      "default": 1.5,
+      "options": [
+        { "value": 1.5, "label": "1.5 票（标准）" },
+        { "value": 2, "label": "2 票（强势）" }
+      ],
+      "group": "captain"
+    },
+    "captainTieBreaker": {
+      "type": "select",
+      "label": "竞选平票处理",
+      "description": "竞选投票平票后的处理方式",
+      "default": "none",
+      "options": [
+        { "value": "none", "label": "警长空缺" },
+        { "value": "random", "label": "随机选一人当选" }
+      ],
+      "group": "captain"
+    },
+    "captainRegisterTime": {
+      "type": "number",
+      "label": "上警时间",
+      "description": "警长竞选上警阶段的时间限制（秒）",
+      "default": 30,
+      "min": 15,
+      "max": 60,
+      "group": "captain"
+    },
+    "captainTransferTime": {
+      "type": "number",
+      "label": "警徽移交时间",
+      "description": "警长死亡后选择继承人的时间限制（秒），超时视为撕徽",
+      "default": 30,
+      "min": 15,
+      "max": 60,
+      "group": "captain"
+    },
+    "allowDoctorSelfProtect": {
+      "type": "boolean",
+      "label": "医生可自保",
+      "description": "医生是否可以保护自己",
+      "default": true,
+      "group": "doctor_guard"
+    },
+    "allowRepeatedProtect": {
+      "type": "boolean",
+      "label": "允许连续保护",
+      "description": "是否允许连续两晚保护同一人",
+      "default": false,
+      "group": "doctor_guard"
+    },
+    "guardWitchInteraction": {
+      "type": "select",
+      "label": "守卫与女巫解药的交互",
+      "description": "守卫保护 + 女巫解药同时作用时的结算方式",
+      "default": "coexist",
+      "options": [
+        { "value": "coexist", "label": "共存（两者都生效，目标存活）" },
+        { "value": "conflict", "label": "冲突（守药同死，目标死亡）" }
+      ],
+      "group": "doctor_guard"
+    },
+    "hunterShootOnPoison": {
+      "type": "boolean",
+      "label": "猎人被毒可开枪",
+      "description": "猎人被女巫毒死时是否能开枪",
+      "default": false,
+      "group": "hunter"
     },
     "witchCanSaveSelf": {
       "type": "boolean",
       "label": "女巫可自救",
       "description": "女巫是否可以用救人药水救自己",
-      "default": true
+      "default": true,
+      "group": "witch"
     },
     "witchSaveFirstNightOnly": {
       "type": "boolean",
       "label": "女巫仅首夜可救",
       "description": "女巫的救人药水是否仅首夜可使用",
-      "default": false
+      "default": false,
+      "group": "witch"
     },
     "vigilanteMaxShots": {
       "type": "number",
@@ -383,13 +460,15 @@
       "description": "义警整局可射击的总次数",
       "default": 1,
       "min": 1,
-      "max": 3
+      "max": 3,
+      "group": "vigilante"
     },
     "vigilanteCanShootFirstNight": {
       "type": "boolean",
       "label": "义警首夜可开枪",
       "description": "是否允许义警在第 1 夜射杀目标",
-      "default": true
+      "default": true,
+      "group": "vigilante"
     },
     "vigilanteMisfirePenalty": {
       "type": "select",
@@ -400,7 +479,8 @@
         { "value": "none", "label": "无惩罚" },
         { "value": "lose_ability", "label": "失去射杀能力" },
         { "value": "suicide_next_night", "label": "下一夜自杀" }
-      ]
+      ],
+      "group": "vigilante"
     },
     "piperCharmTargetsPerNight": {
       "type": "number",
@@ -408,31 +488,57 @@
       "description": "魔笛手每晚最多可魅惑的目标数量",
       "default": 2,
       "min": 1,
-      "max": 3
+      "max": 3,
+      "group": "piper"
     },
     "piperCanCharmSelf": {
       "type": "boolean",
       "label": "魔笛手可魅惑自己",
       "description": "是否允许魔笛手将自己加入魅惑目标",
-      "default": false
+      "default": false,
+      "group": "piper"
     },
     "piperCanRecharm": {
       "type": "boolean",
       "label": "允许重复魅惑",
       "description": "是否允许再次选择已被魅惑的玩家",
-      "default": false
+      "default": false,
+      "group": "piper"
     },
     "piperNeedsAliveToWin": {
       "type": "boolean",
       "label": "魔笛手需存活获胜",
       "description": "魔笛手是否必须存活时才能触发魅惑胜利",
-      "default": true
+      "default": true,
+      "group": "piper"
     },
     "piperRevealCharmedList": {
       "type": "boolean",
       "label": "公开魅惑名单",
       "description": "是否向所有玩家公开被魅惑名单",
-      "default": false
+      "default": false,
+      "group": "piper"
+    },
+    "cupidCanSelfLove": {
+      "type": "boolean",
+      "label": "丘比特可自恋",
+      "description": "是否允许丘比特将自己选为恋人之一",
+      "default": true,
+      "group": "cupid_lovers"
+    },
+    "sameSideLoversSeparate": {
+      "type": "boolean",
+      "label": "同阵营恋人脱离阵营",
+      "description": "如果设为 true，即使两名恋人同属一个阵营，也会脱离原阵营形成独立的恋人阵营",
+      "default": false,
+      "group": "cupid_lovers"
+    },
+    "loversNightChat": {
+      "type": "boolean",
+      "label": "恋人夜间私聊",
+      "description": "恋人是否可以在夜间私聊",
+      "default": false,
+      "group": "cupid_lovers"
     },
     "nightActionTime": {
       "type": "number",
@@ -440,7 +546,8 @@
       "description": "每个角色夜间行动的时间限制（秒）",
       "default": 30,
       "min": 15,
-      "max": 60
+      "max": 60,
+      "group": "timing"
     },
     "discussionTime": {
       "type": "number",
@@ -448,7 +555,8 @@
       "description": "白天讨论阶段的时间限制（秒）",
       "default": 300,
       "min": 60,
-      "max": 600
+      "max": 600,
+      "group": "timing"
     },
     "voteTime": {
       "type": "number",
@@ -456,7 +564,8 @@
       "description": "投票阶段的时间限制（秒）",
       "default": 30,
       "min": 15,
-      "max": 60
+      "max": 60,
+      "group": "timing"
     },
     "lastWordsTime": {
       "type": "number",
@@ -464,35 +573,8 @@
       "description": "遗言发表的时间限制（秒）",
       "default": 30,
       "min": 15,
-      "max": 60
-    },
-    "guardWitchInteraction": {
-      "type": "select",
-      "label": "守卫与女巫解药的交互",
-      "description": "守卫保护 + 女巫解药同时作用时的结算方式",
-      "default": "coexist",
-      "options": [
-        { "value": "coexist", "label": "共存（两者都生效，目标存活）" },
-        { "value": "conflict", "label": "冲突（守药同死，目标死亡）" }
-      ]
-    },
-    "cupidCanSelfLove": {
-      "type": "boolean",
-      "label": "丘比特可自恋",
-      "description": "是否允许丘比特将自己选为恋人之一",
-      "default": true
-    },
-    "sameSideLoversSeparate": {
-      "type": "boolean",
-      "label": "同阵营恋人脱离阵营",
-      "description": "如果设为 true，即使两名恋人同属一个阵营，也会脱离原阵营形成独立的恋人阵营",
-      "default": false
-    },
-    "loversNightChat": {
-      "type": "boolean",
-      "label": "恋人夜间私聊",
-      "description": "恋人是否可以在夜间私聊",
-      "default": false
+      "max": 60,
+      "group": "timing"
     }
   }
 }

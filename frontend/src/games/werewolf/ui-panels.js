@@ -32,7 +32,11 @@ export {
   renderVotePanel,
   renderEndedPanel,
   renderHunterShoot,
-  renderDeadChat
+  renderDeadChat,
+  renderCaptainRegisterPanel,
+  renderCaptainSpeechPanel,
+  renderCaptainVotePanel,
+  renderCaptainTransferPanel
 } from './ui-panels-day.js';
 
 /**
@@ -63,6 +67,18 @@ export function renderRoleInfo(ctx) {
     border-left: 4px solid ${teamColor};
   `;
 
+  const isCaptain = state.captainPlayerId === ctx.playerId;
+  const captainBadge = isCaptain
+    ? `<div style="
+        font-size: var(--text-xs);
+        padding: 2px var(--spacing-2);
+        border-radius: var(--radius-full);
+        background: var(--warning-500);
+        color: var(--text-inverse);
+        font-weight: var(--font-medium);
+      ">警长</div>`
+    : '';
+
   el.innerHTML = `
     <div style="
       font-size: var(--text-lg);
@@ -77,6 +93,7 @@ export function renderRoleInfo(ctx) {
       color: var(--text-inverse);
       font-weight: var(--font-medium);
     ">${teamLabel}</div>
+    ${captainBadge}
     <div style="
       font-size: var(--text-sm);
       color: var(--text-secondary);

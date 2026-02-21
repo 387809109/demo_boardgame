@@ -26,6 +26,8 @@ export class GameSettingsModal {
     this.hasRoleSetup = !!this.gameConfig.defaultRoleCounts;
     this.roleCounts = null;
     this.roleSetupPanel = null;
+    /** @type {Object<string, boolean>} Track collapsed state per group */
+    this._collapsedGroups = {};
 
     this._applyInitialSettings(options.initialSettings);
 
@@ -169,7 +171,7 @@ export class GameSettingsModal {
 
           ${hasSettings ? `
             <div class="settings-form" style="display: flex; flex-direction: column; gap: var(--spacing-4);">
-              ${Object.entries(schema).map(([key, config]) => this._renderSettingField(key, config)).join('')}
+              ${this._renderSettingsContent(schema)}
             </div>
           ` : `
             ${!this.hasRoleSetup ? `
@@ -214,6 +216,7 @@ export class GameSettingsModal {
       </div>
     `;
 
+    this._bindGroupToggle();
     this._bindEvents();
     this._mountRoleSetup();
   }
@@ -245,6 +248,111 @@ export class GameSettingsModal {
     });
 
     container.appendChild(this.roleSetupPanel.getElement());
+  }
+
+  /**
+   * Render settings content — grouped if settingsGroups defined, flat otherwise
+   * @private
+   */
+  _renderSettingsContent(schema) {
+    const groups = this.gameConfig.settingsGroups;
+    if (!groups) {
+      return Object.entries(schema)
+        .map(([key, config]) => this._renderSettingField(key, config))
+        .join('');
+    }
+
+    const grouped = new Map();
+    for (const g of groups) {
+      grouped.set(g.id, { label: g.label, settings: [] });
+    }
+    grouped.set('_ungrouped', { label: '其他', settings: [] });
+
+    for (const [key, config] of Object.entries(schema)) {
+      const groupId = config.group || '_ungrouped';
+      const bucket = grouped.get(groupId) || grouped.get('_ungrouped');
+      bucket.settings.push({ key, config });
+    }
+
+    let html = '';
+    for (const [groupId, { label, settings }] of grouped) {
+      if (settings.length === 0) continue;
+
+      const collapsed = this._collapsedGroups[groupId] ?? true;
+      const arrowChar = collapsed ? '▶' : '▼';
+
+      const fieldsHtml = settings
+        .map(({ key, config }) => this._renderSettingField(key, config))
+        .join('');
+
+      html += `
+        <div class="settings-group" data-group-id="${groupId}">
+          <div class="settings-group-header" data-group-toggle="${groupId}" style="
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-2);
+            padding: var(--spacing-2) 0;
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 1px solid var(--border-light);
+            margin-bottom: ${collapsed ? '0' : 'var(--spacing-3)'};
+          ">
+            <span class="group-arrow" style="
+              font-size: var(--text-xs);
+              color: var(--text-tertiary);
+              width: 12px;
+              text-align: center;
+            ">${arrowChar}</span>
+            <span style="
+              font-weight: var(--font-semibold);
+              font-size: var(--text-sm);
+              color: var(--text-primary);
+            ">${label}</span>
+            <span style="
+              font-size: var(--text-xs);
+              color: var(--text-tertiary);
+              margin-left: auto;
+            ">${settings.length} 项</span>
+          </div>
+          <div class="settings-group-body" style="
+            display: ${collapsed ? 'none' : 'flex'};
+            flex-direction: column;
+            gap: var(--spacing-3);
+            padding-left: var(--spacing-4);
+          ">
+            ${fieldsHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    return html;
+  }
+
+  /**
+   * Bind click events for group toggle headers
+   * @private
+   */
+  _bindGroupToggle() {
+    this.element.querySelectorAll('[data-group-toggle]').forEach(header => {
+      header.addEventListener('click', () => {
+        const groupId = header.dataset.groupToggle;
+        const wasCollapsed = this._collapsedGroups[groupId] ?? true;
+        this._collapsedGroups[groupId] = !wasCollapsed;
+
+        const group = header.closest('.settings-group');
+        const body = group?.querySelector('.settings-group-body');
+        const arrow = header.querySelector('.group-arrow');
+
+        if (body) {
+          body.style.display = wasCollapsed ? 'flex' : 'none';
+        }
+        if (arrow) {
+          arrow.textContent = wasCollapsed ? '▼' : '▶';
+        }
+        header.style.marginBottom = wasCollapsed ? 'var(--spacing-3)' : '0';
+      });
+    });
   }
 
   /**

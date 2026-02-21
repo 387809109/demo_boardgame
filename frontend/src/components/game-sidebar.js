@@ -175,7 +175,16 @@ export class GameSidebar {
     const state = this.options.getState?.();
     const isWerewolf = state?.myRole !== undefined;
 
-    return history.slice(-50).reverse().map(entry => {
+    // In werewolf, only show the player's own actions
+    const filtered = isWerewolf
+      ? history.filter(entry => entry.playerId === this.playerId)
+      : history;
+
+    if (isWerewolf && filtered.length === 0) {
+      return '<p style="color: var(--text-tertiary);">暂无你的行动记录</p>';
+    }
+
+    return filtered.slice(-50).reverse().map(entry => {
       // Use werewolf-specific display name if applicable
       const playerName = isWerewolf
         ? this._getWerewolfHistoryName(entry.playerId, entry.actionType)
@@ -350,13 +359,63 @@ export class GameSidebar {
       case 'CALL_UNO':
         return '<div style="color: var(--error-500); font-weight: var(--font-bold);">UNO!</div>';
 
-      case 'NIGHT_WOLF_KILL':
-      case 'NIGHT_SEER_CHECK':
-      case 'NIGHT_DOCTOR_PROTECT':
+      case 'NIGHT_WOLF_KILL': {
+        const wolfTarget = actionData?.targetId
+          ? this._getPlayerName(actionData.targetId) : '弃刀';
+        return `<div>击杀: ${wolfTarget}</div>`;
+      }
+      case 'NIGHT_SEER_CHECK': {
+        const seerTarget = actionData?.targetId
+          ? this._getPlayerName(actionData.targetId) : '无';
+        return `<div>查验: ${seerTarget}</div>`;
+      }
+      case 'NIGHT_DOCTOR_PROTECT': {
+        const docTarget = actionData?.targetId
+          ? this._getPlayerName(actionData.targetId) : '无';
+        return `<div>救治: ${docTarget}</div>`;
+      }
       case 'NIGHT_WITCH_SAVE':
-      case 'NIGHT_WITCH_POISON':
+        return '<div>使用解药</div>';
+      case 'NIGHT_WITCH_POISON': {
+        const poisonTarget = actionData?.targetId
+          ? this._getPlayerName(actionData.targetId) : '无';
+        return `<div>毒杀: ${poisonTarget}</div>`;
+      }
+      case 'NIGHT_BODYGUARD_PROTECT': {
+        const bgTarget = actionData?.targetId
+          ? this._getPlayerName(actionData.targetId) : '无';
+        return `<div>守护: ${bgTarget}</div>`;
+      }
+      case 'NIGHT_VIGILANTE_KILL': {
+        const vigTarget = actionData?.targetId
+          ? this._getPlayerName(actionData.targetId) : '无';
+        return `<div>射杀: ${vigTarget}</div>`;
+      }
+      case 'NIGHT_CUPID_LINK': {
+        const ids = actionData?.targetIds || [];
+        const names = ids.map(id => this._getPlayerName(id)).join('、');
+        return `<div>连结: ${names || '无'}</div>`;
+      }
+      case 'NIGHT_PIPER_CHARM': {
+        const ids = actionData?.targetIds || [];
+        const names = ids.map(id => this._getPlayerName(id)).join('、');
+        return `<div>魅惑: ${names || '无'}</div>`;
+      }
+      case 'NIGHT_WOLF_TENTATIVE': {
+        const tentTarget = actionData?.targetId
+          ? this._getPlayerName(actionData.targetId) : '弃票';
+        return `<div style="color: var(--text-tertiary);">拟投票: ${tentTarget}</div>`;
+      }
+      case 'NIGHT_WITCH_COMBINED': {
+        const parts = [];
+        if (actionData?.save) parts.push('使用解药');
+        if (actionData?.poisonTargetId) {
+          parts.push(`毒杀: ${this._getPlayerName(actionData.poisonTargetId)}`);
+        }
+        return `<div>${parts.join('，') || '跳过'}</div>`;
+      }
       case 'NIGHT_SKIP':
-        return '<div style="color: var(--text-tertiary);">提交了夜间行动</div>';
+        return '<div style="color: var(--text-tertiary);">跳过行动</div>';
 
       case 'DAY_VOTE': {
         const target = actionData?.targetId
@@ -366,6 +425,24 @@ export class GameSidebar {
 
       case 'DAY_SKIP_VOTE':
         return '<div style="color: var(--text-tertiary);">弃票</div>';
+
+      case 'CAPTAIN_REGISTER':
+        return '<div>参加上警</div>';
+
+      case 'CAPTAIN_WITHDRAW':
+        return '<div>退出竞选</div>';
+
+      case 'CAPTAIN_VOTE': {
+        const capTarget = actionData?.targetId
+          ? this._getPlayerName(actionData.targetId) : '弃票';
+        return `<div>警长投票: ${capTarget}</div>`;
+      }
+
+      case 'HUNTER_SHOOT': {
+        const huntTarget = actionData?.targetId
+          ? this._getPlayerName(actionData.targetId) : '无';
+        return `<div>猎人开枪: ${huntTarget}</div>`;
+      }
 
       case 'PHASE_ADVANCE':
         return '<div style="color: var(--text-tertiary);">确认继续</div>';

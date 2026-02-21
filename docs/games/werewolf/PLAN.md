@@ -16,7 +16,7 @@
   - [x] 明确特殊规则处理 (保护限制规则 10.4、遗言规则 10.5 等)
   - [x] 定义玩家数量与角色配置表
   - [x] 白天发言与投票秩序规则
-  - [x] Leader 机制
+  - [x] 警长（Captain）机制
   - [x] 日间投票多数规则 (dayVoteMajority)
 
 - [x] **werewolf.html** - 用户规则书内容
@@ -124,6 +124,34 @@
 - [x] 恋人机制正确实现（丘比特）
 - [x] 中立阵营胜利条件正确（已覆盖丘比特/小丑）
 - [x] 单元测试覆盖所有 P1 角色（含 piper）
+
+---
+
+#### 警长机制 (Captain Mechanism) ✅ 已完成
+
+| 任务 ID | 描述 | 依赖 | 状态 |
+|---------|------|------|------|
+| T-CAP | 实现警长竞选/移交机制 | P1 完成 | ✅ 已完成 |
+
+**实现内容：**
+- 6 个新阶段：`CAPTAIN_REGISTER` / `CAPTAIN_SPEECH` / `CAPTAIN_VOTE` / `CAPTAIN_RUNOFF_SPEECH` / `CAPTAIN_RUNOFF_VOTE` / `CAPTAIN_TRANSFER`
+- 6 个操作类型：`CAPTAIN_REGISTER` / `CAPTAIN_WITHDRAW` / `CAPTAIN_VOTE` / `CAPTAIN_SKIP_VOTE` / `CAPTAIN_TRANSFER` / `CAPTAIN_TEAR`
+- 警长投票权重（1.5x/2x 可配置）
+- 死亡后警徽移交/撕徽
+- 竞选 UI 面板（上警/发言/投票/移交）+ 警长徽章显示
+
+**详细文档：** `docs/games/werewolf/mechanisms/captain.md`
+
+**验收标准:**
+- [x] 第一天白天触发竞选流程
+- [x] 竞选投票、平票二次发言/投票
+- [x] 警长投票权重正确生效
+- [x] 死亡触发警徽移交/撕徽
+- [x] 角色交互正确（猎人、白痴、恋人连锁死亡等）
+- [x] UI 面板渲染与交互（竞选/移交/徽章/计时器）
+- [x] 37 个专项测试 + 8 个 UI 测试全部通过
+- [x] `RULES.md` 已有警长摘要（5.3.3 节）+ 链接至 captain.md
+- [ ] 手动端到端测试
 
 ---
 

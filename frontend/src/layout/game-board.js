@@ -265,7 +265,7 @@ export class GameBoard {
     }
 
     // Wolf teammates (Werewolf - only for wolves)
-    if (state.wolfTeamIds && state.myRole?.team === 'werewolf') {
+    if (state.wolfTeamIds) {
       state.wolfTeamIds.forEach(wolfId => {
         if (wolfId !== this.playerId) {
           badges[wolfId] = badges[wolfId] || [];
@@ -273,6 +273,31 @@ export class GameBoard {
         }
       });
     }
+
+    // Lover partner badge (visible to lovers)
+    if (state.roleStates?.loverPartnerId) {
+      const partnerId = state.roleStates.loverPartnerId;
+      badges[partnerId] = badges[partnerId] || [];
+      badges[partnerId].push({ type: 'lover', text: '恋人' });
+    }
+
+    // Lover badges visible to cupid
+    if (state.roleStates?.cupidLoverIds?.length === 2) {
+      state.roleStates.cupidLoverIds.forEach(loverId => {
+        badges[loverId] = badges[loverId] || [];
+        const hasLoverBadge = badges[loverId].some(b => b.type === 'lover');
+        if (!hasLoverBadge) {
+          badges[loverId].push({ type: 'lover', text: '恋人' });
+        }
+      });
+    }
+
+    // Idiot revealed badge (visible to all)
+    const idiotRevealedIds = state.roleStates?.idiotRevealedIds || [];
+    idiotRevealedIds.forEach(idiotId => {
+      badges[idiotId] = badges[idiotId] || [];
+      badges[idiotId].push({ type: 'idiot', text: '白痴' });
+    });
 
     // Speaking badge (Werewolf - discussion phase)
     if (state.currentSpeaker && state.phase === 'day_discussion') {
@@ -508,6 +533,7 @@ export class GameBoard {
    * @param {Array<string>} [config.disabledIds] - IDs that are disabled
    * @param {Function} config.onSelect - Selection callback
    * @param {string} [config.selectedId] - Currently selected player ID (for highlight)
+   * @param {Array<string>} [config.selectedIds] - Multiple selected player IDs
    */
   enablePlayerSelection(config) {
     this._selectionMode = true;
@@ -515,13 +541,15 @@ export class GameBoard {
     this._disabledPlayerIds = config.disabledIds || [];
     this._selectionCallback = config.onSelect;
     this._selectedPlayerId = config.selectedId || null;
+    this._selectedPlayerIds = config.selectedIds || null;
 
     if (this.playerRing) {
       this.playerRing.enableSelection({
         selectableIds: this._selectablePlayerIds,
         disabledIds: this._disabledPlayerIds,
         onSelect: this._selectionCallback,
-        selectedId: this._selectedPlayerId
+        selectedId: this._selectedPlayerId,
+        selectedIds: this._selectedPlayerIds
       });
     }
   }

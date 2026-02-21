@@ -23,7 +23,11 @@ import {
   renderVotePanel,
   renderEndedPanel,
   renderHunterShoot,
-  renderDeadChat
+  renderDeadChat,
+  renderCaptainRegisterPanel,
+  renderCaptainSpeechPanel,
+  renderCaptainVotePanel,
+  renderCaptainTransferPanel
 } from './ui-panels.js';
 
 /**
@@ -58,6 +62,10 @@ export class WerewolfUI {
     this._lastNightStep = null;
     /** @type {string|null} - Track last voter for vote timer restart */
     this._lastVoter = null;
+    /** @type {Set<string>} - Cupid multi-select state */
+    this._cupidSelectedLovers = new Set();
+    /** @type {Set<string>} - Piper multi-select state */
+    this._piperSelectedTargets = new Set();
 
     // Flag for GameBoard - mount below the ring
     this.mountInRingCenter = false;
@@ -105,6 +113,10 @@ export class WerewolfUI {
     this._nightActionBtn = null;
     this._hunterShootBtn = null;
 
+    // Sync multi-select state to window for panel access
+    window._cupidSelectedLovers = this._cupidSelectedLovers;
+    window._piperSelectedTargets = this._piperSelectedTargets;
+
     const container = document.createElement('div');
     container.className = 'ww-game';
     container.style.cssText = `
@@ -137,6 +149,20 @@ export class WerewolfUI {
           break;
         case PHASES.DAY_ANNOUNCE:
           container.appendChild(renderAnnouncePanel(ctx));
+          break;
+        case PHASES.CAPTAIN_REGISTER:
+          container.appendChild(renderCaptainRegisterPanel(ctx));
+          break;
+        case PHASES.CAPTAIN_SPEECH:
+        case PHASES.CAPTAIN_RUNOFF_SPEECH:
+          container.appendChild(renderCaptainSpeechPanel(ctx));
+          break;
+        case PHASES.CAPTAIN_VOTE:
+        case PHASES.CAPTAIN_RUNOFF_VOTE:
+          container.appendChild(renderCaptainVotePanel(ctx));
+          break;
+        case PHASES.CAPTAIN_TRANSFER:
+          container.appendChild(renderCaptainTransferPanel(ctx));
           break;
         case PHASES.DAY_DISCUSSION:
           container.appendChild(renderDiscussionPanel(ctx));
@@ -223,12 +249,10 @@ export class WerewolfUI {
           }
         } else if (role === 'piper' && isMyStep) {
           bar.appendChild(createButton('请在上方面板选择魅惑目标', null, true));
+        } else if (role === 'cupid' && isMyStep) {
+          bar.appendChild(createButton('请在上方面板选择恋人', null, true));
         } else {
-          const stepLabel = state.nightSteps?.[state.currentNightStep]?.label
-            || '夜晚';
-          bar.appendChild(createButton(
-            `等待${stepLabel}...`, null, true
-          ));
+          bar.appendChild(createButton('夜晚进行中...', null, true));
         }
         break;
       }
@@ -262,6 +286,70 @@ export class WerewolfUI {
           bar.appendChild(createButton('继续', () => {
             onAction({ actionType: ACTION_TYPES.PHASE_ADVANCE });
           }));
+        }
+        break;
+      }
+      case PHASES.CAPTAIN_REGISTER: {
+        if (!viewer?.alive) {
+          bar.appendChild(createButton('你已死亡', null, true));
+          break;
+        }
+        const hasRegistered = (state.captainCandidates || []).includes(playerId);
+        if (hasRegistered) {
+          bar.appendChild(createButton('退水', () => {
+            onAction({ actionType: ACTION_TYPES.CAPTAIN_WITHDRAW });
+          }, false, 'secondary'));
+        } else {
+          bar.appendChild(createButton('上警', () => {
+            onAction({ actionType: ACTION_TYPES.CAPTAIN_REGISTER });
+          }));
+        }
+        // Host can advance registration
+        const isHost = state.players?.[0]?.id === playerId;
+        if (isHost) {
+          bar.appendChild(createButton('结束上警', () => {
+            onAction({ actionType: ACTION_TYPES.PHASE_ADVANCE });
+          }, false, 'secondary'));
+        }
+        break;
+      }
+      case PHASES.CAPTAIN_SPEECH:
+      case PHASES.CAPTAIN_RUNOFF_SPEECH: {
+        const isMySpeech = state.captainCurrentSpeaker === playerId;
+        if (isMySpeech) {
+          bar.appendChild(createButton('发言结束', () => {
+            onAction({ actionType: ACTION_TYPES.PHASE_ADVANCE });
+          }));
+          // Can withdraw during speech
+          if ((state.captainCandidates || []).includes(playerId)) {
+            bar.appendChild(createButton('退水', () => {
+              onAction({ actionType: ACTION_TYPES.CAPTAIN_WITHDRAW });
+            }, false, 'danger'));
+          }
+        } else {
+          bar.appendChild(createButton('等待候选人发言...', null, true));
+        }
+        break;
+      }
+      case PHASES.CAPTAIN_VOTE:
+      case PHASES.CAPTAIN_RUNOFF_VOTE: {
+        if (state.captainCurrentVoter === playerId) {
+          bar.appendChild(createButton('弃票', () => {
+            onAction({ actionType: ACTION_TYPES.CAPTAIN_SKIP_VOTE });
+          }, false, 'secondary'));
+        } else {
+          bar.appendChild(createButton('等待投票...', null, true));
+        }
+        break;
+      }
+      case PHASES.CAPTAIN_TRANSFER: {
+        const isCaptain = state.captainPlayerId === playerId;
+        if (isCaptain) {
+          bar.appendChild(createButton('撕警徽', () => {
+            onAction({ actionType: ACTION_TYPES.CAPTAIN_TEAR });
+          }, false, 'danger'));
+        } else {
+          bar.appendChild(createButton('等待警长移交...', null, true));
         }
         break;
       }
@@ -322,18 +410,24 @@ export class WerewolfUI {
     const currentSpeaker = this.state.currentSpeaker;
     const currentNightStep = this.state.currentNightStep;
     const currentVoter = this.state.currentVoter;
+    const captainSpeaker = this.state.captainCurrentSpeaker;
+    const captainVoter = this.state.captainCurrentVoter;
 
     // Get timing config from state options
     const timing = this.state.options || {};
     const nightActionTime = timing.nightActionTime || 30;
     const discussionTime = timing.discussionTime || 300;
     const voteTime = timing.voteTime || 30;
+    const captainRegisterTime = timing.captainRegisterTime || 30;
+    const captainTransferTime = timing.captainTransferTime || 30;
 
     // Check if phase changed or round changed
     const phaseChanged = phase !== this._lastPhase || round !== this._lastRound;
     const speakerChanged = currentSpeaker !== this._lastSpeaker;
     const nightStepChanged = currentNightStep !== this._lastNightStep;
     const voterChanged = currentVoter !== this._lastVoter;
+    const captainSpeakerChanged = captainSpeaker !== this._lastCaptainSpeaker;
+    const captainVoterChanged = captainVoter !== this._lastCaptainVoter;
 
     if (phaseChanged) {
       // Stop any running timer first
@@ -343,6 +437,20 @@ export class WerewolfUI {
       switch (phase) {
         case PHASES.NIGHT:
           this._gameBoard.startTimer(nightActionTime, '夜间行动');
+          break;
+        case PHASES.CAPTAIN_REGISTER:
+          this._gameBoard.startTimer(captainRegisterTime, '上警时间');
+          break;
+        case PHASES.CAPTAIN_SPEECH:
+        case PHASES.CAPTAIN_RUNOFF_SPEECH:
+          this._gameBoard.startTimer(discussionTime, '竞选发言');
+          break;
+        case PHASES.CAPTAIN_VOTE:
+        case PHASES.CAPTAIN_RUNOFF_VOTE:
+          this._gameBoard.startTimer(voteTime, '竞选投票');
+          break;
+        case PHASES.CAPTAIN_TRANSFER:
+          this._gameBoard.startTimer(captainTransferTime, '警徽移交');
           break;
         case PHASES.DAY_DISCUSSION:
           if (currentSpeaker) {
@@ -362,6 +470,12 @@ export class WerewolfUI {
       this._gameBoard.startTimer(discussionTime, '讨论时间');
     } else if (phase === PHASES.DAY_VOTE && voterChanged && currentVoter) {
       this._gameBoard.startTimer(voteTime, '投票时间');
+    } else if ((phase === PHASES.CAPTAIN_SPEECH || phase === PHASES.CAPTAIN_RUNOFF_SPEECH)
+               && captainSpeakerChanged && captainSpeaker) {
+      this._gameBoard.startTimer(discussionTime, '竞选发言');
+    } else if ((phase === PHASES.CAPTAIN_VOTE || phase === PHASES.CAPTAIN_RUNOFF_VOTE)
+               && captainVoterChanged && captainVoter) {
+      this._gameBoard.startTimer(voteTime, '竞选投票');
     }
 
     // Update tracking
@@ -370,6 +484,8 @@ export class WerewolfUI {
     this._lastSpeaker = currentSpeaker;
     this._lastNightStep = currentNightStep;
     this._lastVoter = currentVoter;
+    this._lastCaptainSpeaker = captainSpeaker;
+    this._lastCaptainVoter = captainVoter;
   }
 
   /**
@@ -388,6 +504,21 @@ export class WerewolfUI {
       };
     }
 
+    // Captain transfer - dead captain selects alive player to transfer badge
+    if (state.phase === PHASES.CAPTAIN_TRANSFER
+        && state.captainPlayerId === this.playerId) {
+      return {
+        selectableIds: getAlivePlayerIds(state).filter(id => id !== this.playerId),
+        disabledIds: [],
+        onSelect: (targetId) => {
+          this.onAction?.({
+            actionType: ACTION_TYPES.CAPTAIN_TRANSFER,
+            actionData: { targetId }
+          });
+        }
+      };
+    }
+
     const viewer = this._getViewer();
     if (!viewer?.alive) return null;
 
@@ -396,9 +527,35 @@ export class WerewolfUI {
       const role = state.myRole?.roleId;
       const isMyStep = state.pendingNightRoles?.includes(this.playerId);
 
+      if (isMyStep && role === 'cupid' && !state.roleStates?.cupidLinked) {
+        return this._getCupidSelectionConfig();
+      }
+
+      if (isMyStep && role === 'piper') {
+        return this._getPiperSelectionConfig();
+      }
+
       if (isMyStep && roleHasNightAction(role)) {
         return this._getNightSelectionConfig(role);
       }
+    }
+
+    // Captain vote - select from candidates
+    if ((state.phase === PHASES.CAPTAIN_VOTE || state.phase === PHASES.CAPTAIN_RUNOFF_VOTE)
+        && state.captainCurrentVoter === this.playerId) {
+      const candidates = state.phase === PHASES.CAPTAIN_RUNOFF_VOTE
+        ? (state.captainRunoffCandidates || [])
+        : (state.captainCandidates || []);
+      return {
+        selectableIds: [...candidates],
+        disabledIds: [],
+        onSelect: (targetId) => {
+          this.onAction?.({
+            actionType: ACTION_TYPES.CAPTAIN_VOTE,
+            actionData: { targetId }
+          });
+        }
+      };
     }
 
     // Day vote - only when it's my turn and player has vote rights
@@ -409,7 +566,7 @@ export class WerewolfUI {
       const filterIds = (voteRound === 2 && tiedCandidates?.length > 0)
         ? tiedCandidates : null;
 
-      let selectableIds = getAlivePlayerIds(state).filter(id => id !== this.playerId);
+      let selectableIds = getAlivePlayerIds(state);
       if (filterIds) {
         selectableIds = selectableIds.filter(id => filterIds.includes(id));
       }
@@ -450,6 +607,9 @@ export class WerewolfUI {
           selectableIds = getAlivePlayerIds(this.state).filter(id => id !== this.playerId);
         }
         break;
+      case 'bodyguard':
+        selectableIds = getAlivePlayerIds(this.state).filter(id => id !== this.playerId);
+        break;
       case 'vigilante':
         {
           const roleStates = this.state.roleStates || {};
@@ -478,6 +638,127 @@ export class WerewolfUI {
       disabledIds: [],
       onSelect: (targetId) => this._handleTargetSelect(targetId)
     };
+  }
+
+  /**
+   * Get cupid multi-select config for ring selection
+   * @private
+   */
+  _getCupidSelectionConfig() {
+    const canSelfLove = this.state.options?.cupidCanSelfLove !== false;
+    let selectableIds = getAlivePlayerIds(this.state);
+    if (!canSelfLove) {
+      selectableIds = selectableIds.filter(id => id !== this.playerId);
+    }
+
+    return {
+      selectableIds,
+      disabledIds: [],
+      multiSelect: true,
+      selectedIds: [...this._cupidSelectedLovers],
+      onSelect: (targetId) => this._handleCupidSelect(targetId)
+    };
+  }
+
+  /**
+   * Handle cupid multi-select from player ring
+   * @private
+   */
+  _handleCupidSelect(targetId) {
+    if (this._cupidSelectedLovers.has(targetId)) {
+      this._cupidSelectedLovers.delete(targetId);
+    } else {
+      if (this._cupidSelectedLovers.size >= 2) {
+        const firstId = [...this._cupidSelectedLovers][0];
+        this._cupidSelectedLovers.delete(firstId);
+      }
+      this._cupidSelectedLovers.add(targetId);
+    }
+
+    // Sync to window for cupid panel access
+    window._cupidSelectedLovers = this._cupidSelectedLovers;
+
+    // Refresh ring highlights
+    this._updateSelectionMode();
+
+    // Re-render night panel to update cupid panel state
+    if (this._container && this.state?.phase === PHASES.NIGHT) {
+      const nightPanel = this._container.querySelector('.ww-night-panel');
+      if (nightPanel) {
+        const ctx = this._getRenderContext();
+        const newNightPanel = renderNightPanel(ctx);
+        nightPanel.replaceWith(newNightPanel);
+      }
+    }
+  }
+
+  /**
+   * Get piper multi-select config for ring selection
+   * @private
+   */
+  _getPiperSelectionConfig() {
+    const state = this.state;
+    const roleStates = state.roleStates || {};
+    const maxTargets = Math.max(1, state.options?.piperCharmTargetsPerNight ?? 2);
+    const canCharmSelf = Boolean(state.options?.piperCanCharmSelf);
+    const canRecharm = Boolean(state.options?.piperCanRecharm);
+    const alreadyCharmed = new Set(roleStates.piperCharmedIds || []);
+
+    let selectableIds = getAlivePlayerIds(state);
+    if (!canCharmSelf) {
+      selectableIds = selectableIds.filter(id => id !== this.playerId);
+    }
+    if (!canRecharm) {
+      selectableIds = selectableIds.filter(id => !alreadyCharmed.has(id));
+    }
+
+    // Clean stale selections
+    for (const id of [...this._piperSelectedTargets]) {
+      if (!selectableIds.includes(id)) {
+        this._piperSelectedTargets.delete(id);
+      }
+    }
+
+    return {
+      selectableIds,
+      disabledIds: [],
+      multiSelect: true,
+      maxSelect: maxTargets,
+      selectedIds: [...this._piperSelectedTargets],
+      onSelect: (targetId) => this._handlePiperSelect(targetId, maxTargets)
+    };
+  }
+
+  /**
+   * Handle piper multi-select from player ring
+   * @private
+   */
+  _handlePiperSelect(targetId, maxTargets) {
+    if (this._piperSelectedTargets.has(targetId)) {
+      this._piperSelectedTargets.delete(targetId);
+    } else {
+      if (this._piperSelectedTargets.size >= maxTargets) {
+        const firstId = [...this._piperSelectedTargets][0];
+        this._piperSelectedTargets.delete(firstId);
+      }
+      this._piperSelectedTargets.add(targetId);
+    }
+
+    // Sync to window for piper panel access
+    window._piperSelectedTargets = this._piperSelectedTargets;
+
+    // Refresh ring highlights
+    this._updateSelectionMode();
+
+    // Re-render night panel to update piper panel state
+    if (this._container && this.state?.phase === PHASES.NIGHT) {
+      const nightPanel = this._container.querySelector('.ww-night-panel');
+      if (nightPanel) {
+        const ctx = this._getRenderContext();
+        const newNightPanel = renderNightPanel(ctx);
+        nightPanel.replaceWith(newNightPanel);
+      }
+    }
   }
 
   /**
@@ -523,8 +804,10 @@ export class WerewolfUI {
 
     const config = this.getSelectionConfig();
     if (config) {
-      // Add selected target for highlight
-      config.selectedId = this._selectedTarget;
+      // Add selected target for highlight (skip for multi-select)
+      if (!config.multiSelect) {
+        config.selectedId = this._selectedTarget;
+      }
       this._gameBoard.enablePlayerSelection(config);
     } else {
       this._gameBoard.disablePlayerSelection();
@@ -564,6 +847,9 @@ export class WerewolfUI {
         break;
       case 'doctor':
         actionType = ACTION_TYPES.NIGHT_DOCTOR_PROTECT;
+        break;
+      case 'bodyguard':
+        actionType = ACTION_TYPES.NIGHT_BODYGUARD_PROTECT;
         break;
       case 'vigilante':
         actionType = ACTION_TYPES.NIGHT_VIGILANTE_KILL;

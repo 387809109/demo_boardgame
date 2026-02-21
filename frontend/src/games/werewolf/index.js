@@ -8,6 +8,12 @@ import {
   assignRoles,
   validateNightAction,
   validateDayVote,
+  validateCaptainRegister,
+  validateCaptainWithdraw,
+  validateCaptainVote,
+  validateCaptainSkipVote,
+  validateCaptainTransfer,
+  validateCaptainTear,
   checkWinConditions
 } from './rules.js';
 import {
@@ -20,7 +26,12 @@ import {
   collectDayVote,
   areAllDayVotesCollected,
   resolveVotes,
-  buildNightSteps
+  buildNightSteps,
+  collectCaptainVote,
+  areAllCaptainVotesCollected,
+  resolveCaptainVotes,
+  advanceCaptainSpeaker,
+  handleCaptainWithdraw
 } from './game-phases.js';
 import config from './config.json';
 
@@ -46,7 +57,13 @@ export const ACTION_TYPES = {
   NIGHT_SKIP: 'NIGHT_SKIP',
   PHASE_ADVANCE: 'PHASE_ADVANCE',
   SPEECH_DONE: 'SPEECH_DONE',
-  DEAD_CHAT: 'DEAD_CHAT'
+  DEAD_CHAT: 'DEAD_CHAT',
+  CAPTAIN_REGISTER: 'CAPTAIN_REGISTER',
+  CAPTAIN_WITHDRAW: 'CAPTAIN_WITHDRAW',
+  CAPTAIN_VOTE: 'CAPTAIN_VOTE',
+  CAPTAIN_SKIP_VOTE: 'CAPTAIN_SKIP_VOTE',
+  CAPTAIN_TRANSFER: 'CAPTAIN_TRANSFER',
+  CAPTAIN_TEAR: 'CAPTAIN_TEAR'
 };
 
 /** Team identifiers */
@@ -73,7 +90,10 @@ export class WerewolfGame extends GameEngine {
     return {
       logEvent: (state, type, data) => this._logEvent(state, type, data),
       markPlayerDead: (state, playerId, cause) => this._markPlayerDead(state, playerId, cause),
-      processDeathTriggers: (state, deadIds, cause) => this._processDeathTriggers(state, deadIds, cause)
+      processDeathTriggers: (state, deadIds, cause) => this._processDeathTriggers(state, deadIds, cause),
+      checkCaptainTransferNeeded: (state) => this._checkCaptainTransferNeeded(state),
+      initiateCaptainTransfer: (state, helpers, resumePhase, resumeContext) =>
+        this._initiateCaptainTransfer(state, helpers, resumePhase, resumeContext)
     };
   }
 
@@ -92,7 +112,9 @@ export class WerewolfGame extends GameEngine {
       allowRepeatedProtect: options.allowRepeatedProtect ?? config.rules.allowRepeatedProtect,
       hunterShootOnPoison: options.hunterShootOnPoison ?? config.rules.hunterShootOnPoison,
       dayVoteMajority: options.dayVoteMajority ?? config.rules.dayVoteMajority,
-      leaderEnabled: options.leaderEnabled ?? config.rules.leaderEnabled,
+      captainEnabled: options.captainEnabled ?? config.rules.captainEnabled,
+      captainVoteWeight: options.captainVoteWeight ?? config.rules.captainVoteWeight,
+      captainTieBreaker: options.captainTieBreaker ?? config.rules.captainTieBreaker,
       lastWordsMode: options.lastWordsMode ?? config.rules.lastWordsMode,
       lastWordsScope: options.lastWordsScope ?? config.rules.lastWordsScope,
       lastWordsOrder: options.lastWordsOrder ?? config.rules.lastWordsOrder,
@@ -225,6 +247,18 @@ export class WerewolfGame extends GameEngine {
       forcedRevealRoleIds: {},
       publicRevealRoleIds: {},
 
+      // Captain mechanism
+      captainPlayerId: null,
+      captainCandidates: [],
+      captainSpeakerQueue: [],
+      captainCurrentSpeaker: null,
+      captainVotes: {},
+      captainVoterQueue: [],
+      captainCurrentVoter: null,
+      captainRunoffCandidates: [],
+      captainTransferPending: false,
+      captainElectionDone: false,
+
       // Dead player chat
       deadChat: [],
 
@@ -263,6 +297,8 @@ export class WerewolfGame extends GameEngine {
       actionType === ACTION_TYPES.LAST_WORDS ||
       actionType === ACTION_TYPES.HUNTER_SHOOT ||
       actionType === ACTION_TYPES.DEAD_CHAT ||
+      actionType === ACTION_TYPES.CAPTAIN_TRANSFER ||
+      actionType === ACTION_TYPES.CAPTAIN_TEAR ||
       (actionType === ACTION_TYPES.PHASE_ADVANCE && state.phase === PHASES.DAY_ANNOUNCE);
 
     if (!canDeadPlayerDoAction && !player.alive) {
@@ -286,6 +322,17 @@ export class WerewolfGame extends GameEngine {
       if (state.phase === PHASES.DAY_DISCUSSION) {
         if (state.currentSpeaker && playerId !== state.currentSpeaker) {
           return { valid: false, error: '等待当前发言人结束' };
+        }
+        return { valid: true };
+      }
+      if (state.phase === PHASES.CAPTAIN_REGISTER) {
+        return { valid: true };
+      }
+      if (state.phase === PHASES.CAPTAIN_SPEECH ||
+          state.phase === PHASES.CAPTAIN_RUNOFF_SPEECH) {
+        if (state.captainCurrentSpeaker &&
+            playerId !== state.captainCurrentSpeaker) {
+          return { valid: false, error: '等待当前候选人结束发言' };
         }
         return { valid: true };
       }
@@ -324,6 +371,26 @@ export class WerewolfGame extends GameEngine {
         return { valid: false, error: '当前不是你的发言回合' };
       }
       return { valid: true };
+    }
+
+    // Captain actions
+    if (actionType === ACTION_TYPES.CAPTAIN_REGISTER) {
+      return validateCaptainRegister(move, state);
+    }
+    if (actionType === ACTION_TYPES.CAPTAIN_WITHDRAW) {
+      return validateCaptainWithdraw(move, state);
+    }
+    if (actionType === ACTION_TYPES.CAPTAIN_VOTE) {
+      return validateCaptainVote(move, state);
+    }
+    if (actionType === ACTION_TYPES.CAPTAIN_SKIP_VOTE) {
+      return validateCaptainSkipVote(move, state);
+    }
+    if (actionType === ACTION_TYPES.CAPTAIN_TRANSFER) {
+      return validateCaptainTransfer(move, state);
+    }
+    if (actionType === ACTION_TYPES.CAPTAIN_TEAR) {
+      return validateCaptainTear(move, state);
     }
 
     // Dead player chat
@@ -396,16 +463,27 @@ export class WerewolfGame extends GameEngine {
         });
         this._processDeathTriggers(newState, [targetId], 'hunter_shoot');
         if (newState.phase === PHASES.DAY_ANNOUNCE && !newState.hunterPendingShoot) {
-          assignNightLastWords(newState);
-          if (newState.lastWordsPlayerId) {
-            newState.awaitingFirstSpeaker = false;
-            newState.firstSpeakerId = null;
+          // Check captain transfer before resuming day announce
+          if (this._checkCaptainTransferNeeded(newState)) {
+            this._initiateCaptainTransfer(
+              newState, helpers, PHASES.DAY_ANNOUNCE, 'after_hunter'
+            );
           } else {
-            newState.awaitingFirstSpeaker = true;
-            calculateFirstSpeaker(newState);
+            assignNightLastWords(newState);
+            if (newState.lastWordsPlayerId) {
+              newState.awaitingFirstSpeaker = false;
+              newState.firstSpeakerId = null;
+            } else {
+              newState.awaitingFirstSpeaker = true;
+              calculateFirstSpeaker(newState);
+            }
           }
         } else if (!newState.hunterPendingShoot) {
-          transitionPhase(newState, PHASES.NIGHT, helpers);
+          if (this._checkCaptainTransferNeeded(newState)) {
+            this._initiateCaptainTransfer(newState, helpers, PHASES.NIGHT);
+          } else {
+            transitionPhase(newState, PHASES.NIGHT, helpers);
+          }
         }
         break;
       }
@@ -424,6 +502,44 @@ export class WerewolfGame extends GameEngine {
           message: actionData.message,
           timestamp: Date.now()
         });
+        break;
+
+      case ACTION_TYPES.CAPTAIN_REGISTER:
+        if (!newState.captainCandidates.includes(playerId)) {
+          newState.captainCandidates.push(playerId);
+        }
+        this._logEvent(newState, 'captain_register', { playerId });
+        break;
+
+      case ACTION_TYPES.CAPTAIN_WITHDRAW:
+        handleCaptainWithdraw(newState, playerId, helpers);
+        break;
+
+      case ACTION_TYPES.CAPTAIN_VOTE:
+      case ACTION_TYPES.CAPTAIN_SKIP_VOTE:
+        collectCaptainVote(newState, move);
+        if (areAllCaptainVotesCollected(newState)) {
+          resolveCaptainVotes(newState, helpers);
+        }
+        break;
+
+      case ACTION_TYPES.CAPTAIN_TRANSFER: {
+        const transferTargetId = actionData.targetId;
+        newState.captainPlayerId = transferTargetId;
+        newState.captainTransferPending = false;
+        this._logEvent(newState, 'captain_transferred', {
+          fromId: playerId,
+          toId: transferTargetId
+        });
+        this._resumeAfterCaptainTransfer(newState, helpers);
+        break;
+      }
+
+      case ACTION_TYPES.CAPTAIN_TEAR:
+        newState.captainPlayerId = null;
+        newState.captainTransferPending = false;
+        this._logEvent(newState, 'captain_torn', { playerId });
+        this._resumeAfterCaptainTransfer(newState, helpers);
         break;
 
       case ACTION_TYPES.SPEECH_DONE:
@@ -446,10 +562,42 @@ export class WerewolfGame extends GameEngine {
             }
           } else if (newState.awaitingFirstSpeaker) {
             newState.awaitingFirstSpeaker = false;
+            // Day 1 with captain enabled -> captain election
+            if (!newState.captainElectionDone && newState.options.captainEnabled) {
+              transitionPhase(newState, PHASES.CAPTAIN_REGISTER, helpers);
+            } else {
+              transitionPhase(newState, PHASES.DAY_DISCUSSION, helpers);
+            }
+          } else {
+            if (!newState.captainElectionDone && newState.options.captainEnabled) {
+              transitionPhase(newState, PHASES.CAPTAIN_REGISTER, helpers);
+            } else {
+              transitionPhase(newState, PHASES.DAY_DISCUSSION, helpers);
+            }
+          }
+        } else if (newState.phase === PHASES.CAPTAIN_REGISTER) {
+          // End registration -> check candidates
+          newState.captainElectionDone = true;
+          if (newState.captainCandidates.length === 0) {
+            newState.captainPlayerId = null;
+            this._logEvent(newState, 'captain_elected', {
+              captainPlayerId: null,
+              method: 'no_candidates'
+            });
+            transitionPhase(newState, PHASES.DAY_DISCUSSION, helpers);
+          } else if (newState.captainCandidates.length === 1) {
+            newState.captainPlayerId = newState.captainCandidates[0];
+            this._logEvent(newState, 'captain_elected', {
+              captainPlayerId: newState.captainCandidates[0],
+              method: 'auto_only_candidate'
+            });
             transitionPhase(newState, PHASES.DAY_DISCUSSION, helpers);
           } else {
-            transitionPhase(newState, PHASES.DAY_DISCUSSION, helpers);
+            transitionPhase(newState, PHASES.CAPTAIN_SPEECH, helpers);
           }
+        } else if (newState.phase === PHASES.CAPTAIN_SPEECH ||
+                   newState.phase === PHASES.CAPTAIN_RUNOFF_SPEECH) {
+          advanceCaptainSpeaker(newState, helpers);
         } else if (newState.phase === PHASES.DAY_DISCUSSION) {
           transitionPhase(newState, PHASES.DAY_VOTE, helpers);
         }
@@ -542,11 +690,12 @@ export class WerewolfGame extends GameEngine {
       team: viewer.team
     } : null;
 
-    // Wolves see each other
+    // Wolves see each other (use original role, not mutable team)
     let wolfTeamIds = null;
-    if (viewer?.team === TEAMS.WEREWOLF || isGameEnded) {
+    const viewerIsWolf = this._isOriginallyWolf(viewer);
+    if (viewerIsWolf || isGameEnded) {
       wolfTeamIds = Object.values(state.playerMap)
-        .filter(p => p.team === TEAMS.WEREWOLF)
+        .filter(p => this._isOriginallyWolf(p))
         .map(p => p.id);
     }
 
@@ -572,9 +721,9 @@ export class WerewolfGame extends GameEngine {
       pendingNightRoles: state.pendingNightRoles,
       nightSteps: state.nightSteps || [],
       currentNightStep: state.currentNightStep ?? 0,
-      wolfVotes: (viewer?.team === TEAMS.WEREWOLF && state.phase === PHASES.NIGHT)
+      wolfVotes: (viewerIsWolf && state.phase === PHASES.NIGHT)
         ? state.wolfVotes : {},
-      wolfTentativeVotes: (viewer?.team === TEAMS.WEREWOLF && state.phase === PHASES.NIGHT)
+      wolfTentativeVotes: (viewerIsWolf && state.phase === PHASES.NIGHT)
         ? state.wolfTentativeVotes : {},
       currentSpeaker: state.currentSpeaker,
       speakerQueue: state.speakerQueue,
@@ -590,7 +739,19 @@ export class WerewolfGame extends GameEngine {
       awaitingFirstSpeaker: state.awaitingFirstSpeaker,
       firstSpeakerId: state.firstSpeakerId,
       lastDayExecution: state.lastDayExecution,
-      nightActions: state.nightActions
+      lastIdiotRevealId: state.lastIdiotRevealId || null,
+      nightActions: state.nightActions,
+      // Captain mechanism
+      captainPlayerId: state.captainPlayerId,
+      captainCandidates: state.captainCandidates || [],
+      captainSpeakerQueue: state.captainSpeakerQueue || [],
+      captainCurrentSpeaker: state.captainCurrentSpeaker,
+      captainVotes: state.captainVotes || {},
+      captainVoterQueue: state.captainVoterQueue || [],
+      captainCurrentVoter: state.captainCurrentVoter,
+      captainRunoffCandidates: state.captainRunoffCandidates || [],
+      captainTransferPending: state.captainTransferPending || false,
+      captainElectionDone: state.captainElectionDone || false
     };
   }
 
@@ -738,6 +899,63 @@ export class WerewolfGame extends GameEngine {
   }
 
   /**
+   * Check if captain transfer is needed after all death triggers resolved.
+   * Called after death chain is complete (hunter shoot, lover cascade, etc.)
+   * @private
+   */
+  _checkCaptainTransferNeeded(state) {
+    if (!state.captainPlayerId) return false;
+    const captain = state.playerMap[state.captainPlayerId];
+    return captain && !captain.alive;
+  }
+
+  /**
+   * Resume game flow after captain transfer/tear completes.
+   * Restores the phase that was interrupted by the transfer.
+   * @private
+   */
+  _resumeAfterCaptainTransfer(state, helpers) {
+    const resumePhase = state._captainTransferResumePhase;
+    const resumeContext = state._captainTransferResumeContext;
+    delete state._captainTransferResumePhase;
+    delete state._captainTransferResumeContext;
+
+    if (resumePhase === PHASES.NIGHT) {
+      transitionPhase(state, PHASES.NIGHT, helpers);
+    } else if (resumePhase === PHASES.DAY_ANNOUNCE) {
+      // After night deaths captain transfer, resume to DAY_ANNOUNCE flow
+      // Last words may have been assigned already; re-enter announce
+      if (resumeContext === 'after_hunter') {
+        assignNightLastWords(state);
+        if (state.lastWordsPlayerId) {
+          state.phase = PHASES.DAY_ANNOUNCE;
+          state.awaitingFirstSpeaker = false;
+          state.firstSpeakerId = null;
+        } else {
+          state.phase = PHASES.DAY_ANNOUNCE;
+          state.awaitingFirstSpeaker = true;
+          calculateFirstSpeaker(state);
+        }
+      } else {
+        state.phase = PHASES.DAY_ANNOUNCE;
+      }
+    } else {
+      // Default: transition to night (after day execution)
+      transitionPhase(state, PHASES.NIGHT, helpers);
+    }
+  }
+
+  /**
+   * Initiate captain transfer phase, saving current context to resume later.
+   * @private
+   */
+  _initiateCaptainTransfer(state, helpers, resumePhase, resumeContext) {
+    state._captainTransferResumePhase = resumePhase;
+    state._captainTransferResumeContext = resumeContext || null;
+    transitionPhase(state, PHASES.CAPTAIN_TRANSFER, helpers);
+  }
+
+  /**
    * Mark a player as dead
    * @private
    */
@@ -813,7 +1031,7 @@ export class WerewolfGame extends GameEngine {
     if (target?.alive === false && state.forcedRevealRoleIds?.[targetId]) return true;
     if (!target.alive && state.options.revealRolesOnDeath) return true;
 
-    if (viewer?.team === TEAMS.WEREWOLF && target.team === TEAMS.WEREWOLF) {
+    if (this._isOriginallyWolf(viewer) && this._isOriginallyWolf(target)) {
       return true;
     }
 
@@ -879,7 +1097,36 @@ export class WerewolfGame extends GameEngine {
       visible.piperCanRecharm = Boolean(state.options?.piperCanRecharm);
     }
 
+    // Lovers see their partner
+    if (state.links.lovers?.includes(playerId)) {
+      const [a, b] = state.links.lovers;
+      visible.loverPartnerId = (playerId === a) ? b : a;
+      visible.cupidLinked = true;
+    }
+
+    // Cupid always knows about the link and who the lovers are
+    if (player.roleId === 'cupid') {
+      visible.cupidLinked = state.roleStates.cupidLinked;
+      if (state.links.lovers?.length === 2) {
+        visible.cupidLoverIds = [...state.links.lovers];
+      }
+    }
+
+    // Idiot revealed list (for vote right display)
+    visible.idiotRevealedIds = [...(state.roleStates?.idiotRevealedIds || [])];
+
     return visible;
+  }
+
+  /**
+   * Check if a player's original role belongs to the werewolf faction.
+   * This remains true even if the player's team was changed (e.g. by cupid).
+   * @private
+   */
+  _isOriginallyWolf(player) {
+    if (!player?.roleId) return false;
+    const roleCfg = this._getRoleConfig(player.roleId);
+    return roleCfg?.team === TEAMS.WEREWOLF;
   }
 
   /**

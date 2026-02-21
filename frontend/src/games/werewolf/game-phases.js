@@ -17,6 +17,12 @@ import config from './config.json';
 export const PHASES = {
   NIGHT: 'night',
   DAY_ANNOUNCE: 'day_announce',
+  CAPTAIN_REGISTER: 'captain_register',
+  CAPTAIN_SPEECH: 'captain_speech',
+  CAPTAIN_VOTE: 'captain_vote',
+  CAPTAIN_RUNOFF_SPEECH: 'captain_runoff_speech',
+  CAPTAIN_RUNOFF_VOTE: 'captain_runoff_vote',
+  CAPTAIN_TRANSFER: 'captain_transfer',
   DAY_DISCUSSION: 'day_discussion',
   DAY_VOTE: 'day_vote',
   DAY_EXECUTION: 'day_execution',
@@ -148,6 +154,24 @@ export function transitionPhase(state, toPhase, helpers) {
     case PHASES.DAY_ANNOUNCE:
       startDayAnnounce(state, helpers);
       break;
+    case PHASES.CAPTAIN_REGISTER:
+      startCaptainRegister(state, helpers);
+      break;
+    case PHASES.CAPTAIN_SPEECH:
+      startCaptainSpeech(state, helpers);
+      break;
+    case PHASES.CAPTAIN_VOTE:
+      startCaptainVote(state, helpers);
+      break;
+    case PHASES.CAPTAIN_RUNOFF_SPEECH:
+      startCaptainRunoffSpeech(state, helpers);
+      break;
+    case PHASES.CAPTAIN_RUNOFF_VOTE:
+      startCaptainRunoffVote(state, helpers);
+      break;
+    case PHASES.CAPTAIN_TRANSFER:
+      startCaptainTransfer(state, helpers);
+      break;
     case PHASES.DAY_DISCUSSION:
       startDayDiscussion(state, helpers);
       break;
@@ -175,6 +199,7 @@ export function startNight(state, helpers) {
   state.currentSpeaker = null;
   state.lastWordsPlayerId = null;
   state.lastWordsQueue = [];
+  state.lastIdiotRevealId = null;
 
   // Build sequential night steps from active roles
   const steps = buildNightSteps(state);
@@ -203,6 +228,14 @@ export function startDayAnnounce(state, helpers) {
     state.lastWordsQueue = [];
     state.awaitingFirstSpeaker = false;
     state.firstSpeakerId = null;
+  } else if (helpers.checkCaptainTransferNeeded?.(state)) {
+    // Captain died at night, no hunter pending -> captain transfer first
+    state.lastWordsPlayerId = null;
+    state.lastWordsQueue = [];
+    state.awaitingFirstSpeaker = false;
+    state.firstSpeakerId = null;
+    helpers.initiateCaptainTransfer(state, helpers, PHASES.DAY_ANNOUNCE, 'after_hunter');
+    return;
   } else {
     assignNightLastWords(state);
     if (state.lastWordsPlayerId) {
@@ -399,7 +432,7 @@ export function buildNightSteps(state) {
  */
 export function getNightStepLabel(priority) {
   const labels = {
-    5: '预言家查验', 7: '医生保护',
+    1: '丘比特连结', 5: '预言家查验', 7: '救人阶段',
     8: '狼人行动', 9: '义警射杀', 10: '女巫行动',
     11: '魔笛手魅惑'
   };
@@ -495,7 +528,7 @@ export function areAllDayVotesCollected(state) {
  * @param {Object} helpers - Helper functions
  */
 export function resolveVotes(state, helpers) {
-  const result = calculateVoteResult(state.votes, state.options);
+  const result = calculateVoteResult(state.votes, state.options, state);
 
   helpers.logEvent(state, 'vote_result', {
     voteCounts: result.voteCounts,
@@ -518,6 +551,7 @@ export function resolveVotes(state, helpers) {
       state.publicRevealRoleIds = state.publicRevealRoleIds || {};
       state.publicRevealRoleIds[executedId] = true;
       state.lastDayExecution = null;
+      state.lastIdiotRevealId = executedId;
 
       helpers.logEvent(state, 'idiot_revealed', {
         playerId: executedId,
@@ -542,7 +576,11 @@ export function resolveVotes(state, helpers) {
     helpers.processDeathTriggers(state, [executedId], 'execution');
 
     if (!state.hunterPendingShoot) {
-      transitionPhase(state, PHASES.NIGHT, helpers);
+      if (helpers.checkCaptainTransferNeeded?.(state)) {
+        helpers.initiateCaptainTransfer(state, helpers, PHASES.NIGHT);
+      } else {
+        transitionPhase(state, PHASES.NIGHT, helpers);
+      }
     }
   } else if (result.tiedPlayers.length > 0 && state.voteRound === 1) {
     state.tiedCandidates = result.tiedPlayers;
@@ -553,6 +591,316 @@ export function resolveVotes(state, helpers) {
     state.tiedCandidates = null;
     state.lastDayExecution = null;
     transitionPhase(state, PHASES.NIGHT, helpers);
+  }
+}
+
+// ─── Captain Election Phase Functions ────────────────────────────────
+
+/**
+ * Start captain registration phase (Day 1 only)
+ * @param {Object} state - Game state
+ * @param {Object} helpers - Helper functions
+ */
+export function startCaptainRegister(state, helpers) {
+  state.captainCandidates = [];
+  state.captainVotes = {};
+  state.captainRunoffCandidates = [];
+  state.captainSpeakerQueue = [];
+  state.captainCurrentSpeaker = null;
+  state.captainVoterQueue = [];
+  state.captainCurrentVoter = null;
+
+  helpers.logEvent(state, 'phase_change', {
+    phase: PHASES.CAPTAIN_REGISTER,
+    round: state.round
+  });
+}
+
+/**
+ * Start captain speech phase - candidates speak in seating order
+ * @param {Object} state - Game state
+ * @param {Object} helpers - Helper functions
+ */
+export function startCaptainSpeech(state, helpers) {
+  const candidates = state.captainCandidates;
+  const seatOrder = (state.players || []).map(p => p.id);
+  const queue = seatOrder.filter(id => candidates.includes(id));
+
+  state.captainSpeakerQueue = queue;
+  state.captainCurrentSpeaker = queue.length > 0 ? queue[0] : null;
+
+  helpers.logEvent(state, 'phase_change', {
+    phase: PHASES.CAPTAIN_SPEECH,
+    round: state.round,
+    candidates: queue
+  });
+}
+
+/**
+ * Start captain vote phase - all alive players vote
+ * @param {Object} state - Game state
+ * @param {Object} helpers - Helper functions
+ */
+export function startCaptainVote(state, helpers) {
+  state.captainVotes = {};
+  const aliveIds = state.players
+    .filter(p => state.playerMap[p.id].alive)
+    .map(p => p.id);
+
+  state.captainVoterQueue = aliveIds;
+  state.captainCurrentVoter = aliveIds.length > 0 ? aliveIds[0] : null;
+
+  helpers.logEvent(state, 'phase_change', {
+    phase: PHASES.CAPTAIN_VOTE,
+    round: state.round,
+    candidates: state.captainCandidates,
+    voterQueue: aliveIds
+  });
+}
+
+/**
+ * Start captain runoff speech phase
+ * @param {Object} state - Game state
+ * @param {Object} helpers - Helper functions
+ */
+export function startCaptainRunoffSpeech(state, helpers) {
+  const seatOrder = (state.players || []).map(p => p.id);
+  const queue = seatOrder.filter(id =>
+    state.captainRunoffCandidates.includes(id)
+  );
+
+  state.captainSpeakerQueue = queue;
+  state.captainCurrentSpeaker = queue.length > 0 ? queue[0] : null;
+
+  helpers.logEvent(state, 'phase_change', {
+    phase: PHASES.CAPTAIN_RUNOFF_SPEECH,
+    round: state.round,
+    candidates: state.captainRunoffCandidates
+  });
+}
+
+/**
+ * Start captain runoff vote phase
+ * @param {Object} state - Game state
+ * @param {Object} helpers - Helper functions
+ */
+export function startCaptainRunoffVote(state, helpers) {
+  state.captainVotes = {};
+  const aliveIds = state.players
+    .filter(p => state.playerMap[p.id].alive)
+    .map(p => p.id);
+
+  state.captainVoterQueue = aliveIds;
+  state.captainCurrentVoter = aliveIds.length > 0 ? aliveIds[0] : null;
+
+  helpers.logEvent(state, 'phase_change', {
+    phase: PHASES.CAPTAIN_RUNOFF_VOTE,
+    round: state.round,
+    candidates: state.captainRunoffCandidates,
+    voterQueue: aliveIds
+  });
+}
+
+/**
+ * Start captain transfer phase (captain died)
+ * @param {Object} state - Game state
+ * @param {Object} helpers - Helper functions
+ */
+export function startCaptainTransfer(state, helpers) {
+  state.captainTransferPending = true;
+
+  helpers.logEvent(state, 'phase_change', {
+    phase: PHASES.CAPTAIN_TRANSFER,
+    captainPlayerId: state.captainPlayerId
+  });
+}
+
+/**
+ * Collect a captain election vote and advance to next voter
+ * @param {Object} state - Game state
+ * @param {Object} move - Vote move
+ */
+export function collectCaptainVote(state, move) {
+  const { playerId, actionType, actionData } = move;
+
+  if (actionType === 'CAPTAIN_SKIP_VOTE') {
+    state.captainVotes[playerId] = null;
+  } else {
+    state.captainVotes[playerId] = actionData.targetId;
+  }
+
+  const idx = state.captainVoterQueue.indexOf(playerId);
+  if (idx !== -1 && idx + 1 < state.captainVoterQueue.length) {
+    state.captainCurrentVoter = state.captainVoterQueue[idx + 1];
+  } else {
+    state.captainCurrentVoter = null;
+  }
+}
+
+/**
+ * Check if all captain votes have been collected
+ * @param {Object} state - Game state
+ * @returns {boolean}
+ */
+export function areAllCaptainVotesCollected(state) {
+  return state.captainCurrentVoter === null;
+}
+
+/**
+ * Resolve captain election votes
+ * @param {Object} state - Game state
+ * @param {Object} helpers - Helper functions
+ */
+export function resolveCaptainVotes(state, helpers) {
+  const isRunoff = state.phase === PHASES.CAPTAIN_RUNOFF_VOTE;
+  const candidates = isRunoff
+    ? state.captainRunoffCandidates
+    : state.captainCandidates;
+
+  // Count votes (no weight - one person one vote)
+  const voteCounts = {};
+  for (const [, targetId] of Object.entries(state.captainVotes)) {
+    if (targetId === null) continue;
+    if (candidates.includes(targetId)) {
+      voteCounts[targetId] = (voteCounts[targetId] || 0) + 1;
+    }
+  }
+
+  helpers.logEvent(state, 'captain_vote_result', {
+    voteCounts,
+    isRunoff
+  });
+
+  const entries = Object.entries(voteCounts);
+  if (entries.length === 0) {
+    // All abstained - captain vacant
+    state.captainPlayerId = null;
+    state.captainElectionDone = true;
+    helpers.logEvent(state, 'captain_elected', { captainPlayerId: null });
+    transitionPhase(state, PHASES.DAY_DISCUSSION, helpers);
+    return;
+  }
+
+  const maxVotes = Math.max(...entries.map(([, c]) => c));
+  const topCandidates = entries
+    .filter(([, c]) => c === maxVotes)
+    .map(([id]) => id);
+
+  if (topCandidates.length === 1) {
+    // Clear winner
+    state.captainPlayerId = topCandidates[0];
+    state.captainElectionDone = true;
+    helpers.logEvent(state, 'captain_elected', {
+      captainPlayerId: topCandidates[0]
+    });
+    transitionPhase(state, PHASES.DAY_DISCUSSION, helpers);
+  } else if (!isRunoff) {
+    // First vote tie -> runoff
+    state.captainRunoffCandidates = topCandidates;
+    transitionPhase(state, PHASES.CAPTAIN_RUNOFF_SPEECH, helpers);
+  } else {
+    // Runoff tie -> use tiebreaker config
+    const tieBreaker = state.options?.captainTieBreaker ?? 'none';
+    state.captainElectionDone = true;
+    if (tieBreaker === 'random') {
+      const randomIdx = Math.floor(Math.random() * topCandidates.length);
+      state.captainPlayerId = topCandidates[randomIdx];
+      helpers.logEvent(state, 'captain_elected', {
+        captainPlayerId: state.captainPlayerId,
+        method: 'random'
+      });
+    } else {
+      state.captainPlayerId = null;
+      helpers.logEvent(state, 'captain_elected', {
+        captainPlayerId: null,
+        method: 'vacant_tie'
+      });
+    }
+    transitionPhase(state, PHASES.DAY_DISCUSSION, helpers);
+  }
+}
+
+/**
+ * Advance captain speech to next candidate
+ * @param {Object} state - Game state
+ * @param {Object} helpers - Helper functions
+ */
+export function advanceCaptainSpeaker(state, helpers) {
+  const queue = state.captainSpeakerQueue;
+  const currentIdx = queue.indexOf(state.captainCurrentSpeaker);
+
+  if (currentIdx + 1 < queue.length) {
+    state.captainCurrentSpeaker = queue[currentIdx + 1];
+  } else {
+    // All candidates have spoken -> move to vote
+    state.captainCurrentSpeaker = null;
+    if (state.phase === PHASES.CAPTAIN_SPEECH) {
+      transitionPhase(state, PHASES.CAPTAIN_VOTE, helpers);
+    } else if (state.phase === PHASES.CAPTAIN_RUNOFF_SPEECH) {
+      transitionPhase(state, PHASES.CAPTAIN_RUNOFF_VOTE, helpers);
+    }
+  }
+}
+
+/**
+ * Handle candidate withdrawal during registration or speech
+ * @param {Object} state - Game state
+ * @param {string} playerId - Withdrawing player ID
+ * @param {Object} helpers - Helper functions
+ */
+export function handleCaptainWithdraw(state, playerId, helpers) {
+  state.captainCandidates = state.captainCandidates.filter(
+    id => id !== playerId
+  );
+
+  // If withdrawing during speech, update speaker queue
+  if (state.phase === PHASES.CAPTAIN_SPEECH) {
+    const wasCurrentSpeaker = state.captainCurrentSpeaker === playerId;
+    state.captainSpeakerQueue = state.captainSpeakerQueue.filter(
+      id => id !== playerId
+    );
+
+    if (wasCurrentSpeaker) {
+      const newQueue = state.captainSpeakerQueue;
+      // Find next speaker after the removed one
+      const nextIdx = state.captainSpeakerQueue.findIndex(
+        id => id !== playerId
+      );
+      if (newQueue.length === 0) {
+        state.captainCurrentSpeaker = null;
+      } else if (nextIdx >= 0) {
+        state.captainCurrentSpeaker = newQueue[nextIdx];
+      } else {
+        state.captainCurrentSpeaker = null;
+      }
+    }
+  }
+
+  helpers.logEvent(state, 'captain_withdraw', { playerId });
+
+  // Check if auto-resolution needed
+  if (state.captainCandidates.length === 0) {
+    state.captainPlayerId = null;
+    state.captainElectionDone = true;
+    helpers.logEvent(state, 'captain_elected', {
+      captainPlayerId: null,
+      method: 'no_candidates'
+    });
+    transitionPhase(state, PHASES.DAY_DISCUSSION, helpers);
+  } else if (state.captainCandidates.length === 1) {
+    state.captainPlayerId = state.captainCandidates[0];
+    state.captainElectionDone = true;
+    helpers.logEvent(state, 'captain_elected', {
+      captainPlayerId: state.captainCandidates[0],
+      method: 'auto_only_candidate'
+    });
+    transitionPhase(state, PHASES.DAY_DISCUSSION, helpers);
+  } else if (
+    state.phase === PHASES.CAPTAIN_SPEECH &&
+    state.captainCurrentSpeaker === null
+  ) {
+    // All remaining speakers done after withdrawal
+    transitionPhase(state, PHASES.CAPTAIN_VOTE, helpers);
   }
 }
 
@@ -572,5 +920,16 @@ export default {
   resolveNight,
   collectDayVote,
   areAllDayVotesCollected,
-  resolveVotes
+  resolveVotes,
+  startCaptainRegister,
+  startCaptainSpeech,
+  startCaptainVote,
+  startCaptainRunoffSpeech,
+  startCaptainRunoffVote,
+  startCaptainTransfer,
+  collectCaptainVote,
+  areAllCaptainVotesCollected,
+  resolveCaptainVotes,
+  advanceCaptainSpeaker,
+  handleCaptainWithdraw
 };

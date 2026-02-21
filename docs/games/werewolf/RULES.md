@@ -227,7 +227,7 @@ const PHASES = {
 
 ```
 1. 公布夜晚死亡情况
-2. （若启用 Leader 且为第一天）完成 Leader 产生流程
+2. （若启用警长机制且为第一天）完成警长竞选流程（详见 mechanisms/captain.md）
 3. 死亡玩家发表遗言（可选）
 4. 触发死亡时技能 (Hunter 开枪等)
 5. 存活玩家按规则顺序依次发言讨论
@@ -248,28 +248,23 @@ const PHASES = {
 #### 5.3.2 白天讨论与投票的顺序规则
 
 - 默认顺序：从昨夜受害者开始（若有多名受害者，随机选一名作为起点），随后按逆时针顺序进行
-- 若启用 Leader 且领袖存活，则顺序改为按 5.3.3 的规则执行
+- 若启用警长机制且警长存活，警长拥有投票权重加成（详见 mechanisms/captain.md）
 - 除非额外游戏选项或角色技能改变顺序/赋予优先权，所有可投票玩家依次参与讨论与投票
 - 投票开始后，所有人按顺序投票，若有唯一最高票者，则其被处决
 - 若出现平票，进入“候选人复盘”环节：仅平票候选人依照同样顺序进行发言
 - 复盘发言结束后，其他玩家仅对候选人进行二次投票，票数最高者被处决
 - 若二次投票再次平票，则当日无人被处决
 
-#### 5.3.3 可选规则：Leader（领袖）机制
+#### 5.3.3 可选规则：警长（Captain）机制
 
-- 默认启用：`leaderEnabled = true`
-- 领袖产生时机：游戏第一天，Captain 身份公开后（若本局无 Captain，则在第一天开始时）进行
-- 领袖产生流程：
-  - 全体玩家按随机起点，逆时针顺序依次发言
-  - 每位玩家表态是否愿意成为领袖候选人
-  - 非候选人对候选人投票（候选人不参与投票，可弃票）
-  - 票数最高者成为领袖；若平票，则在平票者中随机选一名领袖
-- 领袖存活时的讨论/投票顺序：
-  - 若昨夜有多人死亡，领袖选择其中一人作为顺序起点
-  - 领袖决定当日讨论与投票采用顺时针或逆时针
-  - 若领袖不是最后一位发言者，讨论结束后领袖获得一次额外发言，再进入投票
-  - 投票顺序与讨论顺序一致
-- 若领袖机制未启用或领袖已死亡，则回退到默认顺序规则
+> **完整规则详见**: `docs/games/werewolf/mechanisms/captain.md`
+
+- 默认启用：`captainEnabled = true`
+- 警长产生时机：游戏第一天白天，夜间公告结束后进行竞选
+- 警长竞选流程：上警 → 候选人发言 → 全体投票 → 平票则二次投票
+- 警长核心能力：白天处决投票时拥有 1.5 倍投票权重（可配置）
+- 警长死亡处理：可移交警徽给存活玩家，或撕警徽（身份消失）
+- 若警长机制未启用或警长空缺/已死亡，则所有玩家投票权重均为 1
 
 #### 5.3.4 日间投票多数规则（dayVoteMajority）
 
@@ -918,7 +913,7 @@ const defaultConfig = {
   allowRepeatedProtect: false,     // 是否允许连续保护同一人
   hunterShootOnPoison: false,      // 猎人被毒死是否能开枪
   dayVoteMajority: true,           // 是否需要过半票处决
-  leaderEnabled: true,             // 是否启用 Leader 机制
+  captainEnabled: true,            // 是否启用警长（Captain）机制
   lastWordsMode: 'limit_by_initial_wolves', // 遗言名额规则
   protectAgainstPoison: false,     // 保护是否能抵消女巫毒杀
   protectAgainstVigilante: true,   // 保护是否能抵消猎人夜杀
@@ -948,7 +943,7 @@ const defaultConfig = {
 | `allowRepeatedProtect` | boolean | false | 是否允许连续保护同一人 |
 | `hunterShootOnPoison` | boolean | false | 猎人被毒死是否能开枪 |
 | `dayVoteMajority` | boolean | true | 是否要求得票严格大于弃票数才可处决 |
-| `leaderEnabled` | boolean | true | 是否启用 Leader 机制 |
+| `captainEnabled` | boolean | true | 是否启用警长（Captain）机制 |
 | `lastWordsMode` | string | limit_by_initial_wolves | 遗言名额规则 (none/all/limit_by_initial_wolves) |
 | `witchCanSaveSelf` | boolean | true | 女巫是否可以自救 |
 | `lastWordsScope` | string | day_only | 遗言适用范围 (day_only/day_and_night) |

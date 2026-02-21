@@ -11,6 +11,7 @@ import {
   ROLE_NAMES,
   escapeHtml,
   createInfoBox,
+  createButton,
   getDeathCauseText,
   findPlayer,
   getDisplayName
@@ -626,11 +627,375 @@ export function renderDeadChat(ctx) {
   return el;
 }
 
+/**
+ * Render captain register panel (上警阶段)
+ * @param {Object} ctx - Rendering context
+ * @returns {HTMLElement}
+ */
+export function renderCaptainRegisterPanel(ctx) {
+  const { state, playerId } = ctx;
+  const el = document.createElement('div');
+  el.className = 'ww-captain-register-panel';
+  el.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  `;
+
+  const viewer = findPlayer(state.players, playerId);
+  const isAlive = viewer?.alive !== false;
+  const hasRegistered = (state.captainCandidates || []).includes(playerId);
+
+  // Info prompt
+  if (!isAlive) {
+    el.appendChild(createInfoBox('你已死亡，无法参与警长竞选'));
+  } else if (hasRegistered) {
+    el.appendChild(createInfoBox('你已上警，等待其他玩家...'));
+  } else {
+    el.appendChild(createInfoBox('警长竞选开始！点击下方按钮上警参与竞选'));
+  }
+
+  // Current candidates list
+  const candidates = state.captainCandidates || [];
+  if (candidates.length > 0) {
+    const list = document.createElement('div');
+    list.style.cssText = `
+      padding: var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+    `;
+    list.innerHTML = `
+      <div style="
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin-bottom: var(--spacing-2);
+      ">已上警候选人（${candidates.length}人）</div>
+    `;
+
+    for (const cid of candidates) {
+      const player = findPlayer(state.players, cid);
+      const row = document.createElement('div');
+      row.style.cssText = `
+        padding: var(--spacing-1) var(--spacing-2);
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-2);
+      `;
+      row.innerHTML = `
+        <span style="
+          width: 8px; height: 8px;
+          border-radius: var(--radius-full);
+          background: var(--primary-500);
+          display: inline-block;
+        "></span>
+        <span style="color: var(--text-primary);">
+          ${getDisplayName(player, playerId, state.seerChecks, cid)}
+        </span>
+      `;
+      list.appendChild(row);
+    }
+
+    el.appendChild(list);
+  }
+
+  return el;
+}
+
+/**
+ * Render captain speech panel (竞选发言阶段)
+ * @param {Object} ctx - Rendering context
+ * @returns {HTMLElement}
+ */
+export function renderCaptainSpeechPanel(ctx) {
+  const { state, playerId } = ctx;
+  const el = document.createElement('div');
+  el.className = 'ww-captain-speech-panel';
+  el.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  `;
+
+  const isRunoff = state.phase === PHASES.CAPTAIN_RUNOFF_SPEECH;
+  const currentSpeaker = state.captainCurrentSpeaker;
+  const isMyTurn = currentSpeaker === playerId;
+
+  // Runoff header
+  if (isRunoff) {
+    const header = document.createElement('div');
+    header.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--warning-100);
+      border-radius: var(--radius-md);
+      color: var(--warning-700);
+      font-weight: var(--font-semibold);
+      text-align: center;
+    `;
+    header.textContent = '平票二次发言';
+    el.appendChild(header);
+  }
+
+  // Info prompt
+  el.appendChild(createInfoBox(
+    isMyTurn
+      ? '轮到你竞选发言了，完成后点击"发言结束"'
+      : '等待候选人发言...'
+  ));
+
+  // Speaker queue
+  const queue = state.captainSpeakerQueue || [];
+  if (queue.length > 0) {
+    const list = document.createElement('div');
+    list.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-1);
+      padding: var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+    `;
+
+    list.innerHTML = `
+      <div style="
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin-bottom: var(--spacing-2);
+      ">${isRunoff ? '平票候选人发言顺序' : '候选人发言顺序'}</div>
+    `;
+
+    for (let i = 0; i < queue.length; i++) {
+      const speakerId = queue[i];
+      const player = findPlayer(state.players, speakerId);
+      const isCurrent = speakerId === currentSpeaker;
+      const isDone = i < queue.indexOf(currentSpeaker);
+      const isCandidate = (state.captainCandidates || []).includes(speakerId);
+
+      const row = document.createElement('div');
+      row.style.cssText = `
+        padding: var(--spacing-1) var(--spacing-2);
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-2);
+        ${isCurrent
+          ? 'background: var(--primary-100); border-left: 3px solid var(--primary-500);'
+          : ''}
+        ${isDone ? 'opacity: 0.5;' : ''}
+        ${!isCandidate ? 'text-decoration: line-through; opacity: 0.4;' : ''}
+      `;
+      row.innerHTML = `
+        <span style="
+          width: 20px;
+          text-align: center;
+          font-size: var(--text-sm);
+          color: var(--text-tertiary);
+        ">${i + 1}</span>
+        <span style="
+          color: ${isCurrent ? 'var(--primary-700)' : 'var(--text-primary)'};
+          font-weight: ${isCurrent ? 'var(--font-semibold)' : 'var(--font-normal)'};
+        ">${getDisplayName(player, playerId, state.seerChecks, speakerId)}</span>
+        ${isCurrent ? '<span style="color: var(--primary-500); font-size: var(--text-xs);">发言中</span>' : ''}
+        ${isDone ? '<span style="color: var(--text-tertiary); font-size: var(--text-xs);">已发言</span>' : ''}
+        ${!isCandidate ? '<span style="color: var(--warning-500); font-size: var(--text-xs);">已退水</span>' : ''}
+      `;
+      list.appendChild(row);
+    }
+
+    el.appendChild(list);
+  }
+
+  return el;
+}
+
+/**
+ * Render captain vote panel (竞选投票阶段)
+ * @param {Object} ctx - Rendering context
+ * @returns {HTMLElement}
+ */
+export function renderCaptainVotePanel(ctx) {
+  const { state, playerId, updateSelectionMode } = ctx;
+  const el = document.createElement('div');
+  el.className = 'ww-captain-vote-panel';
+  el.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  `;
+
+  const isRunoff = state.phase === PHASES.CAPTAIN_RUNOFF_VOTE;
+  const currentVoter = state.captainCurrentVoter;
+  const isMyTurn = currentVoter === playerId;
+  const hasVoted = state.captainVotes?.[playerId] !== undefined;
+
+  // Runoff header
+  if (isRunoff) {
+    const header = document.createElement('div');
+    header.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--warning-100);
+      border-radius: var(--radius-md);
+      color: var(--warning-700);
+      font-weight: var(--font-semibold);
+      text-align: center;
+    `;
+    header.textContent = '平票二次投票';
+    el.appendChild(header);
+  }
+
+  // Info prompt
+  let infoText;
+  if (isMyTurn) {
+    infoText = '轮到你投票了，点击环形布局中的候选人头像进行投票';
+  } else if (hasVoted) {
+    infoText = '你已投票，等待其他玩家...';
+  } else {
+    infoText = '等待其他玩家投票...';
+  }
+  el.appendChild(createInfoBox(infoText));
+
+  if (isMyTurn && updateSelectionMode) {
+    updateSelectionMode();
+  }
+
+  // Candidates list
+  const candidates = isRunoff
+    ? (state.captainRunoffCandidates || [])
+    : (state.captainCandidates || []);
+  if (candidates.length > 0) {
+    const candBox = document.createElement('div');
+    candBox.style.cssText = `
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--primary-50);
+      border-radius: var(--radius-md);
+      border-left: 3px solid var(--primary-500);
+    `;
+    const names = candidates
+      .map(id => getDisplayName(findPlayer(state.players, id), playerId, state.seerChecks, id))
+      .join('、');
+    candBox.innerHTML = `
+      <div style="font-weight: var(--font-semibold); color: var(--primary-700); margin-bottom: var(--spacing-1);">
+        候选人
+      </div>
+      <div style="color: var(--text-primary); font-size: var(--text-sm);">${names}</div>
+    `;
+    el.appendChild(candBox);
+  }
+
+  // Voter queue
+  const voterQueue = state.captainVoterQueue || [];
+  if (voterQueue.length > 0) {
+    const list = document.createElement('div');
+    list.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-1);
+      padding: var(--spacing-3);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+    `;
+
+    list.innerHTML = `
+      <div style="
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin-bottom: var(--spacing-2);
+      ">投票顺序</div>
+    `;
+
+    const votes = state.captainVotes || {};
+    for (let i = 0; i < voterQueue.length; i++) {
+      const voterId = voterQueue[i];
+      const player = findPlayer(state.players, voterId);
+      const isCurrent = voterId === currentVoter;
+      const hasVotedAlready = votes[voterId] !== undefined;
+      const voteTarget = votes[voterId];
+
+      const row = document.createElement('div');
+      row.style.cssText = `
+        padding: var(--spacing-1) var(--spacing-2);
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-2);
+        ${isCurrent
+          ? 'background: var(--primary-100); border-left: 3px solid var(--primary-500);'
+          : ''}
+        ${hasVotedAlready ? 'opacity: 0.7;' : ''}
+      `;
+
+      let statusText = '';
+      if (isCurrent) {
+        statusText = '<span style="color: var(--primary-500); font-size: var(--text-xs);">投票中</span>';
+      } else if (hasVotedAlready) {
+        const targetName = voteTarget
+          ? getDisplayName(findPlayer(state.players, voteTarget), playerId, state.seerChecks, voteTarget)
+          : '弃票';
+        statusText = `<span style="color: var(--text-tertiary); font-size: var(--text-xs);">→ ${targetName}</span>`;
+      }
+
+      row.innerHTML = `
+        <span style="
+          width: 20px;
+          text-align: center;
+          font-size: var(--text-sm);
+          color: var(--text-tertiary);
+        ">${i + 1}</span>
+        <span style="
+          color: ${isCurrent ? 'var(--primary-700)' : 'var(--text-primary)'};
+          font-weight: ${isCurrent ? 'var(--font-semibold)' : 'var(--font-normal)'};
+          flex: 1;
+        ">${getDisplayName(player, playerId, state.seerChecks, voterId)}</span>
+        ${statusText}
+      `;
+      list.appendChild(row);
+    }
+
+    el.appendChild(list);
+  }
+
+  return el;
+}
+
+/**
+ * Render captain transfer panel (警徽移交阶段)
+ * @param {Object} ctx - Rendering context
+ * @returns {HTMLElement}
+ */
+export function renderCaptainTransferPanel(ctx) {
+  const { state, playerId } = ctx;
+  const el = document.createElement('div');
+  el.className = 'ww-captain-transfer-panel';
+  el.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  `;
+
+  const isCaptain = state.captainPlayerId === playerId;
+
+  if (isCaptain) {
+    el.appendChild(createInfoBox(
+      '你是警长，请选择一名存活玩家移交警徽，或选择撕毁警徽'
+    ));
+  } else {
+    const captain = findPlayer(state.players, state.captainPlayerId);
+    el.appendChild(createInfoBox(
+      `等待警长 ${getDisplayName(captain, playerId, state.seerChecks, state.captainPlayerId)} 移交警徽...`
+    ));
+  }
+
+  return el;
+}
+
 export default {
   renderAnnouncePanel,
   renderDiscussionPanel,
   renderVotePanel,
   renderEndedPanel,
   renderHunterShoot,
-  renderDeadChat
+  renderDeadChat,
+  renderCaptainRegisterPanel,
+  renderCaptainSpeechPanel,
+  renderCaptainVotePanel,
+  renderCaptainTransferPanel
 };

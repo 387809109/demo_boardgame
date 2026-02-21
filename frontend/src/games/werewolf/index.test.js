@@ -62,7 +62,11 @@ function setupGame(opts = {}) {
   } = opts;
 
   const game = new WerewolfGame('offline');
-  game.start({ players, gameType: 'werewolf', options: { roleCounts, ...options } });
+  game.start({
+    players,
+    gameType: 'werewolf',
+    options: { roleCounts, captainEnabled: false, ...options }
+  });
 
   // If explicit roleMap provided, patch state for deterministic tests
   if (roleMap) {
@@ -4099,6 +4103,1173 @@ describe('Cupid Role', () => {
 
         expect(result2.valid).toBe(false);
         expect(result2.error).toContain('已死亡');
+      });
+    });
+  });
+
+  // ─── Captain Mechanism Tests ────────────────────────────────────
+  describe('Captain Mechanism', () => {
+    /**
+     * Helper: setup a captain-enabled game and advance through first night
+     * to reach DAY_ANNOUNCE, ready for captain election.
+     */
+    function setupCaptainGame(opts = {}) {
+      const {
+        roleMap = {
+          p1: 'werewolf', p2: 'werewolf',
+          p3: 'seer', p4: 'doctor',
+          p5: 'hunter', p6: 'villager'
+        },
+        players = TEST_PLAYERS,
+        roleCounts = P0_ROLE_COUNTS,
+        options = {}
+      } = opts;
+
+      const result = setupGame({
+        players,
+        roleCounts,
+        roleMap,
+        options: { captainEnabled: true, ...options }
+      });
+      const game = result.game;
+
+      // Complete first night with no kills (wolf tie)
+      skipAllNightActions(game);
+
+      return { game, state: game.getState() };
+    }
+
+    /**
+     * Helper: advance from DAY_ANNOUNCE to CAPTAIN_REGISTER
+     */
+    function advanceToCaptainRegister(game) {
+      while (game.getState().phase === PHASES.DAY_ANNOUNCE) {
+        const state = game.getState();
+        let actorId = state.lastWordsPlayerId ||
+          state.firstSpeakerId ||
+          Object.values(state.playerMap).find(p => p.alive)?.id;
+        if (!actorId) break;
+        game.executeMove({
+          playerId: actorId,
+          actionType: ACTION_TYPES.PHASE_ADVANCE,
+          actionData: {}
+        });
+      }
+    }
+
+    /**
+     * Helper: register specified players as captain candidates
+     */
+    function registerCandidates(game, playerIds) {
+      for (const pid of playerIds) {
+        game.executeMove({
+          playerId: pid,
+          actionType: ACTION_TYPES.CAPTAIN_REGISTER,
+          actionData: {}
+        });
+      }
+    }
+
+    /**
+     * Helper: end registration phase
+     */
+    function endRegistration(game) {
+      const state = game.getState();
+      const actorId = Object.values(state.playerMap).find(p => p.alive)?.id;
+      game.executeMove({
+        playerId: actorId,
+        actionType: ACTION_TYPES.PHASE_ADVANCE,
+        actionData: {}
+      });
+    }
+
+    /**
+     * Helper: advance through captain speech phase
+     */
+    function skipCaptainSpeeches(game) {
+      while (game.getState().phase === PHASES.CAPTAIN_SPEECH ||
+             game.getState().phase === PHASES.CAPTAIN_RUNOFF_SPEECH) {
+        const state = game.getState();
+        const speaker = state.captainCurrentSpeaker;
+        if (!speaker) break;
+        game.executeMove({
+          playerId: speaker,
+          actionType: ACTION_TYPES.PHASE_ADVANCE,
+          actionData: {}
+        });
+      }
+    }
+
+    /**
+     * Helper: cast captain votes according to a plan
+     */
+    function playCaptainVoteRound(game, votePlan = {}) {
+      while (game.getState().phase === PHASES.CAPTAIN_VOTE ||
+             game.getState().phase === PHASES.CAPTAIN_RUNOFF_VOTE) {
+        const state = game.getState();
+        const voterId = state.captainCurrentVoter;
+        if (!voterId) break;
+        const targetId = Object.prototype.hasOwnProperty.call(votePlan, voterId)
+          ? votePlan[voterId]
+          : null;
+        game.executeMove({
+          playerId: voterId,
+          actionType: targetId
+            ? ACTION_TYPES.CAPTAIN_VOTE
+            : ACTION_TYPES.CAPTAIN_SKIP_VOTE,
+          actionData: targetId ? { targetId } : {}
+        });
+      }
+    }
+
+    /**
+     * Helper: advance from DAY_DISCUSSION through speeches to DAY_VOTE
+     */
+    function advanceDiscussionToVote(game) {
+      while (game.getState().phase === PHASES.DAY_DISCUSSION) {
+        const cur = game.getState().currentSpeaker;
+        if (!cur) break;
+        game.executeMove({
+          playerId: cur,
+          actionType: ACTION_TYPES.SPEECH_DONE,
+          actionData: {}
+        });
+      }
+    }
+
+    // ── 12.1 Election Flow Tests ───────────────────────────────────
+
+    describe('Election Flow', () => {
+      it('T-CAP-01: normal election - multiple candidates, highest vote wins', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_REGISTER);
+
+        registerCandidates(game, ['p3', 'p5', 'p6']);
+        endRegistration(game);
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_SPEECH);
+
+        skipCaptainSpeeches(game);
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_VOTE);
+
+        // p1→p3, p2→p3, p3→p5, p4→p3, p5→p5, p6→p6
+        playCaptainVoteRound(game, {
+          p1: 'p3', p2: 'p3', p3: 'p5', p4: 'p3', p5: 'p5', p6: 'p6'
+        });
+
+        const s = game.getState();
+        expect(s.captainPlayerId).toBe('p3');
+        expect(s.phase).toBe(PHASES.DAY_DISCUSSION);
+      });
+
+      it('T-CAP-02: only one candidate → auto-elected, skip speech/vote', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+
+        registerCandidates(game, ['p4']);
+        endRegistration(game);
+
+        const s = game.getState();
+        expect(s.captainPlayerId).toBe('p4');
+        expect(s.phase).toBe(PHASES.DAY_DISCUSSION);
+      });
+
+      it('T-CAP-03: no one registers → captain vacant', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+        endRegistration(game);
+
+        const s = game.getState();
+        expect(s.captainPlayerId).toBeNull();
+        expect(s.phase).toBe(PHASES.DAY_DISCUSSION);
+      });
+
+      it('T-CAP-04: tie in first vote → runoff speech + runoff vote → winner', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+
+        registerCandidates(game, ['p3', 'p5']);
+        endRegistration(game);
+        skipCaptainSpeeches(game);
+
+        // Tie: p1→p3, p2→p5, p3→p3, p4→p5, others skip
+        playCaptainVoteRound(game, {
+          p1: 'p3', p2: 'p5', p3: 'p3', p4: 'p5'
+        });
+
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_RUNOFF_SPEECH);
+        expect(game.getState().captainRunoffCandidates).toEqual(
+          expect.arrayContaining(['p3', 'p5'])
+        );
+
+        skipCaptainSpeeches(game);
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_RUNOFF_VOTE);
+
+        // Runoff: p1→p3, p2→p3, p3→p3, p4→p5, p5→p5, p6→p3
+        playCaptainVoteRound(game, {
+          p1: 'p3', p2: 'p3', p3: 'p3', p4: 'p5', p5: 'p5', p6: 'p3'
+        });
+
+        expect(game.getState().captainPlayerId).toBe('p3');
+        expect(game.getState().phase).toBe(PHASES.DAY_DISCUSSION);
+      });
+
+      it('T-CAP-05: runoff tie + tieBreaker=none → captain vacant', () => {
+        const { game } = setupCaptainGame({
+          options: { captainTieBreaker: 'none' }
+        });
+        advanceToCaptainRegister(game);
+
+        registerCandidates(game, ['p3', 'p5']);
+        endRegistration(game);
+        skipCaptainSpeeches(game);
+
+        // Tie first round
+        playCaptainVoteRound(game, {
+          p1: 'p3', p2: 'p5', p3: 'p3', p4: 'p5'
+        });
+
+        skipCaptainSpeeches(game);
+
+        // Tie again in runoff
+        playCaptainVoteRound(game, {
+          p1: 'p3', p2: 'p5', p3: 'p3', p4: 'p5'
+        });
+
+        expect(game.getState().captainPlayerId).toBeNull();
+        expect(game.getState().phase).toBe(PHASES.DAY_DISCUSSION);
+      });
+
+      it('T-CAP-06: runoff tie + tieBreaker=random → one candidate elected', () => {
+        const { game } = setupCaptainGame({
+          options: { captainTieBreaker: 'random' }
+        });
+        advanceToCaptainRegister(game);
+
+        registerCandidates(game, ['p3', 'p5']);
+        endRegistration(game);
+        skipCaptainSpeeches(game);
+
+        playCaptainVoteRound(game, {
+          p1: 'p3', p2: 'p5', p3: 'p3', p4: 'p5'
+        });
+
+        skipCaptainSpeeches(game);
+        playCaptainVoteRound(game, {
+          p1: 'p3', p2: 'p5', p3: 'p3', p4: 'p5'
+        });
+
+        const captainId = game.getState().captainPlayerId;
+        expect(['p3', 'p5']).toContain(captainId);
+        expect(game.getState().phase).toBe(PHASES.DAY_DISCUSSION);
+      });
+
+      it('T-CAP-07: candidate withdraws during speech → only one left → auto-elected', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+
+        registerCandidates(game, ['p3', 'p5']);
+        endRegistration(game);
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_SPEECH);
+
+        // p3 speaks, then p5 withdraws
+        game.executeMove({
+          playerId: 'p3',
+          actionType: ACTION_TYPES.PHASE_ADVANCE,
+          actionData: {}
+        });
+        game.executeMove({
+          playerId: 'p5',
+          actionType: ACTION_TYPES.CAPTAIN_WITHDRAW,
+          actionData: {}
+        });
+
+        expect(game.getState().captainPlayerId).toBe('p3');
+        expect(game.getState().phase).toBe(PHASES.DAY_DISCUSSION);
+      });
+
+      it('T-CAP-08: all candidates withdraw → captain vacant', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+
+        // Register 1 candidate, then withdraw before ending registration
+        registerCandidates(game, ['p3']);
+        game.executeMove({
+          playerId: 'p3',
+          actionType: ACTION_TYPES.CAPTAIN_WITHDRAW,
+          actionData: {}
+        });
+
+        // 0 candidates remain → captain vacant
+        expect(game.getState().captainPlayerId).toBeNull();
+        expect(game.getState().phase).toBe(PHASES.DAY_DISCUSSION);
+      });
+    });
+
+    // ── 12.2 Vote Weight Tests ─────────────────────────────────────
+
+    describe('Vote Weight', () => {
+      /**
+       * Helper: setup game with captain elected, advance to day vote
+       */
+      function setupWithCaptain(captainId, opts = {}) {
+        const result = setupCaptainGame(opts);
+        const game = result.game;
+
+        // Fast-track: elect captain directly
+        advanceToCaptainRegister(game);
+        registerCandidates(game, [captainId]);
+        endRegistration(game);
+
+        // Now in DAY_DISCUSSION, advance to vote
+        advanceDiscussionToVote(game);
+        expect(game.getState().phase).toBe(PHASES.DAY_VOTE);
+
+        return { game };
+      }
+
+      it('T-CAP-09: captain vote weight 1.5x (standard)', () => {
+        const { game } = setupWithCaptain('p3', {
+          options: { captainVoteWeight: 1.5 }
+        });
+
+        // p3 (captain) votes p1, p4 votes p1 → 2.5 votes
+        // p1 votes p3, p2 votes p3 → 2 votes
+        // p5 and p6 abstain
+        playVoteRound(game, {
+          p3: 'p1', p4: 'p1', p1: 'p3', p2: 'p3'
+        });
+
+        // p1 should be executed (2.5 > 2)
+        expect(game.getState().playerMap.p1.alive).toBe(false);
+      });
+
+      it('T-CAP-10: captain vote weight 2x (strong)', () => {
+        const { game } = setupWithCaptain('p3', {
+          options: { captainVoteWeight: 2 }
+        });
+
+        // p3 (captain, 2x) votes p1 → 2 votes
+        // p4 votes p1 → 1 vote → total 3
+        // p1 votes p3, p2 votes p3 → 2 votes
+        playVoteRound(game, {
+          p3: 'p1', p4: 'p1', p1: 'p3', p2: 'p3'
+        });
+
+        expect(game.getState().playerMap.p1.alive).toBe(false);
+      });
+
+      it('T-CAP-11: captain weight breaks what would be a tie', () => {
+        const { game } = setupWithCaptain('p3', {
+          options: { captainVoteWeight: 1.5 }
+        });
+
+        // Without captain weight: p3→p1 (1), p4→p1 (1) = 2 vs p1→p3 (1), p2→p3 (1) = 2 → tie
+        // With captain weight: p3→p1 (1.5) + p4→p1 (1) = 2.5 vs p1→p3 (1), p2→p3 (1) = 2
+        playVoteRound(game, {
+          p3: 'p1', p4: 'p1', p1: 'p3', p2: 'p3'
+        });
+
+        expect(game.getState().playerMap.p1.alive).toBe(false);
+      });
+
+      it('T-CAP-12: captain abstains → no weight applied', () => {
+        const { game } = setupWithCaptain('p3', {
+          options: { captainVoteWeight: 1.5, dayVoteMajority: false }
+        });
+
+        // Captain abstains; p4→p1 (1), p1→p3 (1), p2→p3 (1), others skip
+        playVoteRound(game, {
+          p4: 'p1', p1: 'p3', p2: 'p3'
+        });
+
+        // p3 gets 2 votes (no weight since captain abstained), p1 gets 1
+        // p3 executed (highest votes)
+        expect(game.getState().playerMap.p3.alive).toBe(false);
+      });
+
+      it('T-CAP-13: captain election vote has no weight bonus', () => {
+        // This is implicitly tested: captain election uses collectCaptainVote
+        // which has no weight logic. Just verify one person = one vote.
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+
+        registerCandidates(game, ['p3', 'p5']);
+        endRegistration(game);
+        skipCaptainSpeeches(game);
+
+        // Even if p3 were somehow "captain", election is one-person-one-vote
+        // 3 votes for p3, 3 for p5 → tie (no weight advantage)
+        playCaptainVoteRound(game, {
+          p1: 'p3', p2: 'p3', p3: 'p3', p4: 'p5', p5: 'p5', p6: 'p5'
+        });
+
+        // Should be a tie → runoff
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_RUNOFF_SPEECH);
+      });
+
+      it('T-CAP-14: no captain → all votes equal weight', () => {
+        const { game } = setupCaptainGame({
+          options: { dayVoteMajority: false }
+        });
+        advanceToCaptainRegister(game);
+        endRegistration(game); // No candidates → captain vacant
+
+        advanceDiscussionToVote(game);
+
+        // p3→p1 (1), p4→p1 (1) vs p1→p3 (1), p2→p3 (1) → tie
+        playVoteRound(game, {
+          p3: 'p1', p4: 'p1', p1: 'p3', p2: 'p3'
+        });
+
+        // Tie → second round speech
+        const s = game.getState();
+        expect(s.tiedCandidates).toEqual(expect.arrayContaining(['p1', 'p3']));
+      });
+    });
+
+    // ── 12.3 Captain Transfer Tests ────────────────────────────────
+
+    describe('Captain Transfer', () => {
+      /**
+       * Helper: setup game with captain, complete election, advance to night
+       */
+      function setupCaptainAndAdvanceToNight(captainId, opts = {}) {
+        const result = setupCaptainGame(opts);
+        const game = result.game;
+
+        advanceToCaptainRegister(game);
+        registerCandidates(game, [captainId]);
+        endRegistration(game);
+
+        // Advance through discussion
+        advanceDiscussionToVote(game);
+
+        // All abstain → no execution → go to night
+        playVoteRound(game, {});
+
+        expect(game.getState().phase).toBe(PHASES.NIGHT);
+        return { game };
+      }
+
+      it('T-CAP-15: captain executed by day vote → transfer to alive player', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p6']);
+        endRegistration(game);
+        expect(game.getState().captainPlayerId).toBe('p6');
+
+        advanceDiscussionToVote(game);
+
+        // Vote out p6 (the captain)
+        playVoteRound(game, {
+          p1: 'p6', p2: 'p6', p3: 'p6', p4: 'p6', p5: 'p6'
+        });
+
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_TRANSFER);
+        expect(game.getState().playerMap.p6.alive).toBe(false);
+
+        // Transfer to p3
+        game.executeMove({
+          playerId: 'p6',
+          actionType: ACTION_TYPES.CAPTAIN_TRANSFER,
+          actionData: { targetId: 'p3' }
+        });
+
+        const s = game.getState();
+        expect(s.captainPlayerId).toBe('p3');
+        expect(s.phase).toBe(PHASES.NIGHT);
+      });
+
+      it('T-CAP-16: captain killed at night → transfer after announce', () => {
+        const { game } = setupCaptainAndAdvanceToNight('p6');
+
+        // Night 2: process all steps, wolves kill p6
+        while (game.getState().phase === PHASES.NIGHT) {
+          const s = game.getState();
+          const pending = [...s.pendingNightRoles];
+          if (pending.length === 0) break;
+          for (const pid of pending) {
+            if (s.playerMap[pid].roleId === 'werewolf') {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+            } else {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_SKIP, {});
+            }
+          }
+        }
+
+        // Should be in CAPTAIN_TRANSFER (captain died at night)
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_TRANSFER);
+
+        game.executeMove({
+          playerId: 'p6',
+          actionType: ACTION_TYPES.CAPTAIN_TRANSFER,
+          actionData: { targetId: 'p4' }
+        });
+
+        expect(game.getState().captainPlayerId).toBe('p4');
+      });
+
+      it('T-CAP-17: captain tears badge → captain becomes null', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p6']);
+        endRegistration(game);
+
+        advanceDiscussionToVote(game);
+        playVoteRound(game, {
+          p1: 'p6', p2: 'p6', p3: 'p6', p4: 'p6', p5: 'p6'
+        });
+
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_TRANSFER);
+
+        game.executeMove({
+          playerId: 'p6',
+          actionType: ACTION_TYPES.CAPTAIN_TEAR,
+          actionData: {}
+        });
+
+        expect(game.getState().captainPlayerId).toBeNull();
+        expect(game.getState().phase).toBe(PHASES.NIGHT);
+      });
+
+      it('T-CAP-19: cannot transfer to dead player', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p6']);
+        endRegistration(game);
+
+        advanceDiscussionToVote(game);
+        playVoteRound(game, {
+          p1: 'p6', p2: 'p6', p3: 'p6', p4: 'p6', p5: 'p6'
+        });
+
+        // p6 is dead (executed), try to transfer to p6 itself
+        const result = game.executeMove({
+          playerId: 'p6',
+          actionType: ACTION_TYPES.CAPTAIN_TRANSFER,
+          actionData: { targetId: 'p6' }
+        });
+
+        expect(result.success).toBe(false);
+      });
+
+      it('T-CAP-20: new captain has weight in subsequent votes', () => {
+        const { game } = setupCaptainAndAdvanceToNight('p6');
+
+        // Night 2: wolves kill p6 (captain)
+        while (game.getState().phase === PHASES.NIGHT) {
+          const s = game.getState();
+          const pending = [...s.pendingNightRoles];
+          if (pending.length === 0) break;
+          for (const pid of pending) {
+            if (s.playerMap[pid].roleId === 'werewolf') {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+            } else {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_SKIP, {});
+            }
+          }
+        }
+
+        // Transfer to p3
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_TRANSFER);
+        game.executeMove({
+          playerId: 'p6',
+          actionType: ACTION_TYPES.CAPTAIN_TRANSFER,
+          actionData: { targetId: 'p3' }
+        });
+
+        expect(game.getState().captainPlayerId).toBe('p3');
+
+        // Advance through announce to discussion to vote
+        advanceToCaptainRegister(game); // will go to discussion (not day1 anymore)
+        // Actually it should be DAY_ANNOUNCE → discussion (captainElectionDone=true)
+        while (game.getState().phase === PHASES.DAY_ANNOUNCE) {
+          const s = game.getState();
+          const actorId = s.lastWordsPlayerId || s.firstSpeakerId ||
+            Object.values(s.playerMap).find(p => p.alive)?.id;
+          if (!actorId) break;
+          game.executeMove({
+            playerId: actorId,
+            actionType: ACTION_TYPES.PHASE_ADVANCE,
+            actionData: {}
+          });
+        }
+        advanceDiscussionToVote(game);
+
+        // p3 (new captain, 1.5x) votes p1, p4 votes p1 = 2.5
+        // p1 votes p3, p2 votes p3 = 2
+        playVoteRound(game, {
+          p3: 'p1', p4: 'p1', p1: 'p3', p2: 'p3'
+        });
+
+        // p1 executed due to captain weight
+        expect(game.getState().playerMap.p1.alive).toBe(false);
+      });
+    });
+
+    // ── 12.4 Role Interaction Tests ────────────────────────────────
+
+    describe('Role Interactions', () => {
+      it('T-CAP-21: idiot captain - execution triggers reveal, keeps captain', () => {
+        const { game } = setupCaptainGame({
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'seer', p4: 'doctor',
+            p5: 'hunter', p6: 'idiot'
+          },
+          roleCounts: { werewolf: 2, seer: 1, doctor: 1, hunter: 1, idiot: 1 }
+        });
+
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p6']);
+        endRegistration(game);
+        expect(game.getState().captainPlayerId).toBe('p6');
+
+        advanceDiscussionToVote(game);
+
+        // Vote out idiot captain
+        playVoteRound(game, {
+          p1: 'p6', p2: 'p6', p3: 'p6', p4: 'p6', p5: 'p6'
+        });
+
+        const s = game.getState();
+        // Idiot reveals but survives
+        expect(s.playerMap.p6.alive).toBe(true);
+        // Captain NOT transferred (idiot didn't die)
+        expect(s.captainPlayerId).toBe('p6');
+        // Should NOT be in captain_transfer phase
+        expect(s.phase).not.toBe(PHASES.CAPTAIN_TRANSFER);
+      });
+
+      it('T-CAP-22: revealed idiot captain has 0 vote weight', () => {
+        const { game } = setupCaptainGame({
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'seer', p4: 'doctor',
+            p5: 'hunter', p6: 'idiot'
+          },
+          roleCounts: { werewolf: 2, seer: 1, doctor: 1, hunter: 1, idiot: 1 }
+        });
+
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p6']);
+        endRegistration(game);
+
+        advanceDiscussionToVote(game);
+        // First: vote out idiot → triggers reveal
+        playVoteRound(game, {
+          p1: 'p6', p2: 'p6', p3: 'p6', p4: 'p6', p5: 'p6'
+        });
+
+        // Night 2
+        skipAllNightActions(game);
+
+        // Day 2: advance to vote
+        while (game.getState().phase === PHASES.DAY_ANNOUNCE) {
+          const s = game.getState();
+          const actorId = s.lastWordsPlayerId || s.firstSpeakerId ||
+            Object.values(s.playerMap).find(p => p.alive)?.id;
+          if (!actorId) break;
+          game.executeMove({
+            playerId: actorId,
+            actionType: ACTION_TYPES.PHASE_ADVANCE,
+            actionData: {}
+          });
+        }
+        advanceDiscussionToVote(game);
+
+        // p6 is revealed idiot captain - cannot vote (excluded from voterQueue)
+        const voterQueue = game.getState().voterQueue;
+        expect(voterQueue).not.toContain('p6');
+      });
+
+      it('T-CAP-23: hunter captain killed → shoot first → then transfer', () => {
+        const { game } = setupCaptainGame({
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'seer', p4: 'doctor',
+            p5: 'hunter', p6: 'villager'
+          }
+        });
+
+        // Elect p5 (hunter) as captain
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p5']);
+        endRegistration(game);
+        expect(game.getState().captainPlayerId).toBe('p5');
+
+        // Advance through day, go to night
+        advanceDiscussionToVote(game);
+        playVoteRound(game, {}); // all abstain
+
+        // Night 2: wolves kill p5 (hunter captain)
+        while (game.getState().phase === PHASES.NIGHT) {
+          const s = game.getState();
+          const pending = [...s.pendingNightRoles];
+          if (pending.length === 0) break;
+          for (const pid of pending) {
+            if (s.playerMap[pid].roleId === 'werewolf') {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+            } else {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_SKIP, {});
+            }
+          }
+        }
+
+        // Hunter should shoot first
+        expect(game.getState().hunterPendingShoot).toBe('p5');
+
+        // Hunter shoots p1
+        game.executeMove({
+          playerId: 'p5',
+          actionType: ACTION_TYPES.HUNTER_SHOOT,
+          actionData: { targetId: 'p1' }
+        });
+
+        // After hunter shoot resolves → captain transfer
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_TRANSFER);
+
+        game.executeMove({
+          playerId: 'p5',
+          actionType: ACTION_TYPES.CAPTAIN_TRANSFER,
+          actionData: { targetId: 'p3' }
+        });
+
+        expect(game.getState().captainPlayerId).toBe('p3');
+      });
+
+      it('T-CAP-24: hunter shoots captain → that captain triggers transfer', () => {
+        const { game } = setupCaptainGame({
+          players: SEVEN_PLAYERS,
+          roleCounts: { werewolf: 2, seer: 1, doctor: 1, hunter: 1, villager: 2 },
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'seer', p4: 'doctor',
+            p5: 'hunter', p6: 'villager', p7: 'villager'
+          }
+        });
+
+        // Elect p6 as captain
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p6']);
+        endRegistration(game);
+
+        advanceDiscussionToVote(game);
+        playVoteRound(game, {}); // all abstain
+
+        // Night 2: wolves kill p5 (hunter)
+        while (game.getState().phase === PHASES.NIGHT) {
+          const s = game.getState();
+          const pending = [...s.pendingNightRoles];
+          if (pending.length === 0) break;
+          for (const pid of pending) {
+            if (s.playerMap[pid].roleId === 'werewolf') {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+            } else {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_SKIP, {});
+            }
+          }
+        }
+
+        // Hunter pending shoot
+        expect(game.getState().hunterPendingShoot).toBe('p5');
+
+        // Hunter shoots p6 (the captain)
+        game.executeMove({
+          playerId: 'p5',
+          actionType: ACTION_TYPES.HUNTER_SHOOT,
+          actionData: { targetId: 'p6' }
+        });
+
+        // Captain p6 is dead → transfer
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_TRANSFER);
+        expect(game.getState().playerMap.p6.alive).toBe(false);
+
+        game.executeMove({
+          playerId: 'p6',
+          actionType: ACTION_TYPES.CAPTAIN_TRANSFER,
+          actionData: { targetId: 'p3' }
+        });
+
+        expect(game.getState().captainPlayerId).toBe('p3');
+      });
+
+      it('T-CAP-26: vigilante kills captain → captain transfer', () => {
+        const { game } = setupCaptainGame({
+          players: SEVEN_PLAYERS,
+          roleCounts: { werewolf: 2, seer: 1, doctor: 1, hunter: 1, vigilante: 1, villager: 1 },
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'seer', p4: 'doctor',
+            p5: 'hunter', p6: 'vigilante', p7: 'villager'
+          }
+        });
+
+        // Elect p7 as captain
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p7']);
+        endRegistration(game);
+
+        advanceDiscussionToVote(game);
+        playVoteRound(game, {}); // all abstain
+
+        // Night: vigilante kills captain p7
+        const state = game.getState();
+        // Skip through night steps until vigilante's turn
+        while (game.getState().phase === PHASES.NIGHT) {
+          const s = game.getState();
+          const pending = [...s.pendingNightRoles];
+          if (pending.length === 0) break;
+          for (const pid of pending) {
+            if (pid === 'p6') {
+              // Vigilante shoots captain
+              submitNight(game, pid, ACTION_TYPES.NIGHT_VIGILANTE_KILL, { targetId: 'p7' });
+            } else {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_SKIP, {});
+            }
+          }
+        }
+
+        // Captain p7 died → captain transfer
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_TRANSFER);
+        expect(game.getState().playerMap.p7.alive).toBe(false);
+      });
+
+      it('T-CAP-27: bodyguard protects captain → captain survives, no transfer', () => {
+        const { game } = setupCaptainGame({
+          players: SEVEN_PLAYERS,
+          roleCounts: { werewolf: 2, seer: 1, doctor: 1, bodyguard: 1, hunter: 1, villager: 1 },
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'seer', p4: 'doctor',
+            p5: 'bodyguard', p6: 'hunter', p7: 'villager'
+          }
+        });
+
+        // Elect p7 as captain
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p7']);
+        endRegistration(game);
+
+        advanceDiscussionToVote(game);
+        playVoteRound(game, {}); // all abstain
+
+        // Night: wolves target p7, bodyguard protects p7
+        while (game.getState().phase === PHASES.NIGHT) {
+          const s = game.getState();
+          const pending = [...s.pendingNightRoles];
+          if (pending.length === 0) break;
+          for (const pid of pending) {
+            const role = s.playerMap[pid].roleId;
+            if (role === 'werewolf') {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p7' });
+            } else if (role === 'bodyguard') {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p7' });
+            } else {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_SKIP, {});
+            }
+          }
+        }
+
+        // Captain survives → no transfer, still captain
+        const s = game.getState();
+        expect(s.playerMap.p7.alive).toBe(true);
+        expect(s.captainPlayerId).toBe('p7');
+        expect(s.phase).not.toBe(PHASES.CAPTAIN_TRANSFER);
+      });
+    });
+
+    // ── 12.5 Edge Cases Tests ──────────────────────────────────────
+
+    describe('Edge Cases', () => {
+      it('T-CAP-29: chain death - hunter shoot + lover cascade, transfer last', () => {
+        // Manual setup - need to control night 1 for cupid link
+        const result = setupGame({
+          players: EIGHT_PLAYERS,
+          roleCounts: {
+            werewolf: 2, seer: 1, doctor: 1,
+            hunter: 1, cupid: 1, villager: 2
+          },
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'seer', p4: 'doctor',
+            p5: 'hunter', p6: 'cupid',
+            p7: 'villager', p8: 'villager'
+          },
+          options: { captainEnabled: true, cupidCanSelfLove: true }
+        });
+        const game = result.game;
+
+        // Night 1: cupid links p7 and p8 as lovers, others skip
+        while (game.getState().phase === PHASES.NIGHT) {
+          const s = game.getState();
+          const pending = [...s.pendingNightRoles];
+          if (pending.length === 0) break;
+          for (const pid of pending) {
+            if (s.playerMap[pid].roleId === 'cupid') {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p7', 'p8'] });
+            } else {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_SKIP, {});
+            }
+          }
+        }
+
+        // Elect p5 (hunter) as captain
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p5']);
+        endRegistration(game);
+
+        advanceDiscussionToVote(game);
+        playVoteRound(game, {}); // all abstain → night
+
+        // Night 2: wolves kill p5 (hunter captain)
+        while (game.getState().phase === PHASES.NIGHT) {
+          const s = game.getState();
+          const pending = [...s.pendingNightRoles];
+          if (pending.length === 0) break;
+          for (const pid of pending) {
+            if (s.playerMap[pid].roleId === 'werewolf') {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+            } else {
+              submitNight(game, pid, ACTION_TYPES.NIGHT_SKIP, {});
+            }
+          }
+        }
+
+        // Hunter shoots p7 (a lover)
+        expect(game.getState().hunterPendingShoot).toBe('p5');
+        game.executeMove({
+          playerId: 'p5',
+          actionType: ACTION_TYPES.HUNTER_SHOOT,
+          actionData: { targetId: 'p7' }
+        });
+
+        // p7 dies → p8 (lover) martyrdom
+        expect(game.getState().playerMap.p7.alive).toBe(false);
+        expect(game.getState().playerMap.p8.alive).toBe(false);
+
+        // Now captain transfer (after all chain deaths)
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_TRANSFER);
+
+        // Can only transfer to living players (not p5, p7, p8)
+        game.executeMove({
+          playerId: 'p5',
+          actionType: ACTION_TYPES.CAPTAIN_TRANSFER,
+          actionData: { targetId: 'p3' }
+        });
+
+        expect(game.getState().captainPlayerId).toBe('p3');
+      });
+
+      it('T-CAP-33: captainEnabled=false → no election phase', () => {
+        const result = setupGame({
+          roleMap: {
+            p1: 'werewolf', p2: 'werewolf',
+            p3: 'seer', p4: 'doctor',
+            p5: 'hunter', p6: 'villager'
+          },
+          options: { captainEnabled: false }
+        });
+        const game = result.game;
+
+        skipAllNightActions(game);
+        advanceToDiscussion(game);
+
+        // Should go directly to discussion, no captain_register
+        expect(game.getState().phase).toBe(PHASES.DAY_DISCUSSION);
+      });
+
+      it('T-CAP-34: no election on day 2+', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+
+        // Skip election (no candidates)
+        endRegistration(game);
+
+        // Advance through day → night → day 2
+        advanceDiscussionToVote(game);
+        playVoteRound(game, {}); // all abstain → night
+        skipAllNightActions(game);
+
+        // Day 2: should go to discussion, not captain_register
+        while (game.getState().phase === PHASES.DAY_ANNOUNCE) {
+          const s = game.getState();
+          const actorId = s.lastWordsPlayerId || s.firstSpeakerId ||
+            Object.values(s.playerMap).find(p => p.alive)?.id;
+          if (!actorId) break;
+          game.executeMove({
+            playerId: actorId,
+            actionType: ACTION_TYPES.PHASE_ADVANCE,
+            actionData: {}
+          });
+        }
+
+        expect(game.getState().phase).toBe(PHASES.DAY_DISCUSSION);
+      });
+
+      it('T-CAP-35: peaceful first night → announce then election', () => {
+        const { game } = setupCaptainGame();
+
+        // After first night with no kills → DAY_ANNOUNCE
+        expect(game.getState().phase).toBe(PHASES.DAY_ANNOUNCE);
+
+        advanceToCaptainRegister(game);
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_REGISTER);
+      });
+
+      it('T-CAP-31: withdraw during speech → removed from speaker queue', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+
+        registerCandidates(game, ['p3', 'p5', 'p6']);
+        endRegistration(game);
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_SPEECH);
+
+        const queue = game.getState().captainSpeakerQueue;
+        expect(queue).toContain('p3');
+        expect(queue).toContain('p5');
+        expect(queue).toContain('p6');
+
+        // p3 speaks first, then withdraw p5 before their turn
+        game.executeMove({
+          playerId: game.getState().captainCurrentSpeaker,
+          actionType: ACTION_TYPES.PHASE_ADVANCE,
+          actionData: {}
+        });
+
+        game.executeMove({
+          playerId: 'p5',
+          actionType: ACTION_TYPES.CAPTAIN_WITHDRAW,
+          actionData: {}
+        });
+
+        expect(game.getState().captainCandidates).not.toContain('p5');
+      });
+
+      it('T-CAP-32: all voters abstain in election → captain vacant', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+
+        registerCandidates(game, ['p3', 'p5']);
+        endRegistration(game);
+        skipCaptainSpeeches(game);
+
+        // All skip vote
+        playCaptainVoteRound(game, {});
+
+        expect(game.getState().captainPlayerId).toBeNull();
+        expect(game.getState().phase).toBe(PHASES.DAY_DISCUSSION);
+      });
+    });
+
+    // ── 12.6 Validation Error Tests ────────────────────────────────
+
+    describe('Validation Errors', () => {
+      it('T-CAP-36: register outside registration phase → rejected', () => {
+        const { game } = setupCaptainGame();
+        // In DAY_ANNOUNCE, not CAPTAIN_REGISTER
+        const result = game.executeMove({
+          playerId: 'p3',
+          actionType: ACTION_TYPES.CAPTAIN_REGISTER,
+          actionData: {}
+        });
+
+        expect(result.success).toBe(false);
+      });
+
+      it('T-CAP-37: non-candidate withdraw → rejected', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+
+        registerCandidates(game, ['p3']);
+
+        // p5 is not a candidate
+        const result = game.executeMove({
+          playerId: 'p5',
+          actionType: ACTION_TYPES.CAPTAIN_WITHDRAW,
+          actionData: {}
+        });
+
+        expect(result.success).toBe(false);
+      });
+
+      it('T-CAP-38: non-current voter sends captain vote → rejected', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p3', 'p5']);
+        endRegistration(game);
+        skipCaptainSpeeches(game);
+
+        // p2 is not the current voter (p1 should be first)
+        const currentVoter = game.getState().captainCurrentVoter;
+        const wrongVoter = currentVoter === 'p2' ? 'p3' : 'p2';
+
+        const result = game.executeMove({
+          playerId: wrongVoter,
+          actionType: ACTION_TYPES.CAPTAIN_VOTE,
+          actionData: { targetId: 'p3' }
+        });
+
+        expect(result.success).toBe(false);
+      });
+
+      it('T-CAP-39: vote for non-candidate → rejected', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p3', 'p5']);
+        endRegistration(game);
+        skipCaptainSpeeches(game);
+
+        const currentVoter = game.getState().captainCurrentVoter;
+
+        // Vote for p4 who is not a candidate
+        const result = game.executeMove({
+          playerId: currentVoter,
+          actionType: ACTION_TYPES.CAPTAIN_VOTE,
+          actionData: { targetId: 'p4' }
+        });
+
+        expect(result.success).toBe(false);
+      });
+
+      it('T-CAP-40: non-captain sends transfer → rejected', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p6']);
+        endRegistration(game);
+
+        advanceDiscussionToVote(game);
+        playVoteRound(game, {
+          p1: 'p6', p2: 'p6', p3: 'p6', p4: 'p6', p5: 'p6'
+        });
+
+        expect(game.getState().phase).toBe(PHASES.CAPTAIN_TRANSFER);
+
+        // p3 is not the captain
+        const result = game.executeMove({
+          playerId: 'p3',
+          actionType: ACTION_TYPES.CAPTAIN_TRANSFER,
+          actionData: { targetId: 'p4' }
+        });
+
+        expect(result.success).toBe(false);
+      });
+
+      it('T-CAP-41: transfer outside transfer phase → rejected', () => {
+        const { game } = setupCaptainGame();
+        advanceToCaptainRegister(game);
+        registerCandidates(game, ['p6']);
+        endRegistration(game);
+
+        // In DAY_DISCUSSION, not CAPTAIN_TRANSFER
+        const result = game.executeMove({
+          playerId: 'p6',
+          actionType: ACTION_TYPES.CAPTAIN_TRANSFER,
+          actionData: { targetId: 'p3' }
+        });
+
+        expect(result.success).toBe(false);
       });
     });
   });
