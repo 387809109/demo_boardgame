@@ -5391,3 +5391,677 @@ describe('Cupid Role', () => {
       });
     });
   });
+
+// ═══════════════════════════════════════════════════════════════
+// P0 Role Tests — Villager, Werewolf, Seer, Doctor, Hunter, Witch
+// ═══════════════════════════════════════════════════════════════
+
+describe('Villager (P0)', () => {
+  it('T-VIL-001: villager role correctly assigned with team village', () => {
+    const { state } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    const villager = state.playerMap['p6'];
+    expect(villager.roleId).toBe('villager');
+    expect(villager.team).toBe('village');
+  });
+
+  it('T-VIL-002: villager has no night action (not in pendingNightRoles)', () => {
+    const { state } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    expect(state.pendingNightRoles).not.toContain('p6');
+  });
+
+  it('T-VIL-007: villager cannot submit night action', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    const result = submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    expect(result.success).toBe(false);
+  });
+
+  it('T-VIL-022: seer checks villager → result is village', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p6' });
+    expect(game.getState().seerChecks['p6']).toBe('village');
+  });
+
+  it('T-VIL-025: all wolves dead → village wins', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    const state = game.getState();
+    state.playerMap['p1'].alive = false;
+    state.playerMap['p2'].alive = false;
+    const result = game.checkGameEnd(state);
+    expect(result.ended).toBe(true);
+    expect(result.winner).toBe(TEAMS.VILLAGE);
+  });
+
+  it('T-VIL-028: 1 villager + 1 wolf → werewolf wins', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    const state = game.getState();
+    // Kill all except p1 (wolf) and p6 (villager)
+    state.playerMap['p2'].alive = false;
+    state.playerMap['p3'].alive = false;
+    state.playerMap['p4'].alive = false;
+    state.playerMap['p5'].alive = false;
+    const result = game.checkGameEnd(state);
+    expect(result.ended).toBe(true);
+    expect(result.winner).toBe(TEAMS.WEREWOLF);
+  });
+
+  it('T-VIL-029: 2 villagers + 1 wolf → game continues', () => {
+    const roleMap = { p1: 'werewolf', p2: 'werewolf', p3: 'villager', p4: 'villager', p5: 'villager', p6: 'villager' };
+    const { game } = setupGame({
+      roleCounts: { werewolf: 2, villager: 4 },
+      roleMap
+    });
+    const state = game.getState();
+    // Kill 1 wolf and 2 villagers → 1 wolf, 2 villagers remaining
+    state.playerMap['p2'].alive = false;
+    state.playerMap['p5'].alive = false;
+    state.playerMap['p6'].alive = false;
+    const result = game.checkGameEnd(state);
+    expect(result.ended).toBe(false);
+  });
+
+  it('T-VIL-027: all villagers dead but other village roles alive → game continues', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    const state = game.getState();
+    state.playerMap['p6'].alive = false; // Only villager dead
+    const result = game.checkGameEnd(state);
+    expect(result.ended).toBe(false);
+  });
+});
+
+describe('Werewolf (P0) — Additional', () => {
+  it('T-WW-008: 2 wolves vote for different targets → no kill (tie)', () => {
+    const { game, state } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p6' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p4' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    // Tie → no one dies from wolf
+    const afterState = game.getState();
+    expect(afterState.playerMap['p3'].alive).toBe(true);
+    expect(afterState.playerMap['p6'].alive).toBe(true);
+  });
+
+  it('T-WW-011: all wolves abstain → no kill', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p6' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p4' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    const afterState = game.getState();
+    const allAlive = Object.values(afterState.playerMap).every(p => p.alive);
+    expect(allAlive).toBe(true);
+  });
+
+  it('T-WW-014: wolf tentative vote can be modified multiple times', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    // Advance to wolf step: seer skip → doctor skip → now wolves pending
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_SKIP, {});
+    // First tentative
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_TENTATIVE, { targetId: 'p3' });
+    expect(game.getState().wolfTentativeVotes['p1']).toBe('p3');
+    // Modify
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_TENTATIVE, { targetId: 'p6' });
+    expect(game.getState().wolfTentativeVotes['p1']).toBe('p6');
+    // Modify again
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_TENTATIVE, { targetId: null });
+    expect(game.getState().wolfTentativeVotes['p1']).toBeNull();
+  });
+
+  it('T-WW-019: non-wolf player wolfTeamIds is null/undefined', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    const seerView = game.getVisibleState('p3');
+    expect(seerView.wolfTeamIds).toBeFalsy();
+  });
+
+  it('T-WW-022: non-wolf player sees empty wolfVotes and wolfTentativeVotes', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    const seerView = game.getVisibleState('p3');
+    expect(seerView.wolfVotes || {}).toEqual({});
+    expect(seerView.wolfTentativeVotes || {}).toEqual({});
+  });
+
+  it('T-WW-036: wolf selects invalid target (non-existent playerId) → rejected', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    const result = submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p99' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('Seer (P0) — Additional', () => {
+  it('T-SEE-002: seer checks village role → result is village', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p4' });
+    expect(game.getState().seerChecks['p4']).toBe('village');
+  });
+
+  it('T-SEE-009: seer checks non-existent playerId → validation fails', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    const result = submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p99' });
+    expect(result.success).toBe(false);
+  });
+
+  it('T-SEE-013: seerChecks accumulates records for multiple targets', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    // Round 1: check p1 (wolf), peaceful night
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p3' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    // Advance through day: announce → discussion → vote → night
+    advanceToDiscussion(game);
+    let s = game.getState();
+    while (s.phase === PHASES.DAY_DISCUSSION) {
+      const cur = s.currentSpeaker;
+      if (!cur) break;
+      game.executeMove({ playerId: cur, actionType: ACTION_TYPES.SPEECH_DONE, actionData: {} });
+      s = game.getState();
+    }
+    while (s.phase === PHASES.DAY_VOTE) {
+      const voterId = s.currentVoter;
+      if (!voterId) break;
+      game.executeMove({ playerId: voterId, actionType: ACTION_TYPES.DAY_SKIP_VOTE, actionData: {} });
+      s = game.getState();
+    }
+    // Round 2: check p4 (doctor)
+    s = game.getState();
+    expect(s.phase).toBe(PHASES.NIGHT);
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p4' });
+    s = game.getState();
+    expect(s.seerChecks['p1']).toBe('werewolf');
+    expect(s.seerChecks['p4']).toBe('village');
+    expect(Object.keys(s.seerChecks).length).toBe(2);
+  });
+
+  it('T-SEE-017: getVisibleState shows seerChecks only to seer', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    // After submission, seerChecks should be recorded
+    const seerView = game.getVisibleState('p3');
+    const otherView = game.getVisibleState('p4');
+    expect(seerView.seerChecks['p1']).toBe('werewolf');
+    expect(otherView.seerChecks).toEqual({});
+  });
+
+  it('T-SEE-018: seer killed same night → check result still generated', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    // Seer checks p1 (wolf), wolves kill seer
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p6' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    // Seer dies but check should still be recorded
+    const s = game.getState();
+    expect(s.playerMap['p3'].alive).toBe(false);
+    expect(s.seerChecks['p1']).toBe('werewolf');
+  });
+
+  it('T-SEE-020: dead seer has no night step in next round', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    // Kill seer in round 1
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p6' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    // DAY_ANNOUNCE — handle last words and advance
+    advanceToDiscussion(game);
+    // Advance through discussion
+    let s = game.getState();
+    while (s.phase === PHASES.DAY_DISCUSSION) {
+      const cur = s.currentSpeaker;
+      if (!cur) break;
+      game.executeMove({ playerId: cur, actionType: ACTION_TYPES.SPEECH_DONE, actionData: {} });
+      s = game.getState();
+    }
+    // All skip vote → go to night
+    while (s.phase === PHASES.DAY_VOTE) {
+      const voterId = s.currentVoter;
+      if (!voterId) break;
+      game.executeMove({ playerId: voterId, actionType: ACTION_TYPES.DAY_SKIP_VOTE, actionData: {} });
+      s = game.getState();
+    }
+    // Seer should not be in night steps
+    s = game.getState();
+    expect(s.phase).toBe(PHASES.NIGHT);
+    expect(s.pendingNightRoles).not.toContain('p3');
+  });
+
+  it('T-SEE-026: seer checks wolf-lover → result reflects current team (lovers)', () => {
+    const EIGHT = [
+      ...TEST_PLAYERS,
+      { id: 'p7', nickname: 'Player7' },
+      { id: 'p8', nickname: 'Player8' }
+    ];
+    const { game } = setupGame({
+      players: EIGHT,
+      roleCounts: { werewolf: 2, seer: 1, doctor: 1, hunter: 1, villager: 2, cupid: 1 },
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor',
+        p5: 'hunter', p6: 'villager', p7: 'villager', p8: 'cupid'
+      }
+    });
+    // Cupid links wolf p1 and villager p6 (cross-faction → runtime team becomes 'lovers')
+    submitNight(game, 'p8', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p1', 'p6'] });
+    // Seer checks the wolf-lover — should use original role team, not runtime team
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    expect(game.getState().seerChecks['p1']).toBe('werewolf');
+  });
+});
+
+describe('Doctor (P0) — Additional', () => {
+  it('T-DOC-002: doctor protects wrong target → wolf kill target dies', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p6' }); // Protect p6
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' }); // Kill p3
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    const afterState = game.getState();
+    expect(afterState.playerMap['p3'].alive).toBe(false); // Unprotected target dies
+    expect(afterState.playerMap['p6'].alive).toBe(true);  // Protected but not attacked
+  });
+
+  it('T-DOC-003: doctor protection cannot block witch poison', () => {
+    const { game } = setupGame({
+      players: SEVEN_PLAYERS,
+      roleCounts: P0_ROLE_COUNTS_WITH_WITCH,
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor',
+        p5: 'witch', p6: 'hunter', p7: 'villager'
+      }
+    });
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p7' }); // Protect p7
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p3' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p7' }); // Poison p7
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    const afterState = game.getState();
+    expect(afterState.playerMap['p7'].alive).toBe(false); // Poison bypasses doctor
+  });
+
+  it('T-DOC-007: doctor can protect same target consecutive nights when allowRepeatedProtect=true', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' },
+      options: { allowRepeatedProtect: true }
+    });
+    // Set doctorLastProtect to simulate previous round
+    game.getState().roleStates.doctorLastProtect = 'p6';
+    // Advance past seer step to reach doctor step
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    // Doctor protect p6 again — should be allowed with allowRepeatedProtect=true
+    const result = submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p6' });
+    expect(result.success).toBe(true);
+  });
+
+  it('T-DOC-009: doctor A→B→A allowed when allowRepeatedProtect=false', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' },
+      options: { allowRepeatedProtect: false }
+    });
+    // Set doctorLastProtect to p3 (B) to simulate previous round
+    game.getState().roleStates.doctorLastProtect = 'p3';
+    // Advance past seer step to reach doctor step
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SKIP, {});
+    // Protect p6 (A) — allowed since last was p3 (B)
+    const result = submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p6' });
+    expect(result.success).toBe(true);
+  });
+
+  it('T-DOC-014: doctor killed same night → protection still applies', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    // Doctor protects p6, wolves kill doctor
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p6' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p4' });
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    const afterState = game.getState();
+    expect(afterState.playerMap['p4'].alive).toBe(false); // Doctor dies
+    expect(afterState.playerMap['p6'].alive).toBe(true);  // Protection applied before death
+  });
+
+  it('T-DOC-031: doctor targets dead player → validation fails', () => {
+    const { game, state } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    state.playerMap['p6'].alive = false;
+    const result = submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p6' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('Hunter (P0) — Additional', () => {
+  it('T-HUN-010: hunter executed by day vote → triggers hunterPendingShoot', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    // Skip night (peaceful)
+    skipAllNightActions(game);
+    // Advance through announce
+    advanceToDiscussion(game);
+    // Advance through discussion
+    let s = game.getState();
+    while (s.phase === PHASES.DAY_DISCUSSION) {
+      const cur = s.currentSpeaker;
+      if (!cur) break;
+      game.executeMove({ playerId: cur, actionType: ACTION_TYPES.SPEECH_DONE, actionData: {} });
+      s = game.getState();
+    }
+    // Vote to execute hunter (p5): all vote for p5
+    s = game.getState();
+    expect(s.phase).toBe(PHASES.DAY_VOTE);
+    while (s.phase === PHASES.DAY_VOTE) {
+      const voterId = s.currentVoter;
+      if (!voterId) break;
+      game.executeMove({
+        playerId: voterId,
+        actionType: ACTION_TYPES.DAY_VOTE,
+        actionData: { targetId: 'p5' }
+      });
+      s = game.getState();
+    }
+    s = game.getState();
+    expect(s.playerMap['p5'].alive).toBe(false);
+    expect(s.hunterPendingShoot).toBe('p5');
+  });
+
+  it('T-HUN-014: hunter dies from lover martyrdom → does NOT trigger shoot', () => {
+    const { game, state } = setupGame({
+      players: EIGHT_PLAYERS,
+      roleCounts: { werewolf: 2, seer: 1, doctor: 1, hunter: 1, villager: 2, cupid: 1 },
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor',
+        p5: 'hunter', p6: 'villager', p7: 'villager', p8: 'cupid'
+      }
+    });
+    // Cupid links hunter(p5) and villager(p6)
+    submitNight(game, 'p8', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p5', 'p6'] });
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p3' });
+    // Wolves kill p6 (lover) → p5 (hunter) dies from martyrdom
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+    skipAllNightActions(game);
+    const afterState = game.getState();
+    expect(afterState.playerMap['p5'].alive).toBe(false);
+    expect(afterState.playerMap['p6'].alive).toBe(false);
+    // Hunter died from martyrdom — should NOT trigger shoot
+    expect(afterState.hunterPendingShoot).toBeNull();
+  });
+
+  it('T-HUN-031: hunter A shoots hunter B → chain shoot triggers', () => {
+    const { game, state } = setupGame({
+      players: SEVEN_PLAYERS,
+      roleCounts: { werewolf: 2, seer: 1, doctor: 1, hunter: 2, villager: 1 },
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor',
+        p5: 'hunter', p6: 'hunter', p7: 'villager'
+      }
+    });
+    // Wolves kill hunter p5
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p3' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+    skipAllNightActions(game);
+    // Hunter p5 pending shoot
+    let s = game.getState();
+    expect(s.hunterPendingShoot).toBe('p5');
+    // Hunter p5 shoots hunter p6
+    game.executeMove({
+      playerId: 'p5',
+      actionType: ACTION_TYPES.HUNTER_SHOOT,
+      actionData: { targetId: 'p6' }
+    });
+    // Hunter p6 dies → chain: p6 should now have pending shoot
+    s = game.getState();
+    expect(s.playerMap['p6'].alive).toBe(false);
+    expect(s.hunterPendingShoot).toBe('p6');
+  });
+
+  it('T-HUN-015: hunter killed at night → forcedRevealRoleIds set', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p6' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p5' });
+    skipAllNightActions(game);
+    const s = game.getState();
+    expect(s.forcedRevealRoleIds?.['p5']).toBe(true);
+  });
+
+  it('T-HUN-043: invalid target → validation error', () => {
+    const { game, state } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    // Kill hunter to trigger pending shoot
+    state.playerMap['p5'].alive = false;
+    state.hunterPendingShoot = 'p5';
+    const result = game.executeMove({
+      playerId: 'p5',
+      actionType: ACTION_TYPES.HUNTER_SHOOT,
+      actionData: { targetId: 'p99' }
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('T-HUN-044: non-hunter submitting HUNTER_SHOOT → rejected', () => {
+    const { game } = setupGame({
+      roleMap: { p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor', p5: 'hunter', p6: 'villager' }
+    });
+    const result = game.executeMove({
+      playerId: 'p6',
+      actionType: ACTION_TYPES.HUNTER_SHOOT,
+      actionData: { targetId: 'p1' }
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('Witch (P0) — Additional', () => {
+  /** Setup helper for witch games (7 players) */
+  function setupWitchGame(extraOpts = {}) {
+    return setupGame({
+      players: SEVEN_PLAYERS,
+      roleCounts: P0_ROLE_COUNTS_WITH_WITCH,
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor',
+        p5: 'witch', p6: 'hunter', p7: 'villager'
+      },
+      options: extraOpts
+    });
+  }
+
+  /** Run night until witch step: seer checks, doctor protects, wolves kill target */
+  function runToWitchStep(game, wolfTarget = 'p7') {
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p3' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: wolfTarget });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: wolfTarget });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {}); // hunter skips
+  }
+
+  it('T-WIT-016: witchCanSaveSelf=true → witch self-save succeeds', () => {
+    const { game } = setupWitchGame({ witchCanSaveSelf: true });
+    // Wolves target witch
+    runToWitchStep(game, 'p5');
+    const result = submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
+    expect(result.success).toBe(true);
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    const afterState = game.getState();
+    expect(afterState.playerMap['p5'].alive).toBe(true);
+  });
+
+  it('T-WIT-017: witchCanSaveSelf=false → witch self-save rejected', () => {
+    const { game } = setupWitchGame({ witchCanSaveSelf: false });
+    runToWitchStep(game, 'p5');
+    const result = submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
+    expect(result.success).toBe(false);
+  });
+
+  it('T-WIT-022: witchSaveFirstNightOnly=true, round 1 → save succeeds', () => {
+    const { game } = setupWitchGame({ witchSaveFirstNightOnly: true });
+    runToWitchStep(game, 'p7');
+    const result = submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
+    expect(result.success).toBe(true);
+  });
+
+  it('T-WIT-027: witch poison bypasses bodyguard protection', () => {
+    const { game } = setupGame({
+      players: EIGHT_PLAYERS,
+      roleCounts: { werewolf: 2, seer: 1, bodyguard: 1, witch: 1, hunter: 1, villager: 2 },
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'bodyguard',
+        p5: 'witch', p6: 'hunter', p7: 'villager', p8: 'villager'
+      }
+    });
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_BODYGUARD_PROTECT, { targetId: 'p7' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p8' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    // Witch poisons bodyguard-protected target
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p7' });
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    const afterState = game.getState();
+    expect(afterState.playerMap['p7'].alive).toBe(false);
+  });
+
+  it('T-WIT-039: wolves abstain → witch cannot save but can poison', () => {
+    const { game } = setupWitchGame();
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p3' });
+    // Both wolves skip
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_SKIP, {});
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    // Witch tries to save → should fail (no wolf target)
+    const saveResult = submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
+    expect(saveResult.success).toBe(false);
+    // Witch can still poison
+    const poisonResult = submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p7' });
+    expect(poisonResult.success).toBe(true);
+  });
+
+  it('T-WIT-040: dead witch cannot act', () => {
+    const { game, state } = setupWitchGame();
+    state.playerMap['p5'].alive = false;
+    // Rebuild night steps (witch should be excluded)
+    rebuildPendingNightRoles(state);
+    const witchStep = state.nightSteps?.find(s => s.playerIds.includes('p5'));
+    expect(witchStep).toBeUndefined();
+  });
+
+  it('T-WIT-041: both potions used → witch can only NIGHT_SKIP', () => {
+    const { game, state } = setupWitchGame();
+    state.roleStates.witchSaveUsed = true;
+    state.roleStates.witchPoisonUsed = true;
+    // Run to witch step
+    runToWitchStep(game, 'p7');
+    // Save rejected
+    const saveResult = submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
+    expect(saveResult.success).toBe(false);
+    // Poison rejected
+    const poisonResult = submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p6' });
+    expect(poisonResult.success).toBe(false);
+    // Skip accepted
+    const skipResult = submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    expect(skipResult.success).toBe(true);
+  });
+
+  it('T-WIT-038: non-witch player submitting NIGHT_WITCH_SAVE → rejected', () => {
+    const { game } = setupWitchGame();
+    const result = submitNight(game, 'p7', ACTION_TYPES.NIGHT_WITCH_SAVE, {});
+    expect(result.success).toBe(false);
+  });
+
+  it('T-WIT-034: witch poisons lover → partner dies from martyrdom', () => {
+    const NINE_PLAYERS = [
+      ...EIGHT_PLAYERS,
+      { id: 'p9', nickname: 'Player9' }
+    ];
+    const { game } = setupGame({
+      players: NINE_PLAYERS,
+      roleCounts: { werewolf: 2, seer: 1, doctor: 1, witch: 1, hunter: 1, villager: 1, cupid: 1, villager: 1 },
+      roleMap: {
+        p1: 'werewolf', p2: 'werewolf', p3: 'seer', p4: 'doctor',
+        p5: 'witch', p6: 'hunter', p7: 'villager', p8: 'cupid', p9: 'villager'
+      }
+    });
+    // Cupid links p7 and p9
+    submitNight(game, 'p8', ACTION_TYPES.NIGHT_CUPID_LINK, { lovers: ['p7', 'p9'] });
+    submitNight(game, 'p3', ACTION_TYPES.NIGHT_SEER_CHECK, { targetId: 'p1' });
+    submitNight(game, 'p4', ACTION_TYPES.NIGHT_DOCTOR_PROTECT, { targetId: 'p3' });
+    submitNight(game, 'p1', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+    submitNight(game, 'p2', ACTION_TYPES.NIGHT_WOLF_KILL, { targetId: 'p6' });
+    submitNight(game, 'p6', ACTION_TYPES.NIGHT_SKIP, {});
+    // Witch poisons p7 (a lover)
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_WITCH_POISON, { targetId: 'p7' });
+    submitNight(game, 'p5', ACTION_TYPES.NIGHT_SKIP, {});
+    const afterState = game.getState();
+    expect(afterState.playerMap['p7'].alive).toBe(false); // Poisoned
+    expect(afterState.playerMap['p9'].alive).toBe(false); // Martyrdom
+  });
+
+  it('T-WIT-042: night step order with witch is wolf(8) → hunter(skip) → witch(10)', () => {
+    const { game } = setupWitchGame();
+    const state = game.getState();
+    const priorities = state.nightSteps.map(s => s.priority);
+    const wolfIdx = priorities.indexOf(8);
+    const witchIdx = priorities.indexOf(10);
+    expect(wolfIdx).toBeGreaterThanOrEqual(0);
+    expect(witchIdx).toBeGreaterThanOrEqual(0);
+    expect(witchIdx).toBeGreaterThan(wolfIdx);
+  });
+});

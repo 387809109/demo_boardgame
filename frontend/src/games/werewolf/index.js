@@ -838,17 +838,18 @@ export class WerewolfGame extends GameEngine {
       delete state.wolfTentativeVotes[playerId];
     }
 
-    // Seer check: immediately reveal
+    // Seer check: immediately reveal (use original role team, not runtime team)
     if (actionType === ACTION_TYPES.NIGHT_SEER_CHECK && actionData?.targetId) {
       const target = state.playerMap[actionData.targetId];
       if (target) {
+        const originalTeam = this._getOriginalTeam(target.roleId, state) || target.team;
         state.dayAnnouncements.push({
           type: 'seer_result',
           playerId,
           targetId: actionData.targetId,
-          result: target.team
+          result: originalTeam
         });
-        state.seerChecks[actionData.targetId] = target.team;
+        state.seerChecks[actionData.targetId] = originalTeam;
       }
     }
 
@@ -968,6 +969,19 @@ export class WerewolfGame extends GameEngine {
     player.deathRound = state.round;
 
     this._logEvent(state, 'death', { playerId, cause, round: state.round });
+  }
+
+  /**
+   * Get the original team from roleDefinitions (unaffected by cupid linking)
+   * @private
+   */
+  _getOriginalTeam(roleId, state) {
+    const defs = state.roleDefinitions;
+    if (!defs) return null;
+    for (const tier of ['p0', 'p1', 'p2', 'p3']) {
+      if (defs[tier]?.[roleId]?.team) return defs[tier][roleId].team;
+    }
+    return null;
   }
 
   /**
