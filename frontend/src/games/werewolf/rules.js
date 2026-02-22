@@ -362,9 +362,6 @@ export function validateDayVote(move, state) {
   if (!target || !target.alive) {
     return { valid: false, error: '目标无效或已死亡' };
   }
-  if (targetId === playerId) {
-    return { valid: false, error: '不能投票给自己' };
-  }
 
   return { valid: true };
 }

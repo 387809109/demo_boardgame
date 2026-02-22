@@ -292,6 +292,13 @@ export class GameBoard {
       });
     }
 
+    // Captain badge (visible to all)
+    if (state.captainPlayerId) {
+      const capId = state.captainPlayerId;
+      badges[capId] = badges[capId] || [];
+      badges[capId].push({ type: 'captain', text: '警长' });
+    }
+
     // Idiot revealed badge (visible to all)
     const idiotRevealedIds = state.roleStates?.idiotRevealedIds || [];
     idiotRevealedIds.forEach(idiotId => {

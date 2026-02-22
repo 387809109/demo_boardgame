@@ -256,6 +256,7 @@ export class RoleSetupPanel {
       ${tierGroupsHtml}
     `;
 
+    this._bindTierToggleEvents();
     if (this.editable) {
       this._bindEditableEvents();
       this._updateButtonStates();
@@ -420,11 +421,10 @@ export class RoleSetupPanel {
   }
 
   /**
-   * Bind events for editable mode
+   * Bind tier collapse/expand toggle events (works in both editable and read-only modes)
    * @private
    */
-  _bindEditableEvents() {
-    // Tier collapse/expand toggles
+  _bindTierToggleEvents() {
     this.element.querySelectorAll('[data-tier-toggle]').forEach(header => {
       header.addEventListener('click', () => {
         const tier = header.dataset.tierToggle;
@@ -445,7 +445,13 @@ export class RoleSetupPanel {
         }
       });
     });
+  }
 
+  /**
+   * Bind events for editable mode
+   * @private
+   */
+  _bindEditableEvents() {
     // Plus/minus buttons
     this.element.querySelectorAll('.role-minus-btn').forEach(btn => {
       btn.addEventListener('click', () => {

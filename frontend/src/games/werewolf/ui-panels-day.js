@@ -12,7 +12,6 @@ import {
   escapeHtml,
   createInfoBox,
   createButton,
-  getDeathCauseText,
   findPlayer,
   getDisplayName
 } from './ui-helpers.js';
@@ -56,7 +55,6 @@ export function renderAnnouncePanel(ctx) {
 
     for (const death of deaths) {
       const player = findPlayer(state.players, death.playerId);
-      const causeText = getDeathCauseText(death.cause);
       const row = document.createElement('div');
       row.style.cssText = `
         padding: var(--spacing-1) 0;
@@ -69,9 +67,6 @@ export function renderAnnouncePanel(ctx) {
         <span style="color: var(--error-500);">✕</span>
         <span style="font-weight: var(--font-medium);">
           ${getDisplayName(player, playerId, state.seerChecks, death.playerId)}
-        </span>
-        <span style="color: var(--text-tertiary); font-size: var(--text-sm);">
-          (${causeText})
         </span>
       `;
       deathBox.appendChild(row);

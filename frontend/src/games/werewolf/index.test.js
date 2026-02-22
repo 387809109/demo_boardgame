@@ -619,12 +619,12 @@ describe('WerewolfGame', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('should reject voting for self', () => {
+    it('should allow voting for self', () => {
       const result = game.validateMove(
         { playerId: 'p3', actionType: ACTION_TYPES.DAY_VOTE, actionData: { targetId: 'p3' } },
         state
       );
-      expect(result.valid).toBe(false);
+      expect(result.valid).toBe(true);
     });
 
     it('should reject duplicate vote', () => {
