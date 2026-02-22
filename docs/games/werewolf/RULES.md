@@ -529,28 +529,60 @@ const ACTION_TYPES = {
 
 ## 9. 游戏结束条件
 
-```javascript
-function checkGameEnd(state) {
-  const alive = Object.values(state.players).filter(p => p.alive);
-  const wolves = alive.filter(p => p.team === 'werewolf').length;
-  const villagers = alive.filter(p => p.team === 'village').length;
+### 9.1 胜利条件优先级
 
-  // 狼人全部死亡 -> 好人胜利
+胜利条件按以下**固定优先级**从高到低依次检查，**首个满足的条件立即生效**，后续条件不再检查：
+
+| 优先级 | 胜利方 | `winner` 值 | 触发条件 | `reason` |
+| -------- | -------- | ------------- | ---------- | ---------- |
+| 1 (最高) | 小丑 | `'jester'` | 小丑被白天投票处决 | `jester_executed` |
+| 2 | 魔笛手 | `'piper'` | 所有存活非笛手玩家均被魅惑 | `all_alive_charmed` |
+| 3 | 恋人 | `'lovers'` | 恋人是仅存的 2 名存活玩家（需跨阵营） | `only_lovers_remain` |
+| 4 | 好人阵营 | `'village'` | 所有狼人被消灭 | `all_wolves_eliminated` |
+| 5 (最低) | 狼人阵营 | `'werewolf'` | 狼人数量 ≥ 好人数量 | `parity_or_majority` |
+
+**设计要点**：
+
+- **即时终结型**（小丑）：触发即结束，优先级最高
+- **第三方阵营**（魔笛手、恋人）：优先于阵营胜利检查
+- **阵营计数**：使用角色配置的**原始阵营**（`roleConfig.team`），不受丘比特改变 `player.team` 的影响
+- **新增第三方角色**：必须在此表中明确插入优先级位置
+
+### 9.2 实现伪代码
+
+```javascript
+function checkWinConditions(state) {
+  // 优先级 1: 小丑 — 被处决即胜
+  if (state.jesterWinnerId) {
+    return { ended: true, winner: 'jester', reason: 'jester_executed',
+             winnerPlayerIds: [state.jesterWinnerId] };
+  }
+
+  // 优先级 2: 魔笛手 — 全体存活玩家被魅惑
+  const alivePipers = alive.filter(p => p.roleId === 'piper');
+  if (alivePipers.length > 0) {
+    const uncharmed = alive.filter(p => !isPiper(p) && !isCharmed(p));
+    if (uncharmed.length === 0) {
+      return { ended: true, winner: 'piper', reason: 'all_alive_charmed' };
+    }
+  }
+
+  // 优先级 3: 恋人 — 场上仅剩恋人双方
+  if (bothLoversAlive && loversAreIndependentTeam && alive.length === 2) {
+    return { ended: true, winner: 'lovers', reason: 'only_lovers_remain' };
+  }
+
+  // 优先级 4: 好人 — 狼人全灭（按原始阵营计数）
   if (wolves === 0) {
     return { ended: true, winner: 'village', reason: 'all_wolves_eliminated' };
   }
 
-  // 狼人数量 >= 好人数量 -> 狼人胜利
+  // 优先级 5: 狼人 — 数量 >= 好人（按原始阵营计数）
   if (wolves >= villagers) {
     return { ended: true, winner: 'werewolf', reason: 'parity_or_majority' };
   }
 
-  // 检查特殊胜利条件
-  // Piper: 所有存活玩家都被魅惑
-  // Lovers: 恋人是最后存活的玩家
-  // Serial Killer: 独自存活（或满足其单独胜利条件）
-
-  return { ended: false, winner: null, reason: '' };
+  return { ended: false };
 }
 ```
 

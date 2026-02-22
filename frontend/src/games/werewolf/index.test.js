@@ -3444,6 +3444,124 @@ describe('Piper (P1)', () => {
   });
 });
 
+// ─── Win Condition Priority Tests ───
+
+describe('Win Condition Priority', () => {
+  it('should prioritize jester win over village win (all wolves dead)', () => {
+    const { game, state } = setupGame({
+      players: [
+        { id: 'p1', nickname: 'Player1', isHost: true },
+        { id: 'p2', nickname: 'Player2' },
+        { id: 'p3', nickname: 'Player3' },
+        { id: 'p4', nickname: 'Player4' }
+      ],
+      roleCounts: { jester: 1, werewolf: 1, seer: 1, villager: 1 },
+      roleMap: { p1: 'jester', p2: 'werewolf', p3: 'seer', p4: 'villager' }
+    });
+
+    // Jester was executed and wolf is also dead → jester wins, not village
+    state.jesterWinnerId = 'p1';
+    state.playerMap.p1.alive = false;
+    state.playerMap.p2.alive = false;
+
+    const end = game.checkGameEnd(state);
+    expect(end.ended).toBe(true);
+    expect(end.winner).toBe('jester');
+  });
+
+  it('should prioritize piper win over village win (all wolves dead)', () => {
+    const { game, state } = setupGame({
+      players: [
+        { id: 'p1', nickname: 'Player1', isHost: true },
+        { id: 'p2', nickname: 'Player2' },
+        { id: 'p3', nickname: 'Player3' },
+        { id: 'p4', nickname: 'Player4' }
+      ],
+      roleCounts: { piper: 1, werewolf: 1, seer: 1, villager: 1 },
+      roleMap: { p1: 'piper', p2: 'werewolf', p3: 'seer', p4: 'villager' }
+    });
+
+    // Wolf is dead, but all alive non-piper players are charmed → piper wins
+    state.playerMap.p2.alive = false;
+    state.roleStates.piperCharmedIds = ['p3', 'p4'];
+
+    const end = game.checkGameEnd(state);
+    expect(end.ended).toBe(true);
+    expect(end.winner).toBe('piper');
+  });
+
+  it('should prioritize piper win over werewolf win (parity)', () => {
+    const { game, state } = setupGame({
+      players: [
+        { id: 'p1', nickname: 'Player1', isHost: true },
+        { id: 'p2', nickname: 'Player2' },
+        { id: 'p3', nickname: 'Player3' },
+        { id: 'p4', nickname: 'Player4' }
+      ],
+      roleCounts: { piper: 1, werewolf: 1, seer: 1, villager: 1 },
+      roleMap: { p1: 'piper', p2: 'werewolf', p3: 'seer', p4: 'villager' }
+    });
+
+    // Seer dead, wolf parity with villager, but all charmed → piper wins
+    state.playerMap.p3.alive = false;
+    state.roleStates.piperCharmedIds = ['p2', 'p4'];
+
+    const end = game.checkGameEnd(state);
+    expect(end.ended).toBe(true);
+    expect(end.winner).toBe('piper');
+  });
+
+  it('should prioritize piper win over lovers win', () => {
+    const { game, state } = setupGame({
+      players: [
+        { id: 'p1', nickname: 'Player1', isHost: true },
+        { id: 'p2', nickname: 'Player2' },
+        { id: 'p3', nickname: 'Player3' },
+        { id: 'p4', nickname: 'Player4' }
+      ],
+      roleCounts: { piper: 1, cupid: 1, werewolf: 1, villager: 1 },
+      roleMap: { p1: 'piper', p2: 'cupid', p3: 'werewolf', p4: 'villager' }
+    });
+
+    // p3 and p4 are cross-faction lovers, only they + piper alive
+    state.links.lovers = ['p3', 'p4'];
+    state.playerMap.p3.team = 'lovers';
+    state.playerMap.p4.team = 'lovers';
+    state.playerMap.p2.alive = false;
+    // All alive non-pipers charmed → piper wins before lovers check
+    state.roleStates.piperCharmedIds = ['p3', 'p4'];
+
+    const end = game.checkGameEnd(state);
+    expect(end.ended).toBe(true);
+    expect(end.winner).toBe('piper');
+  });
+
+  it('should prioritize lovers win over village win', () => {
+    const { game, state } = setupGame({
+      players: [
+        { id: 'p1', nickname: 'Player1', isHost: true },
+        { id: 'p2', nickname: 'Player2' },
+        { id: 'p3', nickname: 'Player3' },
+        { id: 'p4', nickname: 'Player4' }
+      ],
+      roleCounts: { werewolf: 1, cupid: 1, seer: 1, villager: 1 },
+      roleMap: { p1: 'werewolf', p2: 'cupid', p3: 'seer', p4: 'villager' }
+    });
+
+    // Cross-faction lovers: p1 (wolf) and p3 (seer)
+    state.links.lovers = ['p1', 'p3'];
+    state.playerMap.p1.team = 'lovers';
+    state.playerMap.p3.team = 'lovers';
+    // Kill everyone except the lovers
+    state.playerMap.p2.alive = false;
+    state.playerMap.p4.alive = false;
+
+    const end = game.checkGameEnd(state);
+    expect(end.ended).toBe(true);
+    expect(end.winner).toBe('lovers');
+  });
+});
+
 // ─── Cupid Role Tests ───
 
 describe('Cupid Role', () => {
