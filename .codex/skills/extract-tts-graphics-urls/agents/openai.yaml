@@ -1,0 +1,4 @@
+interface:
+  display_name: "Extract TTS Graphics URLs"
+  short_description: "Extract card/tile/model URLs from TTS JSON"
+  default_prompt: "Use $extract-tts-graphics-urls to extract graphics URLs from a Tabletop Simulator workshop/save JSON (cards by default, optional tiles/models/states), and optionally download the referenced images."
