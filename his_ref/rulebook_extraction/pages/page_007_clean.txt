@@ -1,0 +1,87 @@
+naval Leader
+battle
+rating:
+The top number on naval leaders is
+their battle rating. Higher battle ratings increase the chance of successfully intercepting or avoiding battle,
+and add extra dice during naval combat.
+iracy
+r
+ating:
+The Ottoman naval leaders Barbarossa and
+Dragut possess a second numeric value. This number (after the
+“P”) is their piracy rating, indicating the number of extra dice the
+leader provides when present in a sea zone where the Ottoman is
+initiating piracy.
+5.2 Land units
+There are three types of land units, all represented with circular
+pieces. Land unit pieces come in different “denominations” (1, 2,
+4, and 6) to facilitate stacking. Not all denominations are available
+for every power. Players may free up small denomination units
+at
+any time by replacing several pieces (all of the same type and all
+in the same space) with a stronger piece of equal total strength. If, after freeing up small denomination units wherever possible across the board, a power still has an insufficient number of small
+denomination units to properly “make change” to satisfy a Combat
+or Event card result, that power loses additional units from the
+space where the combat or event is occurring until a number is
+reached that can be represented with the available counters. The four denominations of Hapsburg regulars regulars: Regulars have a multi-colored unit symbol and a dark stripe across the bottom of the counter in their power’s color.
+The numeric value on the counter shows the number of regulars
+represented by this game piece. All powers, both major and minor,
+have regulars.Mercenaries: Mercenaries have a solid black unit symbol. The
+background is a pale version of their power’s color. The numeric value on the counter shows the number
+of mercenaries represented by this game piece. All
+major powers except the Ottoman receive mercenar
+ies. Mercenary units can be found on the reverse side
+of regulars for these powers. Mercenaries are cheaper to construct
+than regulars, but may desert a player at a key moment.Cavalry:
+Only the Ottoman player possesses cavalry units. The
+numeric value on the counter shows the number of cavalry units represented. Cavalry units can be found on the reverse side of Ottoman regulars. Cavalry aid in intercept and avoid battle attempts,
+but are ineffective during siege operations.
+5.3 naval units
+Rectangular pieces are used to represent naval units. Each naval
+unit always represents a single squadron or corsair. There are no
+denominations of naval units.
+s
+quadron:
+Naval squadron counters depict
+a vessel with white sails. The numeric value
+on the counter shows the number of dice
+it rolls in naval combat and the number of
+enemy hits required to eliminate it. The color around the number
+shows which power owns the squadron. All powers have naval
+squadrons, except the Protestants and Hungary/Bohemia.
+Corsair: Corsair counters depict a vessel
+with black sails. The numeric value on the
+counter shows the number of dice it rolls in
+naval combat and the number of enemy hits
+required to eliminate it. Corsairs can be found on the reverse side
+of Ottoman naval squadrons. Only the Ottoman power receives Corsairs.
+6. Cards
+The game play in
+Here I Stand is driven by a single deck of 110
+cards. This section explains each of the different types of cards, and how to manage adding and removing cards from the deck.
+6.1 Card Types
+There are five types of cards in the game, as described below.
+With the exception of Mandatory Event cards, every card may be
+played as either an event, or as command points (CPs). CPs may be
+used to take actions (Section 11), or to declare war (Section 9.6).
+(When playing a Mandatory Event, the event takes effect first, then
+the active power receives 2 CPs to spend on actions.) If a player uses a card as an event, he or she follows the instructions printed on the card. Some cards have two alternate sets of instructions
+separated by the word “OR” in capital letters. These cards give
+the player an option of playing them two different ways. When
+playing a card with two sets of instructions, only the conditions
+and effects in the portion of the card chosen by the player apply.
+Home Cards
+Each power has a specific Home card (the Papacy has two) which
+starts every turn in their hand. Once used, Home Cards are placed
+on the appropriate power card (not in the discard pile) to show
+that they are not available until cards are dealt at the start of the
+next turn. A player may not pass during his impulse in the Action
+Phase if a Home Card is still in his hand.
+Home Cards can never be
+drawn from a power’s hand when a random draw is required (either by Event card play, diplomatic agreement, or piracy),
+even if it is
+the last card in your hand.
+Mandatory event Cards
+Cards with the name of the card in red and the word “Mandatory” printed on them are Mandatory Event cards. Mandatory Event
+must be played during the Action Phase of the turn in which they
+are drawn. When played, the event is always resolved first, then

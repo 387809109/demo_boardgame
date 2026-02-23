@@ -1,0 +1,115 @@
+15. sIeGe
+Land units in a fortified space are placed under siege if they with-draw into fortifications during enemy movement (Section 13.4)
+or after a field battle (Section 14.1) and enemy land units in that
+space outnumber them. The land units under siege may not move,
+attack, intercept, or avoid battle until the siege is broken (Section
+15.3). (Naval units in a port under siege may move). Note that it
+is possible for a fortified space to be under siege by two powers
+at once if those powers are allies, both are at war with the power
+that controls this fortified space, and each power possesses more
+units in the space than the power inside the fortifications.
+15.1
+assault
+A besieging power may spend 1 CP on the Assault/Foreign War
+action in an attempt to gain control of the space, but not in the
+same impulse in which the space was first put under siege by that
+power. A space may only be subjected to one assault in a single
+impulse (though a power may initiate multiple assaults in different
+spaces in the same impulse). Assaults are conducted by a single formation of units and army leaders in the same space as the fortification. Requirements for an Assault action are as follows:
+requirements:
+The active power must have placed the space under siege dur
+ing a previous impulse. Fortified spaces that are empty also
+have to be put under siege in one impulse before they can be
+assaulted in a later impulse. (Exception: The card
+Roxelana
+allows the Ottoman player to assault a fortified space in the
+same impulse that the siege is initiated).
+The assaulting power has an LOC to the space.
+The power that controls the fortified space does not have a
+naval squadron in an adjacent sea zone.
+If the power that controls the fortified space has naval squadron(s) in that space, there is a greater number of squad-rons from the assaulting power in adjacent sea zone(s).
+Corsairs are ignored for the purpose of these last two requirements
+(naval blockade); only naval squadrons are considered.
+assault procedure
+declare
+formation: The active player declares which forma-
+tion of land units and army leaders will be making the assault. All
+requirements listed above must be met at this time.2.
+play
+response Cards: Other powers may play the Response
+cards
+Foul Weather and
+Gout to disrupt this Assault action. The
+active player has one final chance to play the Response cards Landsknechts
+or
+Swiss Mercenaries
+to change the number of
+units in the space.3.
+add
+up
+attacker’s
+dice: The active player is always consid-
+ered the attacker in an assault. The attacker adds up the number of dice he will roll as follows:If against a fortified space with no defending land units:
+1 die for each land unit in the assaulting formation (cavalry units are ignored)
+1 die for each Battle Rating point from the highest-rated leader
+in the assaulting force
+If against a fortified space with 1 or more defending
+land
+units
+(even if all units are cavalry):
+1 die for every 2 land units in the assaulting formation (cavalry
+units are ignored), round fractions up
+1 die for each Battle Rating point from the highest-rated leader
+in the assaulting force
+4.
+add
+up
+defender’s
+dice:
+The player controlling the space is
+always considered the defender in an assault. The defender adds
+up the number of dice he will roll as follows:
+1 die for each defending land unit in the space (cavalry units
+are ignored)
+1 die for each Battle Rating point from the highest-rated leader
+in the defending force
+1 die for being the defender
+5.
+attacker
+declares Combat Cards: The attacker declares any
+Combat cards he wants to play as events to affect the assault.6.
+efender
+eclares Combat Cards:
+The defender declares any
+Combat cards he wants to play as events to affect the assault. If more than one major power is controlling defending units in this
+space, each of these powers may play Combat cards.7.
+roll
+dice: Both players roll their dice and add up the number
+of hits they have scored. Each roll of a “5” or a “6” is considered to be a hit.8.
+lay
+r
+esponse Cards:
+Any power may play the Response
+card
+Siege Artillery to give the attacker an attempt to score ad-
+ditional hits.9. Take Casualties: Each side eliminates one land unit from their stack of units in the space for each hit scored by the opposing side. (Cavalry units may be taken as losses.)10.
+s
+uccessful
+ssault:
+If the attacker scored at least 1 hit, no
+defending land units remain in the space, and at least 1 attacking unit survived the battle, the assault is successful. The attacker gains
+political control of the space. All besieged army leaders are cap-tured. Place a captured leader on the power card of the adversary who defeated him. He may be regained in the Diplomacy Phase of
+an upcoming turn (see Section 9). If the defender has naval units
+or a naval leader in the space, place them on the next turn of the
+Turn Track. In a future turn, the leader will reenter play and the
+naval units may be rebuilt (8.2). 11.
+u
+nsuccessful
+ssault:
+If the attacker did not score at least one
+hit or any besieged land units remain, the assault is unsuccessful. If the number of besieging land units still exceeds the number of
+defending land units, the space remains under siege. If not, the
+attacking force must retreat as described in 15.3. If all attacking
+land units are eliminated, surviving attacking army leaders are placed in the nearest fortified space or their capital as described in Step 6 of the Peace Segment Procedure (Section 9.3).If, earlier in the impulse, units and leaders joined a stack of that power’s units already besieging a fortified space, those newly-
+arrived units and leaders may participate in the assault and can be included in the calculation in Step 3 (provided that the full comple
+ment of attacking forces used can fit within a single formation).

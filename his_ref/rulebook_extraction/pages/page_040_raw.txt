@@ -1,0 +1,137 @@
+Here I Stand, 2nd Printing
+40
+© 2010 GMT Games, LLC
+From this point forward, conversion of an electorate to Protestant religious influence only allows the Protestant player to immedi-
+ately place Protestant regulars from the Electorate display on to
+that space if that electorate is also under Protestant political control.
+If that electorate is not under Protestant political control, those
+regulars are withheld from the map until the instant that space is under both Protestant religious influence and political control. To gain political control, the Protestant player now has to besiege
+those electorates which were not automatically converted by the
+play of the Schmalkaldic League event.
+21.7 foreign
+w
+ar Cards
+The Event cards
+Revolt in Egypt, Revolt in Ireland
+and War in
+Persia force the Ottoman or English player to divert land units
+and/or army leaders off-map to resolve a foreign conflict. When
+these events are played, place the Event card on the map near the
+affected power’s home spaces. This power then selects the speci-
+fied number of land units from any location on the map (except a space under siege) and moves those units onto the card. Units may be chosen from multiple stacks in different spaces. One army
+leader may be selected from any location and also moved onto
+the card. The Event card also specifies the strength of the foreign
+army; use any available independent land units to represent these
+foreign units (adding available minor power units if there are not
+enough independent ones available). To resolve the conflict, the
+Ottoman or English player must spend 1 CP on the Fight Foreign
+War action for each resolution attempt. A field battle then ensues
+between the major power units and the independent units on the card. The battle is resolved just like a field battle on the map, except that there is no defender to receive one extra die and there is no
+retreat. If all independent units are eliminated, the foreign war is
+over. All remaining major power units on the card are placed back
+in their capital (or any other friendly home key if their capital is
+occupied by enemy units). If the independent units were not all
+eliminated, the major power will have to pay for another Fight
+Foreign War action in a future impulse. Note that foreign war
+cards ensure that the major power maintains the specified number
+of units on the card by requiring that all new land unit builds be placed on the foreign war card.  (The only exception is the 1 regular received during the Winter Phase; this regular is always placed in
+the capital even if a foreign war is in progress). The major power
+may never place extra units on a foreign war above the required
+number. Major power units on a foreign war card can not return
+home (even in the Winter Phase) until they have eliminated all of
+the independent units in the foreign war.
+22. MInor powers
+The four minor powers of Genoa, Hungary/Bohemia, Scotland
+and Venice can be important partners to many of the powers.
+Their role in the game is explained in this section. The section
+concludes with a brief description of the independent keys that
+are also present within the game.
+22.1 Inactive Minor powers
+All minor powers have two states: active and inactive. All minor
+powers start the game in the inactive state. As described in Section
+9.6, a major power may decide to declare war on a minor power.
+This declaration of war does not change the minor power from
+inactive to active
+unless another major power intervenes.  In the
+inactive state, minor power forces behave as follows:•
+They do not move from their current space.
+•
+They do not intercept or avoid battle.
+•
+If there are 4 or fewer land units in a space, they will always withdraw into the fortifications and try to withstand a siege if their space is entered.
+•
+If there are 5 or more land units, they will hold their ground and fight a field battle. If they lose that field battle, do not retreat
+their units from the space as usual. Instead, they retain up to 4
+units which withdraw into the fortifications; all other land units
+in excess of 4 are eliminated.
+•
+Inactive naval units remain in their port and defend if that port
+is attacked.
+Minor power
+activation Table
+Minor
+
+Can be activated by...
+power
+england france
+Hapsburg papacy deactivate?
+Genoa
+-
+yes
+yes
+yes
+yes
+Hungary-
+Bohemia
+-
+-
+yes^
+-
+-
+Scotland
+yes
+yes*
+-
+-
+yes
+Venice
+-
+yes
+yes
+yes +
+yes
+*France and Scotland are natural allies. France may intervene in Step 4 of the DOW Procedure (Section 9.6) if another power declares war on Scotland.+Papacy and Venice are natural allies. Papacy may intervene in Step 5 of the DOW Procedure (Section 9.6) if another power declares war on Venice.^Hapsburg and Hungary-Bohemia are natural allies. Hapsburg must inter
+-
+vene if Hungary-Bohemia is defeated by the Ottomans (22.5).
+22.2
+activation
+Changing a minor power from inactive to active is called “activa-tion”. Each minor power may only be activated by a small group
+of major powers (those powers with which the minor power was
+closely aligned historically).
+(See Minor Power Activation Table,
+above).
+All active minor powers may subsequently be deactivated,
+except for Hungary-Bohemia. Minor Powers can be activated in the following ways:
+•
+If France or the Papacy intervenes after a declaration of war (Section 9.6) or if France intervenes after an English DOW on Scotland with the Home card Six Wives of Henry VIII.
+•
+The Hapsburg intervenes in Hungary-Bohemia if the Hungar
+-
+ians are defeated by the Ottoman as described in Section 22.5.
+•
+If France activates Scotland with the card Auld Alliance.
+•
+If the Papacy activates Venice with the card
+Venetian Alliance.
+•
+A major power may play the card
+Diplomatic Marriage to
+activate any minor power it is permitted to activate according
+to the table above.
+•
+The French, Hapsburgs, and Papacy may play the card
+Andrea
+Doria to activate Genoa. Note this is the only card that may
+be played to activate a minor power that is already active
+(since it deactivates Genoa from that other major power and
+then reactivates it with Genoa’s new ally).

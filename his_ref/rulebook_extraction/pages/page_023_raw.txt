@@ -1,0 +1,132 @@
+Wars of the Reformation 1517–1555
+23
+© 2010 GMT Games, LLC
+All naval moves are to an “adjacent” location. Ports are adjacent to one or two sea zones, as marked with the anchor symbol. Sea
+zones are adjacent to all ports with symbols in their zone and all
+sea zones that share a common sea zone boundary. Naval units of
+two different powers that are not at war may occupy the same sea
+zone after a move. Interception attempts, avoid battle attempts, and naval combat are only triggered against enemy naval units. Naval movements must comply with the following restrictions:
+restrictions:
+•
+Naval units must always move to an adjacent location. Move
+-
+ment from the Ionian Sea to the Tyrrhenian Sea, the Barbary
+Coast to the Atlantic Ocean, the Black Sea to the Aegean Sea
+(or vice versa for any of these combinations) is not permitted
+since these sea zones are not adjacent (see Port in Section 2.5).
+•
+Naval units may only move to ports controlled by another
+player if enemy naval units are present in that port. (This restriction prohibits naval moves into a port controlled by a major power ally.)
+•
+Naval leaders must be in the same stack as a naval unit con-
+trolled by the same power whenever possible. Naval leaders
+may accompany any naval unit that is moving from the naval
+leader’s port or sea zone. If naval movement is going to empty
+the naval leader’s port or sea zone, then that naval leader must
+accompany one of the naval units that is leaving.
+•
+No naval unit may participate in a Naval Move if it was part
+of a stack of naval units that lost a naval combat earlier in
+the impulse.
+•
+Naval units of the minor powers of Genoa and Venice (as
+well as the naval leader Andrea Doria) may never move into
+the Atlantic Ocean sea zone.
+naval Movement procedure
+1.
+declare
+naval Moves: The active power declares which naval
+units and leaders will be moving and designates the destination
+for each of these units. Each unit’s destination must be adjacent
+to its current location.2.
+execute
+naval Move: The active power executes all naval
+moves. The order of execution is not important as all moves are considered simultaneous. Stack the newly arriving unit(s) in the
+destination port or sea zone as follows:
+•
+If arriving in a port: the arriving naval unit(s) are placed
+below any land units and army leaders and are oriented nor
+-
+mally (horizontally).
+•
+If arriving in a sea zone containing friendly units:
+the
+arriving naval unit(s) are placed on top of the other friendly
+units and oriented the same way as those units.
+•
+If arriving in a sea zone with no friendly units:
+the arriving
+naval unit(s) are placed in the zone rotated 90 degrees (so
+they are oriented vertically).
+3.
+play
+response Cards: Other powers may play the Response
+card Foul Weather to disrupt this Naval Move action.4. Conduct Interceptions:
+Stacks of naval units that are oriented
+vertically may be intercepted by enemy naval units in an adjacent location. If multiple enemy stacks are adjacent to the destination
+space, one or more naval units (owning player’s choice) from
+each stack may attempt to intercept as a single stack. Each such attempt is resolved separately and the owning player chooses the order of those attempts. If multiple stacks from different enemy
+powers all want to intercept, resolve the intercept attempts in
+Impulse Order. Once one power succeeds, no other power may
+attempt an interception (even if that other power is an ally of the
+intercepting power). Interception may not be attempted by naval
+unit(s) in a location that already contains naval units from the
+active power. The intercepting power rolls two dice and adds the
+Battle Rating of any naval leader present to the dice sum. A result
+of 9 or greater indicates success. If successful, the intercepting naval units are placed in the destination space and are oriented vertically. All stacks that successfully intercept are combined into
+a single stack (and will fight as a combined force in the naval
+combat in Step 7 below).5. Conduct
+a
+void
+battle:
+Enemy naval units in sea zones (not
+ports) may try to avoid battle if both of these conditions are met (these conditions represent a sea zone entered by the active power
+in Step 2 in which no intercept occurred in Step 4):
+•
+All enemy naval units are oriented normally.
+•
+The naval units of the active power are oriented vertically.
+Resolve avoid battle attempts in Impulse Order. The enemy power
+attempting to avoid battle designates an adjacent location into
+which the naval units will try to move. Adjacent ports must be
+controlled by the power avoiding battle; adjacent sea zones may
+not contain units from a power at war with the power avoiding
+battle. All of this power’s naval units in the sea zone must avoid battle together. The power avoiding battle rolls two dice and adds the Battle Rating of any naval leader present to the dice sum. If
+the modified dice roll is 9 or more, the Avoid Battle Attempt is
+successful. If successful, the units are placed in the chosen adja-
+cent location. 6.
+r
+otate
+u
+nits:
+After all avoid battle attempts are complete,
+rotate all units that are oriented vertically to a normal orientation.
+7. Conduct
+naval Combat: If naval units of the active power
+and an enemy power occupy the same sea zone or port, naval combat occurs in that location. The active power resolves the naval
+combats that result from a Naval Move in any order it desires. If
+more than one enemy power is present in that sea zone, the active
+power chooses which one to fight first (allied enemy stacks are
+not
+combined); he must continue fighting enemy naval forces until he
+either loses a combat (and retreats) or has fought each enemy once.
+16.2 naval Combat
+Naval combat occurs due to a Naval Move action into a sea zone
+or port occupied by enemy naval units or because of a successful
+interception. Each power involved adds up their combat dice and
+rolls to see how many hits they score. Hits may cause casualties
+on the opponent. The side with the most hits is the victor. After
+the combat, one side’s units must retreat to an adjacent location.
+naval Combat procedure
+1.
+a
+ttacker
+a
+dds
+u
+p
+d
+ice:
+The active player is always considered
+the attacker in a naval combat. The attacker adds up the number
+of dice he will roll as follows:

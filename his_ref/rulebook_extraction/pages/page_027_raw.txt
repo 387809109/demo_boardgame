@@ -1,0 +1,105 @@
+Wars of the Reformation 1517–1555
+27
+© 2010 GMT Games, LLC
+A power may choose its Home card. Cards with higher CP values represent higher levels of commitment.2. reveal Cards: All chosen cards are simultaneously revealed.3.
+roll
+protestant
+dice:
+The Protestant player adds 4 to the CP
+value of his card. This total represents the number of dice he now rolls. Each roll of a “5” or a “6” is considered to be a hit.4.
+r
+oll
+p
+apal and Hapsburg
+d
+ice:
+The Papal player rolls a num
+-
+ber of dice equal to the CP value of his card. The Hapsburg player does the same. Each roll of a “5” or a “6” is considered to be a
+hit.
+These two powers combine their hits into a Catholic total.
+5.
+protestant Victory: If the number of Protestant hits exceeds
+the number of Catholic hits, the Protestant power flips
+a number
+of spaces equal to the number of extra hits he rolled
+to Protestant
+influence. All spaces flipped must be in the German language
+zone. Spaces flipped must be adjacent to another Protestant space;
+spaces that were just flipped in this step can be used as the required
+adjacent Protestant space.6. Catholic Victory:
+If the number of Catholic hits exceeds the
+number of Protestant hits, the Papacy flips
+a number of spaces
+equal to the number of extra hits he rolled
+to Catholic influence.
+All spaces flipped must be in the German language zone. Spaces flipped must be adjacent to another Catholic space; spaces that
+were just flipped in this step can be used as the required adjacent
+Catholic space.7.
+draw: If the number of Protestant and Catholic hits is equal,
+the Diet is inconclusive. No action is taken.
+publishing a Treatise
+The Protestant power may spend 2 CPs on the Publish Treatise action. The Protestant power makes 2 Reformation attempts
+targeting a single language zone. This target language zone must
+be specified before attempting the first Reformation attempt (Sec
+-
+tion 18.3). If Cranmer is on the map, the English power may also
+undertake the Publish Treatise action, although the cost for the action is 3 CP. Treatises published by the English always target the English language zone.
+biblical Translations
+The Protestant power (only) may spend 1 or more CP on the
+Translate Scripture action. In the game, completion of a transla-
+tion represents the huge boost the Protestant faiths received for offering biblical texts in worshippers’ native languages. For each CP spent, advance one marker one space on either the New Testa-
+ment translation track or the Full Bible translation track on the
+Protestant power card. Several debaters (Luther, Melanchthon,
+Tyndale, Coverdale, Olivetan) have bonuses that allow the marker
+to be advanced one additional space without spending a CP if that
+debater is committed during this impulse (see 18.2 below). Only
+one bonus space can ever be awarded in a single impulse. The
+appropriate portion of the Protestant power card is shown below
+for ease of reference. There are three markers on each of these two tracks, one for each of these three language zones: German, English and French. The Protestant may not advance the Full Bible
+marker in a language zone until the New Testament is complete for
+that language. When a marker reaches the final space on the track,
+the translation is complete. The Protestant must advance a marker
+6 spaces to complete translation of the New Testament in each
+language, and 10 spaces to translate the Full Bible in a language.
+Immediately upon completion of a
+New Testament
+translation, the
+Protestant power may make 6 Reformation attempts, targeting the
+language zone that matches the language of translation. Immedi-
+ately upon completion of a Full Bible translation, the Protestant
+power may make 6 Reformation attempts, targeting the language
+zone that matches the language of translation and all dice rolled
+by the Protestant receive a +1 die roll modifier (i.e. possible re-
+sults range from 2-7). In addition, the Protestant player earns 1 bonus VP when each Full Bible translation is completed. Once these markers reach a final box, there is no reason to continue to
+pay CP to advance them; each translation may only occur once
+in a given game.
+Biblical translation section of the Protestant power card
+Calling Theological debates
+Both the Protestant and Papal powers may spend 3 CPs to Call a
+Theological Debate in one of these three language zones: German,
+English and French. If all Protestant debaters in a language zone
+are committed, the Protestant player may not initiate debates in
+that language zone. Similarly, if all Papal debaters are committed,
+the Papal player may not initiate debates in any language zone. If none of the Protestant debaters for a language zone have entered the game (or all of them have been burnt at the stake, excommuni
+-
+cated, or removed from play), neither player may call a debate in
+that zone. Complete rules on how to resolve a theological debate
+are found in Section 18.5. This action can be triggered by a card
+play by the English power if Mary I is ruler of England (Section
+21.3). Certain Event cards also result in the calling of a debate.
+building saint peter’s
+The Papal power (only) may spend 1 or more CP on the Build
+Saint Peter’s action. This action represents spending money on the
+Papacy’s main building project of the time: the refurbishment of
+St. Peter’s Basilica. For each CP spent, advance the “St. Peter’s
+CP” marker one space to the right on the Papacy’s power card. If
+the marker reaches the rightmost space, labeled “+1 CP (Add 1 VP, Set to 0)”, reset this marker to the “At Start: 0 CP” space and move the “St. Peter’s VP” marker on the line below one space to
+the right. The Papacy may never earn more than 5 VP from St.
+Peter’s construction in a single game.
+burning books
+The Papal power may spend 2 CPs on the Burn Books action.
+The Papal power makes 2 Counter Reformation attempts target-
+ing any single language zone. This action can also be triggered
+by a card play by the English power if Mary I is ruler of England
+(Section 21.3).

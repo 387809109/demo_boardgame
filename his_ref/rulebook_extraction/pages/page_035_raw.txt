@@ -1,0 +1,102 @@
+Wars of the Reformation 1517–1555
+35
+© 2010 GMT Games, LLC
+20.2 Voyages of exploration
+The English, French and Hapsburgs may spend 2 CPs on the Explore action. Place the “Exploration Under
+-
+way” marker for this power in the Crossing Atlantic
+Box to show that there is a voyage of exploration to
+be resolved at the end of the turn. This action may only be taken
+once per turn by each power: play of the Event card
+Sebastian
+Cabot as an event does NOT count against this limit, play of the
+event
+Mercator’s Map or explorers that start a scenario in the
+Crossing Atlantic box
+do count against this limit. A power may
+not undertake this action if it has no remaining explorers.
+resolution
+The eighth phase of each turn is the New World Phase. Voyages
+of exploration are always resolved before voyages of conquest.
+To resolve these voyages, replace each “Exploration Underway”
+marker with a random selection from the pool of explorers cur
+-
+rently available for this power. Resolve their voyages in order from
+best explorer (the one with the highest numeric value) to worst explorer. In the case of a tie, resolve any English voyages, then French, then Hapsburg. For each voyage, roll two dice and add
+the explorer’s numeric value (adding 2 more if the card
+Merca-
+tor’s Map was played to initiate this voyage). The modified die
+roll is then located in the Exploration Table to give the result for
+the voyage:4 or less:
+The explorer is lost at sea; remove him from the game.
+5 or 6: No discovery is made; the explorer is returned to the pool for that country. 7, 8, or 9:
+A discovery has been made. If the discovery correspond
+-
+ing to the number rolled has already been claimed earlier in the game, this voyage claims the next available discovery below the
+number rolled. The discovery marker is removed from the game
+and placed in the Bonus VP box for this power to mark the VP
+earned. The explorer used to initiate this voyage is placed over the
+appropriate discovery on the map of the New World. The explorer
+counter remains there for the rest of the game as a record of his
+accomplishments in the New World. 10 or higher: The explorer has penetrated deep into South Amer
+-
+ica, and has a choice how to proceed. The options are:
+1.
+The explorer has the option to sail through the Pacific Strait and try to circumnavigate. If the Pacific Strait discovery has not been claimed, place it in the Bonus VP box for this power. Then roll two dice adding the same modifiers as before. Locate
+the modified roll in the Circumnavigation Table to give the
+result for the circumnavigation attempt. All results of 9 or less
+are failure; the explorer is removed from the game. Leave his
+counter on the Pacific Strait discovery if he claimed those VP.
+A result of 10 or more is success (if the result is 12 or more, a card draw is rewarded as well). Place the Circumnavigation VP marker in the Bonus VP box for this power; place the ex-
+plorer counter on the Circumnavigation discovery box on the
+map of the New World. No other explorer may circumnavigate
+the world during this game once one succeeds.
+2.
+The explorer has the option to claim the Amazon River dis-
+covery (2 VP), placing the VP marker in the power’s Bonus
+VP box and leaving the explorer counter on the Amazon
+River box.
+3.
+The explorer has the option to claim any unclaimed discovery
+normally worth 1 VP (St. Lawrence River, Great Lakes, or
+Mississippi River), just as if he rolled a 7, 8, or 9.
+20.3 Voyages of Conquest
+The English, French and Hapsburgs may spend 4
+CPs on the Conquer action. If the power is England
+or France, place an “English Conquest” or “French
+Conquest” marker in the Crossing Atlantic box to
+mark that there is a voyage of conquest to be resolved at the end
+of the turn. If the power is the Hapsburgs, place the Hapsburg “Conquest Underway” marker in the Cross Atlantic Box. This action may only be taken once per turn by each power: play of the
+Event card
+Smallpox as an event does count against this limit; the
+Hapsburg conquistador that starts the game in the Crossing Atlantic
+box also counts against this limit. A power may not undertake this
+action if it has no remaining conquistadors/conquest markers.
+resolution
+To resolve these voyages of conquest, first replace a Hapsburg
+“Conquest Underway” marker with a random selection from the
+pool of conquistadors currently available. Resolve any Hapsburg
+voyage first, then English, then French. For each voyage, roll two
+dice and add the conquistador’s numeric value. Add 2 if the card
+Smallpox was played to initiate this voyage. If the result is a 6 or
+less, the expedition is killed by natives; remove the conquistador or
+Exploration Example
+It is the New World Phase of Turn 1. The Hapsburgs have the explorer that started the scenario in the Crossing Atlantic box
+and Sebastian Cabot heading off on voyages of exploration. The English and French have sent explorers too. The explorers are chosen at random and revealed. The following order is established
+to resolve these voyages:
+3 - Orellana (Hapsburgs)2 - Verranzano (France)
+1 - Rut (England)
+1 - Cabot (Hapsburgs)Orellana rolls two dice (dice sum is a 6) and adds 3, getting a 9 result; he has discovered the Mississippi River. The Mis-
+sissippi River VP marker is placed in the Hapsburg Bonus VP
+box and Orellana is placed on the Mississippi River discovery.
+Verranzano rolls two dice (dice sum is an 8) and adds 2, getting
+a 10 result. He can try to circumnavigate the world. The French players elects to attempt this, but rolls a 5 + 2 = 7. Verranzano is roasted by cannibals! The Pacific Strait VP marker is placed
+in the French Bonus VP box and Verranzano is placed on the
+Pacific Strait discovery. Rut rolls just a 3, yielding a result of
+4. He is lost at sea and removed from the game. Finally the
+Hapsburg player rolls a 9 + 1 = 10 for Cabot. Another explorer
+can try to circumnavigate! He rolls an 8 + 1 = 9, missing the
+circumnavigation by just 1. He is removed from the game and the
+Sebastian Cabot
+card is removed from the deck. No VP
+are earned for Cabot’s efforts since the Pacific Strait VP had already been claimed.

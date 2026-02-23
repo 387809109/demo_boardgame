@@ -1,0 +1,76 @@
+Here I Stand, 2nd Printing
+4
+© 2010 GMT Games, LLC
+Control Terminology
+f
+riendly:
+The term “friendly” refers to any game element (space,
+unit, stack, formation, debater) that is controlled by the active power or an ally of that power.enemy:
+The term “enemy” refers to any game element that is
+controlled by a power that is currently in a state of war with the active power. In addition, Papal and Protestant debaters are always
+considered to be enemies of each other.Independent:
+The term “independent” refers to any game element
+that is not controlled by a major or minor power. Independent game elements are never considered to be either friendly or enemy items
+for the purposes of any rules of play.
+EXAMPLES: Independent units can not intercept moving forces since only enemy formations may attempt intercepts. Adjacent
+independent units do not prohibit unoccupied, unfortified spaces from being controlled, an action that is restricted by the presence of adjacent enemy units.
+2.3 religious Influence
+The dominant Christian denomination (Catholic or Protestant) in many spaces changes during the game as the Reformation sweeps
+across Europe. Only Ottoman home spaces (which are considered
+to be either Muslim or Eastern Orthodox) are immune to such a
+change of religious influence. Catholic
+s
+pace:
+All spaces on the map (other than Ottoman home
+spaces) start the game under Catholic religious influence. Catholic spaces are shown by either the absence of a control marker over
+a solid-covered space or by a control marker on its solid side.p
+rotestant
+s
+pace:
+Protestant spaces represent cities where the new
+reformed beliefs are dominant. Spaces under Protestant influence are shown by the absence of a control marker on a Protestant home
+space or by a control marker with a colored border and white center
+(the reverse of its solid colored side).
+2.4 Control Markers
+Control markers are used to denote a space’s political control
+and religious influence. The flag and border color of the marker
+indicates the political control of the space. The interior color of the
+marker indicates the religious influence. One side of the control
+marker is a solid color that represents Catholic religious influence
+while the flip side of the control marker has a colored border with
+a white interior that represents Protestant religious influence. There
+are two shapes for control markers: a square marker for keys and
+a hexagonal marker for all other spaces.
+square Markers
+Square control markers are used to show the status
+of keys. These markers are transferred between the
+power cards (Section 4) and the map when a key is
+captured or lost. Note these two rules:
+1.
+Every key on the map must contain a square control marker.
+Exceptions:
+independent keys not currently under major
+power control, keys of minor powers when they are neither
+allied to a major power or captured, and keys captured by the
+Protestant power (which has no square markers).
+2.
+Every square control marker must be either on the map or on
+the appropriate power card.
+Following these two rules ensures that the power cards are always
+kept up to date with the proper information about card draws and victory points.
+Hexagonal Markers
+Hexagonal markers are used to show status of electorates, fortresses, unfortified spaces, and keys
+captured by the Protestant power. These markers are
+kept out of play until needed to update the political
+or religious status of a space. They are never placed
+on power cards.
+Control Marker Example
+1: Hapsburg unfortified home space. Still Catholic and under Hapsburg political control.2: Hapsburg home key. Still Catholic but now under English political control. 3: English home key. Now Protestant but still under English political control.4:
+Independent space. Now Protestant, but still independent
+politically.
+5:
+Protestant unfortified home space. Now Protestant in religion,
+but under Hapsburg political control.6:
+Protestant home electorate. Still Catholic and under Hapsburg
+political control.
+7: Protestant home electorate. Now Protestant in both religion and politics.

@@ -1,0 +1,156 @@
+Here I Stand, 2nd Printing
+18
+© 2010 GMT Games, LLC
+•
+One or more army leaders may move without accompanying land units as long as they don’t enter a space controlled by an
+enemy power or containing enemy units. If an army leader
+is ever alone in an unfortified space when enemy land units
+enter due to enemy movement, retreat, or interception, that
+leader is captured. Place the captured leader on the enemy power card. He may be regained in the Diplomacy Phase of an upcoming turn (see Section 9).
+The two Move actions follow the same procedure:
+Land Movement procedure
+1.
+declare
+formation: The active power declares which forma-
+tion of land units and army leaders will be moved.2.
+d
+eclare
+d
+estination
+s
+pace:
+The active power declares the
+destination space for the move. The destination must be adjacent to the formation’s current space.3.
+e
+xpend C
+p
+s:
+Two CPs are expended if the move is over a pass;
+otherwise the cost is just one CP.
+4.
+play
+response Cards: Other powers may play the Response
+cards Foul Weather and Gout to disrupt this Move action.
+5. Conduct any Interceptions:
+Interceptions (Section 13.2)
+may occur if an enemy stack is adjacent to the destination space. Interceptions may add enemy units to the space being entered.
+Once all interceptions have been resolved, the land units and army
+leaders being moved are placed in the destination space. If any
+interceptions succeeded, skip to Step 8 and resolve a field battle.6. Conduct
+a
+void
+b
+attle:
+If the destination space contains enemy
+land units, all or some of them may try to avoid battle (Section 13.3).7.
+w
+ithdraw into
+f
+ortification:
+If after unsuccessful interception
+and avoid battle attempts (if any)
+the enemy stack in a fortified
+destination space has 4 or fewer units present, those enemy units have the option of withdrawing into fortifications (Section 13.4).
+8.
+fight
+field
+battle:
+If enemy land units are still present in the
+space, and those land units are not inside fortifications, then a field battle occurs in this space (Section 14).
+13.2 Interception
+An enemy power with land units adjacent to a Move action’s
+destination space may attempt to intercept the moving formation.
+If multiple enemy stacks are adjacent to the destination space,
+each may attempt to intercept. Each such attempt is announced
+and resolved before announcing and resolving any other attempts.
+If multiple stacks from different enemy powers all want to inter
+-
+cept, resolve the interception attempts in Impulse Order. Once
+one power succeeds, no other power may attempt an interception
+(even if that other power is an ally of the intercepting power). Formations belonging to the successful intercepting power may however continue to attempt to intercept from any number of
+adjacent spaces.
+restrictions:
+•
+Formations moving due to avoid battle, interception, and
+retreats may not be intercepted.
+•
+Formations may never intercept across a pass.
+•
+Only units of a power that is At War with the active power
+may intercept.
+•
+Units and army leaders that have already tried to intercept a
+movement in this same impulse (whether or not they were
+successful) may not try to intercept again.
+•
+Units and army leaders currently under siege may not try to
+intercept. If a besieging force moves out of a space under
+siege, the stack formerly under siege may not intercept the move out of that fortified space.
+•
+All land units and army leaders allocated in Step 1 of the In-terception Procedure (see below) must start the Move action
+in the same space and it must be permissible to move them
+in a single formation.
+•
+Formations moving into a friendly fortified space that is not
+under siege may not be intercepted.
+•
+Formations moving into a space that already contains land
+units may only be intercepted if the intercepting units belong
+to the same power as the units in the destination space, or
+to a power allied to the units in the destination space.
+Such
+an interception is not allowed if there are units under siege
+(from any power) at the start of the active formation’s move.
+•
+Units may not intercept into a space controlled by another
+power unless the power controlling the space is either an
+enemy or an ally of the intercepting units.
+Interception procedure
+1.
+d
+eclare
+f
+ormation:
+An intercepting power with land units and/
+or army leaders in a space adjacent to the movement destination
+declares which formation will attempt an interception. This forma
+-
+tion does not need to include all of the units present.2.
+roll
+dice: The intercepting power rolls two dice and adds the
+best single Battle Rating of an army leader (if any) in the inter
+-
+cepting formation to the dice sum. The Ottoman power adds 1 to its result if at least 1 cavalry unit is in the intercepting formation.
+A non-Ottoman power subtracts 1 from the result if it is trying to
+intercept a stack containing Ottoman cavalry. If the modified dice roll is 9 or more, the Interception Attempt is successful.3.
+p
+lace in
+d
+estination
+s
+pace:
+If successful, the intercepting
+formation is placed in the destination space. This formation is treated as if it were present in the space before the moving for
+-
+mation arrived. Once one power succeeds, no other power may
+attempt an intercept (even if that other power is an ally of the
+intercepting power). 4.
+repeat for other
+f
+ormations:
+Return to Steps 1-3 and resolve
+interception attempts from any other adjacent space. Additional attempts from a space already chosen in Step 1 are not permitted.5.
+fight
+field
+battle: If any of the interceptions were successful,
+fight a field battle (Section 14) in the destination space. All units from the intercepting power must participate in this battle; they
+may not avoid battle or withdraw into a fortification.
+13.3
+a
+void battle
+When a power enters a space containing a stack of enemy land
+units, some or all of those enemy units may try to move to an
+adjacent space to avoid battle. If the destination space contains
+land units from more than one major power (who are allies), each
+major power may, in impulse order, announce and resolve an avoid
+battle attempt. Each such attempt is announced and resolved be-fore announcing and resolving any other attempts. Minor power

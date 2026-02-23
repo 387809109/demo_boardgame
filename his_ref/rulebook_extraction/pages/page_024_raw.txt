@@ -1,0 +1,114 @@
+Here I Stand, 2nd Printing
+24
+© 2010 GMT Games, LLC
+•
+1 die for each corsair
+•
+2 dice for each naval squadron
+•
+1 die for each Battle Rating point from their highest-rated naval leader in the sea zone or port
+2.
+defender
+adds
+up
+dice:
+The intercepting player or the player
+with the stack of units that began the Naval Move action in the
+destination location is always considered the defender in a naval
+combat. The defender adds up the number of dice he will roll as
+follows:
+•
+1 die for each corsair
+•
+2 dice for each naval squadron
+•
+1 die for each Battle Rating point of their highest-rated naval
+leader in the sea zone or port
+•
+1 die for being the defender, but only if this combat is taking
+place in a port
+3.
+attacker
+declares Combat Cards:
+The attacker declares any
+Combat cards he wants to play as events to affect the combat.4.
+d
+efender
+d
+eclares Combat Cards:
+The defender declares
+any Combat cards he wants to play as events to affect the combat.
+5.
+roll
+dice: Both players roll their dice and add up the number
+of hits they have scored. Each roll of a “5” or a “6” is considered to be a hit.6.
+play
+response Cards: If the Ottoman was one of the powers
+involved in this battle and they have not yet played Janissaries this turn, they may play this Home card to roll extra dice in an at-
+tempt to score additional hits. Any power may play the Response
+card
+Professional Rowers to give one side an attempt to score
+additional hits.7.
+declare
+w
+inner:
+The side scoring the most hits is declared the
+winner of the battle. In the case of a tie, the defender is declared the winner.8. Take Casualties: Each side eliminates 1 naval squadron for every 2 hits scored by the opposing side. If hits against the Otto-
+man power remain after applying hits to naval squadrons, each
+remaining hit eliminates 1 corsair. Odd hits remaining against the
+losing side eliminate 1 extra naval squadron; odd hits remaining
+against the winner are ignored. If both sides are eliminated, the side that rolled more dice retains 1 unit. If both sides are eliminated and the two sides rolled the same number of dice, the defender
+retains 1 unit.9.
+one
+power
+retreats: If the combat occurred in a port, the
+attacker retreats to a sea zone connected to that port that is free of enemy naval units.
+(NOTE: The attacker retreats regardless
+of whether or not he won the battle.)
+If the combat occurred in a
+sea zone, the loser retreats to an adjacent port under its control (free of enemy naval units) or an adjacent sea zone (also free
+of enemy naval units).
+If no such location exists, the naval units
+are eliminated.10.
+place
+units on Turn Track: If one or more naval leaders are
+present on a side that is completely eliminated, they are placed on the next turn of the Turn Track. All naval units lost in the combat
+are also placed on the Turn Track. In a future turn, the leader will
+reenter play and the naval units may be rebuilt (8.2).
+16.3 naval Transport
+If a power has naval units in one or more adjacent sea zones, it
+may make a special move of lands units across those sea zones.
+This special move is called “naval transport” and is considered to
+be a special case of the Move Formation In Clear action.
+naval Transport procedure
+1.
+spend Cps and Move: The active power must have at least 2
+CPs remaining to spend in the current Action Phase. If so, a for
+-
+mation of 5 or fewer land units (plus army leaders) in a port may
+move to an adjacent sea zone containing naval units controlled by
+the active power. This move costs 1 CP and is considered to be a
+Move Formation in Clear action. Units moving by naval transport may not be intercepted at sea. Other powers may play the Response card
+Foul Weather to disrupt naval transport. A formation under
+siege may not be moved by naval transport.
+Naval Movement and Combat Example
+It is the Ottoman impulse. Genoa is a Hapsburg ally. Venice
+is a Papal ally, but they loaned 1 Venetian fleet to the Haps-
+burgs during the Diplomacy Phase of this turn. The Ottoman
+undertakes a Naval Move action. After moving several other
+naval squadrons into the Aegean Sea, the Ottoman also moves
+Barbarossa and the 3 naval units in Tunis (2 squadrons and 1 corsair) to the Barbary Coast, as shown above. A Hapsburg naval force consisting of Andrea Doria, a Genoese squadron,
+and a Hapsburg squadron is in an adjacent sea zone, the Tyr
+-
+rhenian Sea. The loaned Venetian fleet is also in an adjacent
+sea zone, the Ionian Sea. Both stacks of Hapsburg naval units
+attempt to intercept. Each rolls a 7 on two dice. Because of
+the +2 added to the roll for Doria’s Battle Rating, his stack
+succeeds. The stack without Andrea Doria’s modifier does
+not. Naval combat ensues in the Barbary Coast. The Ottoman
+rolls 7 dice (4 for the two squadrons, 1 for the corsair, 2 for Barbarossa). The Hapsburgs roll 6 dice (4 for squadrons, 2 for Doria). Each side rolls 3 hits. Since the Hapsburgs are the
+defender, they win the battle. An Ottoman squadron and corsair
+are eliminated. Barbarossa and the remaining squadron must
+retreat to an adjacent sea zone or controlled port (though it
+doesn’t have to be Tunis). The Hapsburgs eliminate one of their
+squadrons; the other remains with Doria in the Barbary Coast.

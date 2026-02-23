@@ -1,0 +1,119 @@
+munication of a reformer has no effect beyond the turn in which it is declared. After the reformer is removed from the board, the
+Papacy may initiate a theological debate in the same language
+zone as the excommunication (i.e. English for Cranmer; French
+for Calvin; German for Luther or Zwingli).
+against a ruler
+When a ruler is excommunicated, place a “–1 Card” marker on
+their power card. This marker remains on the power card until this
+power either concludes a war with the Papacy or donates a card
+draw to the Papacy as described in Section 9.5
+(it is not removed
+if this ruler dies)
+. This power receives 1 less card per turn during
+the Card Draw Phase while this marker is present on their power
+card. The Papacy now chooses 2 of that power’s unoccupied home
+spaces that are under Catholic religious influence; add Unrest
+markers to those spaces.
+sack of rome
+In order for the
+Sack of Rome event to be played, there must be a
+single stack of non-Papal troops in an Italian-speaking space that contains more mercenaries than the number of Papal regulars in Rome. That stack does not need to be from the same power that
+plays the event, and neither these units nor the power playing the
+event needs to be at war with the Papacy.
+Rome does not even
+need to be under Papal control.
+The play of this card does not
+add a new state of war between powers and it is not grounds for
+excommunication. Once the event is played, undertake the fol-
+lowing steps:
+sack of rome procedure
+lace Troops in
+r
+ome:
+The stack of troops (including all
+regulars, mercenaries, and army leaders) is removed from its
+current space and placed on Rome. Make a note of the space; any
+surviving troops will return there.2.
+resolve
+field
+battle: Although Rome is a fortified space, fight
+a field battle between this stack and the Papal regulars in Rome.
+Ignore formation limits; roll 1 die for each unit in the attacking stack.
+Papal mercenaries
+and allied units in Rome are ignored.
+The Papacy is the defender in this battle (so it receives 1 extra die and they win ties;
+roll just 1 die if there are no Papal regulars in
+Rome).
+Both sides may play Combat cards (and any power may
+play a Response card).3.
+apply Hits: Apply all hits as losses (as usual). Hits caused
+against the Papal forces must be absorbed by Papal regulars first. Any hits in excess of the number of regulars may be applied to
+Papal mercenaries. Hits caused by the Papal forces must be ap-
+plied as evenly as possible between mercenaries and regulars of
+the attacking force.4.
+r
+eturn Troops:
+The stack of troops moved to Rome is returned
+to its starting space (though probably reduced by several units!).
+5.
+papal Victory: If the Papacy won the battle, the procedure is
+over. The
+Sack of Rome card returns to the discard pile and may
+reenter play on a future turn.
+6.
+apal
+efeat:
+If the Papacy lost the battle, the effects are drastic.
+Reduce the accumulated CP on the St. Peter’s track of the Papal power card by 5 (but not below 0). The owner of the sacking stack
+then draws 2 cards from the Papal hand (remember, Home cards are
+never taken in random card draws). After reviewing those cards,
+he discards one and retains the other in his hand. If the Papacy
+only has 1 card available to draw, he retains that card. The
+Sack
+of Rome card is removed from the deck and may not reenter play.
+21.6 protestant
+The Protestant is the one power in the game which spends several
+turns focused entirely on the religious conflict, with no military
+concerns whatsoever. During this time, Germany is still under
+the protectorate of the Holy Roman Empire (and thus is covered
+in Hapsburg control markers). However, once the Reformation
+has spread (12 spaces converted to Protestant religious influence; spaces in unrest are counted) and is attracting notice across Europe, the Protestants begin to fear that their new religion will come un-
+der attack from Charles V. At this time, the Schmalkaldic defense
+league is formed through the play of a Mandatory Event. From
+this point on, the Protestant also has military matters to handle.
+prior to the schmalkaldic League
+Prior to the Mandatory Event
+Schmalkaldic League,
+the Protestant
+player is under the following restrictions:
+He can not build any military units.
+He can not move any military units.
+He may never gain mercenaries.
+He may never gain political control of a space.
+Other powers are also under these restrictions:
+They may not declare war on the Protestant.
+Their units may not move or retreat into an electorate.
+During this time, conversion of any electorate to Protestant re-ligious influence allows the Protestant player to add Protestant regulars to that space. Remove the regulars from the Electorate
+display and place them on the appropriate space on the map.
+schmalkaldic League
+The Mandatory Event
+Schmalkaldic League
+can be played as early
+as Turn 2. It is automatically triggered during the Winter Phase of
+Turn 4: it must occur at that time, if it hasn’t already. As described
+on the card, the following effects take place when
+Schmalkaldic
+League is played:
+The army leader John Frederick is added to play. Place him
+with the stack of Protestant regulars closest to Wittenberg (usually Wittenberg itself).
+The army leader Philip of Hesse is added to play. Place him with the stack of Protestant regulars that is closest to the
+Kassel space (usually Mainz).
+Convert all Protestant home spaces that are currently under
+Protestant religious influence to Protestant political control.
+Spaces are not converted if they contain a Fortress marker.
+All of the restrictions listed above in the section “Prior to the Schmalkaldic League” are now lifted.
+The Hapsburgs and Protestant are now At War. The Papacy
+and Protestant are also At War. These powers may not lift these states of war for the rest of the game.
+Any Protestant regulars and army leaders residing in an elec-
+torate that is under Catholic religious influence are displaced
+to the nearest electorate under Protestant religious control.

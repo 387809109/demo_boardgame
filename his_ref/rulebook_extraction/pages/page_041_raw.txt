@@ -1,0 +1,144 @@
+Wars of the Reformation 1517–1555
+41
+© 2010 GMT Games, LLC
+Activate a minor power using the following procedure: 1.
+p
+lace “
+a
+llied” Marker:
+Add an “Allied” marker to the box that
+cross-references these powers on the Diplomatic Status Display.2.
+d
+eclarations of
+w
+ar:
+A power currently at war with this minor
+power has the choice to immediately declare war (at no cost in CP) on the major power that is activating the minor power. That
+power may only declare war if none of the “restrictions at all times”
+listed in Section 9.6 apply. If the power chooses to declare war,
+add an “At War” marker to the appropriate box on the Diplomatic
+Status Display. If the power declines to declare war, any units of
+that power occupying spaces controlled by this minor power are returned to the nearest fortified space (that is not under siege), as described in Step 3 of the Peace Segment Procedure (9.3). 3.
+place
+square Control Markers:
+All keys currently controlled
+by the minor power are now marked with square control markers from the major power.4.
+p
+lace Hexagonal Control Markers:
+All other spaces controlled
+by the minor power are marked with hexagonal control markers from the major power.5.
+remove “at
+w
+ar” Markers:
+Remove all “At War” markers
+from this minor power’s column on the Diplomatic Status Display (this minor power’s diplomacy is now controlled by their major
+power ally).
+22.3
+active Minor powers
+Activating a minor power has the following benefits:
+•
+Military units and naval leaders of this minor power are
+treated just like units and naval leaders of the major power.
+They now move, fight, retreat, avoid battle, and affect nearby
+Reformation/Counter Reformation attempts just like the other
+units of that major power. (The only difference is that minor
+power units have no impulse or cards of their own.)
+•
+Military units of the minor power have one additional char
+-
+acteristic during the Winter Phase. These units may also
+return to a home key of that minor power just as if it were
+an additional capital. The units of their major power ally do
+not enjoy this option.
+•
+The controlling major power may use the Raise Regular Troop action to build a regular of this minor power in one of this minor power’s home spaces (assuming an unbuilt regular
+exists in the counter mix).
+•
+If the minor power is Genoa, Venice, or Scotland, the control
+-
+ling major power may use the Build Naval Squadron action
+to build a naval squadron of this minor power in one of this
+minor power’s home ports (assuming an unbuilt squadron
+exists in the counter mix).
+22.4 deactivation
+Changing a minor power from active to inactive is called “de-
+activation”. All minor powers except Hungary-Bohemia may be
+deactivated. Minor Powers can be deactivated in the following ways:
+•
+If England or France deactivates Scotland with the card
+Auld
+Alliance.
+•
+If the Ottoman or Papacy deactivates Venice with the card Venetian Alliance.
+•
+England, France, Hapsburgs or Papacy
+may play the card
+Dip
+-
+lomatic Marriage to deactivate Genoa, Scotland, or Venice.
+•
+The French, Hapsburgs, and Papacy may play the card
+Andrea
+Doria to deactivate Genoa from its current ally (they then
+reactivate it as their own ally).
+Deactivate a minor power using the following procedure:
+•
+Remove the “Allied” marker from the box that cross-refer
+-
+ences these powers on the Diplomatic Status Display.
+•
+All control markers from this minor’s former ally are removed from the minor power’s home spaces.
+•
+Units from other powers are displaced if they occupy one
+of these minor power home spaces that just had a control marker removed. Move land units to the nearest friendly-
+controlled fortified space and naval units to the nearest
+friendly-controlled port.
+•
+Next, all land units of the minor power return to the near
+-
+est friendly-controlled, fortified home space of that minor
+power. If no such fortified space is available, return them to
+the nearest unfortified space. If no such space exists, the land
+units are eliminated.
+•
+All naval leaders and units of the minor power return to the
+nearest friendly-controlled home port of that minor power. If
+no such port exists, the naval units are eliminated and naval
+leaders are put on the turn track.
+22.5 defeat of Hungary-bohemia
+The Ottoman power is given credit for winning a war against
+Hungary-Bohemia at the end of the assault or field battle in which
+one of these two sets of conditions apply:
+•
+Hungary-Bohemia has been activated as a Hapsburg ally
+through
+Diplomatic Marriage and the Ottomans control two
+home keys of Hungary-Bohemia, OR
+•
+Hungary-Bohemia is not a Hapsburg ally, but the Ottomans
+control one home key of Hungary-Bohemia and there are 4 or
+fewer regulars from Hungary-Bohemia remaining on the map.
+When either of these conditions applies, undertake the following
+actions:
+•
+The Hapsburg player must intervene
+at no CP cost; the Otto-
+man and Hapsburgs are now at war (even if they were allied
+just prior to this assault or battle).
+•
+Hungary/Bohemia is activated as a Hapsburg ally (if not
+already allied via
+Diplomatic Marriage). Hungary/Bohemia
+can never be deactivated and remains allied for the rest of
+the game.
+•
+All Hungarian home spaces with Ottoman land units in them
+come under Ottoman control (including keys currently under siege).
+•
+Hungarian units under siege are eliminated.
+•
+The Ottoman is awarded 2 VP as a War Winner for defeating Hungary.
+22.6 Independent Keys
+Four keys (Metz, Milan, Florence, and Tunis) are found in inde-
+pendent spaces. All four start in an independent political state in
+the 1532 scenario; only two start independent in the 1517 scenario

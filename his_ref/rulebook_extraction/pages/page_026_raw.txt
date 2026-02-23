@@ -1,0 +1,125 @@
+Here I Stand, 2nd Printing
+26
+© 2010 GMT Games, LLC
+b.
+allow the Ottoman player to draw at random and keep 1 card from his hand (it can not be played until a future impulse)
+c.
+award the Ottoman player 1 VP for Piracy.
+The Ottoman player may not be awarded a card draw if no cards
+are left to be drawn from the target power’s hand. Similarly, the Ottoman player may never earn more than 10 VP through piracy in a game. The target power must always try and award one of
+these three items to the Ottoman for each hit. Picking a choice of
+no benefit to the Ottoman player is not permitted if another selec-
+tion is available. The targeted power is free to choose different
+items on a hit-by-hit basis.
+17. unIT
+ConsTruCTIon
+There are five actions which allow powers to construct new
+units. New units must be constructed in friendly home spaces
+(Exceptions: The card
+Foreign Recruits allows units to be built
+in a non-home friendly space; the cards
+Landsknechts
+and Swiss
+Mercenaries
+allow units to be built in a space already containing a
+stack of the active power’s units). Units may never be constructed
+in a space in unrest. The counters provided with the game for
+each power are purposely limited to reflect the total manpower of
+these powers during the period. Units may never be constructed in
+excess of the counters available. Players may exchange different
+denominations of counters at this time to facilitate new builds
+(Example: If the player has run out of “1” counters, he could still
+build in a space containing 3 units by replacing the units with a “4” counter.)
+17.1 Land units
+Land units may be constructed in any friendly home space that is not occupied by enemy units.regulars:
+All powers may spend 2 CPs on the Raise Regular
+Troop action. Add 1 regular unit to the map for each such action taken.Mercenaries:
+All powers except the Ottoman may spend 1 CP
+on the Buy Mercenary action. Add 1 mercenary unit to the map for each such action taken.Cavalry:
+The Ottoman power (only) may spend 1 CP on the
+Raise Cavalry action. Add 1 cavalry unit to the map for each such action taken.
+17.2 naval units
+Naval units may be constructed in any friendly home port that
+is not occupied by enemy units.
+Naval units lost by any method
+cannot reenter play on the turn in which they were eliminated.
+
+When a naval unit is lost, place it on the Turn Track in the box
+provided for the next game turn. At the start of that turn, return
+these eliminated naval units to the pool of units available to be
+constructed by that power.
+If an event calls for naval units to be
+added to the map, and the only units available are on the Turn Track, these units are forfeited.
+squadrons:
+All powers except the Protestant may spend 2 CPs
+on the Build Naval Squadron action. Add 1 naval squadron to the map for each such action taken.
+Corsairs:
+If the
+Barbary Pirates Mandatory Event has occurred,
+the Ottoman power (only) may spend 1 CP on the Build Corsair
+action. Add 1 corsair to the map for each such action taken. Note
+that Corsairs may be built in either an Ottoman home port, Algiers,
+or a port that has been targeted by the event
+Pirate Haven.
+Corsairs
+are the only type of unit the Ottoman power can build at Algiers
+or at a port targeted by Pirate Haven.
+18.
+THe reforMa
+TIon
+The religious struggle started by Luther’s 95 Theses in 1517 takes
+place during the game at the same time as the military campaigning
+covered in the earlier rule sections. This section presents all the
+rules governing the religious conflict. Although the Papacy and
+the Protestant power are the key figures in the religious arena, the
+English and Hapsburg powers both have a vested interest in the outcome. The religious actions that trigger a change in religious status are presented first below. These are followed by detailed
+instructions on resolving the Reformation attempts, Counter
+Reformation attempts, and Theological Debates that result from
+these actions.
+18.1 religious
+actions
+The following eight sections describe the actions that affect the
+religious status of Europe. The first two items (Luther’s 95 Theses
+and the Diet of Worms) occur automatically at the start of Turn 1
+to represent Luther’s initial attack on the institutions of Catholi-
+cism. The remaining six religious actions are initiated through the
+expenditure of CP during the action cycle.
+Luther’s 95 Theses
+The first phase of Turn 1 is always the play of the Mandatory Event
+card
+Luther’s 95 Theses
+by the Protestant player. This card always
+starts the game in the possession of the Protestant player (and note
+that cards are not dealt until
+after the Luther’s 95 Theses Phase).
+This event has the following effects:
+•
+Luther is added to the Wittenberg space (Section 8.2)
+•
+Wittenberg comes under Protestant religious influence (and
+the 2 Protestant regulars on Wittenberg in the Electorate
+display are added to the space, see 21.6)
+•
+The Protestant power makes 5 Reformation attempts target-
+ing the German language zone. These attempts are resolved
+as described in Section 18.3. The Protestant rolls one extra
+die in each attempt.
+This Mandatory Event card is then removed from the deck.
+Lu-
+ther’s 95 Theses is the only Mandatory Event that does not grant
+the player 2 CPs after the event is resolved.
+diet of
+w
+orms
+The fourth phase of Turn 1 is always the Diet of Worms phase.
+In 1521, the newly-appointed Holy Roman Emperor Charles V
+reviewed Luther’s teachings in front of this German legislature.
+In the game, the Diet is played out using the following procedure.
+diet of
+w
+orms procedure
+1.
+select Commitment Card: The Protestant, Hapsburgs, and
+Papacy all secretly select one card from their hand to represent
+their level of commitment to these proceedings. Each of these
+powers must play a card. The card may not be a Mandatory Event.

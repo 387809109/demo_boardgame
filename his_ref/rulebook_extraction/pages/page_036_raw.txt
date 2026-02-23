@@ -1,0 +1,105 @@
+Here I Stand, 2nd Printing
+36
+© 2010 GMT Games, LLC
+If the result is a 3, 4 or 6 (or 2 if Galleons are not in play), a Raider remains in play and can try to steal a future card drawn by the
+Hapsburgs (even later in the same Card Draw Phase). Eliminated
+Raiders may be rebuilt later if that power again draws the
+Huguenot
+Raider Event card.
+21. MaJor powers
+This section identifies the rules that apply specifically to one
+of the major powers. All unique characteristics of a power are
+mentioned here, even if they just refer to a more detailed rule
+section elsewhere.
+21.1 ottoman
+The Ottoman is the only power that may build cavalry (a cheap
+land unit that helps in interceptions and avoid battle attempts). The
+rules for cavalry are contained in Sections 5, 13 and 17. They also
+are the only power that builds corsairs and initiates piracy. The
+rules for establishing pirate havens at Algiers, Oran, and Tripoli
+are given below; the rules for conducting piracy are located in Section 16.4. Finally, the Ottoman, like the English, may have to divert troops off the map to handle foreign wars. Foreign wars are
+presented in Section 21.7.
+barbary pirates and pirate Havens
+Three spaces along the North African coast (Algiers, Oran and
+Tripoli) are marked with green on the bottom half of their space to
+show that they start the game with one status, but can be converted
+into pirate havens through events. The Ottoman power may begin
+building corsairs and initiating piracy once the
+Barbary Pirates
+Mandatory Event has been played. Prior to this event, the Algiers space is out of play and can not be entered by a unit of any power. That space does not count as an Ottoman key at the beginning
+of the game either. When the
+Barbary Pirates event is played,
+add a square control marker from the Ottoman power card to the
+Algiers space and add 2 corsairs, 2 regulars, and Barbarossa to
+that space (as specified on that card). This space is now the focal
+point for Ottoman piracy in the Mediterranean. After the
+Barbary
+Pirates
+event has been played, the Hapsburg home spaces of Oran
+and Tripoli may become additional pirate bases with the
+Pirate
+Haven Event card. When
+Pirate Haven is played, the Ottoman
+player adds 1 regular and 2 corsairs to the appropriate space. It
+also converts Oran or Tripoli into a fortified space; mark this new
+status by putting a Pirate Haven marker there. Once converted into
+Ottoman pirate havens, these three spaces are considered to be
+Ottoman home spaces (with a fortress present) for all purposes.
+The only exception is that the Ottoman may only construct one
+type of unit (corsairs) in these spaces. Prior to conversion into
+pirate havens, Oran and Tripoli are considered to be Hapsburg
+home spaces in all respects.
+21.2 Hapsburg
+Charles V received a lengthy series of dynastic inheritances that
+left him as the most powerful man in Europe at the start of his reign
+(1519). However, during this period, Charles’ greatest challenge is
+the geography of this empire; he faces threats from all sides and
+has to meet them using a set of geographically dispersed assets.
+To deal with these issues, the Hapsburg power has two unique properties, detailed in the sections below.
+English/French Conquest marker used from the game. If the result is a 7 or 8, no conquest is completed; the conquistador/conquest
+marker is returned to the pool for that country. If the result if a 9
+or better, a conquest has been made, as shown on the New World
+display. If the conquest corresponding to the number rolled has
+already been claimed earlier in the game, this voyage claims the next available conquest below the number rolled. The VP marker associated with the conquest is placed in one of that power’s col-
+ored conquest boxes to the left of the New World Riches Table. The
+VP listed on the VP marker are immediately added to the power’s
+current total for the power (even though the VP marker does not
+move to the Bonus VP box until the riches from that conquest are
+depleted). The conquistador/conquest marker used to initiate this
+voyage is placed over the box on the map of the New World that
+held the VP marker. The conquistador/conquest marker remains
+there for the rest of the game as a record of his accomplishments in the New World.
+20.4 new
+w
+orld riches
+During the Card Draw Phase, powers with colonies or conquests on the New World display may receive extra cards. The power
+owning a colony or conquest rolls two dice for each and consults
+the appropriate column of the New World Riches Table. Add +1
+if rolling for a colony (even the Potosi colony) if your power has
+a Plantations marker next to your colonies. The results on that table are explained below:deplete 1: Receive a card but this conquest is depleted. Move its marker to the Bonus VP box on this power’s card. Card:
+Receive a card and keep this conquest or colony in the New
+World display for another turn.Galleon:
+Receive a card only if your power has a Galleon marker
+next to your colonies. Keep this conquest or colony in the New World display for another turn.ne: No effect. Keep this conquest or colony in the New World display for another turn.e
+lim:
+Conquest or colony eliminated. Conquest markers are
+moved to the Bonus VP box on this power’s card. Colonies are removed from the New World display (though they may reenter
+the game with another Colonize action). If the Hapsburgs received a card from either a colony or a conquest, and one or more major powers have a
+Raider counter in play, the extra card may be stolen
+by the Raider’s power. The owning power of each
+Raider rolls a die (starting with French raiders, then English, then
+Protestant). The possible results are as follows:
+1:
+Raider eliminated (card still goes to Hapsburgs).
+
+2:
+Raider eliminated if the Hapsburgs have Galleons in play. Otherwise no effect (and card still goes to Hapsburgs).
+
+3 or 4: No effect (card still goes to Hapsburgs).
+
+5:
+Card is stolen; award it to the Raiders’ power. Raider is eliminated (having retired with their loot!).
+
+6:
+Card is stolen; award it to the Raiders’ power. Raider re-
+mains in play.

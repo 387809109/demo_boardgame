@@ -1,0 +1,119 @@
+12.4 unrest
+Unrest markers are placed on spaces due to the events
+Book of
+Common Prayer, Cloth Prices Fluctuate, Gabelle Revolt, Janissar
+ies Rebel, Peasants’ War, Pilgrimage of Grace,
+and
+Revolt of the
+Communeros.
+Unrest markers can also be placed by excommunica
+tion of a ruler (Section 21.5) or a failed Reformation attempt using Carlstadt’s debater bonus (Section 18.3). Markers must be placed in spaces that do not contain land or naval units (or leaders) of any power (
+Exception:
+Book of Common Prayer
+and Carlstadt add unrest
+to spaces under Catholic influence regardless of occupation status). Unrest has the following effects:
+effects:
+Units may not use spring deployment, retreat, or avoid battle into or through a space in unrest.
+No LOC can be traced through a space in unrest.
+No units may be constructed in a space in unrest.
+The contents of this space are ignored entirely when con-
+ducting Reformation and Counter Reformation attempts in
+an adjacent space.
+The Protestant may not target an adjacent space for a Ref-
+ormation attempt if a space in unrest is the only space under
+Protestant religious influence adjacent to that target space.
+The Papacy may not target an adjacent space for a Counter
+Reformation attempt if a space in unrest is the only space un-
+der Catholic religious influence adjacent to that target space.
+The space is not considered to be Protestant when computing
+victory points (VP).
+Electorates in unrest never yield VP to either the Hapsburgs
+or Protestants.
+A key in unrest is not credited when tracking the number of VP earned and cards to draw. Place an additional Unrest marker on one key box of the affected power’s card for each
+key under unrest. Remove these markers when the unrest is
+removed from that key.
+A fortress in unrest does not roll a die against an Ottoman
+piracy attempt in an adjacent sea zone.
+Spaces under unrest may be the target of Reformation and Counter
+Reformation attempts.
+removing unrest
+A power may spend 1 CP on the Control Unfortified Space action
+to remove unrest from a space if at least one of these conditions is met:
+a.
+land units controlled by the active power occupy the space,
+b.
+the unrest is in a Protestant home space, and this is the Protes
+tant power removing unrest before the Schmalkaldic League Mandatory Event has occurred, or
+c.
+land units controlled by the active power are adjacent to the
+space and land units of an enemy power are not adjacent.
+[For the purposes of this condition, two spaces connected
+by a pass should not be considered adjacent.]
+Removing unrest does not require an LOC to a space in order to
+remove unrest (unlike gaining political control of an unfortified
+space where an LOC is required).
+13. MoVeMenT
+A power may move land units with either the Move Formation
+In Clear action (1 CP) or the Move Formation Over Pass action
+(2 CPs). All land movement is restricted by the formation rules
+(Section 5.1). Land movement may trigger interception attempts by
+enemy formations. Enemy stacks are also allowed to try to avoid
+battle and withdraw into fortifications in response to Move actions.
+13.1 Land Movement procedure
+The following restrictions limit the use of a Move action.
+restrictions:
+All land units and army leaders being moved must start the
+action in the same space and it must be permissible to move
+them in a single formation.
+Formations may always move into a space controlled by
+their power or into an independent space. A formation may
+only move into a space controlled by another power if either:
+
+◊
+the active power is at war with the power controlling the
+destination space, or
+
+◊
+the active power is allied with the power controlling the destination space.
+Formations may not move into a space containing land units from another power unless
+the space satisfies one of these
+conditions
+:
+
+◊
+all units in the space are allies of the active power (and this is not a fortified space where one ally has another ally
+under siege);
+
+◊
+all units in the space are enemies of the active power (and
+this is not a fortified space where one enemy has another
+enemy under siege)
+;
+
+◊
+this is a space controlled by an enemy power and all units
+in the space are either from that enemy power or allied
+to them. When resolving this movement, treat the units
+already in the space as “enemy units” for all purposes.
+Adjacent units from a power with units in the space are
+also considered as enemy units and may intercept into the
+space if desired
+;
+
+◊
+this is a fortified space under siege where either: (a) all
+units inside the fortification are allied to the active power
+and all besieging units are enemies of the active power,
+or (b) all units inside the fortification are enemies of the
+active power and all besieging units are allied to the active
+power.
+Independent regulars in an independent key (Section 22.6)
+never prevent the entry of a formation, though that formation
+might have to fight off troops from an enemy power before
+being able to siege the independent key.
+No army leader or unit may participate in a Move action if it was part of a formation that lost a field battle earlier in the
+impulse.
+No army leader or unit may participate in a Move action if
+it occupies an enemy fortified space that
+their power placed
+under siege (Section 15) earlier in the impulse.

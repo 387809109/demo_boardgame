@@ -1,0 +1,103 @@
+Here I Stand, 2nd Printing
+42
+© 2010 GMT Games, LLC
+(since Milan is under French control and Tunis under Hapsburg control at that time). Like other independent spaces, these keys
+can be entered by units of any power at any time. Independent
+regulars in these keys may not move; they simply defend against
+any power that may be attacking them (just like an inactive minor
+power, Section 22.1). These regulars may not be rebuilt during play (though they may reenter with the
+City State Rebels Event card).
+As soon as these keys are captured by a major power, these city states will no longer be independent. Such a key will be controlled
+by one major power or another for the rest of the game, unless
+they again revert to independent status due to the play of the
+City
+State Rebels Event card.
+23.
+Victory
+There are five ways to win the game, as explained below. The
+first two, Military and Religious victories, occur immediately
+in the Action Phase when the appropriate condition is triggered.
+Victory is usually achieved in the ninth phase of the turn, the Victory Determination Phase, typically by the accumulation of victory points (VP) by each power. The three types of victory
+that may be achieved in this phase are the Standard, Domination,
+and Time Limit wins.
+23.1
+automatic Victories
+Military and Religious Victories are immediate wins that end the
+game instantly during the Action Phase. The game is over, even
+though the turn has not reached the Victory Determination phase.
+Military Victory
+If a power (other than the Protestant) ever gains control of enough
+keys that the Auto Win space is open on their power card
+during
+the Action Phase, they win a Military Victory immediately. None
+of these spaces may contain an Unrest marker.
+Note that a Military
+Victory is not achieved if a player reveals his Auto Win space dur
+-
+ing the Diplomacy Phase (as deals and peace agreements conclude) unless that space is still revealed when the Action Phase starts.
+religious Victory
+If the Protestant power ever achieves religious influence over 50 spaces, it wins a Religious Victory immediately. None of these
+spaces may contain an Unrest marker.
+23.2 Victory points
+Since Military and Religious Victories are uncommon, the game
+is usually decided by accumulation of VP. Each power earns
+victory points as shown in the lower-left section of their power
+card. A power’s current VP total is the sum of their base, special,
+and bonus VP.
+base
+The English, French, Hapsburg, Ottoman and Papal base VP are
+all determined by the number of keys they control. Award the
+VP shown in the last open box on their power card. Make sure to
+mark a box with an Unrest marker for each key currently in un-
+rest. Boxes with Unrest markers are not considered “open” when
+computing base VP. If all spaces are covered, that power has 0
+base VP. The Protestant player adds up base VP as follows: 2 VP
+for each electorate that is under Protestant religious influence and
+political control.
+protestant spaces
+Three powers gain special VP based on the number of spaces under
+Protestant religious influence among English home spaces (for
+England) or anywhere on the map (for Papacy and Protestants).
+Adjust the Protestant Spaces marker on the Protestant Spaces
+Track on the Religious Struggle Card whenever an action or event
+causes the number of spaces under Protestant influence to go up or down. The marker should always be placed over the box with the large number that corresponds to the current number of Protestant
+spaces. The box also contains two smaller numbers: the current
+special VP award to both the Papacy (listed first in purple) and the
+Protestant (listed second in brown). Similarly, adjust the English
+Home Spaces marker whenever an action or event changes the
+number of English home spaces under Protestant influence. The
+back of the English Home Spaces counter reminds players that
+the English earn 1 VP for every 2 English home spaces under
+Protestant religious influence (round fractions down).
+special
+The special VP received by each power are as follows:
+ottoman
+piracy: 1 VP for each VP space marked on the piracy track of the
+Ottoman player card.
+Hapsburgs
+electorates: 1 VP for each electorate under Hapsburg political
+control (that is not in unrest). These points are not awarded until
+the Schmalkaldic League Mandatory event has been played.
+england
+Male heir:
+5 VP if Edward VI is born during a roll on the Six
+Wives of Henry VIII table. The English receive 2 VP if Edward
+has not been born but Elizabeth I has.protestant spaces:
+1 VP for every 2 English home spaces that
+have been converted to the Protestant faith. Round fractions down.
+france
+Chateaux:
+1 VP for each chateau that has been built using the
+Patron of the Arts Home card.
+papacy
+protestant spaces: Look at the box under the Protestant Spaces marker on the Protestant Spaces Track. Award the number of VP
+listed in purple as special VP for the Papacy.s
+aint
+p
+eter’s:
+1 VP for each space marked on the lower St.
+Peter’s track.
+protestant
+protestant spaces:
+Look at the box under the Protestant Spaces
+marker on the Protestant Spaces Track. Award the number of VP listed in brown as special VP for the Protestant.

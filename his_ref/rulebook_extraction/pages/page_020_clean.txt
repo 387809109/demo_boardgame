@@ -1,0 +1,67 @@
+4.
+attacker
+declares Combat Cards: The attacker declares any
+Combat cards he wants to play as events to affect the battle. 5.
+efender
+eclares Combat Cards:
+The defender declares any
+Combat cards he wants to play as events to affect the battle. If more than one major power is controlling defending units in this
+space, each of these powers may play Combat cards.6.
+roll
+dice: Both sides roll their dice (taking into account that
+play of the Combat cards
+Mercenaries Bribed or
+Surprise Attack
+in Step 4 or 5 may force a player to roll a different number of dice than the number arrived at in Step 2 or 3). Each roll of a “5” or a “6” is considered to be a hit.
+7.
+lay Janissaries:
+If the Ottomans were one of the powers
+involved in this battle and they have not yet played
+Janissaries
+this turn, they may play this Home card to roll extra dice in an
+attempt to score additional hits.8.
+declare
+inner: The side scoring the most hits is declared the
+winner of the battle. In the case of a tie, the defender is declared the winner.9. Take Casualties: Each side eliminates 1 land unit for each hit scored by the opposing side. If both sides are eliminated, the side
+that rolled more dice retains 1 unit. If both sides are eliminated
+and the two sides rolled the same number of dice, the defender
+retains 1 unit.10. Capture Leaders:
+If one or more leaders are present on a side
+that is completely eliminated, they are captured by the enemy. Place a captured leader on the power card of the adversary which
+defeated him. He may be regained in the Diplomacy Phase of an
+upcoming turn (see Section 9).11. Conduct
+retreats: The units of the losing power retreat as
+described in 14.1 (unless they were all eliminated).
+12. Check for
+siege:
+If the battle occurred in a fortified space and
+the active player won, check to see if the active formation has more units than the losing player has inside the fortifications. If so, this
+space is now under siege (Section 15). If not, the active player must
+retreat his force as specified in Section 15.3, Breaking a Siege.
+14.1 retreat
+All remaining units and army leaders from the losing power must
+retreat. If the battle occurred in a fortified space, and the power
+controlling that space lost the battle, then any number of land
+units up to four (at the owner’s discretion), and any number of
+army leaders, may withdraw into the fortifications. The stack of
+units remaining outside the fortifications after such a withdrawal (or all losing power units if the battle did not occur in a fortified space) must then retreat to a single adjacent space chosen by the
+owner of those units. That space must meet all the restrictions
+listed below. If no legal space exists,
+all units in that stack are
+eliminated; any army leaders present are captured.
+restrictions:
+Units may not retreat into a space in unrest or a space containing
+enemy units.
+Units may not retreat into a sea zone.
+Units may not retreat into an independent space or a space
+controlled by another power unless that power is an ally of the
+retreating power.
+If the defender lost the battle, his units may not retreat into the
+space from which the enemy entered.
+If the active power lost the battle, the space chosen must be the
+space from which this formation entered the battle.
+INTERCEPTION AND BATTLE EXAMPLE: It is the Ottoman impulse. Suleiman, Ibrahim, 7 regulars and 1 cavalry are stacked in Pressburg, the space between Vienna and Buda. The Ottoman
+spends 1 CP to move the entire formation to Vienna. Charles V and 8 Hapsburg regulars are stacked in Graz, adjacent to Vienna. They attempt to intercept, adding 2 to their dice roll due to Charles’ Battle Rating and subtracting 1 for the presence of Ottoman cavalry. Charles’ formation rolls an 8, just enough to complete the interception. [If they had failed the interception attempt, Ferdinand and the 2 regulars in Vienna would have had the option to either fight a land battle outside Vienna (not a smart option!), avoid battle to Brunn, Linz or Graz, or withdraw into the fortifications of Vienna.] In the resulting field battle, the Ottomans roll 8 dice for their units plus 2 dice for Suleiman (their best leader), for a total of 10 dice. The Hapsburgs will roll 10 dice for their units plus 2 dice for Charles plus 1 die as defender, for a total of 13 dice. The Ottomans score 3 hits on their 10 dice; the Hapsburgs score 5 on their 13 dice. 3 Hapsburg
+regulars are eliminated; the Ottoman chooses to eliminate the cavalry unit and 4 regulars. Suleiman, Ibrahim, and the remain
+ing 3 regulars retreat to the space from which they entered the
+field battle (Pressburg). Charles, Ferdinand and 7 Hapsburg regulars remain in Vienna.

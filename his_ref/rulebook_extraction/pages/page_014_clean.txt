@@ -1,0 +1,89 @@
+vene. If the French intervene, Scotland is activated as a French ally (Section 22) and France is now at war with the declaring power.5.
+dow
+on Venice:
+If a declaration of war is made against Venice,
+the Papal player may immediately spend 2 CPs to intervene. If the Papacy intervenes, Venice is activated as a Papal ally (Section 22)
+and the Papacy is now at war with the declaring power.
+dow
+during the
+action phase
+Three Event cards (
+Schmalkaldic League, Machiavelli: “The
+Prince”,
+and Six Wives of Henry VIII) create a state of war during
+the Action Phase. The Ottoman defeat of Hungary may trigger a
+state of war with the Hapsburg during the Action Phase (Section
+22.5). Finally, the activation of a minor power can create a state
+of war between major powers (Section 22.2). Add an appropriate marker to the Diplomatic Status Display when any of these five events occurs. If naval units of the two powers now at war occupy
+the same sea zone, fight an immediate naval battle between the
+two powers. If the number of hits is equal, both sides must retreat
+(an exception to the usual naval combat rules).
+restrictions on declarations of
+ar
+There are several restrictions which apply to declarations of war.
+Some of those restrictions apply at all times; others only apply
+to declarations made during the fifth segment of the Diplomacy
+Phase, as detailed below.restrictions
+at
+all Times:
+You can not declare war on:
+Hungary-Bohemia (the Ottomans start the game at war with Hungary-Bohemia and are the only power that may be at war with this minor power).
+Scotland
+if you are currently allied to France or if you are the
+Ottoman, Papacy, or Protestant.
+Venice if you are England.
+a minor power that is allied to a major power (you have to
+declare war on the major power instead).
+a power (major or minor) that is currently your ally.
+the Protestant power until the Schmalkaldic League Manda-
+tory Event has been played.
+any other power if you are the Protestant and the Schmalkaldic League Mandatory Event has not yet been played.
+an independent key (Metz, Milan, Florence or Tunis) since
+those independent keys may be besieged by any power with-
+out a DOW.
+restrictions during diplomacy phase:
+You can not declare war on:
+a power that you have made peace with during the current
+Diplomacy Phase (even if that other power forced the end of
+the war by suing for peace),
+a power that you have formed an alliance with during the
+current Diplomacy Phase.
+Scotland, if you are either currently allied with France, or have
+made peace with France during the current Diplomacy Phase.
+Venice, if you are either currently allied with the Papacy, or
+have made peace with the Papacy during the current Diplo-
+macy Phase.
+10. sprInG depLoyMenT
+The fifth phase of each turn is Spring Deployment. At this time,
+each power has the opportunity to move a single formation of land
+units and army leaders from their capital to a friendly-controlled
+space. This special move costs no CP and is executed in Impulse
+Order. The following restrictions apply:
+restrictions:
+Only land units and army leaders that start this phase in their
+capital may use spring deployment. The Hapsburgs may use
+spring deployment from either one of their capitals (but not
+both). The Protestant power (which has no capital) can never
+use spring deployment.
+The power must be able to trace a path of any length from
+their capital to the destination space. All land spaces on the path must be friendly-controlled and no land space on the path may be in unrest. The path may also cross one sea zone
+(only) following a path from one friendly-controlled port on
+that sea zone to another.
+The number of land units in the formation is limited by the
+command rating of any army leaders present.
+The path may not cross a Pass. (*)
+If any other major power has naval units in ports that border
+a sea zone, even naval units of an allied power, the path may
+not cross that sea zone (unless those naval units have been
+loaned to the deploying power for the turn). (*)
+SPRING DEPLOYMENT EXAMPLE: It is France’s turn for
+spring deployment. The Hapsburgs and French fought over
+Milan on the previous turn. The French were able to hold on to
+the key, but their defending forces were eliminated. They wish
+to reinforce Milan before the Action Phase begins. Fortunately,
+the French control Genoa and no power has a naval unit based in a port on the Gulf of Lyon. They may thus spring deploy as many as 5 units from Paris to Marseille and then over that sea
+zone into Genoa. The French were worried about reinforcing
+Milan during this turn’s Diplomacy Phase and arranged an
+alliance with the Papacy. Pavia is thus a friendly space and
+the formation of Montmorency and 5 regulars can deploy all
+the way to Milan.

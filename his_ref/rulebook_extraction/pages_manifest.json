@@ -1,0 +1,1083 @@
+{
+  "source_pdf": "his_ref/HIS-Rules-2010.pdf",
+  "detected_pages": 48,
+  "repeated_noisy_lines_count": 12,
+  "repeated_noisy_lines_sample": [
+    "-",
+    "1",
+    "1.",
+    "2",
+    "Here I Stand, 2nd Printing",
+    "Wars of the Reformation 1517–1555",
+    "a",
+    "d",
+    "p",
+    "w",
+    "© 2010 GMT Games, LLC",
+    "•"
+  ],
+  "pages": [
+    {
+      "page_number": 1,
+      "page_obj_id": 167,
+      "text_chars": 194,
+      "raw_text_file": "pages/page_001_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 202,
+          "status": "ok",
+          "path": "images/page_001_Im0_obj_202.png"
+        },
+        {
+          "name": "Im1",
+          "obj": 184,
+          "status": "unsupported_colorspace",
+          "path": null
+        },
+        {
+          "name": "Im2",
+          "obj": 182,
+          "status": "unsupported_colorspace",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_001_clean.txt"
+    },
+    {
+      "page_number": 2,
+      "page_obj_id": 1,
+      "text_chars": 7696,
+      "raw_text_file": "pages/page_002_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_002_clean.txt"
+    },
+    {
+      "page_number": 3,
+      "page_obj_id": 3,
+      "text_chars": 5010,
+      "raw_text_file": "pages/page_003_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 5,
+          "status": "ok",
+          "path": "images/page_003_Im0_obj_5.png"
+        }
+      ],
+      "clean_text_file": "pages/page_003_clean.txt"
+    },
+    {
+      "page_number": 4,
+      "page_obj_id": 6,
+      "text_chars": 4081,
+      "raw_text_file": "pages/page_004_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 9,
+          "status": "ok",
+          "path": "images/page_004_Im0_obj_9.png"
+        },
+        {
+          "name": "Im1",
+          "obj": 10,
+          "status": "ok",
+          "path": "images/page_004_Im1_obj_10.jpg"
+        },
+        {
+          "name": "Im2",
+          "obj": 11,
+          "status": "unsupported_colorspace",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_004_clean.txt"
+    },
+    {
+      "page_number": 5,
+      "page_obj_id": 12,
+      "text_chars": 4967,
+      "raw_text_file": "pages/page_005_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_005_clean.txt"
+    },
+    {
+      "page_number": 6,
+      "page_obj_id": 14,
+      "text_chars": 5318,
+      "raw_text_file": "pages/page_006_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 16,
+          "status": "ok",
+          "path": "images/page_006_Im0_obj_16.png"
+        },
+        {
+          "name": "Im1",
+          "obj": 17,
+          "status": "ok",
+          "path": "images/page_006_Im1_obj_17.png"
+        },
+        {
+          "name": "Im2",
+          "obj": 18,
+          "status": "ok",
+          "path": "images/page_006_Im2_obj_18.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_006_clean.txt"
+    },
+    {
+      "page_number": 7,
+      "page_obj_id": 19,
+      "text_chars": 5082,
+      "raw_text_file": "pages/page_007_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 21,
+          "status": "ok",
+          "path": "images/page_007_Im0_obj_21.png"
+        },
+        {
+          "name": "Im1",
+          "obj": 22,
+          "status": "ok",
+          "path": "images/page_007_Im1_obj_22.jpg"
+        },
+        {
+          "name": "Im2",
+          "obj": 23,
+          "status": "ok",
+          "path": "images/page_007_Im2_obj_23.png"
+        },
+        {
+          "name": "Im3",
+          "obj": 24,
+          "status": "ok",
+          "path": "images/page_007_Im3_obj_24.png"
+        },
+        {
+          "name": "Im4",
+          "obj": 25,
+          "status": "ok",
+          "path": "images/page_007_Im4_obj_25.jpg"
+        },
+        {
+          "name": "Im5",
+          "obj": 26,
+          "status": "ok",
+          "path": "images/page_007_Im5_obj_26.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_007_clean.txt"
+    },
+    {
+      "page_number": 8,
+      "page_obj_id": 27,
+      "text_chars": 5034,
+      "raw_text_file": "pages/page_008_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 29,
+          "status": "ok",
+          "path": "images/page_008_Im0_obj_29.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_008_clean.txt"
+    },
+    {
+      "page_number": 9,
+      "page_obj_id": 30,
+      "text_chars": 5634,
+      "raw_text_file": "pages/page_009_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_009_clean.txt"
+    },
+    {
+      "page_number": 10,
+      "page_obj_id": 32,
+      "text_chars": 5239,
+      "raw_text_file": "pages/page_010_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 34,
+          "status": "ok",
+          "path": "images/page_010_Im0_obj_34.png"
+        },
+        {
+          "name": "Im1",
+          "obj": 35,
+          "status": "ok",
+          "path": "images/page_010_Im1_obj_35.jpg"
+        },
+        {
+          "name": "Im2",
+          "obj": 36,
+          "status": "ok",
+          "path": "images/page_010_Im2_obj_36.jpg"
+        },
+        {
+          "name": "Im3",
+          "obj": 37,
+          "status": "ok",
+          "path": "images/page_010_Im3_obj_37.jpg"
+        },
+        {
+          "name": "Im4",
+          "obj": 38,
+          "status": "ok",
+          "path": "images/page_010_Im4_obj_38.jpg"
+        },
+        {
+          "name": "Im5",
+          "obj": 39,
+          "status": "ok",
+          "path": "images/page_010_Im5_obj_39.png"
+        }
+      ],
+      "clean_text_file": "pages/page_010_clean.txt"
+    },
+    {
+      "page_number": 11,
+      "page_obj_id": 40,
+      "text_chars": 5916,
+      "raw_text_file": "pages/page_011_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_011_clean.txt"
+    },
+    {
+      "page_number": 12,
+      "page_obj_id": 42,
+      "text_chars": 6044,
+      "raw_text_file": "pages/page_012_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 44,
+          "status": "ok",
+          "path": "images/page_012_Im0_obj_44.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_012_clean.txt"
+    },
+    {
+      "page_number": 13,
+      "page_obj_id": 45,
+      "text_chars": 6246,
+      "raw_text_file": "pages/page_013_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 47,
+          "status": "ok",
+          "path": "images/page_013_Im0_obj_47.jpg"
+        },
+        {
+          "name": "Im1",
+          "obj": 48,
+          "status": "ok",
+          "path": "images/page_013_Im1_obj_48.png"
+        }
+      ],
+      "clean_text_file": "pages/page_013_clean.txt"
+    },
+    {
+      "page_number": 14,
+      "page_obj_id": 49,
+      "text_chars": 4835,
+      "raw_text_file": "pages/page_014_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 51,
+          "status": "ok",
+          "path": "images/page_014_Im0_obj_51.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_014_clean.txt"
+    },
+    {
+      "page_number": 15,
+      "page_obj_id": 52,
+      "text_chars": 5046,
+      "raw_text_file": "pages/page_015_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_015_clean.txt"
+    },
+    {
+      "page_number": 16,
+      "page_obj_id": 54,
+      "text_chars": 5237,
+      "raw_text_file": "pages/page_016_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_016_clean.txt"
+    },
+    {
+      "page_number": 17,
+      "page_obj_id": 56,
+      "text_chars": 5392,
+      "raw_text_file": "pages/page_017_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_017_clean.txt"
+    },
+    {
+      "page_number": 18,
+      "page_obj_id": 58,
+      "text_chars": 6206,
+      "raw_text_file": "pages/page_018_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_018_clean.txt"
+    },
+    {
+      "page_number": 19,
+      "page_obj_id": 60,
+      "text_chars": 5725,
+      "raw_text_file": "pages/page_019_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_019_clean.txt"
+    },
+    {
+      "page_number": 20,
+      "page_obj_id": 62,
+      "text_chars": 4759,
+      "raw_text_file": "pages/page_020_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 64,
+          "status": "ok",
+          "path": "images/page_020_Im0_obj_64.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_020_clean.txt"
+    },
+    {
+      "page_number": 21,
+      "page_obj_id": 65,
+      "text_chars": 5915,
+      "raw_text_file": "pages/page_021_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_021_clean.txt"
+    },
+    {
+      "page_number": 22,
+      "page_obj_id": 67,
+      "text_chars": 5216,
+      "raw_text_file": "pages/page_022_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 69,
+          "status": "ok",
+          "path": "images/page_022_Im0_obj_69.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_022_clean.txt"
+    },
+    {
+      "page_number": 23,
+      "page_obj_id": 70,
+      "text_chars": 6269,
+      "raw_text_file": "pages/page_023_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_023_clean.txt"
+    },
+    {
+      "page_number": 24,
+      "page_obj_id": 72,
+      "text_chars": 5218,
+      "raw_text_file": "pages/page_024_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 74,
+          "status": "ok",
+          "path": "images/page_024_Im0_obj_74.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_024_clean.txt"
+    },
+    {
+      "page_number": 25,
+      "page_obj_id": 75,
+      "text_chars": 5033,
+      "raw_text_file": "pages/page_025_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 77,
+          "status": "ok",
+          "path": "images/page_025_Im0_obj_77.jpg"
+        },
+        {
+          "name": "Im1",
+          "obj": 78,
+          "status": "ok",
+          "path": "images/page_025_Im1_obj_78.png"
+        }
+      ],
+      "clean_text_file": "pages/page_025_clean.txt"
+    },
+    {
+      "page_number": 26,
+      "page_obj_id": 79,
+      "text_chars": 5798,
+      "raw_text_file": "pages/page_026_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_026_clean.txt"
+    },
+    {
+      "page_number": 27,
+      "page_obj_id": 81,
+      "text_chars": 6006,
+      "raw_text_file": "pages/page_027_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 83,
+          "status": "ok",
+          "path": "images/page_027_Im0_obj_83.png"
+        }
+      ],
+      "clean_text_file": "pages/page_027_clean.txt"
+    },
+    {
+      "page_number": 28,
+      "page_obj_id": 84,
+      "text_chars": 5884,
+      "raw_text_file": "pages/page_028_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_028_clean.txt"
+    },
+    {
+      "page_number": 29,
+      "page_obj_id": 86,
+      "text_chars": 5536,
+      "raw_text_file": "pages/page_029_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_029_clean.txt"
+    },
+    {
+      "page_number": 30,
+      "page_obj_id": 88,
+      "text_chars": 5003,
+      "raw_text_file": "pages/page_030_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 90,
+          "status": "ok",
+          "path": "images/page_030_Im0_obj_90.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_030_clean.txt"
+    },
+    {
+      "page_number": 31,
+      "page_obj_id": 91,
+      "text_chars": 5419,
+      "raw_text_file": "pages/page_031_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_031_clean.txt"
+    },
+    {
+      "page_number": 32,
+      "page_obj_id": 93,
+      "text_chars": 5634,
+      "raw_text_file": "pages/page_032_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_032_clean.txt"
+    },
+    {
+      "page_number": 33,
+      "page_obj_id": 95,
+      "text_chars": 5919,
+      "raw_text_file": "pages/page_033_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_033_clean.txt"
+    },
+    {
+      "page_number": 34,
+      "page_obj_id": 97,
+      "text_chars": 4445,
+      "raw_text_file": "pages/page_034_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 99,
+          "status": "ok",
+          "path": "images/page_034_Im0_obj_99.jpg"
+        },
+        {
+          "name": "Im1",
+          "obj": 100,
+          "status": "ok",
+          "path": "images/page_034_Im1_obj_100.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_034_clean.txt"
+    },
+    {
+      "page_number": 35,
+      "page_obj_id": 101,
+      "text_chars": 6121,
+      "raw_text_file": "pages/page_035_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 103,
+          "status": "ok",
+          "path": "images/page_035_Im0_obj_103.png"
+        },
+        {
+          "name": "Im1",
+          "obj": 104,
+          "status": "ok",
+          "path": "images/page_035_Im1_obj_104.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_035_clean.txt"
+    },
+    {
+      "page_number": 36,
+      "page_obj_id": 105,
+      "text_chars": 6093,
+      "raw_text_file": "pages/page_036_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 107,
+          "status": "ok",
+          "path": "images/page_036_Im0_obj_107.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_036_clean.txt"
+    },
+    {
+      "page_number": 37,
+      "page_obj_id": 108,
+      "text_chars": 5834,
+      "raw_text_file": "pages/page_037_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 110,
+          "status": "ok",
+          "path": "images/page_037_Im0_obj_110.jpg"
+        },
+        {
+          "name": "Im1",
+          "obj": 111,
+          "status": "ok",
+          "path": "images/page_037_Im1_obj_111.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_037_clean.txt"
+    },
+    {
+      "page_number": 38,
+      "page_obj_id": 112,
+      "text_chars": 6119,
+      "raw_text_file": "pages/page_038_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 114,
+          "status": "ok",
+          "path": "images/page_038_Im0_obj_114.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_038_clean.txt"
+    },
+    {
+      "page_number": 39,
+      "page_obj_id": 115,
+      "text_chars": 6093,
+      "raw_text_file": "pages/page_039_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_039_clean.txt"
+    },
+    {
+      "page_number": 40,
+      "page_obj_id": 117,
+      "text_chars": 6093,
+      "raw_text_file": "pages/page_040_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_040_clean.txt"
+    },
+    {
+      "page_number": 41,
+      "page_obj_id": 119,
+      "text_chars": 5623,
+      "raw_text_file": "pages/page_041_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_041_clean.txt"
+    },
+    {
+      "page_number": 42,
+      "page_obj_id": 121,
+      "text_chars": 5184,
+      "raw_text_file": "pages/page_042_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_042_clean.txt"
+    },
+    {
+      "page_number": 43,
+      "page_obj_id": 123,
+      "text_chars": 3951,
+      "raw_text_file": "pages/page_043_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_043_clean.txt"
+    },
+    {
+      "page_number": 44,
+      "page_obj_id": 125,
+      "text_chars": 533,
+      "raw_text_file": "pages/page_044_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 184,
+          "status": "unsupported_colorspace",
+          "path": null
+        },
+        {
+          "name": "Im1",
+          "obj": 182,
+          "status": "unsupported_colorspace",
+          "path": null
+        }
+      ],
+      "clean_text_file": "pages/page_044_clean.txt"
+    },
+    {
+      "page_number": 45,
+      "page_obj_id": 127,
+      "text_chars": 58,
+      "raw_text_file": "pages/page_045_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 130,
+          "status": "ok",
+          "path": "images/page_045_Im0_obj_130.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_045_clean.txt"
+    },
+    {
+      "page_number": 46,
+      "page_obj_id": 131,
+      "text_chars": 51,
+      "raw_text_file": "pages/page_046_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 134,
+          "status": "ok",
+          "path": "images/page_046_Im0_obj_134.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_046_clean.txt"
+    },
+    {
+      "page_number": 47,
+      "page_obj_id": 135,
+      "text_chars": 58,
+      "raw_text_file": "pages/page_047_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 138,
+          "status": "ok",
+          "path": "images/page_047_Im0_obj_138.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_047_clean.txt"
+    },
+    {
+      "page_number": 48,
+      "page_obj_id": 139,
+      "text_chars": 51,
+      "raw_text_file": "pages/page_048_raw.txt",
+      "images": [
+        {
+          "name": "Fm0",
+          "obj": 183,
+          "status": "not_image",
+          "path": null
+        },
+        {
+          "name": "Im0",
+          "obj": 142,
+          "status": "ok",
+          "path": "images/page_048_Im0_obj_142.jpg"
+        }
+      ],
+      "clean_text_file": "pages/page_048_clean.txt"
+    }
+  ],
+  "low_text_pages": [
+    1,
+    45,
+    46,
+    47,
+    48
+  ],
+  "unsupported_image_pages": [
+    {
+      "page": 1,
+      "issues": [
+        {
+          "name": "Im1",
+          "obj": 184,
+          "status": "unsupported_colorspace",
+          "path": null
+        },
+        {
+          "name": "Im2",
+          "obj": 182,
+          "status": "unsupported_colorspace",
+          "path": null
+        }
+      ]
+    },
+    {
+      "page": 4,
+      "issues": [
+        {
+          "name": "Im2",
+          "obj": 11,
+          "status": "unsupported_colorspace",
+          "path": null
+        }
+      ]
+    },
+    {
+      "page": 44,
+      "issues": [
+        {
+          "name": "Im0",
+          "obj": 184,
+          "status": "unsupported_colorspace",
+          "path": null
+        },
+        {
+          "name": "Im1",
+          "obj": 182,
+          "status": "unsupported_colorspace",
+          "path": null
+        }
+      ]
+    }
+  ]
+}

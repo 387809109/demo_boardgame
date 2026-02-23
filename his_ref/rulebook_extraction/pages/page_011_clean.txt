@@ -1,0 +1,93 @@
+9. dIpLoMaCy
+The third phase of each turn is the Diplomacy Phase. On the first turn, the Diplomacy Phase is abbreviated, with the English player
+holding negotiations with two other players (Section 7). Players
+may wish to skip this section when first learning the game since
+most of these rules do not apply until Turn 2.
+9.1 negotiations
+The first segment of the Diplomacy Phase allows players to con-
+duct secret negotiations away from the game board with one or
+more opponents. Several such discussions can occur during the
+Negotiation Segment of a single turn. This portion of the turn is the
+only time players may make deals in private; all other discussions
+must take place in the presence of all players. Players are free to discuss general strategic considerations during negotiations. They may also make a limited set of agreements that alter the position of
+units, leaders, cards or markers in play. Such a change is considered
+to be a “change in the current game state.” The only agreements
+allowed that change the game state are:
+Two powers may agree to end a war they are fighting. End the
+war as described in Step 8 of the Peace Segment Procedure
+(Section 9.3).
+Exception:
+The Protestant may never end wars
+with the Hapsburgs and Papacy that were triggered by the
+Schmalkaldic League Mandatory Event.
+War Winner VP are
+not awarded when a war is ended in this fashion (i.e. by mutual agreement; this way of ending a war is commonly known as a “white peace”).
+Two powers may form an alliance for exactly one turn (Sec-tion 9.2), but not if they are currently at war and are not
+agreeing to end that war (see above).
+A power entering an alliance may loan naval squadrons and
+naval leaders to the other power in that same alliance for one
+turn (Section 9.2).
+A captured army leader may be returned. Place that army
+leader in his capital if possible. If not, place him in a friendly
+home key.
+A power may yield political control of spaces it controls (even keys and electorates) to another major power. Any units occupying these spaces are returned to the nearest fortified
+space or their capital as described in Step 3 of the Peace Seg-
+ment Procedure (Section 9.3). The only spaces that can not
+be granted are a major power’s
+own capital, and a key that
+is the home space of an allied minor power.
+You can yield
+control of
+another power’s capital (for instance if you have
+conquered it and want to trade it back to that power).
+A power may agree to give another power up to two random
+card draws from their hand. Such a card must always be
+chosen at random; players can not exchange specific cards.
+Two players may not give each other card draws in the same
+turn; such an exchange can only occur in one direction on a
+given turn. (Remember that Home cards are ignored when drawing randomly from a player’s hand.)
+A power may agree to give another power (other than the Ottoman) up to four mercenaries. The power removes the
+specified number of mercenaries from any single space or
+combination of spaces. The power receiving the mercenaries then places the equivalent number of mercenaries from his force pool on the map. If the receiving power is the Hapsburgs,
+England, France or the Papacy, these mercenaries are placed
+in his capital (which must be controlled for this exchange
+to take place); if the receiving power is the Protestant, they
+are placed in any single controlled electorate (Protestant’s
+choice). Two players may not give each other mercenaries
+in the same turn; such an exchange can only occur in one
+direction on a given turn.
+If the “Henry’s Marital Status” marker is on the “Ask for
+Divorce” space, the Papacy may agree to grant the divorce to
+the English power. If such an agreement occurs, the English player moves the marker to the “Anne Boleyn” space and rolls immediately on the Pregnancy Chart as described in 21.3. The
+English player may roll again during the Action Phase of this
+turn if they want to play the
+Six Wives of Henry VIII Home
+card as an event to advance this marker to Jane Seymour. The
+Papacy is not allowed to ally with the Hapsburgs this turn.
+The Papacy may agree to rescind excommunication on a
+ruler (Section 21.5). Remove the “–1 Card” marker from
+that power card.
+Players should agree to a time limit for the Negotiation Segment
+before discussions begin. Suggested limits are:
+10 minutes in face-to-face play
+48 hours in email play
+When this time limit is reached (or discussions have ended), each
+power (in Impulse Order) declares any agreements it has made that will result in a change in the game state. Announcements can be made as individual items, or as a group of agreements that need
+to be ratified together. All powers involved in an agreement that
+follow later in Impulse Order must confirm
+all the contents of
+this declaration when it is their turn in the Impulse Order. If they
+do not confirm the full deal, NONE of the items in the agreement
+take effect. If the agreement is confirmed by all parties, the players
+immediately change the game state by updating diplomatic status,
+marking and moving loaned naval squadrons, returning army lead
+ers, changing political control of spaces, drawing random cards, and exchanging mercenaries.
+non-binding
+agreements
+The only portion of an agreement that is binding between powers is the portion that changes the current game state. Since items such
+as a diplomatic action on a future turn, a promised card play, or
+a coordinated movement of troops can’t be executed at this time,
+they do not change the current game state and are examples of a
+non-binding portion of an agreement. Non-binding agreements can be made at any time between players but they are never announced and there is never any repercussion within the game mechanics
+for breaking them (though there might be some repercussions at
+your gaming table!).

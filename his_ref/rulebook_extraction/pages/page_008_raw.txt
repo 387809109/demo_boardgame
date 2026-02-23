@@ -1,0 +1,108 @@
+Here I Stand, 2nd Printing
+8
+© 2010 GMT Games, LLC
+the playing power receives 2 command points to spend on actions. Mandatory events may never be held from one turn to the next.
+A player may not pass during his impulse in the Action Phase if a
+Mandatory Event card is still in his hand. All Mandatory Events are
+removed from play after they occur, except
+Council of Trent and
+Master of Italy. These two Mandatory Events remain in the deck from turn to turn and may each occur numerous times.
+Mandatory
+Events can be drawn from a power’s hand when a random draw is required; in this case the event is not triggered.
+response Cards
+Cards with the name of the card in blue and the word “Response” printed on them are Response cards. Response cards are playable
+as an event in the Action Phase during any player’s impulse (in-
+cluding your own). Play of a Response card interrupts a player’s
+impulse, a battle, or an Event card play. Players should allow a
+reasonable amount of time for play of a Response card by another player after each action, event, naval combat, or assault. Response cards can also be played for CPs during a player’s impulse if a
+player does not wish to use the card’s special ability to interrupt
+another player.
+Combat Cards
+Cards with the name of the card in black and the word “Combat”
+printed on them are Combat cards. Combat cards are playable
+as an event only during a field battle, assault, or naval combat in
+which the card owner’s units are participating. The Combat card
+is played just before that battle is resolved. Combat cards can also
+be played for CPs during a player’s impulse if a player does not wish to use the card’s special ability to be played during combat.
+event Cards
+All other cards in the deck are Event cards. The name of these cards appears in black, like Combat cards. These cards are played
+as events during the owning player’s impulse in the Action Phase.
+They may also be played for CPs during a player’s impulse
+if a player does not wish to use the card’s event. Three events
+(Augsburg Confession, Printing Press, and
+Wartburg) have game
+effects that last until the end of the current game turn. A marker
+is provided in the counter mix for each of these events. Place the
+appropriate marker on the Turn Track when one of these three
+cards is played as an event, to remind players that this event is in
+effect. Five Event cards have special uses elsewhere as events in
+another phase. These special uses are as follows:
+
+Action
+Card Name
+Other Phase Used
+Phase too?
+Diplomatic Marriage
+Diplomacy
+Yes
+Spring Preparations
+Spring Deployment
+No
+Venetian Informant
+Spring Deployment
+No
+Copernicus
+Victory Determination
+Yes
+Michael Servetus
+Victory Determination
+Yes
+Events with an entry of “Yes” in the “Action Phase too?” column may be played as events either in the Action Phase or this other
+phase.
+Spring Preparations
+and
+Venetian Informant
+are only play
+-
+able as an event in the Spring Deployment phase (though they may
+be used for CP in the Diplomacy or Action Phases).
+6.2 The deck
+The cards available to each power each turn consist of their Home
+card(s) and a variable number of cards dealt to that power from a
+single deck of shared cards. The deck is reshuffled each turn, after
+any new cards for that turn have been added, and before cards are
+dealt to each power.
+adding Cards
+The upper-right hand corner of 37 cards contains a turn number
+or the word “Variable.” None of these cards are used on Turn 1.Instead, at the start of the Card Draw Phase of Turn 3 and later turns, players review each of these cards to see if they should be
+added to the deck before new hands are dealt. These cards fall
+into three types:
+•
+31 of these cards show a turn number, with no further condition. These cards are always added to the deck in the indicated turn.
+•
+2 of these cards (#19 ‘Edward VI’ and #21 ‘Mary I’) show a
+turn number with a condition for play. These cards are added
+to the deck in the indicated turn only if the condition listed is
+true. If it is false, the card is set aside until the following turn.
+The card is added to the deck during the Card Draw Phase of
+the next turn in which the condition is satisfied. These cards
+may never be added to the deck before the indicated turn,
+even if the condition is satisfied.
+•
+4 of these cards read “Variable.” These cards are each added
+to the deck during the Card Draw Phase of the first turn in
+which the condition is satisfied.
+Cards without a turn number or the world “Variable” start in the
+deck at the beginning of the game (Exception: In a scenario with
+the 1532 setup, cards marked with “(1517)” are not included.).
+dealing Cards
+Each power is dealt the number of cards indicated in the lower left
+section of their power card plus one extra card if they receive a
+card bonus from their ruler. These newly dealt cards are combined
+with the power’s Home card(s) and any unused cards from the
+previous turn to form the power’s “hand” for the upcoming turn.
+Home Card
+Mandatory Card
+Combat Card
+Response Card
+Event Card

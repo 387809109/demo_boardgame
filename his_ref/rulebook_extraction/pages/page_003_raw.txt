@@ -1,0 +1,115 @@
+Wars of the Reformation 1517–1555
+3
+© 2010 GMT Games, LLC
+1. InTroduCTIon
+Here I Stand
+is a game for
+two
+to six players based on the military,
+political and religious conflicts within Europe at the outbreak of the Protestant Reformation, from 1517-1555. Each player controls
+one or more major powers that dominated Europe at the time. The
+major powers represented are the Ottoman Empire, the Hapsburgs,
+England, France, the Papacy and the Protestant states.
+2. GaMe Map
+The game is played on a 22” x 34” map of Europe in the 16th
+century. Cities and towns that played an important role in the his-
+tory of the period are represented on the map as square, circular,
+hexagonal, or eight-pointed symbols called “spaces.” A network
+of lines called “connections” link these spaces. A space connected
+to another by one of these lines is an “adjacent” space. Some of the spaces are also ports (a circular symbol with an anchor inside). Ports allow access to a series of areas called “sea zones” (light
+yellow regions with dash blue boundaries). The political and religious status of each space is updated through
+-
+out play using control markers. Detailed information about map elements and control markers is provided in this section of the rulebook.[This mapsheet also contains the following charts referenced within these rules: New World Riches Table, New World display,
+Victory Track, Electorate Display, Diplomatic Status Display,
+Henry’s Wives Pregnancy Chart and the Turn Track.]
+2.1 space
+All spaces in the game are either fortified or unfortified.fortified
+space: A fortified space represents a walled city (or
+town). A power must successfully besiege a fortified space to gain political control of that city. Up to four friendly land units
+may remain within a fortified space to defend that city against an
+enemy siege. Fortified spaces also serve as winter quarters. There
+are three different types of fortified spaces:•
+Key:
+A key is a fortified space represented by a square. Keys
+are the most influential and wealthy spaces; control of a key gives a power victory points and cards. Six of the keys have a
+double-square border (London, Paris, Valladolid, Vienna, Rome,
+and Istanbul); these keys are capitals. The Hapsburg power has
+two capitals (Valladolid and Vienna) while the Protestant power
+has none. The other four powers each have a single capital.
+• electorate: An electorate is a fortified space represented by a
+hexagon. There are six electorates on the map, all in Germany.
+Each electorate represents the home city of one of the electoral
+princes who had the power to elect the Holy Roman Emperor.
+These spaces are the focal point of the political and religious
+struggle in Germany during the game. Electorates are not keys,
+but they are important spaces for the powers interested in Ger
+-
+man affairs: the Hapsburgs, the Papacy, and the Protestants.
+• fortress:
+A fortress is a fortified space represented by a circle
+with eight points. Fortresses are walled towns with little eco-
+nomic value. They never grant a power additional victory points
+or cards. However, a fortress’s strong defenses force a power to
+besiege the space to gain political control. Several event cards
+allow a player to construct a fortress on an unfortified space during the game.
+u
+nfortified
+s
+pace:
+A circle represents an unfortified space.
+These spaces represent cities (or towns) that could be controlled without a siege. Forces from two powers that are at war must
+fight a field battle if they ever simultaneously occupy the same unfortified space. Home
+s
+pace:
+Spaces with a gray fill color are independent and are
+not aligned with any of the powers represented in the game. All other spaces are a home space for a specific power, as indicated
+in the table below. This power is referred to as the “home power” for that space. Major Power
+Home Space Color
+Ottoman
+dark green
+Hapsburgs
+yellow
+England
+red
+France
+dark blue
+Papacy
+purple
+Protestant
+Brown edge with white center
+Minor Power
+Home Space Color
+Genoa
+pink
+Hungary/Bohemia
+light green
+Scotland
+light blue
+Venice
+orange
+2.2 political Control
+The political control of each space is tracked throughout the game. By default, each space is under the political control of its home
+power. As political control changes, control markers are placed on
+top of the space to indicate that the political control has changed
+to a non-home power. These control markers are color-coded by
+power and also include a flag used by that power during the 16th century.
+Controlled space
+A space that is controlled by a major or minor power is a controlled space. Controlled spaces for a power include:
+•
+Home spaces that have not fallen to another power.
+•
+Independent (gray) spaces seized by the power.
+•
+Home spaces of other powers seized by the power.
+•
+Home spaces of allied minor powers.
+France
+England
+Hapsburg
+Papacy
+Ottoman
+Inde
+pend-
+Protes-
+tant
+Note on the 2nd printing rules: A vertical line in the margin indicates an addition or modification to the 1st printing.

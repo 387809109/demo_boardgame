@@ -1,0 +1,119 @@
+Wars of the Reformation 1517–1555
+33
+© 2010 GMT Games, LLC
+19.2 renegade Leader
+Remove the Renegade Leader if brought into play this turn with the event
+Charles Bourbon. Land and naval units stacked with
+this extra army leader are not affected.
+19.3 returning Home
+In the first part of the Winter Phase, naval units are returned to
+ports. Immediately after naval units have been moved to ports, all
+land units are moved to fortified spaces.
+naval units returning Home
+Naval units must be placed in the nearest port controlled by their
+major power. If more than one port is the same distance away, the
+owning player selects any of these equidistant ports (splitting a
+stack between several ports if desired). Naval units returning home
+at this time can not be intercepted, do not fight naval combat if
+moving through enemy units, never suffer any attrition, and may return to a port that was under siege at the start of the phase. Naval leaders in a sea zone must return to a port with one of the units
+that started this phase in the same sea zone.
+Land units returning Home
+Land units in either unfortified spaces or fortified spaces not con-
+trolled by their major power must return to a fortified space that
+is controlled by their power (with a limit of 4 per space except
+capitals). Land units already in fortified spaces controlled by their
+power have the option of returning to their home capital. Land units
+already in their home capital are the only ones that are prohibited from moving during this phase (all other land units at least have the option to be moved at this time). Land units move according to the procedure listed below. All land units moving between the same two spaces are moved as a stack.
+Check for an open path of any length of adjacent land spaces or
+sea zones from the stack’s current location to its destination. To
+avoid losing units to attrition, all spaces on the path (except the
+space where the path begins) must be:
+•
+Friendly-controlled
+•
+Free of unrest.
+Note that unlike the determination of LOC (Section 12.1), enemy
+units are ignored at this time. In addition, paths may be traced
+over any number of sea zones without a friendly naval unit being
+present in the sea zone. Because alliances are in effect until the
+end of the next step of the Winter Phase, land units may trace a path through spaces controlled by allied powers.If no such path exists, the stack takes attrition, losing half of its units (round up). The owning power chooses which units are lost to attrition.
+Land unit return Home procedure
+Each power performs the following steps to check the status of
+all of its land units. This procedure may be performed simultane-
+ously for all powers. 1. Check
+s
+tacking Violations:
+Review all land units that are
+stacked in fortified spaces controlled by their power (other than their home capital). For each such fortified space that contains
+more than 4 units, the power must return the excess units to their
+capital
+(minor power units could also optionally return to a minor
+power home key)
+. Other land units in these spaces also have the
+option of returning to their home capital
+(or minor key for minor
+power units)
+if desired, even if not overstacked.
+The stack takes
+attrition (see above) if its path must cross or end on a space in
+unrest or not under friendly control.  2.
+return
+units:
+Now review all land units in unfortified spaces
+and in fortified spaces not controlled by their major power. These units must either:
+•
+Return to their home capital
+(or minor key for minor power
+units), or
+
+•
+Return to the nearest fortified space controlled by their power
+(but not if that would put more than 4 land units in that space).
+The nearest space is always computed using a direct path to
+the destination without regard to which power controls any
+of the intervening spaces.
+The player may split a stack at this time, choosing to move some
+units to the nearest fortified space and returning the rest to the
+home capital
+(or minor power key). If more than 1 fortified space
+is “nearest” (i.e. they are equidistant from the stack’s current loca
+-
+tion), the player may move units to each of these spaces, as long
+as the limit of 4 land units is observed.
+Any stack moving during
+this phase takes attrition (see above) if its path must cross
+or end
+on a space in unrest or not under friendly control. 3.
+return
+army Leaders: If a space containing an army leader
+is vacated during this procedure, that army leader must
+either
+ac-
+company one of the land units
+leaving the space throughout the
+entire winter move or return to the power’s capital.
+There are three exceptions to the rules in this procedure:
+1.
+PROTESTANT UNITS: Since the Protestant player has no capital, Protestant land units are always moved to the nearest
+fortified space under Protestant control that can accommodate
+the units while remaining within the limit of 4 or fewer units
+per fortified space. Land units that start the phase in a stack
+may of necessity be split up and moved to separate spaces
+(Once the nearest fortified space fills to 4, compute the new
+nearest space.)
+2.
+ENEMY-CONTROLLED CAPITAL: If a power’s capital is currently controlled by an enemy power, none of its land units may be returned to the capital. All units that would
+normally have been required to return to the capital are
+eliminated instead.
+3.
+HAPSBURG UNITS: Since the Hapsburg player has two
+home capitals, his units may return to either capital in Steps 2
+and 3 of the Land Unit Return Home Procedure. The Hapsburg
+player may not move units into or through an electorate if the
+Schmalkaldic League Mandatory Event has not been played.
+19.4 Major power
+alliance Markers
+Remove all Allied markers between Major Powers from the Dip-
+lomatic Status Display. All alliances declared for this turn during
+the Diplomacy Phase are over; all alliances with minor powers
+created through play of Event cards remain in effect.

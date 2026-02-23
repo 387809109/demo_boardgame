@@ -1,0 +1,118 @@
+Wars of the Reformation 1517–1555
+5
+© 2010 GMT Games, LLC
+2.5 other Map elements
+Four other elements of the map are important to play.
+Language Zone
+The background of the game map is color-coded to depict five language zones. Each space falls entirely within a single language
+zone, as determined by looking at the background color of the
+map around that space.
+Exception: the spaces within a tan back-
+ground; these spaces lie outside all five language zones. Spaces
+within a language zone are sometimes referred to as “speaking” that language, e.g. a space in the English language zone is an “English-speaking space.” Language
+Language Zone Color
+English
+pale red
+French
+pale blue
+German
+gray
+Italian
+pale purple
+Spanish
+pale yellow
+pass
+A connection shown with a dashed line is a pass. There are 3 passes across the Pyrenees between Spain and France, 6 passes in
+the Alps near northern Italy, and 7 passes in the Balkans. Forma-
+tions of land units moving over a pass expend 2 command points
+(CPs) instead of the usual cost of 1 CP for moving over a normal
+connection. Passes also:
+•
+slow the spread of religious ideas
+•
+block spring deployment of land units
+•
+prevent interception by an enemy formation that is adjacent
+across a pass, and
+•
+inhibit land units’ ability to control adjacent spaces and re-
+move unrest in adjacent spaces.
+Units may retreat or avoid battle over a pass.
+sea Zone
+The map contains 14 sea zones, each labeled in a blue italic font.
+Boundaries between sea zones are shown by a broken blue line. Only naval leaders and naval units may occupy sea zones; land units must always end every action in a space.
+port
+Most (but not all) of the spaces near the coast act as ports, which
+provide access to one or more sea zones. One-zone ports possess
+a single anchor symbol. Two-zone ports have two anchors next
+to them, one anchor within each of the two sea zones that may be
+accessed from that space. The following sea zones are not connected:
+•
+Ionian Sea/Tyrrhenian Sea (two-zone port: Messina)
+•
+Barbary Coast/Atlantic Ocean (two-zone port: Gibraltar)
+•
+Black Sea/Aegean Sea (two-zone port: Istanbul)
+However, if the two-zone port between these zones (Messina, Gibraltar, or Istanbul) is under friendly control, naval units may
+move into this port from one zone during one Naval Move action
+and then back out to either zone during a later Naval Move action.The following sea zones are CONNECTED (as shown by the double-ended arrows at the top of the map):
+
+North Sea/Irish Sea
+
+North Sea/Baltic Sea
+3.0 powers and ruLers
+Here I Stand
+is best played with either three or six players. The
+rules in this booklet are for a game with six players. The small number of rule changes needed to support play with 3 to 5 play-
+ers are listed in the section “Games with 3 to 5 Players” in the Scenario Book. Play with 2 players is also possible using the Two-Player Variant presented at the end of the Scenario Book. Unless
+you are using the Two-Player Variant, all six major powers are
+assigned to a player and take an active part in the conflict. This
+section defines players, powers, and rulers and gives high-level
+information about each of these game concepts.
+3.1 player
+In the six-player game, each player controls a single major power. In games with
+three to five
+players, some players control two major
+powers so that all major powers are in play.
+3.2 power
+A power is a nation or city-state present in the game. The Protestant
+reformers and the German princes who defended their religious
+changes represent an additional power. There are 10 powers: 6
+major and 4 minor. If the text of a rule or card says “power” without
+specifying “major” or “minor”, the rule pertains to a major power.
+Major power
+The major powers are England, France, the Hapsburgs, the Otto-
+man Empire, Papacy, and the Protestants. Each major power has
+a “power card” (Section 4) that tracks its status with respect to
+allowable actions, card draws, victory points, and current ruler.
+Many game functions are conducted one power at a time in the
+following order:
+1.
+Ottoman
+2.
+Hapsburgs
+3.
+England
+4.
+France
+5.
+Papacy
+6.
+Protestant
+Minor power
+The minor powers are Genoa, Hungary/Bohemia, Scotland, and
+Venice. The allegiance of these states can change during play.
+3.3 ruler
+The ruler of each major power plays an important role during the
+game, whether monarch, sultan, or pontiff. The rulers of two major
+powers remain constant throughout the game:
+•
+Hapsburgs - always ruled by Charles V
+•
+Ottoman Empire - always ruled by Suleiman I
+The rulers of the other four major powers change during play as the result of Mandatory Event cards (Section 6.1). The initial ruler for each of these powers is printed on the right side of their power
+card. Subsequent rulers enter play through Mandatory Event cards.
+These cards are placed over the ruler printed on the power card so
+that the new ruler’s attributes are visible to all players.
+This order is known as
+“Impulse order.”
