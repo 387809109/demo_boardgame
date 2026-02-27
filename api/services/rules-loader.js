@@ -10,7 +10,22 @@ import { fileURLToPath } from 'url';
 import * as logger from '../utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DOCS_BASE = path.resolve(__dirname, '..', '..', 'docs', 'games');
+
+/**
+ * Resolve docs/games path — supports both local dev (../../docs/games)
+ * and Render deployment where docs are copied into api/ during build.
+ */
+function resolveDocsBase() {
+  // Local dev: api/services/../../docs/games → <repo>/docs/games
+  const devPath = path.resolve(__dirname, '..', '..', 'docs', 'games');
+  if (fs.existsSync(devPath)) return devPath;
+  // Render deploy: api/docs/games (copied during build)
+  const deployPath = path.resolve(__dirname, '..', 'docs', 'games');
+  if (fs.existsSync(deployPath)) return deployPath;
+  return devPath; // fallback (will log warning on load)
+}
+
+const DOCS_BASE = resolveDocsBase();
 
 /**
  * @typedef {Object} RuleChunk
