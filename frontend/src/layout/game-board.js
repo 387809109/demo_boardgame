@@ -6,7 +6,7 @@
 import { PlayerRing } from '../components/player-ring.js';
 import { GameSidebar } from '../components/game-sidebar.js';
 import { showQueryPanel } from '../components/query-panel.js';
-import { showChatPanel } from '../components/chat-panel.js';
+import { showChatPanel, getChatPanel } from '../components/chat-panel.js';
 import { PhaseTimer } from '../components/phase-timer.js';
 
 /**
@@ -384,6 +384,10 @@ export class GameBoard {
     });
 
     this.element.querySelector('.chat-btn')?.addEventListener('click', () => {
+      const gameId = this.gameConfig?.id || this.game?.config?.id;
+      if (gameId) {
+        getChatPanel().setGameContext(gameId);
+      }
       showChatPanel();
     });
 

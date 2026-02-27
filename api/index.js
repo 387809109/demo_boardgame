@@ -7,8 +7,12 @@
 import app from './app.js';
 import { config } from './config.js';
 import { setLogLevel, info, error } from './utils/logger.js';
+import { loadAllRules } from './services/rules-loader.js';
 
 setLogLevel(config.logLevel);
+
+// Load game rule documents for AI chat context
+loadAllRules();
 
 const server = app.listen(config.port, () => {
   info(`API server started on port ${config.port}`, {

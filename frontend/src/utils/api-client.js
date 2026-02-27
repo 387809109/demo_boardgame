@@ -159,14 +159,26 @@ export async function fetchCards(gameId, options = {}) {
  * Send a chat message and get AI reply
  * @param {string} message - User message (1-1000 chars)
  * @param {string} [sessionId] - Existing session ID to continue
+ * @param {string} [gameId] - Game ID for rule context retrieval
  * @returns {Promise<{ data: { sessionId: string, reply: string } }>}
  */
-export async function sendChatMessage(message, sessionId) {
+export async function sendChatMessage(message, sessionId, gameId) {
   const body = { message };
   if (sessionId) {
     body.sessionId = sessionId;
   }
+  if (gameId) {
+    body.gameId = gameId;
+  }
   return post('/api/v1/chat', body);
+}
+
+/**
+ * Fetch list of games with loaded rule documents
+ * @returns {Promise<{ data: Array<{ gameId: string, gameName: string }> }>}
+ */
+export async function fetchChatGames() {
+  return get('/api/v1/chat/games');
 }
 
 /**
@@ -199,5 +211,6 @@ export default {
   sendChatMessage,
   getChatHistory,
   deleteChatSession,
+  fetchChatGames,
   ApiError
 };
