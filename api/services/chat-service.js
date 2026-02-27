@@ -7,6 +7,7 @@ import OpenAI from 'openai';
 import { config } from '../config.js';
 import { ApiError } from '../utils/errors.js';
 import * as logger from '../utils/logger.js';
+import { retrieveChunks, formatChunksForPrompt } from './rules-loader.js';
 
 const SYSTEM_PROMPT = `你是一个桌游规则助手，专门回答用户关于桌游规则的问题。
 
@@ -41,6 +42,7 @@ let cleanupTimer = null;
  * @property {number} createdAt
  * @property {number} lastActiveAt
  * @property {number} totalTokens
+ * @property {string} [gameId] - Current game context for rule retrieval
  */
 
 /**
@@ -77,10 +79,18 @@ function getOpenAIClient() {
  * Build the messages array for OpenAI API call
  * @param {ChatSession} session
  * @param {string} userMessage
+ * @param {import('./rules-loader.js').RuleChunk[]} [chunks]
  * @returns {Array<{role: string, content: string}>}
  */
-function buildMessages(session, userMessage) {
-  const msgs = [{ role: 'system', content: SYSTEM_PROMPT }];
+function buildMessages(session, userMessage, chunks = []) {
+  let systemContent = SYSTEM_PROMPT;
+
+  if (chunks.length > 0) {
+    const ruleContext = formatChunksForPrompt(chunks);
+    systemContent += `\n\n## 以下是相关的游戏规则参考资料\n\n${ruleContext}\n\n请基于以上资料回答用户的问题。如果资料中没有涵盖的内容，请如实说明。`;
+  }
+
+  const msgs = [{ role: 'system', content: systemContent }];
 
   // Add history (only role + content, no timestamp)
   for (const msg of session.messages) {
@@ -107,9 +117,10 @@ function trimHistory(session) {
  * Send a message and get AI reply
  * @param {string} message - User message (1~1000 chars)
  * @param {string} [sessionId] - Existing session ID, or omit to create new
+ * @param {string} [gameId] - Game ID for rule context retrieval
  * @returns {Promise<{sessionId: string, reply: string, usage: object}>}
  */
-export async function sendMessage(message, sessionId) {
+export async function sendMessage(message, sessionId, gameId) {
   const client = getOpenAIClient();
 
   // Get or create session
@@ -131,6 +142,7 @@ export async function sendMessage(message, sessionId) {
       createdAt: Date.now(),
       lastActiveAt: Date.now(),
       totalTokens: 0,
+      gameId: gameId || null,
     };
     sessions.set(sessionId, session);
   }
@@ -144,8 +156,19 @@ export async function sendMessage(message, sessionId) {
     );
   }
 
+  // Update gameId if provided (allow override mid-session)
+  if (gameId) {
+    session.gameId = gameId;
+  }
+
+  // Retrieve relevant rule chunks for context
+  const effectiveGameId = session.gameId;
+  const chunks = effectiveGameId
+    ? retrieveChunks(message, effectiveGameId)
+    : [];
+
   // Build messages and call OpenAI
-  const apiMessages = buildMessages(session, message);
+  const apiMessages = buildMessages(session, message, chunks);
 
   let completion;
   try {

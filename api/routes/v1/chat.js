@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { createRateLimiter } from '../../middleware/rate-limiter.js';
 import * as chatService from '../../services/chat-service.js';
+import { getLoadedGames } from '../../services/rules-loader.js';
 import { BadRequestError } from '../../utils/errors.js';
 import { config } from '../../config.js';
 
@@ -29,7 +30,7 @@ const chatGetLimiter = createRateLimiter({
  */
 router.post('/', chatPostLimiter, async (req, res, next) => {
   try {
-    const { message, sessionId } = req.body;
+    const { message, sessionId, gameId } = req.body;
 
     // Validate message
     if (!message || typeof message !== 'string') {
@@ -47,11 +48,32 @@ router.post('/', chatPostLimiter, async (req, res, next) => {
       );
     }
 
-    const result = await chatService.sendMessage(trimmed, sessionId);
+    // Validate gameId (optional)
+    if (gameId !== undefined && gameId !== null) {
+      if (typeof gameId !== 'string' || gameId.length > 50) {
+        throw new BadRequestError(
+          'gameId must be a string (max 50 chars)',
+          'INVALID_GAME_ID'
+        );
+      }
+    }
+
+    const result = await chatService.sendMessage(
+      trimmed, sessionId, gameId || undefined
+    );
     res.json({ data: result });
   } catch (err) {
     next(err);
   }
+});
+
+/**
+ * GET /api/v1/chat/games
+ * Get list of games with loaded rule documents
+ */
+router.get('/games', chatGetLimiter, (req, res) => {
+  const games = getLoadedGames();
+  res.json({ data: games });
 });
 
 /**

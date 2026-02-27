@@ -5,9 +5,28 @@
  */
 
 import {
-  sendChatMessage, isApiConfigured, ApiError
+  sendChatMessage, fetchChatGames, isApiConfigured, ApiError
 } from '../utils/api-client.js';
 import { createSpinner } from './loading.js';
+
+/** Suggestion prompts per game */
+const GAME_SUGGESTIONS = {
+  werewolf: [
+    '狼人杀中预言家的技能如何使用？',
+    '女巫的毒药什么时候能用？',
+    '警长的投票权重是多少？',
+  ],
+  uno: [
+    'UNO 的出牌规则是什么？',
+    'UNO 万能牌可以在什么时候出？',
+    '+4 可以叠加吗？',
+  ],
+  default: [
+    'UNO 的出牌规则是什么？',
+    '狼人杀中预言家的技能如何使用？',
+    'UNO 万能牌可以在什么时候出？',
+  ],
+};
 
 /**
  * Chat Panel for AI-powered board game rule Q&A
@@ -23,6 +42,9 @@ export class ChatPanel {
     this._sessionId = null;
     this._messages = [];
     this._sending = false;
+    this._selectedGameId = null;
+    this._gameSelect = null;
+    this._gamesLoaded = false;
 
     this._init();
   }
@@ -97,6 +119,25 @@ export class ChatPanel {
     `;
     newChatBtn.addEventListener('click', () => this._newChat());
     titleArea.appendChild(newChatBtn);
+
+    // Game selector dropdown
+    this._gameSelect = document.createElement('select');
+    this._gameSelect.className = 'input';
+    this._gameSelect.style.cssText = `
+      font-size: var(--text-xs);
+      padding: var(--spacing-1) var(--spacing-2);
+      max-width: 140px;
+      border-radius: var(--radius-sm);
+    `;
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '通用';
+    this._gameSelect.appendChild(defaultOpt);
+    this._gameSelect.addEventListener('change', () => {
+      this._selectedGameId = this._gameSelect.value || null;
+      this._renderWelcome();
+    });
+    titleArea.appendChild(this._gameSelect);
 
     const closeBtn = document.createElement('button');
     closeBtn.innerHTML = '&times;';
@@ -183,6 +224,9 @@ export class ChatPanel {
     this._isOpen = true;
     document.body.style.overflow = 'hidden';
     this._inputEl.focus();
+    if (!this._gamesLoaded) {
+      this._loadGames();
+    }
   }
 
   /**
@@ -238,7 +282,9 @@ export class ChatPanel {
     const typingEl = this._appendTyping();
 
     try {
-      const result = await sendChatMessage(text, this._sessionId);
+      const result = await sendChatMessage(
+        text, this._sessionId, this._selectedGameId
+      );
       const { sessionId, reply } = result.data;
       this._sessionId = sessionId;
 
@@ -312,9 +358,7 @@ export class ChatPanel {
         display: flex; flex-direction: column; gap: var(--spacing-2);
         width: 100%; max-width: 320px;
       ">
-        ${this._renderSuggestion('UNO 的出牌规则是什么？')}
-        ${this._renderSuggestion('狼人杀中预言家的技能如何使用？')}
-        ${this._renderSuggestion('UNO 万能牌可以在什么时候出？')}
+        ${this._getSuggestions().map(s => this._renderSuggestion(s)).join('')}
       </div>
     `;
 
@@ -476,6 +520,56 @@ export class ChatPanel {
     requestAnimationFrame(() => {
       this._messagesEl.scrollTop = this._messagesEl.scrollHeight;
     });
+  }
+
+  /**
+   * Get suggestions for current game context
+   * @returns {string[]}
+   * @private
+   */
+  _getSuggestions() {
+    return GAME_SUGGESTIONS[this._selectedGameId]
+      || GAME_SUGGESTIONS.default;
+  }
+
+  /**
+   * Load available games into the selector dropdown
+   * @private
+   */
+  async _loadGames() {
+    if (!isApiConfigured()) return;
+    try {
+      const result = await fetchChatGames();
+      const games = result.data || [];
+      for (const game of games) {
+        const opt = document.createElement('option');
+        opt.value = game.gameId;
+        opt.textContent = game.gameName;
+        this._gameSelect.appendChild(opt);
+      }
+      // Restore selected value if auto-detected
+      if (this._selectedGameId) {
+        this._gameSelect.value = this._selectedGameId;
+      }
+      this._gamesLoaded = true;
+    } catch {
+      // Silently fail — dropdown stays with just "通用"
+    }
+  }
+
+  /**
+   * Set the current game context (auto-detected from app state)
+   * @param {string|null} gameId
+   */
+  setGameContext(gameId) {
+    this._selectedGameId = gameId || null;
+    if (this._gameSelect) {
+      this._gameSelect.value = gameId || '';
+    }
+    // Re-render welcome if showing
+    if (this._messages.length === 0) {
+      this._renderWelcome();
+    }
   }
 }
 

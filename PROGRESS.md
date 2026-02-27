@@ -1,6 +1,6 @@
 # 项目进度报告
 
-> 最后更新: 2026-02-16
+> 最后更新: 2026-02-27
 
 ---
 
@@ -8,11 +8,11 @@
 
 | 模块 | 进度 | 状态 |
 |------|------|------|
-| **前端** | 87% | 🔶 部分完成 |
+| **前端** | 89% | 🔶 部分完成 |
 | **后端 (本地)** | 88% | 🔶 基本完成 (重连改进待实现) |
 | **后端 (云端)** | 96% | ✅ 基本完成 (含断线重连+单元测试) |
 | **API 服务 (Render)** | 100% | ✅ 完成 |
-| **整体** | 89% | 🔶 开发中 |
+| **整体** | 90% | 🔶 开发中 |
 
 ---
 
@@ -66,7 +66,7 @@
 | T-F-DOC-002 | UNO AI 规则文档 | ✅ |
 | T-F-DOC-003 | UNO 用户规则书 | ✅ |
 
-#### 狼人杀游戏 🔶 开发中 (P0 完成 + P1 完成，综合测试未完成)
+#### 狼人杀游戏 ✅ P0 + P1 完成
 
 | 任务 ID | 描述 | 状态 |
 |---------|------|------|
@@ -79,10 +79,10 @@
 | T-F073 | 狼人杀 UI ui.js | ✅ |
 | T-F074 | 狼人杀角色单元测试 (173 tests，含 P1 全部角色) | ✅ |
 | T-F076 | P0 基础角色 (6 角色) | ✅ |
-| T-F075 | 集成测试 (手动/端到端) | ⬜ |
+| T-F075 | 集成测试 (手动/端到端) | ✅ |
 | T-F077 | P1 进阶角色 (6 角色，已完成 6/6) | ✅ |
 
-> **注意**: 已完成 P1 角色 `bodyguard`、`cupid`、`vigilante`、`idiot`、`jester`、`piper`，狼人杀自动化测试已扩展至 173 项；综合测试（手动端到端、多人联机流程）尚未完成。
+> **注意**: 已完成 P1 角色 `bodyguard`、`cupid`、`vigilante`、`idiot`、`jester`、`piper`，狼人杀自动化测试已扩展至 173 项；手动端到端测试已完成。
 
 ### Phase 4: 联机功能 ✅ 完成
 
@@ -227,7 +227,7 @@
 | T-C010 | AuthService 认证服务 | ✅ |
 | T-C011 | 登录/注册页面 UI | ✅ |
 | T-C012 | main.js 认证流程集成 | ✅ |
-| T-C013 | AuthService 单元测试 | ⬜ |
+| T-C013 | AuthService 单元测试 (27 tests) | ✅ |
 
 ### Phase C3: CloudNetworkClient ✅ 完成
 
@@ -284,9 +284,9 @@
 | T-A030~T-A031 | 部署配置（Render 配置与部署验证） | ✅ |
 | T-A040~T-A046 | 单元测试（21 tests） | ✅ |
 | T-AC001~T-AC006 | AI 规则问答 Step 1（29 tests） | ✅ |
+| T-AC009~T-AC013 | AI 规则问答 Step 2 (RAG-lite, 49 tests) | 🔶 代码完成，待手动测试 |
 | T-A050~T-A058 | 卡牌数据填充 | ⬜ |
 | T-A060~T-A066 | AI/MCP 接口 | ⬜ |
-| T-AC009~T-AC013 | AI 规则问答 Step 2 (RAG-lite) | ⬜ |
 
 ### API 端点
 
@@ -302,21 +302,22 @@
 | `PUT /api/v1/games/:id` | JWT | 更新游戏 |
 | `POST /api/v1/games/:id/cards` | JWT | 创建卡牌 |
 | `PUT /api/v1/games/:id/cards/:cardId` | JWT | 更新卡牌 |
-| `POST /api/v1/chat` | - | AI 规则问答 (发送消息) |
+| `POST /api/v1/chat` | - | AI 规则问答 (发送消息, 支持 gameId) |
+| `GET /api/v1/chat/games` | - | 已加载规则的游戏列表 |
 | `GET /api/v1/chat/:sessionId` | - | 获取对话历史 |
 | `DELETE /api/v1/chat/:sessionId` | - | 删除对话会话 |
 
 ### 待办
 
+- T-AC014：AI 规则问答 Step 2 — 手动端到端测试（启动 API + 前端，验证规则注入效果）
 - T-A050~T-A058：卡牌数据填充 (按游戏分别实现)
 - T-A060~T-A066：AI/MCP 接口实现
-- T-AC009~T-AC013：AI 规则问答 Step 2 — 规则知识库增强 (RAG-lite)
 
 ---
 
 ## 测试覆盖率
 
-### 前端测试统计 (625 tests passing)
+### 前端测试统计 (767 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -334,7 +335,8 @@
 | werewolf/index.test.js | 173 | ✅ |
 | werewolf/ui.test.js | 3 | ✅ |
 | player-avatar.test.js | 4 | ✅ |
-| **总计** | **647** | ✅ |
+| auth.test.js | 27 | ✅ |
+| **总计** | **767** | ✅ |
 
 ### 后端测试统计 (153 tests passing)
 
@@ -345,6 +347,22 @@
 | message-router.test.js | 42 | ✅ |
 | server.integration.test.js | 24 | ✅ |
 | **总计** | **153** | ✅ |
+
+### API 测试统计 (99 tests passing)
+
+| 测试套件 | 测试数 | 状态 |
+|----------|--------|------|
+| health.test.js | 3 | ✅ |
+| auth.test.js | 5 | ✅ |
+| games.test.js | 8 | ✅ |
+| cards.test.js | 5 | ✅ |
+| game-service.test.js | 5 | ✅ |
+| card-service.test.js | 3 | ✅ |
+| chat-service.test.js | 14 | ✅ |
+| chat.test.js (routes) | 15 | ✅ |
+| rules-loader.test.js | 37 | ✅ |
+| chat-integration.test.js | 8 | ✅ |
+| **总计** | **99** | ✅ |
 
 ### 代码覆盖率
 
@@ -374,6 +392,7 @@
 - `src/utils/storage.test.js` - 存储工具测试 (39 tests)
 - `src/utils/validators.test.js` - 验证器测试 (75 tests)
 - `src/games/uno/*.test.js` - UNO 游戏测试 (130 tests)
+- `src/cloud/auth.test.js` - AuthService 单元测试 (27 tests)
 - `src/games/werewolf/*.test.js` - 狼人杀测试 (176 tests)
 
 ---
@@ -382,8 +401,8 @@
 
 ### 高优先级
 
-1. **云端后端单元测试** - AuthService + CloudNetworkClient 单元测试 (T-C013, T-C026)
-2. **狼人杀手动测试** - UI 渲染及完整游戏流程端到端验证 (T-F075)
+1. **RAG-lite 手动测试** - 启动 API + 前端，验证规则注入效果 (T-AC014)
+2. ~~**AuthService 单元测试** - 认证服务单元测试 (T-C013)~~ ✅ 已完成
 3. **集成测试** - 端到端测试 (T-F112)
 
 ### 中优先级
@@ -412,6 +431,27 @@
 ---
 
 ## 最近完成的任务
+
+### 2026-02-27
+
+- ✅ T-C013 AuthService 单元测试 (27 tests)
+  - 新增 `frontend/src/cloud/auth.test.js`
+  - 覆盖: constructor, initialize (含幂等), register, login, logout, updateProfile, onAuthStateChange, isLoggedIn, getCurrentUser, _loadUserProfile fallback
+  - 前端测试: 767 通过 (15 suites)
+
+- 🔶 AI 规则问答 Step 2 (RAG-lite) 代码完成 (T-AC009~T-AC013)，待手动测试
+  - 新增 `api/services/rules-loader.js` — 规则文档加载、Markdown 分块、关键词提取、评分检索
+  - 修改 `api/services/chat-service.js` — sendMessage 支持 gameId，system prompt 注入规则上下文
+  - 修改 `api/routes/v1/chat.js` — POST 支持 gameId 参数 + GET `/games` 端点
+  - 修改 `api/index.js` — 启动时调用 loadAllRules()
+  - 新增 `api/tests/services/rules-loader.test.js` — 37 个单元测试
+  - 新增 `api/tests/services/chat-integration.test.js` — 8 个集成测试
+  - 修改 `api/tests/routes/v1/chat.test.js` — 4 个新路由测试
+  - 修改 `frontend/src/utils/api-client.js` — sendChatMessage 支持 gameId + fetchChatGames
+  - 修改 `frontend/src/components/chat-panel.js` — 游戏选择下拉 + 按游戏推荐问题
+  - 修改 `frontend/src/layout/game-board.js` — 游戏内聊天自动设置游戏上下文
+  - API 测试: 99 通过 (10 suites)，前端测试: 740 通过 (14 suites)
+  - 设计方案: `docs/prd/api/AI_RAG_PLAN.md`
 
 ### 2026-02-16
 

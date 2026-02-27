@@ -66,6 +66,9 @@ beforeAll(async () => {
   const appModule = await import('../../../app.js');
   app = appModule.default;
   chatService = await import('../../../services/chat-service.js');
+  // Load rules for /chat/games endpoint
+  const { loadAllRules } = await import('../../../services/rules-loader.js');
+  loadAllRules();
 });
 
 const mockReply = {
@@ -166,6 +169,56 @@ describe('Chat routes', () => {
 
       expect(res.status).toBe(502);
       expect(res.body.error.code).toBe('AI_SERVICE_ERROR');
+    });
+
+    it('should accept optional gameId parameter', async () => {
+      mockCreate.mockResolvedValue(mockReply);
+
+      const res = await request(app)
+        .post('/api/v1/chat')
+        .send({ message: '预言家怎么查验', gameId: 'werewolf' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.reply).toBeDefined();
+    });
+
+    it('should return 400 for invalid gameId (non-string)', async () => {
+      const res = await request(app)
+        .post('/api/v1/chat')
+        .send({ message: 'test', gameId: 123 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('INVALID_GAME_ID');
+    });
+
+    it('should return 400 for gameId exceeding 50 chars', async () => {
+      const res = await request(app)
+        .post('/api/v1/chat')
+        .send({ message: 'test', gameId: 'x'.repeat(51) });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('INVALID_GAME_ID');
+    });
+  });
+
+  describe('GET /api/v1/chat/games', () => {
+    it('should return list of loaded games', async () => {
+      const res = await request(app)
+        .get('/api/v1/chat/games');
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      // At least UNO and werewolf should be loaded
+      const gameIds = res.body.data.map(g => g.gameId);
+      expect(gameIds).toContain('uno');
+      expect(gameIds).toContain('werewolf');
+      // Each game should have expected fields
+      for (const game of res.body.data) {
+        expect(game).toHaveProperty('gameId');
+        expect(game).toHaveProperty('gameName');
+        expect(game).toHaveProperty('chunkCount');
+        expect(game).toHaveProperty('totalTokens');
+      }
     });
   });
 

@@ -4,7 +4,7 @@ services:
     runtime: node
     region: oregon
     rootDir: api
-    buildCommand: npm install
+    buildCommand: npm install && cp -r ../docs ./docs
     startCommand: node index.js
     healthCheckPath: /api/v1/health
     autoDeploy: true

@@ -17,7 +17,7 @@
 | Phase A6: 卡牌数据 | ⬜ 待开发 | 各游戏卡牌数据填充 |
 | Phase A7: AI/MCP 接口 | ⬜ 待开发 | AI 分析、走法建议、MCP 工具 |
 | Phase AC1~AC3: AI 对话 Step 1 | ✅ 完成 | AI 规则问答核心 (50 个测试通过) |
-| Phase AC4: AI 对话 Step 2 | ⬜ 待开发 | 规则知识库增强 (RAG-lite) |
+| Phase AC4: AI 对话 Step 2 | 🔶 代码完成 | 规则知识库增强 (RAG-lite)，49 个新测试通过，待手动测试 |
 
 ---
 
@@ -193,13 +193,24 @@
 - [x] **T-AC007** 更新 TASKS.md 和 PROGRESS.md
 - [x] **T-AC008** 更新 README.md 端点文档
 
-### Step 2: 规则知识库增强 ⬜ 待开发
+### Step 2: 规则知识库增强 🔶 代码完成（待手动测试）
 
-- [ ] **T-AC009** 创建 `services/rules-loader.js` 规则文档加载模块
-- [ ] **T-AC010** chat-service 集成 rules-loader，system prompt 注入规则上下文
-- [ ] **T-AC011** 新增 `GET /api/v1/chat/games` 端点 + POST 支持 gameId 参数
-- [ ] **T-AC012** rules-loader 单元测试
-- [ ] **T-AC013** 规则注入集成测试
+> 设计方案: `docs/prd/api/AI_RAG_PLAN.md`
+
+- [x] **T-AC009** 创建 `services/rules-loader.js` 规则文档加载模块
+  - Markdown 按 `##` 分块，大节按 `###` 二次切分，代码围栏保护
+  - 中文 n-gram (2-3 字) + 英文标识符关键词提取
+  - 评分检索: heading(×3) + keyword(×2) + content(×1) + 角色加分(+5)
+  - Token 预算 3500，贪心选块
+- [x] **T-AC010** chat-service 集成 rules-loader，system prompt 注入规则上下文
+  - `sendMessage(msg, sessionId, gameId)` 新增 gameId 参数
+  - Session 持久化 gameId，支持中途切换
+- [x] **T-AC011** 新增 `GET /api/v1/chat/games` 端点 + POST 支持 gameId 参数
+  - gameId 验证: 可选 string, ≤50 字符
+  - `/games` 在 `/:sessionId` 之前注册避免参数冲突
+- [x] **T-AC012** rules-loader 单元测试 (37 tests)
+- [x] **T-AC013** 规则注入集成测试 (8 tests) + 路由测试扩展 (4 tests)
+- [ ] **T-AC014** 手动端到端测试（启动 API + 前端，验证规则注入效果）
 
 ---
 
