@@ -206,7 +206,7 @@
 
 ### C2.3 认证测试
 
-- [ ] **T-C013** AuthService 单元测试
+- [x] **T-C013** AuthService 单元测试 (27 tests)
   - 测试 register (成功/失败)
   - 测试 login (成功/失败)
   - 测试 logout

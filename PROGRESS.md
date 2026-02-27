@@ -227,7 +227,7 @@
 | T-C010 | AuthService 认证服务 | ✅ |
 | T-C011 | 登录/注册页面 UI | ✅ |
 | T-C012 | main.js 认证流程集成 | ✅ |
-| T-C013 | AuthService 单元测试 | ⬜ |
+| T-C013 | AuthService 单元测试 (27 tests) | ✅ |
 
 ### Phase C3: CloudNetworkClient ✅ 完成
 
@@ -317,7 +317,7 @@
 
 ## 测试覆盖率
 
-### 前端测试统计 (740 tests passing)
+### 前端测试统计 (767 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -335,7 +335,8 @@
 | werewolf/index.test.js | 173 | ✅ |
 | werewolf/ui.test.js | 3 | ✅ |
 | player-avatar.test.js | 4 | ✅ |
-| **总计** | **647** | ✅ |
+| auth.test.js | 27 | ✅ |
+| **总计** | **767** | ✅ |
 
 ### 后端测试统计 (153 tests passing)
 
@@ -391,6 +392,7 @@
 - `src/utils/storage.test.js` - 存储工具测试 (39 tests)
 - `src/utils/validators.test.js` - 验证器测试 (75 tests)
 - `src/games/uno/*.test.js` - UNO 游戏测试 (130 tests)
+- `src/cloud/auth.test.js` - AuthService 单元测试 (27 tests)
 - `src/games/werewolf/*.test.js` - 狼人杀测试 (176 tests)
 
 ---
@@ -400,7 +402,7 @@
 ### 高优先级
 
 1. **RAG-lite 手动测试** - 启动 API + 前端，验证规则注入效果 (T-AC014)
-2. **云端后端单元测试** - AuthService + CloudNetworkClient 单元测试 (T-C013, T-C026)
+2. ~~**AuthService 单元测试** - 认证服务单元测试 (T-C013)~~ ✅ 已完成
 3. **集成测试** - 端到端测试 (T-F112)
 
 ### 中优先级
@@ -431,6 +433,11 @@
 ## 最近完成的任务
 
 ### 2026-02-27
+
+- ✅ T-C013 AuthService 单元测试 (27 tests)
+  - 新增 `frontend/src/cloud/auth.test.js`
+  - 覆盖: constructor, initialize (含幂等), register, login, logout, updateProfile, onAuthStateChange, isLoggedIn, getCurrentUser, _loadUserProfile fallback
+  - 前端测试: 767 通过 (15 suites)
 
 - 🔶 AI 规则问答 Step 2 (RAG-lite) 代码完成 (T-AC009~T-AC013)，待手动测试
   - 新增 `api/services/rules-loader.js` — 规则文档加载、Markdown 分块、关键词提取、评分检索
