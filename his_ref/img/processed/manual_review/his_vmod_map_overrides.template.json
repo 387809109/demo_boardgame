@@ -1,0 +1,29 @@
+﻿{
+  "land_space_overrides": {
+    "Bilbao": {
+      "is_port": null,
+      "connected_sea_zones": [],
+      "language_zone_inferred": "none",
+      "initial_controller_1517": null,
+      "is_fortress": null,
+      "notes": ""
+    }
+  },
+  "topology_overrides": {
+    "remove_land_edges": [
+      [
+        "SpaceA",
+        "SpaceB"
+      ]
+    ],
+    "add_land_edges": [
+      {
+        "a": "SpaceC",
+        "b": "SpaceD",
+        "confidence": 1.0,
+        "method": "manual_override",
+        "notes": ""
+      }
+    ]
+  }
+}

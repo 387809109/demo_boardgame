@@ -9,6 +9,18 @@ Purpose:
 - It rewrites rule text into deterministic data and resolution rules.
 - Card-specific text effects are not fully reprinted; they should be implemented from card data.
 
+Companion data files (extracted from game components):
+- `POWER_CARDS.md` — Action costs, ruler attributes, VP/key tracks, power-specific mechanics
+- `SCENARIO_1517_SETUP.md` — Initial unit placements, VP, diplomatic status for 6-player 1517 setup
+- `RELIGIOUS_STRUGGLE.md` — Protestant Spaces Track (0–50 dual VP values), all 27 debater stats/bonuses
+- `SEQUENCE_OF_PLAY.md` — 9-phase structure, turn-by-turn debater/card/mandatory event schedule
+- `RULEBOOK_SECTION_NORMALIZED_ZH.md` — Complete Chinese rulebook (primary reference)
+- `RULEBOOK_SECTION_NORMALIZED.md` — Complete English rulebook (verification reference)
+
+Deferred extraction (use image sources directly when developing these modules):
+- Combat tables: `his_ref/img/classified/action summary.jpg`
+- Map topology: `his_ref/img/classified/world map.jpg`
+
 ## 1. Game Summary
 
 - Players: 2-6 (major powers may be shared in low player counts).
@@ -43,6 +55,8 @@ export type MinorPower =
 export type Religion = 'catholic' | 'protestant' | 'other';
 export type SpaceType = 'key' | 'electorate' | 'fortress' | 'unfortified';
 
+export type LanguageZone = 'german' | 'english' | 'french' | 'spanish' | 'italian';
+
 export interface SpaceState {
   id: string;
   type: SpaceType;
@@ -51,6 +65,12 @@ export interface SpaceState {
   religion: Religion;
   unrest: boolean;
   isPort: boolean;
+  isFortified: boolean; // keys are always fortified; electorates never
+  languageZone: LanguageZone | null; // null for Ottoman/non-European spaces
+  adjacentSpaces: string[];
+  adjacentSeaZones: string[];
+  passConnections: string[]; // spaces connected via pass (costs 2 CP)
+  hasJesuitUniversity: boolean;
   besiegedBy: MajorPower[]; // can contain 0,1,2 allied powers
   occupiedBy: UnitStack[];
 }
@@ -66,11 +86,31 @@ export interface UnitStack {
   navalLeaders: string[];
 }
 
+export interface LeaderState {
+  id: string;
+  owner: MajorPower | MinorPower;
+  type: 'army' | 'naval';
+  commandRating: number; // max units in formation
+  battleRating: number; // extra dice in combat
+  location: string | null; // space/sea zone id, null if off-map/captured
+  captured: boolean;
+  capturedBy: MajorPower | null;
+}
+
+export interface ReformerState {
+  id: string; // e.g. 'luther', 'calvin', 'zwingli'
+  alive: boolean;
+  location: string | null; // space id
+  committed: boolean;
+  debateValue: number;
+  excommunicated: boolean;
+}
+
 export interface RulerState {
   power: MajorPower;
   rulerId: string;
-  adminRating: number;
-  cardBonus: number;
+  adminRating: number; // max cards retained between turns
+  cardBonus: number; // extra cards dealt
 }
 
 export type CardType =
@@ -120,7 +160,44 @@ export interface GameState {
   homeCardPlayed: Record<MajorPower, boolean>;
   vp: Record<MajorPower, number>;
   bonusVp: Record<MajorPower, number>;
-  markers: Record<string, unknown>; // reformers, debaters, piracy, translation tracks, etc.
+
+  // Leader & Reformer tracking
+  leaders: Record<string, LeaderState>;
+  reformers: Record<string, ReformerState>;
+
+  // England-specific
+  henryMaritalStatus: string; // track position: 'start' | 'ask_divorce' | 'anne_boleyn' | 'jane_seymour' | ...
+  edwardBorn: boolean;
+  elizabethBorn: boolean;
+
+  // Papacy-specific
+  stPetersProgress: number; // CP invested toward St. Peter's (target varies)
+  jesuitUnlocked: boolean; // true after Society of Jesus event
+
+  // Protestant-specific
+  schmalkaldicLeagueFormed: boolean;
+  translationTrack: Record<LanguageZone, number>; // scripture translation progress per zone (0-6)
+  protestantSpaceCount: number; // cached count for religious victory check
+
+  // Ottoman-specific
+  piracyVp: number; // 0-10 cap
+  algiersInPlay: boolean; // true after Barbary Pirates event
+
+  // New World
+  newWorld: {
+    colonies: Record<MajorPower, number>; // colony marker count
+    explorersUnderway: Array<{ power: MajorPower; explorer: string; destination: string }>;
+    conquestsUnderway: Array<{ power: MajorPower; conquistador: string; destination: string }>;
+    galleons: Record<MajorPower, boolean>;
+    plantations: Record<MajorPower, boolean>;
+    potosi: MajorPower | null;
+    raiders: Record<MajorPower, boolean>;
+  };
+
+  // Active event markers
+  augsburgConfessionActive: boolean;
+  printingPressActive: boolean;
+  wartburgActive: boolean;
 }
 ```
 
@@ -139,15 +216,14 @@ export interface GameState {
 ## 4. Turn and Phase Engine
 
 Each turn executes these phases in order:
-1. `luther_95` (Turn 1 only)
-2. `card_draw`
-3. `diplomacy` (abbreviated on Turn 1)
-4. `diet_of_worms` (Turn 1 only)
-5. `spring_deployment`
-6. `action` (impulse loop until 6 consecutive passes)
-7. `winter`
-8. `new_world`
-9. `victory_determination`
+1. `card_draw` (Turn 1: special setup — place initial units, deal starting hands; Turn 2+: add turn-gated cards, reshuffle, deal)
+2. `diplomacy` (Turn 1: abbreviated — no peace/ransom/excommunication segments)
+3. `diet_of_worms` (Turn 1 only — Hapsburg, Papacy, Protestant each play 1 card)
+4. `spring_deployment`
+5. `action` (impulse loop until 6 consecutive passes; Luther's 95 Theses is a mandatory event played during this phase on Turn 1)
+6. `winter`
+7. `new_world`
+8. `victory_determination`
 
 Action phase loop:
 - On a power's impulse, choose exactly one:
@@ -209,21 +285,24 @@ Formation rules (land):
 ## 8. Diplomacy Phase (Sections 9.1-9.6)
 
 Segments execute in this order:
-1. Negotiations
-2. Alliances
-3. Suing for Peace
-4. Ransom of Leaders
-5. Remove Excommunication
-6. Declarations of War
+1. Negotiations (9.1) — includes alliance formation (9.2)
+2. Suing for Peace (9.3)
+3. Ransom of Leaders (9.4)
+4. Remove Excommunication (9.5)
+5. Declarations of War (9.6)
+
+Note: Section 9.2 (Alliances) defines alliance rules but is not a separate segment; alliances are formed during negotiations.
 
 Negotiation-legal state changes:
-- End war by mutual agreement (white peace).
-- Form one-turn alliance.
+- End war by mutual agreement (white peace; no War Winner VP).
+- Form one-turn alliance (removed in Winter).
 - Loan naval squadrons and naval leaders within alliance.
 - Return captured army leaders.
-- Transfer political control of spaces.
-- Transfer cards by agreement.
+- Transfer political control of spaces (except own capital or allied minor home key).
+- Give up to 2 random card draws to another power (one-way per turn; Home cards excluded).
+- Give up to 4 mercenaries to another power (one-way per turn; not to Ottoman).
 - Papacy may grant Henry divorce.
+- Papacy may rescind excommunication on a ruler.
 
 Alliances:
 - Duration: one turn (removed in Winter).
@@ -311,13 +390,19 @@ Dice pool:
 - Attacker: 1 die per land unit + highest leader battle rating.
 - Defender: same +1 defender die.
 
-Resolution:
-1. Both sides may play combat cards (attacker then defender).
-2. Roll, count hits.
-3. Apply losses.
-4. If a side is eliminated, capture leaders.
-5. Losing side retreats (or withdraws into fortification if legal).
-6. If fortified-space battle and attacker wins, check siege condition.
+Resolution (12-step procedure per Section 14):
+1. Response window for Landsknechts/Swiss Mercenaries.
+2. Attacker dice = 1 per land unit + highest leader battle rating.
+3. Defender dice = 1 per land unit + highest leader battle rating + 1 defender die.
+4. Attacker may play Combat card.
+5. Defender may play Combat card.
+6. Both roll; each die >= 5 is a hit.
+7. Ottoman Janissaries response window (once per turn).
+8. Declare winner (tie = defender wins).
+9. Apply casualties; if both eliminated: side with more dice retains 1 unit; if equal dice, defender retains 1.
+10. Capture eliminated side's leaders.
+11. Loser retreats (or withdraws into fortification if legal).
+12. If fortified space and attacker won with more units than inside fortification, siege begins.
 
 Retreat constraints:
 - No retreat into unrest, enemy-occupied, illegal-controlled, or sea zone spaces.
@@ -330,10 +415,13 @@ Siege state begins when:
 
 Assault action:
 - Cost: 1 CP.
-- Cannot assault in same impulse siege was established (except specific event override).
-- Requires LOC and naval-blockade conditions.
-- Resolve assault combat with assault-specific dice formulas.
-- Success if defenders removed and attacker survives.
+- Cannot assault in same impulse siege was established (except Roxelana event override).
+- 4 prerequisites: prior-impulse siege, LOC, no enemy naval in adjacent sea zone, naval superiority if enemy in port.
+- Attacker dice: if no defenders, 1 die per unit (cavalry ignored); if defenders present, 1 die per 2 units rounded up (cavalry ignored).
+- Defender dice: 1 die per unit (cavalry ignored) + 1 defender die.
+- Cavalry may be taken as assault losses.
+- Success if: at least 1 hit scored, no defenders remain, at least 1 attacker survives.
+- Siege Artillery response card window after initial rolls.
 
 Relief force:
 - Friendly force enters besieged fortification space and fights field battle.
@@ -349,13 +437,15 @@ Naval movement action:
 - Moves all eligible naval stacks of active power in that action.
 - Resolve movement, response windows, interception, avoid battle, then naval combats.
 
-Naval combat:
-- Squadrons contribute 2 dice each.
-- Corsairs contribute 1 die each.
-- Highest naval leader battle rating adds dice.
-- Defender gets +1 die in port combat.
-- Casualty rules differ for Ottoman corsairs vs squadrons.
-- Retreat rules depend on sea vs port battle location.
+Naval combat (10-step procedure per Section 16.2):
+- Attacker dice: 2 per squadron + 1 per corsair + highest naval leader battle rating.
+- Defender dice: same formula + 1 die if defending in port.
+- Both may play Combat cards (attacker then defender).
+- Roll; each die >= 5 is a hit.
+- Janissaries / Professional Rowers response windows.
+- Tie = defender wins.
+- Casualties: 1 squadron lost per 2 hits; remaining hits vs Ottoman eliminate corsairs; odd hit vs loser eliminates 1 extra squadron; odd hit vs winner is ignored. Both eliminated: side with more dice retains 1 unit.
+- Retreat: port combat — attacker always retreats to adjacent sea zone (even if winner); sea zone combat — loser retreats to controlled port or empty sea zone with no enemy naval.
 
 Naval transport:
 - Uses Move Formation in Clear semantics with naval path.

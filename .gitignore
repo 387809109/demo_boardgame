@@ -27,3 +27,4 @@ Thumbs.db
 
 # Personal notes
 personal_notes_dont_read_it.md
+__pycache__/

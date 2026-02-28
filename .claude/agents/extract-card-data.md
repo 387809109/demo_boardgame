@@ -37,11 +37,11 @@ Run the split script:
 
 ```bash
 cd his_ref/img
-python split_cards.py <image_file> <cols> <rows> --skip <r,c> <r,c> ... --delete-source
+python split_cards.py <image_file> <cols> <rows> --skip <r,c> <r,c> ...
 ```
 
-Add `--delete-source` to remove the original sheet image after a successful split.
-Omit it if you want to keep the original.
+**Do NOT use `--delete-source` here.** The original image is kept until the
+entire pipeline completes successfully (see Step 6).
 
 Output goes to `his_ref/img/processed/<sheet_id>/` by default.
 
@@ -49,6 +49,9 @@ Verify by reading 2-3 sample cards from different grid positions to confirm:
 - Cards are correctly cropped (no overlap with adjacent cards)
 - Text is legible at the cropped resolution
 - No systematic offset issues
+
+If the split is wrong (e.g., wrong grid dimensions), delete the output folder
+and re-run. The original image is still available for retry.
 
 ### Step 3: Extract Card Text via AI Vision
 
@@ -126,6 +129,19 @@ for c in cards:
         if c[field] is None:
             print(f"  Missing {field} on card {c['number']}")
 ```
+
+### Step 6: Delete Source Image
+
+Only after validation passes (correct card count, no missing required fields,
+no obvious extraction errors), delete the original card sheet image:
+
+```bash
+rm <original_image_file>
+```
+
+**This is the LAST step.** Never delete the source image earlier in the pipeline.
+If any previous step fails or produces incorrect results, the source image is
+still available for re-processing.
 
 ## Output Structure
 

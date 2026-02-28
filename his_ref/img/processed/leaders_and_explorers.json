@@ -1,0 +1,68 @@
+{
+  "description": "HIS (Here I Stand) - Leaders, Conquistadors & Explorers",
+  "extractedFrom": "his_ref/img/classified/",
+  "categories": {
+    "armyLeaders": {
+      "count": 15,
+      "fields": ["name", "battle", "command", "faction"],
+      "data": [
+        { "name": "Charles V", "battle": 2, "command": 10, "faction": "hapsburg" },
+        { "name": "Dudley", "battle": 0, "command": 6, "faction": "england" },
+        { "name": "Duke of Alva", "battle": 1, "command": 6, "faction": "hapsburg" },
+        { "name": "Ferdinand", "battle": 1, "command": 6, "faction": "hapsburg" },
+        { "name": "Francis I", "battle": 1, "command": 8, "faction": "france" },
+        { "name": "Henry II", "battle": 0, "command": 8, "faction": "france" },
+        { "name": "Henry VIII", "battle": 1, "command": 8, "faction": "england" },
+        { "name": "Ibrahim", "battle": 1, "command": 6, "faction": "ottoman" },
+        { "name": "John Frederick", "battle": 0, "command": 6, "faction": "protestant" },
+        { "name": "Maurice of Saxony", "battle": 1, "command": 6, "faction": "hapsburg", "note": "Hapsburg version" },
+        { "name": "Maurice of Saxony", "battle": 1, "command": 6, "faction": "protestant", "note": "Protestant version" },
+        { "name": "Montmorency", "battle": 1, "command": 6, "faction": "france" },
+        { "name": "Philip of Hesse", "battle": 0, "command": 6, "faction": "protestant" },
+        { "name": "Renegade", "battle": 1, "command": 6, "faction": "independent" },
+        { "name": "Suleiman", "battle": 2, "command": 12, "faction": "ottoman" }
+      ]
+    },
+    "navalLeaders": {
+      "count": 3,
+      "fields": ["name", "battle", "piracy", "faction"],
+      "data": [
+        { "name": "Andrea Doria", "battle": 2, "piracy": null, "faction": "hapsburg" },
+        { "name": "Barbarossa", "battle": 2, "piracy": 1, "faction": "ottoman" },
+        { "name": "Dragut", "battle": 1, "piracy": 2, "faction": "ottoman" }
+      ]
+    },
+    "conquistadors": {
+      "count": 5,
+      "fields": ["name", "conquest", "faction"],
+      "data": [
+        { "name": "Cordova", "conquest": 1, "faction": "hapsburg" },
+        { "name": "Coronado", "conquest": 1, "faction": "hapsburg" },
+        { "name": "Cortez", "conquest": 4, "faction": "hapsburg" },
+        { "name": "Montejo", "conquest": 2, "faction": "hapsburg" },
+        { "name": "Pizarro", "conquest": 3, "faction": "hapsburg" }
+      ]
+    },
+    "explorers": {
+      "count": 15,
+      "fields": ["name", "exploration", "faction"],
+      "data": [
+        { "name": "Cabot", "exploration": 1, "faction": "england" },
+        { "name": "Chancellor", "exploration": 1, "faction": "england" },
+        { "name": "Rut", "exploration": 1, "faction": "england" },
+        { "name": "Willoughby", "exploration": 0, "faction": "england" },
+        { "name": "Cabot", "exploration": 1, "faction": "france" },
+        { "name": "Cartier", "exploration": 3, "faction": "france" },
+        { "name": "Roberval", "exploration": 0, "faction": "france" },
+        { "name": "Verrazano", "exploration": 2, "faction": "france" },
+        { "name": "Cabot", "exploration": 1, "faction": "hapsburg" },
+        { "name": "DeSoto", "exploration": 2, "faction": "hapsburg" },
+        { "name": "De Vaca", "exploration": 0, "faction": "hapsburg" },
+        { "name": "Leon", "exploration": 1, "faction": "hapsburg" },
+        { "name": "Magellan", "exploration": 4, "faction": "hapsburg" },
+        { "name": "Narvaez", "exploration": -1, "faction": "hapsburg" },
+        { "name": "Orellana", "exploration": 3, "faction": "hapsburg" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,1103 @@
+{
+  "land_space_overrides": {
+    "Bilbao": {
+      "is_port": false,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [],
+      "notes": "map_anchor",
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Calais": {
+      "is_port": true,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [
+        "North Sea",
+        "English Channel"
+      ],
+      "notes": "map_anchor"
+    },
+    "Carlisle": {
+      "is_port": false,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [],
+      "notes": "map_anchor"
+    },
+    "Cerignola": {
+      "is_port": false,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [],
+      "notes": "map_anchor",
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Larissa": {
+      "is_port": false,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [],
+      "notes": "map_anchor"
+    },
+    "Lepanto": {
+      "is_port": true,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [
+        "Ionian Sea"
+      ],
+      "notes": "map_anchor"
+    },
+    "Navarre": {
+      "is_port": false,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [],
+      "notes": "map_anchor",
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Salonika": {
+      "is_port": true,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [
+        "Aegean Sea"
+      ],
+      "notes": "map_anchor"
+    },
+    "Siena": {
+      "is_port": false,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [],
+      "notes": "map_anchor",
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Stirling": {
+      "is_port": false,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [],
+      "notes": "map_anchor",
+      "language_zone_inferred": "english",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Wales": {
+      "is_port": false,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [],
+      "notes": "map_anchor"
+    },
+    "Zara": {
+      "is_port": false,
+      "port_source": "manual_review_csv",
+      "port_confidence": "high",
+      "connected_sea_zones": [],
+      "notes": "map_anchor",
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Agram": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Amsterdam": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Ancona": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Antwerp": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Avignon": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Barcelona": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Basel": {
+      "language_zone_inferred": "german",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Bastia": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Belgrade": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Besançon": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Bordeaux": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Boulogne": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Breslau": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Brest": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Brunn": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Brussels": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Buda": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Candia": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Cartagena": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Corfu": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Corunna": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Córdoba": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Dijon": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Edinburgh": {
+      "language_zone_inferred": "english",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Florence": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Geneva": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Genoa": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Gibraltar": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Glasgow": {
+      "language_zone_inferred": "english",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Granada": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Graz": {
+      "language_zone_inferred": "german",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Grenoble": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Innsbruck": {
+      "language_zone_inferred": "german",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Liege": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Limoges": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Linz": {
+      "language_zone_inferred": "german",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Lyon": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Madrid": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Malta": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Marseille": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Messina": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Metz": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Milan": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "independent"
+    },
+    "Modena": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Mohacs": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Nantes": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Naples": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Nice": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Orléans": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Palermo": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Palma": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Paris": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Pavia": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Prague": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Pressburg": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Ragusa": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Ravenna": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Rhodes": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Rome": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Rouen": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Seville": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "St. Dizier": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "St. Quentin": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Szegedin": {
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Taranto": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Toulouse": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Tours": {
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Trent": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Trieste": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Turin": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Valencia": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Valladolid": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Venice": {
+      "language_zone_inferred": "italian",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Vienna": {
+      "language_zone_inferred": "german",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Zaragoza": {
+      "language_zone_inferred": "spanish",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Zürich": {
+      "language_zone_inferred": "german",
+      "language_zone_source": "manual_review_csv",
+      "language_zone_confidence": "high"
+    },
+    "Tunis": {
+      "initial_controller_1517": "independent"
+    }
+  },
+  "topology_overrides": {
+    "remove_land_edges": [
+      [
+        "Algiers",
+        "Oran"
+      ],
+      [
+        "Amsterdam",
+        "Cologne"
+      ],
+      [
+        "Amsterdam",
+        "Liege"
+      ],
+      [
+        "Ancona",
+        "Siena"
+      ],
+      [
+        "Athens",
+        "Salonika"
+      ],
+      [
+        "Augsburg",
+        "Trent"
+      ],
+      [
+        "Augsburg",
+        "Zürich"
+      ],
+      [
+        "Basel",
+        "Milan"
+      ],
+      [
+        "Bastia",
+        "Florence"
+      ],
+      [
+        "Bastia",
+        "Genoa"
+      ],
+      [
+        "Bastia",
+        "Nice"
+      ],
+      [
+        "Bastia",
+        "Rome"
+      ],
+      [
+        "Bastia",
+        "Siena"
+      ],
+      [
+        "Besançon",
+        "Lyon"
+      ],
+      [
+        "Besançon",
+        "St. Dizier"
+      ],
+      [
+        "Breslau",
+        "Prague"
+      ],
+      [
+        "Breslau",
+        "Stettin"
+      ],
+      [
+        "Bristol",
+        "Lincoln"
+      ],
+      [
+        "Brunn",
+        "Pressburg"
+      ],
+      [
+        "Brunswick",
+        "Erfurt"
+      ],
+      [
+        "Brunswick",
+        "Münster"
+      ],
+      [
+        "Brussels",
+        "Metz"
+      ],
+      [
+        "Calais",
+        "London"
+      ],
+      [
+        "Calais",
+        "St. Quentin"
+      ],
+      [
+        "Candia",
+        "Rhodes"
+      ],
+      [
+        "Cartagena",
+        "Madrid"
+      ],
+      [
+        "Cologne",
+        "Trier"
+      ],
+      [
+        "Corfu",
+        "Durazzo"
+      ],
+      [
+        "Corfu",
+        "Larissa"
+      ],
+      [
+        "Corfu",
+        "Lepanto"
+      ],
+      [
+        "Corfu",
+        "Taranto"
+      ],
+      [
+        "Coron",
+        "Lepanto"
+      ],
+      [
+        "Dijon",
+        "Limoges"
+      ],
+      [
+        "Durazzo",
+        "Salonika"
+      ],
+      [
+        "Durazzo",
+        "Taranto"
+      ],
+      [
+        "Edirne",
+        "Nicopolis"
+      ],
+      [
+        "Erfurt",
+        "Mainz"
+      ],
+      [
+        "Erfurt",
+        "Nuremberg"
+      ],
+      [
+        "Florence",
+        "Pavia"
+      ],
+      [
+        "Florence",
+        "Ravenna"
+      ],
+      [
+        "Geneva",
+        "Milan"
+      ],
+      [
+        "Granada",
+        "Seville"
+      ],
+      [
+        "Graz",
+        "Linz"
+      ],
+      [
+        "Graz",
+        "Pressburg"
+      ],
+      [
+        "Grenoble",
+        "Marseille"
+      ],
+      [
+        "Grenoble",
+        "Nice"
+      ],
+      [
+        "Hamburg",
+        "Magdeburg"
+      ],
+      [
+        "Innsbruck",
+        "Regensburg"
+      ],
+      [
+        "Innsbruck",
+        "Venice"
+      ],
+      [
+        "Leipzig",
+        "Magdeburg"
+      ],
+      [
+        "Leipzig",
+        "Regensburg"
+      ],
+      [
+        "Limoges",
+        "Toulouse"
+      ],
+      [
+        "Lincoln",
+        "Norwich"
+      ],
+      [
+        "Lincoln",
+        "Shrewsbury"
+      ],
+      [
+        "Malta",
+        "Messina"
+      ],
+      [
+        "Milan",
+        "Zürich"
+      ],
+      [
+        "Mohacs",
+        "Pressburg"
+      ],
+      [
+        "Mohacs",
+        "Szegedin"
+      ],
+      [
+        "Navarre",
+        "Toulouse"
+      ],
+      [
+        "Nezh",
+        "Nicopolis"
+      ],
+      [
+        "Nezh",
+        "Salonika"
+      ],
+      [
+        "Nice",
+        "Turin"
+      ],
+      [
+        "Nicopolis",
+        "Varna"
+      ],
+      [
+        "Norwich",
+        "York"
+      ],
+      [
+        "Palermo",
+        "Tunis"
+      ],
+      [
+        "Paris",
+        "Tours"
+      ],
+      [
+        "Pavia",
+        "Trent"
+      ],
+      [
+        "Prague",
+        "Regensburg"
+      ],
+      [
+        "Ravenna",
+        "Siena"
+      ],
+      [
+        "Ravenna",
+        "Trieste"
+      ],
+      [
+        "Salonika",
+        "Scutari"
+      ],
+      [
+        "Salzburg",
+        "Trieste"
+      ],
+      [
+        "Salzburg",
+        "Zürich"
+      ],
+      [
+        "Stettin",
+        "Wittenberg"
+      ],
+      [
+        "Strasburg",
+        "Trier"
+      ],
+      [
+        "Strasburg",
+        "Zürich"
+      ],
+      [
+        "Toulouse",
+        "Zaragoza"
+      ],
+      [
+        "Trent",
+        "Zürich"
+      ],
+      [
+        "Trier",
+        "Worms"
+      ],
+      [
+        "Valencia",
+        "Zaragoza"
+      ],
+      [
+        "Valladolid",
+        "Zaragoza"
+      ],
+      [
+        "Worms",
+        "Zürich"
+      ]
+    ],
+    "add_land_edges": [
+      {
+        "a": "Agram",
+        "b": "Belgrade",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Agram",
+        "b": "Zara",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Augsburg",
+        "b": "Innsbruck",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Augsburg",
+        "b": "Salzburg",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Avignon",
+        "b": "Barcelona",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Barcelona",
+        "b": "Toulouse",
+        "confidence": 1,
+        "method": "manual_review_csv",
+        "notes": "pass",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Barcelona",
+        "b": "Valencia",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Barcelona",
+        "b": "Zaragoza",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Belgrade",
+        "b": "Nicopolis",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Belgrade",
+        "b": "Ragusa",
+        "confidence": 1,
+        "method": "manual_review_csv",
+        "notes": "pass",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Bilbao",
+        "b": "Corunna",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Bilbao",
+        "b": "Zaragoza",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Bordeaux",
+        "b": "Navarre",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Brandenburg",
+        "b": "Breslau",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Breslau",
+        "b": "Wittenberg",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Córdoba",
+        "b": "Madrid",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Corunna",
+        "b": "Valladolid",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Durazzo",
+        "b": "Larissa",
+        "confidence": 1,
+        "method": "manual_review_csv",
+        "notes": "pass",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Edirne",
+        "b": "Salonika",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Geneva",
+        "b": "Turin",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Genoa",
+        "b": "Nice",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Genoa",
+        "b": "Siena",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Graz",
+        "b": "Mohacs",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Graz",
+        "b": "Salzburg",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Grenoble",
+        "b": "Turin",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Innsbruck",
+        "b": "Trent",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Innsbruck",
+        "b": "Zürich",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Kassel",
+        "b": "Nuremberg",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Limoges",
+        "b": "Lyon",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "London",
+        "b": "Shrewsbury",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Lyon",
+        "b": "Orléans",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Madrid",
+        "b": "Valencia",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Messina",
+        "b": "Naples",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Messina",
+        "b": "Taranto",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Milan",
+        "b": "Modena",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Nantes",
+        "b": "Rouen",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Naples",
+        "b": "Rome",
+        "confidence": 1,
+        "method": "manual_ui"
+      },
+      {
+        "a": "Nezh",
+        "b": "Scutari",
+        "confidence": 1,
+        "method": "manual_review_csv",
+        "notes": "pass",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Nicopolis",
+        "b": "Sofia",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Nicopolis",
+        "b": "Szegedin",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      },
+      {
+        "a": "Ragusa",
+        "b": "Zara",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Salonika",
+        "b": "Sofia",
+        "confidence": 1,
+        "method": "manual_ui",
+        "connection_type": "pass"
+      }
+    ]
+  }
+}

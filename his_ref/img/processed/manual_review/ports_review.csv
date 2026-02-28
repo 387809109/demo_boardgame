@@ -1,0 +1,13 @@
+name,x,y,is_port_current,port_confidence,port_source,anchor_count,min_anchor_distance,coastal_distance_to_sea,connected_sea_zones_current,manual_is_port,manual_connected_sea_zones,notes
+Bilbao,1653,1950,,low,coastal_unresolved,0,,77.13,,False,,map_anchor
+Calais,2142,869,True,medium,anchor_icon_detection_far,1,121.15,78.0,North Sea,True,North Sea|English Channel,map_anchor
+Carlisle,1569,404,,low,coastal_unresolved,0,,117.89,,False,,map_anchor
+Cerignola,3544,2042,,low,coastal_unresolved,0,,71.0,,False,,map_anchor
+Larissa,4249,2307,,low,anchor_icon_far_unresolved,1,122.48,106.62,,False,,map_anchor
+Lepanto,4177,2446,,low,anchor_icon_far_unresolved,1,136.68,61.11,,True,Ionian Sea,map_anchor
+Navarre,1822,1939,,low,coastal_unresolved,0,,76.49,,False,,map_anchor
+Salonika,4283,2134,True,medium,rules_text,0,,111.46,Aegean Sea,True,Aegeon Sea,map_anchor
+Siena,3106,1932,,low,coastal_unresolved,0,,68.98,,False,,map_anchor
+Stirling,1382,204,,low,coastal_unresolved,0,,102.82,,False,,map_anchor
+Wales,1518,758,,low,coastal_unresolved,0,,87.48,,False,,map_anchor
+Zara,3492,1696,,low,coastal_unresolved,0,,64.44,,False,,map_anchor

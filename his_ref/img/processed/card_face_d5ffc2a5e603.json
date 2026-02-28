@@ -1,0 +1,217 @@
+{
+  "sourceFile": "card_face_d5ffc2a5e603.jpg",
+  "grid": { "cols": 5, "rows": 4 },
+  "skipped": ["r3c4"],
+  "cardCount": 19,
+  "cards": [
+    {
+      "number": 201,
+      "cp": null,
+      "title": "Andrea Doria",
+      "turn": 1,
+      "year": null,
+      "category": null,
+      "description": "Playable by Papacy to deactivate Genoa from their current ally and then immediately activate Genoa as a Papal ally. Playable by Protestant to deactivate Genoa and then immediately activate Genoa as a French ally. If Genoa already controlled by the power listed above, add 4 CP of Genoese units to a Genoese home space under that power's control.",
+      "specialNote": null,
+      "gridPosition": "r0c0"
+    },
+    {
+      "number": 202,
+      "cp": null,
+      "title": "French Constable Invades",
+      "turn": 1,
+      "year": null,
+      "category": "Invasion",
+      "description": "France and the Papacy are now at war. Protestants place Montmorency, 2 French regulars, and 2 French mercenaries in a French-controlled space. Protestant draws 1 card from the Main Deck. Protestant then either places 1 French squadron in a French home port or adds 2 more French mercenaries to the same French-controlled space.",
+      "specialNote": null,
+      "gridPosition": "r0c1"
+    },
+    {
+      "number": 203,
+      "cp": null,
+      "title": "Corsair Raid",
+      "turn": 1,
+      "year": null,
+      "category": null,
+      "description": "Roll four dice, scoring hits on the other player on a 5 or 6. For each hit, the enemy player must discard a card or eliminate a naval squadron. Hits on the Papacy eliminate Papal squadrons or squadrons from active Papal minor allies. Hits on the Protestant are taken from French or Ottoman squadrons (or Hapsburg squadrons if the Hapsburgs are at war with the Papacy).",
+      "specialNote": null,
+      "gridPosition": "r0c2"
+    },
+    {
+      "number": 204,
+      "cp": null,
+      "title": "Diplomatic Marriage",
+      "turn": 1,
+      "year": null,
+      "category": null,
+      "description": "Activate or deactivate a minor power if permitted by Section 22.1. In addition, Protestant may now use the card to deactivate a minor power or activate either Genoa or Venice as a Hapsburg ally.",
+      "specialNote": null,
+      "gridPosition": "r0c3"
+    },
+    {
+      "number": 205,
+      "cp": null,
+      "title": "Diplomatic Pressure",
+      "turn": 1,
+      "year": null,
+      "category": null,
+      "description": "Look at your opponent's Diplomatic cards. If the Papacy, choose which one the Protestant will play this turn. If the Protestant, you have the choice to either force your opponent to discard the card in his hand (and draw a new one) OR swap your one Diplomatic card with his remaining card.",
+      "specialNote": null,
+      "gridPosition": "r0c4"
+    },
+    {
+      "number": 206,
+      "cp": null,
+      "title": "French Invasion",
+      "turn": 1,
+      "year": null,
+      "category": "Invasion",
+      "description": "France and the Papacy are now at war. Protestants place Francis (or Henry if Francis has died), 3 French regulars, and 3 French mercenaries in a French-controlled space. Protestant draws 1 card from the Main Deck. Protestant then either places 1 French squadron in a French home port or adds 2 more French mercenaries to the same French-controlled space.",
+      "specialNote": null,
+      "gridPosition": "r1c0"
+    },
+    {
+      "number": 207,
+      "cp": null,
+      "title": "Henry Petitions for Divorce",
+      "turn": 1,
+      "year": null,
+      "category": null,
+      "description": "Papal player chooses either: a) Divorce Granted: Papacy draws 1 card from Main Deck. Protestant adds 4 Hapsburg mercenaries to a Hapsburg-controlled space in the Italian language zone. The Papacy immediately initiates a Theological Debate in any language zone. Campeggio is automatically the Papal debater if still in the game. b) Divorce Refused: Papacy adds 3 Hapsburg regulars to any combination of Hapsburg-controlled spaces. Play of this card has no impact on the timing of the entry of the reformers, debaters and rulers in England.",
+      "specialNote": "Remove this card from the Diplomatic Deck after play.",
+      "gridPosition": "r1c1"
+    },
+    {
+      "number": 208,
+      "cp": null,
+      "title": "Knights of St. John",
+      "turn": 1,
+      "year": null,
+      "category": null,
+      "description": "Draw a card from the Main Deck. The CP value of that card is contributed to construction of St. Peter's.",
+      "specialNote": null,
+      "gridPosition": "r1c2"
+    },
+    {
+      "number": 209,
+      "cp": null,
+      "title": "Plague",
+      "turn": 1,
+      "year": null,
+      "category": null,
+      "description": "Remove 3 land or naval units from the map, no more than 1 per space. Units must be removed from spaces with more than 1 unit present. Then randomly draw one card from opponent's hand and discard it (Diplomatic cards and Home cards may not be drawn).",
+      "specialNote": null,
+      "gridPosition": "r1c3"
+    },
+    {
+      "number": 210,
+      "cp": null,
+      "title": "Shipbuilding",
+      "turn": 1,
+      "year": null,
+      "category": null,
+      "description": "Papacy builds up to 2 naval squadrons (either Papal fleets or of a Papal minor power ally). Protestant may also build up to 2 naval squadrons with this card in Marseille (use French units), Naples (use Hapsburg units), and/or in any Ottoman home port (use Ottoman units).",
+      "specialNote": null,
+      "gridPosition": "r1c4"
+    },
+    {
+      "number": 211,
+      "cp": null,
+      "title": "Spanish Invasion",
+      "turn": 1,
+      "year": null,
+      "category": "Invasion",
+      "description": "If prior to Schmalkaldic League, Hapsburgs and Papacy are now at war and the Protestant controls this invasion force. Otherwise the Papacy controls the invaders. The controlling power places Duke of Alva, 2 Hapsburg regulars, and 2 Hapsburg mercenaries in a Hapsburg-controlled space. The controlling power draws 1 card from the Main Deck. Place either 1 Hapsburg squadron in a Hapsburg home port or add 2 more Hapsburg mercenaries to the same Hapsburg-controlled space.",
+      "specialNote": null,
+      "gridPosition": "r2c0"
+    },
+    {
+      "number": 212,
+      "cp": null,
+      "title": "Venetian Alliance",
+      "turn": 1,
+      "year": null,
+      "category": null,
+      "description": "If Venice is unaligned, activate Venice as Papal ally. If Venice is Hapsburg ally, deactivate Venice. If Venice is already a Papal ally, add 1 Venetian regular and 2 Venetian fleets (subject to counter mix) in any Papal-controlled port not under siege.",
+      "specialNote": null,
+      "gridPosition": "r2c1"
+    },
+    {
+      "number": 213,
+      "cp": null,
+      "title": "Austrian Invasion",
+      "turn": "after SL event",
+      "year": null,
+      "category": "Invasion",
+      "description": "Papacy places Ferdinand, 2 Hapsburg regulars, and 4 Hapsburg mercenaries in a Hapsburg-controlled space. Papacy draws 1 card from the Main Deck.",
+      "specialNote": null,
+      "gridPosition": "r2c2"
+    },
+    {
+      "number": 214,
+      "cp": null,
+      "title": "Imperial Invasion",
+      "turn": "after SL event",
+      "year": null,
+      "category": "Invasion",
+      "description": "Papacy places Charles, 3 Hapsburg regulars, and 5 Hapsburg mercenaries in a Hapsburg-controlled space. Papacy draws 1 card from the Main Deck.",
+      "specialNote": null,
+      "gridPosition": "r2c3"
+    },
+    {
+      "number": 215,
+      "cp": null,
+      "title": "Machiavelli",
+      "turn": "after SL event",
+      "year": null,
+      "category": null,
+      "description": "The player trailing in VP (or the player playing the card if there is a tie) chooses any invasion card currently in the Diplomatic Deck or its discard pile (but not played earlier this turn). Play that card and then reshuffle the Diplomatic Deck (including its discard pile, the Machiavelli card, and the invasion card in the reshuffle).",
+      "specialNote": null,
+      "gridPosition": "r2c4"
+    },
+    {
+      "number": 216,
+      "cp": null,
+      "title": "Ottoman Invasion",
+      "turn": "after SL event",
+      "year": null,
+      "category": "Invasion",
+      "description": "Ottomans and the Papacy are now at war. Protestants place Suleiman, 5 Ottoman regulars, and 4 Ottoman naval squadrons in an Ottoman-controlled space. Protestant draws 1 card from the Main Deck.",
+      "specialNote": null,
+      "gridPosition": "r3c0"
+    },
+    {
+      "number": 217,
+      "cp": null,
+      "title": "Secret Protestant Circle",
+      "turn": "after SL event",
+      "year": null,
+      "category": null,
+      "description": "Roll a die. On a 1-3, flip one space in the Italian language zone to Protestant religious influence. On a 4-6, flip one space in both the Italian and Spanish language zones to Protestant religious influence.",
+      "specialNote": null,
+      "gridPosition": "r3c1"
+    },
+    {
+      "number": 218,
+      "cp": null,
+      "title": "Siege of Vienna",
+      "turn": "after SL event",
+      "year": null,
+      "category": null,
+      "description": "Remove 2 Hapsburg or Hungarian land units within 2 spaces of Vienna. No Hapsburg/Hungarian units that start the turn within 2 spaces of Vienna may undertake Move actions this turn.",
+      "specialNote": null,
+      "gridPosition": "r3c2"
+    },
+    {
+      "number": 219,
+      "cp": null,
+      "title": "Spanish Inquisition",
+      "turn": "after SL event",
+      "year": null,
+      "category": null,
+      "description": "If played by Papacy, look at Protestant's Diplomatic cards. The Papacy picks one of these events; the Protestant must discard it immediately. Protestant must play the other this turn, just after drawing an extra event (to still end the turn with one card in hand). If played by Protestant, he must reveal his hand of cards from the Main Deck immediately.",
+      "specialNote": null,
+      "gridPosition": "r3c3"
+    }
+  ]
+}

@@ -8,6 +8,18 @@
 用途：
 - 面向程序实现的规则文档。
 - 将原规则重写为可执行的状态、流程和判定规则。
+
+配套数据文件（从游戏组件提取）：
+- `POWER_CARDS.md` — 行动消耗、统治者属性、VP/关键城轨、势力专属机制
+- `SCENARIO_1517_SETUP.md` — 6人1517开局初始单位部署、VP、外交状态
+- `RELIGIOUS_STRUGGLE.md` — 新教空间轨（0–50双VP值）、全部27名辩士属性/加值
+- `SEQUENCE_OF_PLAY.md` — 9阶段结构、逐回合辩士/卡牌/强制事件时间表
+- `RULEBOOK_SECTION_NORMALIZED_ZH.md` — 完整中文规则书（主参考）
+- `RULEBOOK_SECTION_NORMALIZED.md` — 完整英文规则书（校验参考）
+
+延迟提取（开发相应模块时直接参考图片源）：
+- 战斗表格：`his_ref/img/classified/action summary.jpg`
+- 地图拓扑：`his_ref/img/classified/world map.jpg`
 - 卡牌逐条文本效果未在本文完整展开，需结合卡牌数据实现。
 
 ## 1. 游戏总览
@@ -43,6 +55,7 @@ export type MinorPower =
 
 export type Religion = 'catholic' | 'protestant' | 'other';
 export type SpaceType = 'key' | 'electorate' | 'fortress' | 'unfortified';
+export type LanguageZone = 'german' | 'english' | 'french' | 'spanish' | 'italian';
 
 export interface SpaceState {
   id: string;
@@ -52,6 +65,12 @@ export interface SpaceState {
   religion: Religion;
   unrest: boolean;
   isPort: boolean;
+  isFortified: boolean; // 关键城始终有防御；选帝侯无防御
+  languageZone: LanguageZone | null; // 奥斯曼/非欧洲空间为 null
+  adjacentSpaces: string[];
+  adjacentSeaZones: string[];
+  passConnections: string[]; // 山道连接（移动花费 2 CP）
+  hasJesuitUniversity: boolean;
   besiegedBy: MajorPower[];
   occupiedBy: UnitStack[];
 }
@@ -67,11 +86,31 @@ export interface UnitStack {
   navalLeaders: string[];
 }
 
+export interface LeaderState {
+  id: string;
+  owner: MajorPower | MinorPower;
+  type: 'army' | 'naval';
+  commandRating: number; // 编队上限
+  battleRating: number; // 战斗加骰
+  location: string | null; // 空间/海域 id，null 表示离场/被俘
+  captured: boolean;
+  capturedBy: MajorPower | null;
+}
+
+export interface ReformerState {
+  id: string; // 如 'luther', 'calvin', 'zwingli'
+  alive: boolean;
+  location: string | null; // 空间 id
+  committed: boolean;
+  debateValue: number;
+  excommunicated: boolean;
+}
+
 export interface RulerState {
   power: MajorPower;
   rulerId: string;
-  adminRating: number;
-  cardBonus: number;
+  adminRating: number; // 回合间可保留手牌上限
+  cardBonus: number; // 抽牌加成
 }
 
 export type CardType =
@@ -121,7 +160,44 @@ export interface GameState {
   homeCardPlayed: Record<MajorPower, boolean>;
   vp: Record<MajorPower, number>;
   bonusVp: Record<MajorPower, number>;
-  markers: Record<string, unknown>;
+
+  // 将领与改革家
+  leaders: Record<string, LeaderState>;
+  reformers: Record<string, ReformerState>;
+
+  // 英格兰特规
+  henryMaritalStatus: string; // 轨道位置: 'start' | 'ask_divorce' | 'anne_boleyn' | 'jane_seymour' | ...
+  edwardBorn: boolean;
+  elizabethBorn: boolean;
+
+  // 教廷特规
+  stPetersProgress: number; // 圣彼得工程已投入 CP
+  jesuitUnlocked: boolean; // Society of Jesus 事件后为 true
+
+  // 新教特规
+  schmalkaldicLeagueFormed: boolean;
+  translationTrack: Record<LanguageZone, number>; // 各语言区圣经翻译进度 (0-6)
+  protestantSpaceCount: number; // 缓存值，用于宗教胜利判定
+
+  // 奥斯曼特规
+  piracyVp: number; // 0-10 上限
+  algiersInPlay: boolean; // Barbary Pirates 事件后为 true
+
+  // 新大陆
+  newWorld: {
+    colonies: Record<MajorPower, number>; // 殖民地标记数
+    explorersUnderway: Array<{ power: MajorPower; explorer: string; destination: string }>;
+    conquestsUnderway: Array<{ power: MajorPower; conquistador: string; destination: string }>;
+    galleons: Record<MajorPower, boolean>;
+    plantations: Record<MajorPower, boolean>;
+    potosi: MajorPower | null;
+    raiders: Record<MajorPower, boolean>;
+  };
+
+  // 当回合激活事件标记
+  augsburgConfessionActive: boolean;
+  printingPressActive: boolean;
+  wartburgActive: boolean;
 }
 ```
 
@@ -140,15 +216,14 @@ export interface GameState {
 ## 4. 回合与阶段引擎
 
 每回合阶段顺序：
-1. `luther_95`（仅第 1 回合）
-2. `card_draw`
-3. `diplomacy`（第 1 回合为简化版）
-4. `diet_of_worms`（仅第 1 回合）
-5. `spring_deployment`
-6. `action`（冲动循环，直到 6 家连续 Pass）
-7. `winter`
-8. `new_world`
-9. `victory_determination`
+1. `card_draw`（第 1 回合：特殊开局设定 — 放置初始单位、发起始手牌；第 2 回合起：加入回合门控卡、洗牌、发牌）
+2. `diplomacy`（第 1 回合：简化版 — 无求和/赎回/绝罚子段）
+3. `diet_of_worms`（仅第 1 回合 — 哈布斯堡、教廷、新教各出 1 牌）
+4. `spring_deployment`
+5. `action`（冲动循环，直到 6 家连续 Pass；95 条论纲是第 1 回合行动阶段中的强制事件牌，不是独立阶段）
+6. `winter`
+7. `new_world`
+8. `victory_determination`
 
 行动阶段循环：
 - 每个势力轮到时只能选一项：
@@ -209,22 +284,25 @@ export interface GameState {
 
 ## 8. 外交阶段（9.1-9.6）
 
-子段顺序：
-1. 谈判
-2. 同盟
-3. 求和
-4. 赎回将领
-5. 解除绝罚
-6. 宣战
+子段执行顺序：
+1. 谈判（9.1）— 同盟（9.2）在此段内达成
+2. 求和（9.3）
+3. 赎回将领（9.4）
+4. 解除绝罚（9.5）
+5. 宣战（9.6）
+
+注：9.2 同盟是规则说明章节，不是独立子段；同盟在谈判中缔结。
 
 谈判可改变的状态：
-- 协议停战（白和）。
-- 建立一回合同盟。
+- 协议停战（白和；不授予 War Winner VP）。
+- 建立一回合同盟（冬季移除）。
 - 同盟内借出海军中队/海军将领。
 - 归还俘虏将领。
-- 让渡空间政治控制。
-- 交换手牌。
+- 让渡空间政治控制（不含己方首都和结盟次要势力本土关键城）。
+- 给另一势力最多 2 次随机抽手牌（同回合只能单向；Home 牌不可被抽）。
+- 给另一势力最多 4 个雇佣军（同回合只能单向；不能给奥斯曼）。
 - 教廷可批准亨利离婚。
+- 教廷可撤销对某君主的绝罚。
 
 同盟：
 - 持续到冬季同盟清除步骤。
@@ -309,13 +387,19 @@ export interface GameState {
 - 进攻方：每陆军 1 骰 + 最高将领战斗值。
 - 防守方：同上 + 防守加 1 骰。
 
-结算：
-1. 双方出战斗牌（先攻后守）。
-2. 掷骰计命中。
-3. 按命中分配损失。
-4. 全灭方将领被俘。
-5. 败方撤退（或可退入工事）。
-6. 若在要塞空间且攻方胜，继续检查围城成立。
+结算（12 步流程，详见第 14 节）：
+1. Response 窗口（Landsknechts / Swiss Mercenaries）。
+2. 攻方骰 = 每陆军 1 骰 + 最高将领战斗值。
+3. 守方骰 = 每陆军 1 骰 + 最高将领战斗值 + 1 防守加骰。
+4. 攻方可打 Combat 卡。
+5. 守方可打 Combat 卡。
+6. 双方掷骰；>= 5 为命中。
+7. 奥斯曼 Janissaries 响应窗口（每回合限一次）。
+8. 判定胜者（平手 = 守方胜）。
+9. 分配损失；双方全灭时：骰数多方保留 1 单位；骰数相同则守方保留 1。
+10. 被全灭方将领被俘。
+11. 败方撤退（或退入工事）。
+12. 若为要塞空间且攻方胜且外部兵力严格多于工事内守军，围城成立。
 
 撤退限制：
 - 不可退入动乱、敌占、非法控制空间或海域。
@@ -328,10 +412,13 @@ export interface GameState {
 
 强攻：
 - 1 CP。
-- 通常不能在同一冲动“刚围上就强攻”（事件例外）。
-- 需满足 LOC 与海上封锁条件。
-- 按强攻专用骰池结算。
-- 成功则夺取控制并处理守方将领/海军后果。
+- 不能在同一冲动”刚围上就强攻”（Roxelana 事件例外）。
+- 4 项前置：上一冲动已围城、有 LOC、邻接海域无敌方海军、港口内有敌舰时需海上优势。
+- 攻方骰：无守军时每单位 1 骰（骑兵不算）；有守军时每 2 单位 1 骰向上取整（骑兵不算）。
+- 守方骰：每单位 1 骰（骑兵不算）+ 1 防守加骰。
+- 骑兵可作为强攻损失承受。
+- 成功条件：至少 1 命中、守军全灭、至少 1 攻方存活。
+- Siege Artillery 响应卡窗口（初始掷骰后）。
 
 解围军：
 - 友军进入围城空间发起野战，结果可能解围、部分解围或失败撤退。
@@ -345,12 +432,15 @@ export interface GameState {
 - 1 CP，可在该次行动中移动该势力所有符合条件的海军堆。
 - 执行顺序：移动 -> 反应牌 -> 拦截 -> 规避战斗 -> 海战。
 
-海战：
-- 中队每个 2 骰，海盗船每个 1 骰。
-- 最高海将战斗值加骰。
-- 港口防守方额外 +1 骰。
-- 奥斯曼海盗船与中队损失分配有特殊规则。
-- 战后按海域/港口规则撤退。
+海战（10 步流程，详见第 16.2 节）：
+- 攻方骰：每中队 2 骰 + 每海盗船 1 骰 + 最高海将战斗值。
+- 守方骰：同公式 + 港口防守加 1 骰。
+- 双方可打 Combat 卡（先攻后守）。
+- 掷骰；>= 5 为命中。
+- Janissaries / Professional Rowers 响应窗口。
+- 平手 = 守方胜。
+- 损失分配：每 2 命中损 1 中队；剩余命中对奥斯曼消灭海盗船；败方奇数命中多损 1 中队；胜方奇数命中忽略。双方全灭时骰多方保留 1 单位。
+- 撤退：港口战 — 攻方必退至邻接海域（即使胜）；海域战 — 败方退至己控港口或无敌方海军的海域。
 
 海运：
 - 使用海上路径运输陆军编队。
