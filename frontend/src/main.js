@@ -42,6 +42,9 @@ import WerewolfGame from './games/werewolf/index.js';
 import werewolfConfig from './games/werewolf/config.json';
 import { WerewolfUI } from './games/werewolf/ui.js';
 
+import { HISGame } from './games/his/index.js';
+import hisConfig from './games/his/config.json';
+
 const RECONNECT_CONTEXT_KEY = 'reconnectContext';
 const RECONNECT_RESPONSE_TIMEOUT_MS = 8000;
 const DEFAULT_RECONNECT_DELAY_MS = 3000;
@@ -128,6 +131,7 @@ class App {
     // Register games
     registerGame('uno', UnoGame, unoConfig);
     registerGame('werewolf', WerewolfGame, werewolfConfig);
+    registerGame('his', HISGame, hisConfig);
 
     // Generate or load player ID (used for local mode)
     this.playerId = loadSessionData('playerId') || this._generatePlayerId();

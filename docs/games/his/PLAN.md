@@ -16,12 +16,11 @@ frontend/src/games/his/
 ├── constants.js                   # 枚举：ACTION_TYPES, PHASES, POWERS 等
 ├── index.js                       # HISGame extends GameEngine（入口）
 ├── data/
-│   ├── cards.js                   # ~110 张卡牌定义
-│   ├── map-spaces.js              # ~200 个地图空间
-│   ├── map-connections.js         # 邻接关系
-│   ├── leaders.js                 # 领袖定义
+│   ├── cards.js                   # 135 张卡牌定义
+│   ├── map-data.js                # 134 陆地空间 + 15 海域 + 邻接关系
+│   ├── leaders.js                 # 领袖/探险家/征服者定义
 │   ├── units.js                   # 单位类型
-│   └── setup.js                   # 1517 初始设置（部队、控制权、VP）
+│   └── setup-1517.js              # 1517 初始设置（部队、控制权、VP）
 ├── state/
 │   ├── state-init.js              # 初始状态构建
 │   ├── state-visible.js           # getVisibleState() 信息过滤
@@ -115,11 +114,11 @@ frontend/public/rules/
 | 0.2 | 创建 PLAN.md（本开发计划） | `docs/games/his/PLAN.md` |
 | 0.3 | 创建 config.json（元数据、settingsSchema、势力定义） | `config.json` |
 | 0.4 | 创建 constants.js（ACTION_TYPES、PHASES、POWERS 枚举） | `constants.js` |
-| 0.5 | 创建 ~110 张卡牌定义 | `data/cards.js` |
-| 0.6 | 创建 ~200 个地图空间定义 | `data/map-spaces.js` |
-| 0.7 | 创建地图邻接关系 | `data/map-connections.js` |
-| 0.8 | 创建领袖、单位类型定义 | `data/leaders.js`, `data/units.js` |
-| 0.9 | 创建 1517 初始设置 | `data/setup.js` |
+| 0.5 | 创建 135 张卡牌定义 | `data/cards.js` |
+| 0.6 | 创建地图数据（134 陆地空间 + 15 海域 + 邻接） | `data/map-data.js` |
+| 0.7 | 创建领袖/探险家/征服者定义 | `data/leaders.js` |
+| 0.8 | 创建单位类型定义 | `data/units.js` |
+| 0.9 | 创建 1517 初始设置 | `data/setup-1517.js` |
 | 0.10 | 数据完整性测试 | 测试文件 |
 
 **里程碑**：所有静态数据就绪，可独立验证
@@ -146,8 +145,8 @@ frontend/public/rules/
 
 ---
 
-### Phase 2: 卡牌打出与 CP 行动
-> 产出：可出牌获得 CP，用 CP 移动和建造单位。
+### Phase 2: 卡牌打出与 CP 行动（含基础宗教改革）
+> 产出：可出牌获得 CP，用 CP 执行军事和宗教行动。
 
 | # | 任务 |
 |---|------|
@@ -157,13 +156,21 @@ frontend/public/rules/
 | 2.4 | 建造单位：在合法位置放置正规军/雇佣兵 |
 | 2.5 | PASS 行动（不出牌） |
 | 2.6 | 强制事件检测（抽到时必须打出） |
+| 2.7 | 宗教改革尝试：空间翻转（新教/天主教骰子对抗） |
+| 2.8 | 反宗教改革尝试 |
+| 2.9 | 出版论著（花费 CP 在语言区传播宗教改革） |
+| 2.10 | 翻译圣经（花费 CP 推进翻译轨道） |
+| 2.11 | 神学辩论基础（攻防骰子结算） |
+| 2.12 | 新教空间轨道追踪（VP 联动） |
 
-**里程碑**：策略核心循环可运行——出牌、移动、建造
+**里程碑**：策略核心循环可运行——出牌、移动、建造、宗教改革
 
 ---
 
 ### Phase 3: 战斗系统
 > 产出：野战、围城、海战完整可用。
+>
+> **前置条件**：开始前需从 `his_ref/img/classified/action summary.jpg` 提取战斗骰子表（野战/攻城/海战）和新世界结果表。
 
 | # | 任务 |
 |---|------|
@@ -211,7 +218,7 @@ frontend/public/rules/
 ---
 
 ### Phase 6: 卡牌事件（最大阶段）
-> 产出：~110 张卡牌事件全部实现。
+> 产出：135 张卡牌事件全部实现。
 
 | # | 任务 |
 |---|------|
@@ -231,16 +238,18 @@ frontend/public/rules/
 
 ### Phase 7: 特殊机制
 > 产出：HIS 标志性子系统全部实现。
+>
+> 基础宗教改革（空间翻转、辩论、出版、翻译）已在 Phase 2 实现，此处为高级机制。
 
 | # | 任务 |
 |---|------|
-| 7.1 | 宗教改革（翻转空间、反宗教改革） |
-| 7.2 | 神学辩论（骰子结算） |
-| 7.3 | 宗教著作出版 |
+| 7.1 | 耶稣会大学（辩论加骰、反宗教改革加骰） |
+| 7.2 | 焚烧书籍 |
+| 7.3 | 辩士承诺/取消承诺机制 |
 | 7.4 | 亨利八世婚姻/离婚/英格兰教会 |
-| 7.5 | 新世界探索 |
-| 7.6 | 海盗（巴巴里海盗、私掠船） |
-| 7.7 | 建造（要塞、圣彼得大教堂） |
+| 7.5 | 新世界探索/征服 |
+| 7.6 | 海盗（奥斯曼海盗、反海盗） |
+| 7.7 | 建造（要塞、圣彼得大教堂、城堡） |
 | 7.8 | 施马尔卡尔登联盟 |
 
 **里程碑**：规则完整——物理版 HIS 的所有机制均已实现
@@ -252,7 +261,7 @@ frontend/public/rules/
 
 | # | 任务 |
 |---|------|
-| 8.1 | 制作/转换欧洲 SVG 地图（~200 空间） |
+| 8.1 | 制作/转换欧洲 SVG 地图（134 空间 + 15 海域） |
 | 8.2 | SVG 渲染、缩放、平移 |
 | 8.3 | 单位/控制标记/宗教标记叠加层 |
 | 8.4 | 空间点击选择、移动交互 |
@@ -367,3 +376,13 @@ cd frontend && npm test -- src/games/his/
 | `frontend/src/games/werewolf/config.json` | settingsSchema 配置参考 |
 | `frontend/src/main.js` | 游戏注册入口 |
 | `docs/games/TEMPLATE.md` | RULES.md 文档模板 |
+
+## 数据源文件
+
+| 输出 | 来源 |
+|------|------|
+| `data/cards.js` | `his_ref/img/processed/all_cards_classified.json` (135 cards) |
+| `data/map-data.js` | `his_ref/img/processed/his_vmod_map_data.corrected.json` (134 spaces, 15 sea zones, 223 edges) |
+| `data/leaders.js` | `his_ref/img/processed/leaders_and_explorers.json` (38 leaders/explorers) |
+| `data/setup-1517.js` | `his_ref/rulebook_extraction/SCENARIO_1517_SETUP.md` |
+| `constants.js` | `his_ref/rulebook_extraction/RULEBOOK_FOR_DEVELOPMENT.md` + `POWER_CARDS.md` |

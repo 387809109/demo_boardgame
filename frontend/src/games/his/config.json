@@ -1,0 +1,38 @@
+{
+  "id": "his",
+  "name": "Here I Stand",
+  "description": "文艺复兴时代六大势力争夺欧洲霸权的战略桌游，涵盖军事、外交、宗教改革与新世界探索",
+  "minPlayers": 2,
+  "maxPlayers": 6,
+  "difficulty": "hard",
+  "estimatedTime": 360,
+  "tags": ["战略", "历史", "区域控制", "卡牌驱动"],
+  "gameType": "multiplayer",
+  "supportsAI": false,
+
+  "powers": {
+    "ottoman": { "name": "奥斯曼帝国", "color": "#2e7d32" },
+    "hapsburg": { "name": "哈布斯堡", "color": "#f9a825" },
+    "england": { "name": "英格兰", "color": "#c62828" },
+    "france": { "name": "法兰西", "color": "#1565c0" },
+    "papacy": { "name": "教廷", "color": "#7b1fa2" },
+    "protestant": { "name": "新教", "color": "#000000" }
+  },
+
+  "settingsSchema": {
+    "scenario": {
+      "type": "select",
+      "label": "剧本",
+      "description": "选择起始年份和游戏长度",
+      "default": "1517",
+      "options": [
+        { "value": "1517", "label": "1517 完整剧本（9回合）" }
+      ],
+      "group": "basic"
+    }
+  },
+
+  "settingsGroups": [
+    { "id": "basic", "label": "基础设置" }
+  ]
+}
