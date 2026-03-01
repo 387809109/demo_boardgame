@@ -311,6 +311,8 @@
 
 - 🔶 tRPC migration plan drafted and indexed — `docs/prd/api/TRPC_REFACTOR_PLAN.md`
   - 状态: planning-complete / implementation-pending
+- 🔶 Analytics MVP plan drafted and indexed — `docs/prd/api/ANALYTICS_MVP_PLAN.md`
+  - 状态: planning-complete / implementation-pending
 
 ### 待办
 

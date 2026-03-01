@@ -3,10 +3,12 @@
 ## Related Plans
 
 - [TRPC_REFACTOR_PLAN.md](./TRPC_REFACTOR_PLAN.md) - tRPC 迁移主计划（API-first）
+- [ANALYTICS_MVP_PLAN.md](./ANALYTICS_MVP_PLAN.md) - MVP 分析埋点范围与低成本落地计划
 - [AI_CHAT_PRD.md](./AI_CHAT_PRD.md) - AI 规则问答产品方案
 - [AI_RAG_PLAN.md](./AI_RAG_PLAN.md) - RAG-lite 规则注入设计
 
 > 约束: 在开始 API 接口重构实现之前，必须先完成并评审 tRPC 迁移计划。
+> 约束: 在开始大规模数据埋点之前，必须先完成并评审 Analytics MVP 计划。
 
 ## 概述
 
