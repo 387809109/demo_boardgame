@@ -23,6 +23,7 @@ export function registerAppReconnectMethods(App, deps) {
     updateLoadingMessage,
     showNotification,
     showToast,
+    trackEvent,
     RECONNECT_CONTEXT_KEY,
     RECONNECT_RESPONSE_TIMEOUT_MS,
     DEFAULT_RECONNECT_DELAY_MS,
@@ -157,6 +158,10 @@ export function registerAppReconnectMethods(App, deps) {
       updateLoadingMessage(`重连中（第 ${this._reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} 次），正在连接...`);
 
       const ctx = this._reconnectContext;
+      trackEvent('reconnect_attempted', {
+        mode: ctx?.mode || this.mode,
+        attempt: this._reconnectAttempts
+      });
 
       try {
         if (this.network instanceof CloudNetworkClient) {
@@ -390,6 +395,9 @@ export function registerAppReconnectMethods(App, deps) {
       this._currentGameSettings = settings;
 
       this._startGame(gameType, players, 'online', settings, snapshotState);
+      trackEvent('reconnect_succeeded', {
+        mode: this.mode
+      });
       this._cancelReconnectTimers();
       hideLoading();
       showToast('已恢复到最新对局状态');
@@ -400,6 +408,10 @@ export function registerAppReconnectMethods(App, deps) {
      * @private
      */
     _handleReconnectFailure(reason = '重连失败') {
+      trackEvent('reconnect_failed', {
+        mode: this.mode,
+        error_code: reason
+      });
       const lastContext = this._reconnectContext || this._loadReconnectContext();
       this._cancelReconnectTimers();
       this._closeResultScreen(true);

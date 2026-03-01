@@ -22,6 +22,7 @@ export function registerAppOnlineRoomMethods(App, deps) {
     hideLoading,
     showNotification,
     showToast,
+    trackEvent,
     DEFAULT_LOCAL_SERVER_URL
   } = deps;
 
@@ -117,6 +118,12 @@ export function registerAppOnlineRoomMethods(App, deps) {
           return;
         }
 
+        trackEvent('room_create_attempted', {
+          mode: this.mode,
+          game_id: gameType,
+          player_count: maxPlayers
+        });
+
         this._saveRoomCreatePreset(gameType, {
           settings,
           maxPlayers,
@@ -182,6 +189,11 @@ export function registerAppOnlineRoomMethods(App, deps) {
           return;
         }
 
+        trackEvent('room_join_attempted', {
+          mode: this.mode
+        });
+        this._pendingJoinAnalytics = { roomId, nickname };
+
         modal.hide();
         await this._connectAndJoinRoom(serverUrl, roomId, nickname);
       });
@@ -193,6 +205,7 @@ export function registerAppOnlineRoomMethods(App, deps) {
      */
     async _connectAndCreateRoom(serverUrl, roomId, nickname, gameType, maxPlayers = 4, supportsAI = true) {
       showLoading('连接服务器...');
+      this._pendingJoinAnalytics = null;
 
       try {
         if (this.mode === 'local') {
@@ -227,11 +240,17 @@ export function registerAppOnlineRoomMethods(App, deps) {
           allPlayersReturned: true
         };
         this._saveReconnectContext();
+        trackEvent('room_create_succeeded', {
+          mode: this.mode,
+          game_id: gameType,
+          player_count: maxPlayers
+        });
 
         hideLoading();
         this._showWaitingRoom();
 
       } catch (err) {
+        this._pendingJoinAnalytics = null;
         hideLoading();
         showNotification('连接失败: ' + err.message, 'error');
       }
@@ -324,6 +343,19 @@ export function registerAppOnlineRoomMethods(App, deps) {
           allPlayersReturned
         };
         this._saveReconnectContext();
+        if (
+          this._pendingJoinAnalytics
+          && this.currentRoom?.id === this._pendingJoinAnalytics.roomId
+          && data.nickname === this._pendingJoinAnalytics.nickname
+          && Array.isArray(data.players)
+          && data.players.some((player) => player.id === this.playerId)
+        ) {
+          trackEvent('room_join_succeeded', {
+            mode: this.mode,
+            game_id: this.currentRoom.gameType || 'unknown'
+          });
+          this._pendingJoinAnalytics = null;
+        }
 
         if (!this.currentView || !(this.currentView instanceof WaitingRoom)) {
           this._showWaitingRoom();
@@ -544,6 +576,7 @@ export function registerAppOnlineRoomMethods(App, deps) {
       });
 
       net.onMessage('ERROR', (data) => {
+        this._pendingJoinAnalytics = null;
         showNotification(data.message, 'error');
       });
 
@@ -614,11 +647,17 @@ export function registerAppOnlineRoomMethods(App, deps) {
         });
       });
 
-      net.on('disconnected', () => {
+      net.on('disconnected', (event = {}) => {
         if (this._manualDisconnect) {
           this._manualDisconnect = false;
           return;
         }
+
+        trackEvent('network_disconnected', {
+          mode: this.mode,
+          reason: event.reason || 'unknown',
+          error_code: event.code || null
+        });
 
         if (this._canAttemptReconnect()) {
           showNotification('与服务器断开连接，正在尝试重连', 'warning');

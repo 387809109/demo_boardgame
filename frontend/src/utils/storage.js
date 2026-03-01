@@ -25,6 +25,9 @@ export function getDefaultConfig() {
     game: {
       language: 'zh-CN',
       defaultNickname: `玩家${Math.floor(Math.random() * 1000)}`
+    },
+    analytics: {
+      enabled: false
     }
   };
 }

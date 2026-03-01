@@ -18,6 +18,9 @@ export class SettingsPanel {
     this.options = options;
     this.element = null;
     this.config = loadConfig();
+    if (!this.config.analytics || typeof this.config.analytics !== 'object') {
+      this.config.analytics = { enabled: false };
+    }
 
     this._create();
   }
@@ -144,6 +147,18 @@ export class SettingsPanel {
             </div>
           </section>
 
+          <!-- Privacy Settings -->
+          <section style="margin-bottom: var(--spacing-6);">
+            <h3 style="margin: 0 0 var(--spacing-4) 0; font-size: var(--text-lg); color: var(--text-primary);">
+              隐私设置
+            </h3>
+
+            <label style="display: flex; align-items: center; gap: var(--spacing-2); cursor: pointer;">
+              <input type="checkbox" class="analytics-checkbox" ${this.config.analytics.enabled ? 'checked' : ''}>
+              <span>允许匿名使用分析（Vercel Analytics）</span>
+            </label>
+          </section>
+
           <!-- Import/Export -->
           <section>
             <h3 style="margin: 0 0 var(--spacing-4) 0; font-size: var(--text-lg); color: var(--text-primary);">
@@ -242,6 +257,10 @@ export class SettingsPanel {
 
     this.config.game.defaultNickname = this.element.querySelector('.nickname-input')?.value || '';
     this.config.game.language = this.element.querySelector('.language-select')?.value || 'zh-CN';
+    if (!this.config.analytics || typeof this.config.analytics !== 'object') {
+      this.config.analytics = { enabled: false };
+    }
+    this.config.analytics.enabled = this.element.querySelector('.analytics-checkbox')?.checked || false;
   }
 
   /**

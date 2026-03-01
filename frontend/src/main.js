@@ -14,6 +14,7 @@ import {
   saveRoomCreatePreset,
   loadRoomCreatePreset
 } from './utils/storage.js';
+import { initAnalytics, setAnalyticsConsent, trackEvent } from './utils/analytics.js';
 
 import { GameLobby } from './layout/game-lobby.js';
 import { WaitingRoom } from './layout/waiting-room.js';
@@ -80,6 +81,10 @@ class App {
 
     /** @type {Object} */
     this.config = loadConfig();
+    if (!this.config.analytics || typeof this.config.analytics !== 'object') {
+      this.config.analytics = { enabled: false };
+    }
+    setAnalyticsConsent(this.config.analytics.enabled === true);
 
     /** @type {Object|null} */
     this.currentRoom = null;
@@ -117,6 +122,12 @@ class App {
     /** @type {Object|null} */
     this._joinRoomPrefill = null;
 
+    /** @type {number|null} */
+    this._gameStartAt = null;
+
+    /** @type {{ roomId: string, nickname: string }|null} */
+    this._pendingJoinAnalytics = null;
+
     this._init();
   }
 
@@ -140,6 +151,11 @@ class App {
       this.authService = new AuthService(getSupabaseClient());
       this.authService.initialize();
     }
+
+    initAnalytics();
+    trackEvent('app_opened', {
+      mode: this.mode
+    });
 
     // Show lobby
     this.showLobby();
@@ -293,6 +309,7 @@ class App {
     this._lastGameResult = null;
     this._returnToRoomPromptOpen = false;
     this._clearView();
+    trackEvent('lobby_viewed', { mode: this.mode });
 
     this.currentView = new GameLobby({
       onSelectGame: (gameId, mode) => this._handleGameSelect(gameId, mode),
@@ -360,6 +377,7 @@ class App {
       this.playerId = loadSessionData('playerId') || this._generatePlayerId();
     }
     this.mode = newMode;
+    trackEvent('mode_selected', { mode: newMode });
     this.showLobby();
   }
 
@@ -385,6 +403,10 @@ class App {
       showNotification(`游戏 "${gameId}" 未注册`, 'error');
       return;
     }
+    trackEvent('game_selected', {
+      game_id: gameId,
+      mode
+    });
 
     // Get game config for settings
     const gameConfig = this._getGameConfig(gameId);
@@ -454,6 +476,12 @@ class App {
     if (!this._isReconnecting) {
       this._lastGameResult = null;
     }
+    this._gameStartAt = Date.now();
+    trackEvent('game_started', {
+      game_id: gameType,
+      mode,
+      player_count: Array.isArray(players) ? players.length : 0
+    });
 
     // Create game instance
     const game = createGame(gameType, mode);
@@ -551,6 +579,16 @@ class App {
       if (this.network && typeof this.network.setGameActive === 'function') {
         this.network.setGameActive(false);
       }
+      const durationSec = this._gameStartAt
+        ? Math.max(0, Math.round((Date.now() - this._gameStartAt) / 1000))
+        : null;
+      trackEvent('game_ended', {
+        game_id: gameType,
+        mode,
+        duration_sec: durationSec,
+        ended_reason: result?.reason || 'completed',
+        result_type: result?.winner ? 'winner_declared' : 'ended'
+      });
       this._showGameResult(result);
     });
 
@@ -785,6 +823,7 @@ class App {
       if (this.currentGame) {
         this.currentGame.end();
         this.currentGame = null;
+        this._gameStartAt = null;
       }
 
       if (this.network) {
@@ -814,6 +853,7 @@ class App {
 
     if (!this.currentRoom) {
       this.currentGame = null;
+      this._gameStartAt = null;
       this.showLobby();
       return;
     }
@@ -926,6 +966,7 @@ class App {
       onBackToLobby: () => {
         this._resultScreen = null;
         this.currentGame = null;
+        this._gameStartAt = null;
         this.showLobby();
       }
     });
@@ -943,6 +984,11 @@ class App {
       onClose: () => {},
       onSave: (config) => {
         this.config = config;
+        if (!this.config.analytics || typeof this.config.analytics !== 'object') {
+          this.config.analytics = { enabled: false };
+        }
+        setAnalyticsConsent(this.config.analytics.enabled === true);
+        initAnalytics();
         showToast('设置已保存');
       }
     });
@@ -964,6 +1010,7 @@ registerAppReconnectMethods(App, {
   updateLoadingMessage,
   showNotification,
   showToast,
+  trackEvent,
   RECONNECT_CONTEXT_KEY,
   RECONNECT_RESPONSE_TIMEOUT_MS,
   DEFAULT_RECONNECT_DELAY_MS,
@@ -983,6 +1030,7 @@ registerAppOnlineRoomMethods(App, {
   hideLoading,
   showNotification,
   showToast,
+  trackEvent,
   DEFAULT_LOCAL_SERVER_URL
 });
 

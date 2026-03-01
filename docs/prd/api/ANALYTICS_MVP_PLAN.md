@@ -1,6 +1,6 @@
 # Analytics MVP Plan (Vercel Built-In)
 
-> **Status**: Draft
+> **Status**: In Progress
 > **Date**: 2026-03-01
 > **Owner**: Product + Frontend + API
 > **Guardrail**: Documentation checkpoint precedes implementation.
@@ -14,6 +14,21 @@
   - Cloud multiplayer: Supabase Realtime (`cloud/`, `frontend/src/cloud`)
   - API: Express on Render (`api/`)
 - Constraint: keep rollout lightweight and avoid custom data-pipeline work.
+
+## Implementation Checkpoint (2026-03-01)
+
+Completed in repository:
+- Frontend analytics wrapper created: `frontend/src/utils/analytics.js`
+- Vercel Analytics dependency integrated: `@vercel/analytics`
+- Consent toggle added in app settings (default off)
+- Event instrumentation added for lifecycle, room funnel, reconnect reliability, and feature usage
+- Frontend verification passed (`build` + full test run)
+
+Pending outside repository code:
+- Enable Web Analytics in Vercel Dashboard for frontend project
+- Set production env `VITE_ANALYTICS_ENABLED=true` and redeploy
+- Validate production custom events visibility in Vercel Analytics
+- Configure Render/Supabase platform monitoring baseline and alert thresholds
 
 ## MVP Analytics Scope
 

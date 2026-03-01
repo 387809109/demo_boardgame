@@ -6,6 +6,7 @@
 
 import { fetchGames, isApiConfigured, ApiError } from '../utils/api-client.js';
 import { createSpinner } from './loading.js';
+import { trackEvent } from '../utils/analytics.js';
 
 /**
  * Query Panel for browsing game data from API
@@ -132,6 +133,7 @@ export class QueryPanel {
     this._backdrop.style.display = 'flex';
     this._isOpen = true;
     document.body.style.overflow = 'hidden';
+    trackEvent('query_panel_opened');
 
     await this._loadGames();
   }
