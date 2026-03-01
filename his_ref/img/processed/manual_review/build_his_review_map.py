@@ -14,7 +14,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--data",
-        default="his_ref/img/processed/his_vmod_map_data.json",
+        default="his_ref/img/processed/his_vmod_map_data.corrected.json",
         help="Path to consolidated map data JSON",
     )
     parser.add_argument(
@@ -63,6 +63,26 @@ def load_json_optional(path: Path) -> dict:
     if not path.exists():
         return {}
     return load_json(path)
+
+
+def strip_non_rules_metrics_for_review(data: dict) -> tuple[int, int, int]:
+    removed_coastal = 0
+    removed_min_anchor = 0
+    for row in data.get("land_spaces", []):
+        if "coastal_distance_to_sea" in row:
+            row.pop("coastal_distance_to_sea", None)
+            removed_coastal += 1
+        if "min_anchor_distance" in row:
+            row.pop("min_anchor_distance", None)
+            removed_min_anchor += 1
+
+    removed_edge_distance = 0
+    for edge in data.get("topology_candidates", {}).get("land_edges", []):
+        if "distance" in edge:
+            edge.pop("distance", None)
+            removed_edge_distance += 1
+
+    return removed_coastal, removed_min_anchor, removed_edge_distance
 
 
 def compute_bounds(data: dict) -> tuple[int, int]:
@@ -132,6 +152,7 @@ def main() -> None:
 
     data = load_json(data_path)
     overrides = load_json_optional(overrides_path)
+    removed_coastal, removed_min_anchor, removed_edge_distance = strip_non_rules_metrics_for_review(data)
     width, height = compute_bounds(data)
 
     extract_map_image(vmod_path, out_image)
@@ -159,6 +180,9 @@ def main() -> None:
     print(f"canvas: {width} x {height}")
     print(f"spaces: {len(data.get('land_spaces', []))}")
     print(f"edges: {len(data.get('topology_candidates', {}).get('land_edges', []))}")
+    print(f"coastal_distance fields removed (review payload): {removed_coastal}")
+    print(f"min_anchor_distance fields removed (review payload): {removed_min_anchor}")
+    print(f"edge distance fields removed (review payload): {removed_edge_distance}")
 
 
 if __name__ == "__main__":

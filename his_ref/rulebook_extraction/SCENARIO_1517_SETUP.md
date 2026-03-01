@@ -209,13 +209,14 @@ All other relationships: Neutral (no marker).
 
 | File | Content |
 |---|---|
-| `his_ref/img/processed/all_cards_classified.json` | All 135 cards classified by deck/timing (home, main, diplomacy, turn-gated, special) |
+| `his_ref/img/processed/all_cards_classified.json` | All 135 cards: deck/timing classification, CP cost, card text, category |
 | `his_ref/img/processed/leaders_and_explorers.json` | 38 leaders/explorers: ArmyLeader(15), NavalLeader(3), Conquistador(5), Explorer(15) |
-| `his_ref/img/processed/his_vmod_map_data.json` | Map topology from VASSAL module: 133 land spaces, 13 sea zones, 225 adjacency candidates |
-| `his_ref/img/processed/his_vmod_map_data.corrected.json` | Map data with manual corrections applied |
+| `his_ref/img/processed/his_vmod_map_data.json` | Base map topology from VASSAL module (pre-correction) |
+| `his_ref/img/processed/his_vmod_map_data.corrected.json` | Finalized map data: 134 land spaces, 15 sea zones, 223 land edges, 17 sea edges |
 | `his_ref/img/processed/manual_review/` | Manual review workflow: visual review tool, override CSVs, correction scripts |
 
 ## Deferred Extraction References
 
-- **Action Summary card** (`his_ref/img/classified/action summary.jpg`): Combat tables (Field Battle / Assault / Naval dice), Exploration / Circumnavigation / Conquests tables. Use during combat and New World module development.
+- **Action Summary card** (`his_ref/img/classified/action summary.jpg`): Combat tables (Field Battle / Assault / Naval dice), Exploration / Circumnavigation / Conquests tables. Extract when implementing combat and New World modules.
+- **2-Player Sequence of Play** (`his_ref/img/classified/sequence of play for 2 player.jpg`): 2-player variant turn structure. Extract when implementing 2-player mode.
 - **Scenarios.pdf** (`his_ref/Scenarios.pdf`): Pages 4–6 contain 1532 and Tournament scenario setups; pages 6–7 contain 3–5 player configurations; pages 37–40 contain 2-player variant rules. Extract when implementing additional scenarios.

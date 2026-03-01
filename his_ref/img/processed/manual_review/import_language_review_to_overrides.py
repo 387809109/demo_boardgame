@@ -151,9 +151,11 @@ def main() -> None:
                 continue
 
             patch = overrides["land_space_overrides"].get(name, {})
-            patch["language_zone_inferred"] = normalized
-            patch["language_zone_source"] = "manual_review_csv"
-            patch["language_zone_confidence"] = "high"
+            patch["language_zone"] = normalized
+            # Normalize legacy keys if they exist.
+            patch.pop("language_zone_inferred", None)
+            patch.pop("language_zone_source", None)
+            patch.pop("language_zone_confidence", None)
 
             note = (row.get("notes") or "").strip()
             if note:

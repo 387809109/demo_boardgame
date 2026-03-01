@@ -1,0 +1,108 @@
+{
+  "generated_from": "his_ref\\img\\processed\\his_vmod_map_data.corrected.json",
+  "sea_zones": [
+    "Adriatic Sea",
+    "Aegean Sea",
+    "Atlantic Ocean",
+    "Baltic Sea",
+    "Barbary Coast",
+    "Bay of Biscay",
+    "Black Sea",
+    "Crossing Atlantic",
+    "English Channel",
+    "Gulf of Lyon",
+    "Ionian Sea",
+    "Irish Sea",
+    "North African Coast",
+    "North Sea",
+    "Tyrrhenian Sea"
+  ],
+  "auto_edges": [],
+  "current_edges": [
+    {
+      "a": "Adriatic Sea",
+      "b": "Ionian Sea",
+      "via_ports": []
+    },
+    {
+      "a": "Aegean Sea",
+      "b": "Ionian Sea",
+      "via_ports": []
+    },
+    {
+      "a": "Aegean Sea",
+      "b": "North African Coast",
+      "via_ports": []
+    },
+    {
+      "a": "Atlantic Ocean",
+      "b": "Bay of Biscay",
+      "via_ports": []
+    },
+    {
+      "a": "Baltic Sea",
+      "b": "North Sea",
+      "via_ports": []
+    },
+    {
+      "a": "Barbary Coast",
+      "b": "Gulf of Lyon",
+      "via_ports": []
+    },
+    {
+      "a": "Barbary Coast",
+      "b": "Ionian Sea",
+      "via_ports": []
+    },
+    {
+      "a": "Barbary Coast",
+      "b": "North African Coast",
+      "via_ports": []
+    },
+    {
+      "a": "Barbary Coast",
+      "b": "Tyrrhenian Sea",
+      "via_ports": []
+    },
+    {
+      "a": "Bay of Biscay",
+      "b": "English Channel",
+      "via_ports": []
+    },
+    {
+      "a": "Bay of Biscay",
+      "b": "Irish Sea",
+      "via_ports": []
+    },
+    {
+      "a": "English Channel",
+      "b": "Irish Sea",
+      "via_ports": []
+    },
+    {
+      "a": "English Channel",
+      "b": "North Sea",
+      "via_ports": []
+    },
+    {
+      "a": "Gulf of Lyon",
+      "b": "Tyrrhenian Sea",
+      "via_ports": []
+    },
+    {
+      "a": "Ionian Sea",
+      "b": "North African Coast",
+      "via_ports": []
+    },
+    {
+      "a": "Ionian Sea",
+      "b": "Tyrrhenian Sea",
+      "via_ports": []
+    },
+    {
+      "a": "Irish Sea",
+      "b": "North Sea",
+      "via_ports": []
+    }
+  ]
+}

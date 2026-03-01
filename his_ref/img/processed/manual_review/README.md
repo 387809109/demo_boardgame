@@ -4,6 +4,7 @@
    - `ports_review.csv`
    - `language_review.csv`
    - `topology_low_confidence_review.csv`
+   - `sea_adjacency_review.csv`
 
 2. Import review CSV decisions into overrides:
    - Ports are already imported manually or by script.
@@ -21,6 +22,16 @@ python his_ref/img/processed/manual_review/import_topology_review_to_overrides.p
 
    `manual_reason` will be preserved on edges. If it contains `pass`, the edge will carry `connection_type: "pass"`.
 
+   - Build + import sea adjacency review CSV:
+
+```powershell
+python his_ref/img/processed/manual_review/build_sea_adjacency_review.py
+python his_ref/img/processed/manual_review/import_sea_adjacency_review_to_overrides.py
+```
+
+   Sea adjacency is an independent topology layer (not derived from port connectivity).
+   CSV import treats `manual_keep` as override and otherwise keeps `current_keep`.
+
 3. Write/adjust any remaining decisions directly in:
    - `his_vmod_map_overrides.json`
 
@@ -32,6 +43,35 @@ python his_ref/img/processed/manual_review/apply_his_map_overrides.py
 
 5. Corrected output:
    - `his_ref/img/processed/his_vmod_map_data.corrected.json`
+   - This file is now a finalized game-data schema:
+     - Manual-reviewed values are applied when present.
+     - Otherwise inferred/base values are materialized as final values.
+     - Review-process fields (`*inferred*`, `*confidence*`, `*source*`, hints, etc.) are not kept.
+
+## Sea Adjacency Review
+
+Generate sea adjacency review artifacts:
+
+```powershell
+python his_ref/img/processed/manual_review/build_sea_adjacency_review.py
+```
+
+Output files:
+- `his_ref/img/processed/manual_review/sea_adjacency_current.json`
+- `his_ref/img/processed/manual_review/sea_adjacency_review.csv`
+
+CSV columns:
+- `a`, `b`: sea-zone pair
+- `auto_keep`, `auto_via_ports`: reserved/legacy columns (not used for sea-topology logic)
+- `current_keep`, `current_via_ports`: currently materialized in data
+- `manual_keep`, `manual_reason`: fill these for manual correction
+
+Apply manual CSV decisions:
+
+```powershell
+python his_ref/img/processed/manual_review/import_sea_adjacency_review_to_overrides.py
+python his_ref/img/processed/manual_review/apply_his_map_overrides.py
+```
 
 ## Visual Review Map
 
@@ -67,6 +107,7 @@ Interaction note:
 Data note:
 - `apply_his_map_overrides.py` will strip non-rules metrics from output:
   - `coastal_distance_to_sea`
+  - `min_anchor_distance`
   - topology edge `distance`
 
 Legend:
@@ -93,10 +134,22 @@ Use only:
     "Bilbao": {
       "is_port": true,
       "connected_sea_zones": ["Bay of Biscay"],
-      "language_zone_inferred": "none",
-      "initial_controller_1517": "independent",
+      "language_zone": "none",
+      "controller": "independent",
       "is_fortress": false
     }
+  },
+  "sea_topology_overrides": {
+    "remove_sea_edges": [["SeaA", "SeaB"]],
+    "add_sea_edges": [
+      {
+        "a": "SeaC",
+        "b": "SeaD",
+        "confidence": 1.0,
+        "method": "manual_override",
+        "notes": "manual reason"
+      }
+    ]
   },
   "topology_overrides": {
     "remove_land_edges": [["Cartagena", "Madrid"]],
@@ -111,3 +164,5 @@ Use only:
   }
 }
 ```
+
+`land_space_overrides` now uses `controller` and `language_zone` as canonical keys.

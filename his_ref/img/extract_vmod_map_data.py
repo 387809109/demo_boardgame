@@ -63,7 +63,6 @@ SEA_ZONE_NAMES = {
     "Atlantic Ocean",
     "Barbary Coast",
     "Bay of Biscay",
-    "Crossing Atlantic",
     "English Channel",
     "Gulf of Lyon",
     "Ionian Sea",
@@ -71,6 +70,19 @@ SEA_ZONE_NAMES = {
     "North African Coast",
     "North Sea",
     "Tyrrhenian Sea",
+}
+
+# Some spaces in the VASSAL module are represented in setup stacks but missing from
+# the RegionGrid list; inject them here so regeneration stays stable.
+MANUAL_MISSING_LAND_SPACES = {
+    "Cagliari": {
+        "x": 2948,
+        "y": 2444,
+        "source_grid_index": 1,
+        "source_grid_role": "western_central_main",
+        "language_zone": None,
+        "home_group_hint": None,
+    },
 }
 
 EXPLICIT_ZONE_NAMES = {
@@ -241,6 +253,22 @@ def extract_land_spaces(board_node: ET.Element) -> dict[str, dict]:
             }
 
     return land_spaces
+
+
+def apply_manual_missing_land_spaces(land_spaces: dict[str, dict]) -> None:
+    for name, patch in MANUAL_MISSING_LAND_SPACES.items():
+        if name in land_spaces:
+            continue
+        land_spaces[name] = {
+            "name": name,
+            "type": "land_space",
+            "x": int(patch["x"]),
+            "y": int(patch["y"]),
+            "source_grid_index": int(patch["source_grid_index"]),
+            "source_grid_role": str(patch["source_grid_role"]),
+            "language_zone": patch.get("language_zone"),
+            "home_group_hint": patch.get("home_group_hint"),
+        }
 
 
 def extract_zone_polygons(board_node: ET.Element) -> dict[str, list[dict[str, int]]]:
@@ -776,6 +804,7 @@ def main() -> None:
     root, map_image = load_vmod_assets(vmod_path)
     map_node, board_node = find_map_and_board(root)
     land_spaces = extract_land_spaces(board_node)
+    apply_manual_missing_land_spaces(land_spaces)
     sea_zones = extract_sea_zones(board_node)
     explicit_zones = extract_explicit_zones(board_node)
 

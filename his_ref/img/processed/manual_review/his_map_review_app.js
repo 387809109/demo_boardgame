@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   "use strict";
 
   const payload = window.HIS_REVIEW_PAYLOAD;
@@ -12,8 +12,30 @@
   const META = payload.meta || {};
   const LAND_BASE = DATA.land_spaces || [];
   const EDGE_BASE = (DATA.topology_candidates && DATA.topology_candidates.land_edges) || [];
+  const SEA_EDGE_BASE = (DATA.sea_topology_candidates && DATA.sea_topology_candidates.sea_edges) || [];
   const SEA_ZONES = DATA.sea_zones || [];
-  const STORAGE_KEY = "his_map_review_overrides_v2";
+  const EXTRA_SEA_ZONE_NAMES = ["Baltic Sea", "Black Sea"];
+  const SEA_CENTER_FALLBACK = {
+    "Baltic Sea": { x: 3340, y: 440 },
+    "Black Sea": { x: 4680, y: 1840 },
+  };
+  const STORAGE_KEY = "his_map_review_overrides_v3";
+  const SEA_ZONE_COLORS = {
+    "Baltic Sea": "#2dd4bf",
+    "Black Sea": "#0ea5e9",
+    "North Sea": "#60a5fa",
+    "English Channel": "#38bdf8",
+    "Irish Sea": "#22d3ee",
+    "Bay of Biscay": "#67e8f9",
+    "Gulf of Lyon": "#4ade80",
+    "Tyrrhenian Sea": "#22c55e",
+    "Adriatic Sea": "#86efac",
+    "Ionian Sea": "#f59e0b",
+    "Aegean Sea": "#f97316",
+    "North African Coast": "#fb7185",
+    "Barbary Coast": "#e11d48",
+    "Atlantic Ocean": "#6366f1",
+  };
   const CONTROLLER_VALUES = [
     "ottoman",
     "hapsburg",
@@ -51,22 +73,27 @@
     zoom: 1,
     showLabels: true,
     showSea: false,
+    showSeaAdjacency: false,
     showConnection: true,
     showPass: true,
     onlyPorts: false,
     search: "",
     selectedNode: null,
     selectedEdgeKey: null,
+    selectedSeaEdgeKey: null,
     selectedControllers: new Set(),
     selectedLanguages: new Set(),
     effectiveLand: [],
     effectiveEdges: [],
+    effectiveSeaEdges: [],
+    seaCentersByName: new Map(),
     byName: new Map(),
   };
 
   let sessionOverrides = loadLocalOrBase();
   const ui = bindNodes();
   initEditorSelects(ui);
+  populateSeaZoneInput(ui);
   renderFilterGroups(ui, state, LAND_BASE);
   populateSpaceInputs(ui, LAND_BASE);
   bindUiEvents(ui, state);
@@ -85,6 +112,7 @@
     <h2>Display</h2>
     <label class="line"><input type="checkbox" id="showLabels" checked> Show labels</label>
     <label class="line"><input type="checkbox" id="showSeaZones"> Show sea polygons</label>
+    <label class="line"><input type="checkbox" id="showSeaAdjacency"> Show sea adjacency</label>
     <label class="line"><input type="checkbox" id="showConnection" checked> Show connection</label>
     <label class="line"><input type="checkbox" id="showPass" checked> Show pass</label>
     <label class="line"><input type="checkbox" id="onlyPorts"> Only ports</label>
@@ -107,6 +135,7 @@
         <svg id="mapSvg" viewBox="0 0 ${META.canvas_width || 5000} ${META.canvas_height || 3300}">
           <image href="${META.image_name || "HereIStandMap.jpg"}" x="0" y="0" width="${META.canvas_width || 5000}" height="${META.canvas_height || 3300}" opacity="0.95"></image>
           <g id="seaLayer"></g>
+          <g id="seaEdgeLayer"></g>
           <g id="edgeLayer"></g>
           <g id="nodeLayer"></g>
           <g id="labelLayer"></g>
@@ -123,7 +152,8 @@
       <div class="field"><label>Language</label><select id="nodeLanguage"></select></div>
       <div class="field"><label>Port</label><select id="nodePort"></select></div>
       <div class="field"><label>Sea Mode</label><select id="nodeSeaMode"></select></div>
-      <div class="field"><label>Connected Seas (|)</label><input id="nodeSeas" type="text"></div>
+      <div class="field"><label>Connected Seas (|)</label><input id="nodeSeas" list="seaZoneList" type="text" placeholder="e.g. Gulf of Lyon|Barbary Coast"></div>
+      <datalist id="seaZoneList"></datalist>
       <div class="field"><label>Fortress</label><select id="nodeFortress"></select></div>
       <div class="field"><label>Notes</label><input id="nodeNote" type="text"></div>
       <div class="row"><button id="saveNode" class="primary">Save Node</button><button id="clearNode" class="danger">Clear Node</button></div>
@@ -177,9 +207,15 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
 .mono{font-family:Consolas,monospace;min-height:180px}.main{padding:10px;overflow:auto;min-width:0}.mapWrap{height:calc(100vh - 20px);border:1px solid #374151;border-radius:10px;overflow:auto;background:#0b1220}
 #mapRoot{transform-origin:top left}
 .sea{fill:rgba(34,211,238,.08);stroke:rgba(34,211,238,.35);stroke-width:2}
+.sea-edge{stroke:#22d3ee;stroke-width:4.2;opacity:.9;stroke-dasharray:10 8}
+.sea-edge.sel{stroke:#f8fafc;stroke-width:6;opacity:1}
+.sea-edge-hit{stroke:transparent;stroke-width:18;cursor:pointer;pointer-events:stroke}
 .edge{stroke:#94a3b8;stroke-width:3.6;opacity:.62}.edge.manual{stroke:#22d3ee;opacity:.92;stroke-width:4.4}.edge.pass{stroke:#f59e0b;stroke-width:5.2;stroke-dasharray:12 8;opacity:.99}.edge.sel{stroke:#f8fafc;opacity:1;stroke-width:6}
 .edge-hit{stroke:transparent;stroke-width:16;cursor:pointer;pointer-events:stroke}
 .node{stroke:#0b1220;stroke-width:1.2;cursor:pointer}.node.key{stroke:#fef3c7;stroke-width:2.5}.node.port{stroke:#93c5fd;stroke-width:2.2}.node.sel{stroke:#fff;stroke-width:3.6}
+.node.shape-fortress{stroke:#fecaca;stroke-width:2.4}.node.shape-electorate{stroke:#fde68a;stroke-width:2.2}
+.port-halo{fill:none;stroke:#93c5fd;stroke-width:2.6;opacity:.95;pointer-events:none}
+.port-sea-dot{stroke:#0b1220;stroke-width:1.1;pointer-events:none}
 .label{fill:#e2e8f0;font-size:16px;pointer-events:none;paint-order:stroke;stroke:#111827;stroke-width:3px;stroke-linejoin:round}
 @media (max-width:1520px){.app{grid-template-columns:280px minmax(0,1fr) 340px}}
 @media (max-width:1180px){.app{grid-template-columns:1fr}.panel{border-right:0;border-left:0;border-bottom:1px solid #374151}.mapWrap{height:72vh}}
@@ -196,6 +232,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
       status: q("statusLine"),
       showLabels: q("showLabels"),
       showSea: q("showSeaZones"),
+      showSeaAdjacency: q("showSeaAdjacency"),
       showConnection: q("showConnection"),
       showPass: q("showPass"),
       onlyPorts: q("onlyPorts"),
@@ -211,6 +248,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
       nodePort: q("nodePort"),
       nodeSeaMode: q("nodeSeaMode"),
       nodeSeas: q("nodeSeas"),
+      nodeSeaList: q("seaZoneList"),
       nodeFortress: q("nodeFortress"),
       nodeNote: q("nodeNote"),
       saveNode: q("saveNode"),
@@ -235,6 +273,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
       jsonPreview: q("jsonPreview"),
       mapRoot: q("mapRoot"),
       seaLayer: q("seaLayer"),
+      seaEdgeLayer: q("seaEdgeLayer"),
       edgeLayer: q("edgeLayer"),
       nodeLayer: q("nodeLayer"),
       labelLayer: q("labelLayer"),
@@ -244,11 +283,22 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
   function bindUiEvents(ui, s) {
     ui.showLabels.onchange = () => { s.showLabels = ui.showLabels.checked; renderAll(ui, s); };
     ui.showSea.onchange = () => { s.showSea = ui.showSea.checked; renderAll(ui, s); };
+    ui.showSeaAdjacency.onchange = () => { s.showSeaAdjacency = ui.showSeaAdjacency.checked; renderAll(ui, s); };
     ui.showConnection.onchange = () => { s.showConnection = ui.showConnection.checked; renderAll(ui, s); };
     ui.showPass.onchange = () => { s.showPass = ui.showPass.checked; renderAll(ui, s); };
     ui.onlyPorts.onchange = () => { s.onlyPorts = ui.onlyPorts.checked; renderAll(ui, s); };
     ui.search.oninput = () => { s.search = ui.search.value.trim(); renderAll(ui, s); };
     ui.zoom.oninput = () => { s.zoom = Number(ui.zoom.value) / 100; renderAll(ui, s); };
+    ui.nodeSeaMode.onchange = () => {
+      if (ui.nodeSeaMode.value !== "set" || !s.selectedNode) return;
+      if (String(ui.nodeSeas.value || "").trim()) return;
+      const space = s.byName.get(s.selectedNode);
+      const seas = Array.isArray(space && space.connected_sea_zones) ? space.connected_sea_zones.filter(Boolean) : [];
+      ui.nodeSeas.value = seas.join("|");
+    };
+    ui.nodeSeas.oninput = () => {
+      if (ui.nodeSeaMode.value !== "set") ui.nodeSeaMode.value = "set";
+    };
     ui.saveNode.onclick = () => saveNodeEdit(ui, s);
     ui.clearNode.onclick = () => clearNodeEdit(ui, s);
     ui.saveEdge.onclick = () => saveEdgeEdit(ui, s);
@@ -278,14 +328,14 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
   function initEditorSelects(ui) {
     fillSelect(
       ui.nodeController,
-      [["__keep__", "(keep)"], ["__null__", "unknown/null"]].concat(
+      [["__keep__", "(keep existing)"], ["__clear__", "(clear override)"], ["__null__", "unknown/null"]].concat(
         CONTROLLER_VALUES.map((v) => [v, v])
       )
     );
-    fillSelect(ui.nodeLanguage, [["__keep__", "(keep)"], ["__null__", "unknown/null"], ["english", "english"], ["french", "french"], ["german", "german"], ["italian", "italian"], ["spanish", "spanish"], ["none", "none"]]);
-    fillSelect(ui.nodePort, [["__keep__", "(keep)"], ["true", "true"], ["false", "false"], ["__null__", "unknown/null"]]);
+    fillSelect(ui.nodeLanguage, [["__keep__", "(keep existing)"], ["__clear__", "(clear override)"], ["__null__", "unknown/null"], ["english", "english"], ["french", "french"], ["german", "german"], ["italian", "italian"], ["spanish", "spanish"], ["none", "none"]]);
+    fillSelect(ui.nodePort, [["__keep__", "(keep existing)"], ["__clear__", "(clear override)"], ["true", "true"], ["false", "false"], ["__null__", "unknown/null"]]);
     fillSelect(ui.nodeSeaMode, [["keep", "(keep)"], ["set", "set from input"]]);
-    fillSelect(ui.nodeFortress, [["__keep__", "(keep)"], ["true", "true"], ["false", "false"], ["__null__", "unknown/null"]]);
+    fillSelect(ui.nodeFortress, [["__keep__", "(keep existing)"], ["__clear__", "(clear override)"], ["true", "true"], ["false", "false"], ["__null__", "unknown/null"]]);
     fillSelect(ui.edgeDecision, [["__keep__", "(no override)"], ["true", "keep edge"], ["false", "remove edge"]]);
     fillSelect(ui.edgeType, [["connection", "connection"], ["pass", "pass"]]);
     fillSelect(ui.newEdgeType, [["connection", "connection"], ["pass", "pass"]]);
@@ -293,9 +343,9 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
 
   function renderFilterGroups(ui, s, land) {
     const ctrls = Array.from(
-      new Set(land.map((x) => safeController(x.initial_controller_1517)).concat(CONTROLLER_VALUES, ["unknown"]))
+      new Set(land.map((x) => safeController(readController(x))).concat(CONTROLLER_VALUES, ["unknown"]))
     ).sort();
-    const langs = Array.from(new Set(land.map((x) => safeLanguage(x.language_zone_inferred)).concat(["unknown"]))).sort();
+    const langs = Array.from(new Set(land.map((x) => safeLanguage(readLanguage(x))).concat(["unknown"]))).sort();
     if (s.selectedControllers.size === 0) ctrls.forEach((x) => s.selectedControllers.add(x));
     if (s.selectedLanguages.size === 0) langs.forEach((x) => s.selectedLanguages.add(x));
     ui.ctrlFilters.innerHTML = "";
@@ -304,16 +354,31 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
     langs.forEach((v) => ui.langFilters.appendChild(makeFilterCheckbox(v, s.selectedLanguages, () => renderAll(ui, s))));
   }
 
+  function populateSeaZoneInput(ui) {
+    if (!ui.nodeSeaList) return;
+    ui.nodeSeaList.innerHTML = "";
+    knownSeaZoneNames().forEach((name) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      ui.nodeSeaList.appendChild(opt);
+    });
+  }
+
   function renderAll(ui, s) {
     s.effectiveLand = applyLandOverrides(LAND_BASE, sessionOverrides);
     s.byName = new Map(s.effectiveLand.map((x) => [x.name, x]));
     s.effectiveEdges = applyEdgeOverrides(EDGE_BASE, sessionOverrides);
+    s.effectiveSeaEdges = applySeaEdgeOverrides(SEA_EDGE_BASE, sessionOverrides);
+    s.seaCentersByName = buildSeaCenterMap(s.effectiveLand, s.effectiveSeaEdges);
     ui.jsonPreview.value = JSON.stringify(sessionOverrides, null, 2);
     ui.mapRoot.style.transform = `scale(${s.zoom})`;
     drawSea(ui, s);
+    drawSeaAdjacency(ui, s);
     const visible = drawNodes(ui, s);
     drawEdges(ui, s, visible);
-    ui.stats.textContent = `Spaces ${visible.size}/${s.effectiveLand.length} | Edges ${s.effectiveEdges.filter((e) => edgeVisible(e, visible, s)).length}/${s.effectiveEdges.length}`;
+    const visibleLandEdgeCount = s.effectiveEdges.filter((e) => edgeVisible(e, visible, s)).length;
+    const renderableSeaEdges = s.effectiveSeaEdges.filter((e) => seaEdgeRenderable(e, s.seaCentersByName)).length;
+    ui.stats.textContent = `Spaces ${visible.size}/${s.effectiveLand.length} | Edges ${visibleLandEdgeCount}/${s.effectiveEdges.length} | Sea ${renderableSeaEdges}/${s.effectiveSeaEdges.length}`;
     refreshEditors(ui, s);
   }
 
@@ -328,6 +393,42 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
     });
   }
 
+  function drawSeaAdjacency(ui, s) {
+    ui.seaEdgeLayer.innerHTML = "";
+    if (!s.showSeaAdjacency) return;
+    s.effectiveSeaEdges.forEach((edge) => {
+      if (!seaEdgeRenderable(edge, s.seaCentersByName)) return;
+      const a = s.seaCentersByName.get(edge.a);
+      const b = s.seaCentersByName.get(edge.b);
+      const k = edgeKey(edge.a, edge.b);
+      const onClick = () => {
+        s.selectedSeaEdgeKey = k;
+        s.selectedEdgeKey = null;
+        s.selectedNode = null;
+        setSelection(ui, `Sea: ${edge.a} <-> ${edge.b}`, edge);
+        renderAll(ui, s);
+      };
+
+      const line = svg("line");
+      line.setAttribute("x1", String(a.x));
+      line.setAttribute("y1", String(a.y));
+      line.setAttribute("x2", String(b.x));
+      line.setAttribute("y2", String(b.y));
+      line.setAttribute("class", `sea-edge${s.selectedSeaEdgeKey === k ? " sel" : ""}`);
+      line.addEventListener("click", onClick);
+      ui.seaEdgeLayer.appendChild(line);
+
+      const hit = svg("line");
+      hit.setAttribute("x1", String(a.x));
+      hit.setAttribute("y1", String(a.y));
+      hit.setAttribute("x2", String(b.x));
+      hit.setAttribute("y2", String(b.y));
+      hit.setAttribute("class", "sea-edge-hit");
+      hit.addEventListener("click", onClick);
+      ui.seaEdgeLayer.appendChild(hit);
+    });
+  }
+
   function drawNodes(ui, s) {
     ui.nodeLayer.innerHTML = "";
     ui.labelLayer.innerHTML = "";
@@ -335,20 +436,28 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
     s.effectiveLand.forEach((space) => {
       if (!nodeVisible(space, s)) return;
       visible.add(space.name);
-      const c = svg("circle");
-      c.setAttribute("cx", space.x); c.setAttribute("cy", space.y); c.setAttribute("r", space.is_key_space ? 12 : 8);
-      c.setAttribute("fill", COLORS[safeController(space.initial_controller_1517)] || COLORS.unknown);
-      c.setAttribute("class", `node${space.is_key_space ? " key" : ""}${space.is_port ? " port" : ""}${s.selectedNode === space.name ? " sel" : ""}`);
-      c.addEventListener("click", () => {
-        s.selectedNode = space.name; s.selectedEdgeKey = null;
+      const shape = getNodeShape(space);
+      const radius = shape === "key" ? 14 : 10;
+      const glyph = createNodeGlyph(space, shape, radius);
+      glyph.setAttribute("fill", COLORS[safeController(readController(space))] || COLORS.unknown);
+      glyph.setAttribute("class", `node shape-${shape}${shape === "key" ? " key" : ""}${space.is_port ? " port" : ""}${s.selectedNode === space.name ? " sel" : ""}`);
+      glyph.addEventListener("click", () => {
+        s.selectedNode = space.name; s.selectedEdgeKey = null; s.selectedSeaEdgeKey = null;
         setSelection(ui, space.name, space); renderAll(ui, s);
       });
-      ui.nodeLayer.appendChild(c);
+      ui.nodeLayer.appendChild(glyph);
       if (space.is_port) {
+        const halo = svg("circle");
+        halo.setAttribute("cx", space.x);
+        halo.setAttribute("cy", space.y);
+        halo.setAttribute("r", String(radius + 4));
+        halo.setAttribute("class", "port-halo");
+        ui.nodeLayer.appendChild(halo);
         const i = svg("circle");
-        i.setAttribute("cx", space.x); i.setAttribute("cy", space.y); i.setAttribute("r", space.is_key_space ? 7 : 4);
+        i.setAttribute("cx", space.x); i.setAttribute("cy", space.y); i.setAttribute("r", shape === "key" ? 8 : 5);
         i.setAttribute("fill", "#e0f2fe"); i.setAttribute("opacity", "0.85");
         ui.nodeLayer.appendChild(i);
+        drawPortSeaMarkers(ui.nodeLayer, space, radius);
       }
       if (s.showLabels) {
         const t = svg("text");
@@ -359,6 +468,91 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
     return visible;
   }
 
+  function drawPortSeaMarkers(layer, space, radius) {
+    const seas = Array.isArray(space.connected_sea_zones) ? space.connected_sea_zones.filter(Boolean) : [];
+    if (seas.length === 0) return;
+    const cx = Number(space.x);
+    const cy = Number(space.y);
+    const orbitR = radius + 8;
+    const markerR = seas.length > 2 ? 2.2 : 2.8;
+    const step = (Math.PI * 2) / seas.length;
+    const start = -Math.PI / 2;
+    for (let i = 0; i < seas.length; i += 1) {
+      const seaName = String(seas[i]);
+      const angle = start + (i * step);
+      const dot = svg("circle");
+      dot.setAttribute("cx", String(cx + Math.cos(angle) * orbitR));
+      dot.setAttribute("cy", String(cy + Math.sin(angle) * orbitR));
+      dot.setAttribute("r", String(markerR));
+      dot.setAttribute("fill", colorForSeaZone(seaName));
+      dot.setAttribute("class", "port-sea-dot");
+      dot.setAttribute("title", seaName);
+      layer.appendChild(dot);
+    }
+  }
+
+  function getNodeShape(space) {
+    if (space && space.is_key_space) return "key";
+    if (space && isFortressNode(space)) return "fortress";
+    if (space && space.is_electorate) return "electorate";
+    return "normal";
+  }
+
+  function isFortressNode(space) {
+    if (!space || space.is_key_space || space.is_electorate) return false;
+    if (space.is_fortress === true) return true;
+    if (space.has_starting_naval_units === true && space.has_fortress_marker_1517 === true) return true;
+    if (space.has_fortress_marker_1517 === true) return true;
+    return space.is_fortified_space_hint === true;
+  }
+
+  function createNodeGlyph(space, shape, radius) {
+    const cx = Number(space.x);
+    const cy = Number(space.y);
+    if (shape === "key") {
+      const rect = svg("rect");
+      rect.setAttribute("x", String(cx - radius));
+      rect.setAttribute("y", String(cy - radius));
+      rect.setAttribute("width", String(radius * 2));
+      rect.setAttribute("height", String(radius * 2));
+      return rect;
+    }
+    if (shape === "electorate") {
+      const hex = svg("polygon");
+      hex.setAttribute("points", regularPolygonPoints(cx, cy, radius + 1, 6, -Math.PI / 2));
+      return hex;
+    }
+    if (shape === "fortress") {
+      const star = svg("polygon");
+      star.setAttribute("points", starPolygonPoints(cx, cy, radius + 2, Math.max(3.2, radius * 0.55), 8, -Math.PI / 2));
+      return star;
+    }
+    const c = svg("circle");
+    c.setAttribute("cx", String(cx));
+    c.setAttribute("cy", String(cy));
+    c.setAttribute("r", String(radius));
+    return c;
+  }
+
+  function regularPolygonPoints(cx, cy, radius, sides, rotation) {
+    const pts = [];
+    for (let i = 0; i < sides; i += 1) {
+      const a = rotation + ((Math.PI * 2 * i) / sides);
+      pts.push(`${cx + Math.cos(a) * radius},${cy + Math.sin(a) * radius}`);
+    }
+    return pts.join(" ");
+  }
+
+  function starPolygonPoints(cx, cy, outerR, innerR, points, rotation) {
+    const pts = [];
+    for (let i = 0; i < points * 2; i += 1) {
+      const r = (i % 2 === 0) ? outerR : innerR;
+      const a = rotation + ((Math.PI * i) / points);
+      pts.push(`${cx + Math.cos(a) * r},${cy + Math.sin(a) * r}`);
+    }
+    return pts.join(" ");
+  }
+
   function drawEdges(ui, s, visible) {
     ui.edgeLayer.innerHTML = "";
     s.effectiveEdges.forEach((edge) => {
@@ -366,7 +560,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
       const a = s.byName.get(edge.a); const b = s.byName.get(edge.b); if (!a || !b) return;
       const k = edgeKey(edge.a, edge.b);
       const onClick = () => {
-        s.selectedEdgeKey = k; s.selectedNode = null;
+        s.selectedEdgeKey = k; s.selectedNode = null; s.selectedSeaEdgeKey = null;
         setSelection(ui, `${edge.a} <-> ${edge.b}`, edge); renderAll(ui, s);
       };
 
@@ -403,9 +597,10 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
     }
     const space = s.byName.get(s.selectedNode);
     const patch = (sessionOverrides.land_space_overrides || {})[s.selectedNode] || {};
-    ui.nodeCurrent.textContent = `Selected: ${s.selectedNode} | controller=${safeController(space.initial_controller_1517)} | language=${safeLanguage(space.language_zone_inferred)}`;
-    ui.nodeController.value = tokenForSelect(patch.initial_controller_1517);
-    ui.nodeLanguage.value = tokenForSelect(patch.language_zone_inferred);
+    const currentSeas = Array.isArray(space.connected_sea_zones) ? space.connected_sea_zones.filter(Boolean) : [];
+    ui.nodeCurrent.textContent = `Selected: ${s.selectedNode} | controller=${safeController(readController(space))} | language=${safeLanguage(readLanguage(space))} | seas=${currentSeas.join("|") || "-"}`;
+    ui.nodeController.value = tokenForSelect(patch.controller !== undefined ? patch.controller : patch.initial_controller_1517);
+    ui.nodeLanguage.value = tokenForSelect(patch.language_zone !== undefined ? patch.language_zone : patch.language_zone_inferred);
     ui.nodePort.value = tokenForSelect(patch.is_port);
     ui.nodeFortress.value = tokenForSelect(patch.is_fortress);
     if (Array.isArray(patch.connected_sea_zones)) {
@@ -413,7 +608,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
       ui.nodeSeas.value = patch.connected_sea_zones.join("|");
     } else {
       ui.nodeSeaMode.value = "keep";
-      ui.nodeSeas.value = "";
+      ui.nodeSeas.value = currentSeas.join("|");
     }
     ui.nodeNote.value = patch.notes ? String(patch.notes) : "";
   }
@@ -441,14 +636,19 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
     if (!s.selectedNode) return setStatus(ui, "Select node first.");
     const name = s.selectedNode;
     const patch = Object.assign({}, (sessionOverrides.land_space_overrides[name] || {}));
-    applySelectPatch(patch, "initial_controller_1517", ui.nodeController.value);
-    applySelectPatch(patch, "language_zone_inferred", ui.nodeLanguage.value);
+    applySelectPatch(patch, "controller", ui.nodeController.value);
+    applySelectPatch(patch, "language_zone", ui.nodeLanguage.value);
     applySelectPatch(patch, "is_port", ui.nodePort.value);
     applySelectPatch(patch, "is_fortress", ui.nodeFortress.value);
     if (ui.nodeSeaMode.value === "set") patch.connected_sea_zones = parseSeaList(ui.nodeSeas.value); else delete patch.connected_sea_zones;
     const note = (ui.nodeNote.value || "").trim(); if (note) patch.notes = note; else delete patch.notes;
-    if ("language_zone_inferred" in patch) { patch.language_zone_source = "manual_ui"; patch.language_zone_confidence = "high"; }
-    if ("is_port" in patch) { patch.port_source = "manual_ui"; patch.port_confidence = "high"; }
+    // Normalize legacy override keys to current schema.
+    delete patch.initial_controller_1517;
+    delete patch.language_zone_inferred;
+    delete patch.language_zone_source;
+    delete patch.language_zone_confidence;
+    delete patch.port_source;
+    delete patch.port_confidence;
     if (Object.keys(patch).length === 0) delete sessionOverrides.land_space_overrides[name]; else sessionOverrides.land_space_overrides[name] = patch;
     saveLocal(sessionOverrides); renderAll(ui, s); setStatus(ui, `Saved node ${name}`);
   }
@@ -528,11 +728,61 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
   }
 
   function applySelectPatch(patch, field, value) {
-    if (value === "__keep__") return delete patch[field];
+    if (value === "__keep__") return;
+    if (value === "__clear__") return delete patch[field];
     if (value === "__null__") return patch[field] = null;
     if (value === "true") return patch[field] = true;
     if (value === "false") return patch[field] = false;
     patch[field] = value;
+  }
+
+  function parseSeaList(input) {
+    const raw = String(input || "").trim();
+    if (!raw) return [];
+    const normalized = raw
+      .replace(/[;\uFF1B,\uFF0C\u3001]/g, "|")
+      .replace(/[\r\n]+/g, "|")
+      .replace(/\|+/g, "|");
+    const parts = normalized
+      .split("|")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    const resolved = parts.map((name) => resolveSeaName(name)).filter(Boolean);
+    return Array.from(new Set(resolved));
+  }
+
+  function resolveSeaName(input) {
+    const raw = String(input || "").trim();
+    if (!raw) return null;
+    const all = knownSeaZoneNames();
+    const exact = all.find((x) => x === raw);
+    if (exact) return exact;
+    const lower = raw.toLowerCase();
+    const byLower = all.find((x) => String(x).toLowerCase() === lower);
+    if (byLower) return byLower;
+    return raw;
+  }
+
+
+  function knownSeaZoneNames() {
+    const names = new Set(EXTRA_SEA_ZONE_NAMES);
+    SEA_ZONES.forEach((z) => {
+      if (z && z.name) names.add(String(z.name));
+    });
+    SEA_EDGE_BASE.forEach((e) => {
+      if (e && e.a) names.add(String(e.a));
+      if (e && e.b) names.add(String(e.b));
+    });
+    const seaOv = (sessionOverrides && sessionOverrides.sea_topology_overrides) || {};
+    (seaOv.add_sea_edges || []).forEach((e) => {
+      if (e && e.a) names.add(String(e.a));
+      if (e && e.b) names.add(String(e.b));
+    });
+    (seaOv.remove_sea_edges || []).forEach((pair) => {
+      if (Array.isArray(pair) && pair[0]) names.add(String(pair[0]));
+      if (Array.isArray(pair) && pair[1]) names.add(String(pair[1]));
+    });
+    return Array.from(names).filter(Boolean).sort((a, b) => a.localeCompare(b));
   }
 
   function applyLandOverrides(base, ov) {
@@ -553,9 +803,78 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
     return Array.from(map.values()).sort((m, n) => (m.a + m.b).localeCompare(n.a + n.b));
   }
 
+  function applySeaEdgeOverrides(base, ov) {
+    const map = new Map();
+    base.forEach((e) => {
+      const [a, b] = canon(e.a, e.b);
+      map.set(edgeKey(a, b), Object.assign({}, e, { a, b }));
+    });
+    (ov.sea_topology_overrides.remove_sea_edges || []).forEach((x) => map.delete(edgeKey(x[0], x[1])));
+    (ov.sea_topology_overrides.add_sea_edges || []).forEach((e) => {
+      const [a, b] = canon(e.a, e.b);
+      map.set(edgeKey(a, b), Object.assign({}, e, { a, b }));
+    });
+    return Array.from(map.values()).sort((m, n) => (m.a + m.b).localeCompare(n.a + n.b));
+  }
+
+  function buildSeaCenterMap(land, seaEdges) {
+    const centers = new Map();
+    SEA_ZONES.forEach((zone) => {
+      const points = Array.isArray(zone.polygon) ? zone.polygon : [];
+      if (!zone || !zone.name || points.length === 0) return;
+      let sx = 0;
+      let sy = 0;
+      points.forEach((pt) => {
+        sx += Number(pt.x) || 0;
+        sy += Number(pt.y) || 0;
+      });
+      centers.set(String(zone.name), { x: sx / points.length, y: sy / points.length });
+    });
+
+    const portAcc = new Map();
+    (land || []).forEach((space) => {
+      if (!space || space.is_port !== true) return;
+      const seas = Array.isArray(space.connected_sea_zones) ? space.connected_sea_zones : [];
+      seas.forEach((name) => {
+        if (!name) return;
+        const key = String(name);
+        const cur = portAcc.get(key) || { x: 0, y: 0, count: 0 };
+        cur.x += Number(space.x) || 0;
+        cur.y += Number(space.y) || 0;
+        cur.count += 1;
+        portAcc.set(key, cur);
+      });
+    });
+
+    const allNames = new Set(EXTRA_SEA_ZONE_NAMES);
+    SEA_ZONES.forEach((z) => { if (z && z.name) allNames.add(String(z.name)); });
+    (seaEdges || []).forEach((edge) => {
+      if (edge && edge.a) allNames.add(String(edge.a));
+      if (edge && edge.b) allNames.add(String(edge.b));
+    });
+
+    allNames.forEach((name) => {
+      if (centers.has(name)) return;
+      const acc = portAcc.get(name);
+      if (acc && acc.count > 0) {
+        centers.set(name, { x: acc.x / acc.count, y: acc.y / acc.count });
+        return;
+      }
+      if (SEA_CENTER_FALLBACK[name]) {
+        centers.set(name, { x: SEA_CENTER_FALLBACK[name].x, y: SEA_CENTER_FALLBACK[name].y });
+      }
+    });
+    return centers;
+  }
+
+  function seaEdgeRenderable(edge, centersByName) {
+    if (!edge || !centersByName) return false;
+    return centersByName.has(edge.a) && centersByName.has(edge.b);
+  }
+
   function nodeVisible(space, s) {
-    if (!s.selectedControllers.has(safeController(space.initial_controller_1517))) return false;
-    if (!s.selectedLanguages.has(safeLanguage(space.language_zone_inferred))) return false;
+    if (!s.selectedControllers.has(safeController(readController(space)))) return false;
+    if (!s.selectedLanguages.has(safeLanguage(readLanguage(space)))) return false;
     if (s.onlyPorts && space.is_port !== true) return false;
     if (s.search && !space.name.toLowerCase().includes(s.search.toLowerCase())) return false;
     return true;
@@ -582,6 +901,19 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
 
   function canon(a, b) { return a <= b ? [a, b] : [b, a]; }
   function edgeKey(a, b) { const [x, y] = canon(String(a), String(b)); return `${x}||${y}`; }
+  function colorForSeaZone(name) { return SEA_ZONE_COLORS[String(name)] || "#a1a1aa"; }
+  function readController(space) {
+    if (!space || typeof space !== "object") return null;
+    if (space.controller !== undefined) return space.controller;
+    if (space.initial_controller_1517 !== undefined) return space.initial_controller_1517;
+    return null;
+  }
+  function readLanguage(space) {
+    if (!space || typeof space !== "object") return null;
+    if (space.language_zone !== undefined) return space.language_zone;
+    if (space.language_zone_inferred !== undefined) return space.language_zone_inferred;
+    return null;
+  }
   function safeController(v) { return (v === null || v === undefined || v === "") ? "unknown" : String(v); }
   function safeLanguage(v) { return (v === null || v === undefined || v === "") ? "unknown" : String(v); }
   function svg(tag) { return document.createElementNS("http://www.w3.org/2000/svg", tag); }
@@ -622,6 +954,9 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
     out.topology_overrides = out.topology_overrides || {};
     out.topology_overrides.remove_land_edges = out.topology_overrides.remove_land_edges || [];
     out.topology_overrides.add_land_edges = out.topology_overrides.add_land_edges || [];
+    out.sea_topology_overrides = out.sea_topology_overrides || {};
+    out.sea_topology_overrides.remove_sea_edges = out.sea_topology_overrides.remove_sea_edges || [];
+    out.sea_topology_overrides.add_sea_edges = out.sea_topology_overrides.add_sea_edges || [];
     return out;
   }
 
@@ -645,3 +980,5 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px sol
     return String(value);
   }
 })();
+
+

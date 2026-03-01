@@ -3,8 +3,8 @@
     "Bilbao": {
       "is_port": null,
       "connected_sea_zones": [],
-      "language_zone_inferred": "none",
-      "initial_controller_1517": null,
+      "language_zone": "none",
+      "controller": null,
       "is_fortress": null,
       "notes": ""
     }
@@ -20,6 +20,23 @@
       {
         "a": "SpaceC",
         "b": "SpaceD",
+        "confidence": 1.0,
+        "method": "manual_override",
+        "notes": ""
+      }
+    ]
+  },
+  "sea_topology_overrides": {
+    "remove_sea_edges": [
+      [
+        "SeaA",
+        "SeaB"
+      ]
+    ],
+    "add_sea_edges": [
+      {
+        "a": "SeaC",
+        "b": "SeaD",
         "confidence": 1.0,
         "method": "manual_override",
         "notes": ""

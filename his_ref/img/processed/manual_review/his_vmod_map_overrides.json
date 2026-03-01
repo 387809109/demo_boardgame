@@ -12,13 +12,16 @@
     },
     "Calais": {
       "is_port": true,
-      "port_source": "manual_review_csv",
+      "port_source": "manual_ui",
       "port_confidence": "high",
       "connected_sea_zones": [
         "North Sea",
         "English Channel"
       ],
-      "notes": "map_anchor"
+      "notes": "map_anchor",
+      "language_zone_inferred": "french",
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high"
     },
     "Carlisle": {
       "is_port": false,
@@ -84,13 +87,14 @@
     },
     "Stirling": {
       "is_port": false,
-      "port_source": "manual_review_csv",
+      "port_source": "manual_ui",
       "port_confidence": "high",
       "connected_sea_zones": [],
       "notes": "map_anchor",
       "language_zone_inferred": "english",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "scotland"
     },
     "Wales": {
       "is_port": false,
@@ -101,18 +105,20 @@
     },
     "Zara": {
       "is_port": false,
-      "port_source": "manual_review_csv",
+      "port_source": "manual_ui",
       "port_confidence": "high",
       "connected_sea_zones": [],
       "notes": "map_anchor",
       "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "venice"
     },
     "Agram": {
       "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "hungary"
     },
     "Amsterdam": {
       "language_zone_inferred": "none",
@@ -146,18 +152,19 @@
     },
     "Bastia": {
       "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "genoa"
     },
     "Belgrade": {
       "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "hungary"
     },
     "Besançon": {
-      "language_zone_inferred": "french",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone": "french",
+      "is_fortress": true
     },
     "Bordeaux": {
       "language_zone_inferred": "french",
@@ -171,8 +178,9 @@
     },
     "Breslau": {
       "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "hungary"
     },
     "Brest": {
       "language_zone_inferred": "french",
@@ -181,33 +189,40 @@
     },
     "Brunn": {
       "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "hungary"
     },
     "Brussels": {
-      "language_zone_inferred": "french",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone": "french",
+      "is_fortress": true
     },
     "Buda": {
       "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "hungary"
     },
     "Candia": {
-      "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "controller": "venice",
+      "language_zone": "none",
+      "is_fortress": true
     },
     "Cartagena": {
-      "language_zone_inferred": "spanish",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone": "spanish",
+      "connected_sea_zones": [
+        "Barbary Coast",
+        "Gulf of Lyon"
+      ]
     },
     "Corfu": {
-      "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "connected_sea_zones": [
+        "Ionian Sea",
+        "Adriatic Sea"
+      ],
+      "controller": "venice",
+      "language_zone": "none",
+      "is_fortress": true
     },
     "Corunna": {
       "language_zone_inferred": "spanish",
@@ -226,8 +241,9 @@
     },
     "Edinburgh": {
       "language_zone_inferred": "english",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "scotland"
     },
     "Florence": {
       "language_zone_inferred": "italian",
@@ -241,18 +257,23 @@
     },
     "Genoa": {
       "language_zone_inferred": "italian",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "connected_sea_zones": [
+        "Gulf of Lyon",
+        "Tyrrhenian Sea"
+      ],
+      "initial_controller_1517": "genoa"
     },
     "Gibraltar": {
-      "language_zone_inferred": "spanish",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone": "spanish",
+      "is_fortress": true
     },
     "Glasgow": {
       "language_zone_inferred": "english",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "scotland"
     },
     "Granada": {
       "language_zone_inferred": "spanish",
@@ -300,9 +321,8 @@
       "language_zone_confidence": "high"
     },
     "Malta": {
-      "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone": "none",
+      "is_fortress": true
     },
     "Marseille": {
       "language_zone_inferred": "french",
@@ -332,8 +352,9 @@
     },
     "Mohacs": {
       "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "hungary"
     },
     "Nantes": {
       "language_zone_inferred": "french",
@@ -377,13 +398,15 @@
     },
     "Prague": {
       "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "hungary"
     },
     "Pressburg": {
       "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "hungary"
     },
     "Ragusa": {
       "language_zone_inferred": "none",
@@ -396,9 +419,13 @@
       "language_zone_confidence": "high"
     },
     "Rhodes": {
-      "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "is_port": true,
+      "connected_sea_zones": [
+        "Aegean Sea",
+        "North African Coast"
+      ],
+      "language_zone": "none",
+      "is_fortress": true
     },
     "Rome": {
       "language_zone_inferred": "italian",
@@ -427,8 +454,9 @@
     },
     "Szegedin": {
       "language_zone_inferred": "none",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "hungary"
     },
     "Taranto": {
       "language_zone_inferred": "italian",
@@ -472,8 +500,9 @@
     },
     "Venice": {
       "language_zone_inferred": "italian",
-      "language_zone_source": "manual_review_csv",
-      "language_zone_confidence": "high"
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "initial_controller_1517": "venice"
     },
     "Vienna": {
       "language_zone_inferred": "german",
@@ -492,6 +521,46 @@
     },
     "Tunis": {
       "initial_controller_1517": "independent"
+    },
+    "Cagliari": {
+      "initial_controller_1517": "hapsburg",
+      "language_zone_inferred": "none",
+      "language_zone_source": "manual_ui",
+      "language_zone_confidence": "high",
+      "is_port": true,
+      "connected_sea_zones": [
+        "Tyrrhenian Sea",
+        "Barbary Coast"
+      ],
+      "port_source": "manual_ui",
+      "port_confidence": "high"
+    },
+    "Stettin": {
+      "connected_sea_zones": [
+        "Baltic Sea"
+      ]
+    },
+    "Lübeck": {
+      "connected_sea_zones": [
+        "Baltic Sea"
+      ]
+    },
+    "Varna": {
+      "connected_sea_zones": [
+        "Black Sea"
+      ]
+    },
+    "Oran": {
+      "initial_controller_1517": "hapsburg"
+    },
+    "Tripoli": {
+      "initial_controller_1517": "hapsburg"
+    },
+    "Algiers": {
+      "initial_controller_1517": "independent"
+    },
+    "Scutari": {
+      "is_fortress": true
     }
   },
   "topology_overrides": {
@@ -597,8 +666,16 @@
         "Rhodes"
       ],
       [
+        "Carlisle",
+        "Edinburgh"
+      ],
+      [
         "Cartagena",
         "Madrid"
+      ],
+      [
+        "Cerignola",
+        "Naples"
       ],
       [
         "Cologne",
@@ -1097,6 +1174,119 @@
         "confidence": 1,
         "method": "manual_ui",
         "connection_type": "pass"
+      }
+    ]
+  },
+  "sea_topology_overrides": {
+    "remove_sea_edges": [],
+    "add_sea_edges": [
+      {
+        "a": "Adriatic Sea",
+        "b": "Ionian Sea",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Aegean Sea",
+        "b": "Ionian Sea",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Aegean Sea",
+        "b": "North African Coast",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Atlantic Ocean",
+        "b": "Bay of Biscay",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Baltic Sea",
+        "b": "North Sea",
+        "confidence": 1,
+        "method": "manual_review_csv",
+        "notes": "specified"
+      },
+      {
+        "a": "Barbary Coast",
+        "b": "Gulf of Lyon",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Barbary Coast",
+        "b": "Ionian Sea",
+        "confidence": 1,
+        "method": "manual_review_csv",
+        "notes": "shared border"
+      },
+      {
+        "a": "Barbary Coast",
+        "b": "North African Coast",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Barbary Coast",
+        "b": "Tyrrhenian Sea",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Bay of Biscay",
+        "b": "English Channel",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Bay of Biscay",
+        "b": "Irish Sea",
+        "confidence": 1,
+        "method": "manual_review_csv",
+        "notes": "shared border"
+      },
+      {
+        "a": "English Channel",
+        "b": "Irish Sea",
+        "confidence": 1,
+        "method": "manual_review_csv",
+        "notes": "shared border"
+      },
+      {
+        "a": "English Channel",
+        "b": "North Sea",
+        "confidence": 1,
+        "method": "manual_review_csv",
+        "notes": "shared border"
+      },
+      {
+        "a": "Gulf of Lyon",
+        "b": "Tyrrhenian Sea",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Ionian Sea",
+        "b": "North African Coast",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Ionian Sea",
+        "b": "Tyrrhenian Sea",
+        "confidence": 1,
+        "method": "manual_review_csv"
+      },
+      {
+        "a": "Irish Sea",
+        "b": "North Sea",
+        "confidence": 1,
+        "method": "manual_review_csv",
+        "notes": "specified"
       }
     ]
   }
