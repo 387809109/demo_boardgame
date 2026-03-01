@@ -307,6 +307,11 @@
 | `GET /api/v1/chat/:sessionId` | - | 获取对话历史 |
 | `DELETE /api/v1/chat/:sessionId` | - | 删除对话会话 |
 
+### Planning Checkpoint (2026-03-01)
+
+- 🔶 tRPC migration plan drafted and indexed — `docs/prd/api/TRPC_REFACTOR_PLAN.md`
+  - 状态: planning-complete / implementation-pending
+
 ### 待办
 
 - T-AC014：AI 规则问答 Step 2 — 手动端到端测试（启动 API + 前端，验证规则注入效果）

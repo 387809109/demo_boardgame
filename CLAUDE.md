@@ -259,6 +259,7 @@ Example: `docs/games/werewolf/PLAN.md`
 | `docs/prd/cloud/PLAN.md` | **Cloud backend design & architecture** |
 | `docs/prd/cloud/TASKS.md` | Cloud backend task checklist (T-C001 to T-C043) |
 | `docs/prd/api/README.md` | **API service design (Render)** |
+| `docs/prd/api/TRPC_REFACTOR_PLAN.md` | tRPC migration architecture, rollout, and legacy cleanup baseline |
 | `docs/prd/api/TASKS.md` | API task checklist (T-A001 to T-A066) |
 | `docs/games/TEMPLATE.md` | **Template for new game rule docs** |
 | `docs/games/[game]/RULES.md` | Game-specific AI rule documentation |
