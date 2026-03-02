@@ -154,12 +154,30 @@ describe('HISGame', () => {
       expect(game.getState().consecutivePasses).toBe(0);
     });
 
-    it('advances activePower', () => {
+    it('enters CP mode (does not immediately advance)', () => {
       const state = game.getState();
       const card = state.hands.ottoman[0];
       game.executeMove({
         actionType: ACTION_TYPES.PLAY_CARD_CP,
         actionData: { cardNumber: card },
+        playerId: 'p1'
+      });
+      // Phase 2: card play enters CP mode, does NOT advance impulse
+      const newState = game.getState();
+      expect(newState.activePower).toBe('ottoman');
+      expect(newState.activeCardNumber).toBe(card);
+    });
+
+    it('advances after END_IMPULSE', () => {
+      const state = game.getState();
+      const card = state.hands.ottoman[0];
+      game.executeMove({
+        actionType: ACTION_TYPES.PLAY_CARD_CP,
+        actionData: { cardNumber: card },
+        playerId: 'p1'
+      });
+      game.executeMove({
+        actionType: ACTION_TYPES.END_IMPULSE,
         playerId: 'p1'
       });
       expect(game.getState().activePower).toBe(IMPULSE_ORDER[1]);

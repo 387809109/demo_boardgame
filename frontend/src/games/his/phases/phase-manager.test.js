@@ -150,3 +150,39 @@ describe('advancePhase', () => {
     expect(state.status).toBe('ended');
   });
 });
+
+describe('winter phase — debater/CP reset', () => {
+  it('resets all debaters to uncommitted', () => {
+    const state = createTestState({ phase: 'action', turn: 1 });
+    const helpers = createMockHelpers();
+    // Mark some debaters as committed
+    state.debaters.papal[0].committed = true;
+    state.debaters.protestant[0].committed = true;
+
+    transitionPhase(state, 'winter', helpers);
+
+    for (const d of state.debaters.papal) {
+      expect(d.committed).toBe(false);
+    }
+    for (const d of state.debaters.protestant) {
+      expect(d.committed).toBe(false);
+    }
+  });
+
+  it('clears pending interactions', () => {
+    const state = createTestState({ phase: 'action', turn: 1 });
+    const helpers = createMockHelpers();
+    state.pendingReformation = { type: 'reformation', attemptsLeft: 1 };
+    state.pendingDebate = { phase: 'roll' };
+    state.cpRemaining = 5;
+    state.activeCardNumber = 42;
+
+    transitionPhase(state, 'winter', helpers);
+
+    expect(state.pendingReformation).toBeNull();
+    expect(state.pendingDebate).toBeNull();
+    expect(state.cpRemaining).toBe(0);
+    expect(state.activeCardNumber).toBeNull();
+    expect(state.impulseActions).toEqual([]);
+  });
+});

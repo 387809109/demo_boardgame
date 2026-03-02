@@ -146,6 +146,22 @@ function executeWinter(state, helpers) {
   // Reset augsburg confession marker
   state.augsburgConfessionActive = false;
 
+  // Reset all debaters to uncommitted
+  for (const side of ['papal', 'protestant']) {
+    if (state.debaters[side]) {
+      for (const d of state.debaters[side]) {
+        d.committed = false;
+      }
+    }
+  }
+
+  // Clear any leftover pending interactions
+  state.pendingReformation = null;
+  state.pendingDebate = null;
+  state.cpRemaining = 0;
+  state.activeCardNumber = null;
+  state.impulseActions = [];
+
   helpers.logEvent(state, 'winter', { turn: state.turn });
 }
 

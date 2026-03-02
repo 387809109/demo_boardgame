@@ -6,9 +6,13 @@ import {
   getPowerForPlayer, getPlayerForPower,
   countKeysForPower, countElectoratesForPower,
   getActiveRuler, getCardDrawCount, getKeyVp,
-  canPass, getNextImpulsePower, isCardInPlay
+  canPass, getNextImpulsePower, isCardInPlay,
+  getAdjacentSpaces, getAllAdjacentSpaces, getConnectionType,
+  getUnitsInSpace, hasEnemyUnits, getFormationCap, isHomeSpace,
+  isValidReformationTarget, calcReformationDice,
+  getAvailableDebaters, getDebaterDef, recountProtestantSpaces
 } from './state-helpers.js';
-import { MAJOR_POWERS, IMPULSE_ORDER } from '../constants.js';
+import { MAJOR_POWERS, IMPULSE_ORDER, RELIGION } from '../constants.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import { createTestState, createStateAfterDraw } from '../test-helpers.js';
 
@@ -242,5 +246,192 @@ describe('isCardInPlay', () => {
   it('returns false for missing card', () => {
     const state = createTestState();
     expect(isCardInPlay(state, 9999)).toBe(false);
+  });
+});
+
+// ── Phase 2 Helper Tests ─────────────────────────────────────────
+
+describe('getAdjacentSpaces', () => {
+  it('returns adjacent spaces for Istanbul', () => {
+    const adj = getAdjacentSpaces('Istanbul');
+    expect(adj.connections.length + adj.passes.length).toBeGreaterThan(0);
+    expect(adj.connections).toContain('Edirne');
+  });
+
+  it('returns empty connections/passes for unknown space', () => {
+    const adj = getAdjacentSpaces('Narnia');
+    expect(adj.connections).toEqual([]);
+    expect(adj.passes).toEqual([]);
+  });
+});
+
+describe('getAllAdjacentSpaces', () => {
+  it('returns all adjacency entries for Istanbul', () => {
+    const adj = getAllAdjacentSpaces('Istanbul');
+    expect(adj.length).toBeGreaterThan(0);
+  });
+});
+
+describe('getConnectionType', () => {
+  it('returns connection for adjacent spaces', () => {
+    const type = getConnectionType('Istanbul', 'Edirne');
+    expect(type).toBe('connection');
+  });
+
+  it('returns pass for pass connections', () => {
+    const type = getConnectionType('Belgrade', 'Ragusa');
+    expect(type).toBe('pass');
+  });
+
+  it('returns null for non-adjacent', () => {
+    expect(getConnectionType('Istanbul', 'Paris')).toBeNull();
+  });
+});
+
+describe('getUnitsInSpace', () => {
+  it('finds ottoman units in Istanbul', () => {
+    const state = createTestState();
+    const stack = getUnitsInSpace(state, 'Istanbul', 'ottoman');
+    expect(stack).toBeDefined();
+    expect(stack.regulars).toBeGreaterThan(0);
+  });
+
+  it('returns null for power with no units', () => {
+    const state = createTestState();
+    expect(getUnitsInSpace(state, 'Istanbul', 'france')).toBeNull();
+  });
+});
+
+describe('hasEnemyUnits', () => {
+  it('returns false when only friendly units', () => {
+    const state = createTestState();
+    expect(hasEnemyUnits(state, 'Istanbul', 'ottoman')).toBe(false);
+  });
+
+  it('returns true when enemy units present', () => {
+    const state = createTestState();
+    state.spaces['Istanbul'].units.push({
+      owner: 'france', regulars: 1, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    });
+    expect(hasEnemyUnits(state, 'Istanbul', 'ottoman')).toBe(true);
+  });
+});
+
+describe('getFormationCap', () => {
+  it('returns 4 for no leaders', () => {
+    expect(getFormationCap([])).toBe(4);
+  });
+
+  it('returns command rating for single leader', () => {
+    const cap = getFormationCap(['suleiman']);
+    expect(cap).toBeGreaterThan(4); // Suleiman has high command
+  });
+
+  it('returns sum of top 2 for multiple leaders', () => {
+    const cap = getFormationCap(['suleiman', 'ibrahim']);
+    expect(cap).toBeGreaterThan(0);
+  });
+});
+
+describe('isHomeSpace', () => {
+  it('Istanbul is ottoman home', () => {
+    expect(isHomeSpace('Istanbul', 'ottoman')).toBe(true);
+  });
+
+  it('Paris is not ottoman home', () => {
+    expect(isHomeSpace('Paris', 'ottoman')).toBe(false);
+  });
+});
+
+describe('isValidReformationTarget', () => {
+  it('rejects non-catholic space', () => {
+    const state = createTestState();
+    // Istanbul is OTHER religion
+    expect(isValidReformationTarget(state, 'Istanbul')).toBe(false);
+  });
+});
+
+describe('calcReformationDice', () => {
+  it('returns protestant and papal dice counts', () => {
+    const state = createTestState();
+    // Find a Catholic German space for testing
+    const target = Object.entries(state.spaces).find(
+      ([, sp]) => sp.religion === RELIGION.CATHOLIC && sp.languageZone === 'german'
+    );
+    if (target) {
+      const dice = calcReformationDice(state, target[0]);
+      expect(dice).toHaveProperty('protestant');
+      expect(dice).toHaveProperty('papal');
+      expect(dice.protestant).toBeGreaterThanOrEqual(1);
+      expect(dice.papal).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
+describe('getAvailableDebaters', () => {
+  it('returns protestant debaters in german zone', () => {
+    const state = createTestState();
+    const debaters = getAvailableDebaters(state, 'protestant', 'german');
+    expect(debaters.length).toBeGreaterThan(0);
+    expect(debaters[0]).toHaveProperty('id');
+  });
+
+  it('returns papal debaters (no zone filter)', () => {
+    const state = createTestState();
+    const debaters = getAvailableDebaters(state, 'papal');
+    expect(debaters.length).toBeGreaterThan(0);
+  });
+
+  it('filters by committed status', () => {
+    const state = createTestState();
+    // Mark luther as committed
+    const luther = state.debaters.protestant.find(d => d.id === 'luther');
+    luther.committed = true;
+
+    const uncommitted = getAvailableDebaters(state, 'protestant', 'german', false);
+    expect(uncommitted.find(d => d.id === 'luther')).toBeUndefined();
+
+    const committed = getAvailableDebaters(state, 'protestant', 'german', true);
+    expect(committed.find(d => d.id === 'luther')).toBeDefined();
+  });
+
+  it('respects entry turn', () => {
+    const state = createTestState();
+    state.turn = 1;
+    const debaters = getAvailableDebaters(state, 'protestant', 'german');
+    // Zwingli (entryTurn 2) should NOT be available on turn 1
+    expect(debaters.find(d => d.id === 'zwingli')).toBeUndefined();
+  });
+});
+
+describe('getDebaterDef', () => {
+  it('returns debater definition', () => {
+    const def = getDebaterDef('luther');
+    expect(def).toBeDefined();
+    expect(def.value).toBe(4);
+    expect(def.faction).toBe('lutheran');
+  });
+
+  it('returns undefined for unknown id', () => {
+    expect(getDebaterDef('nobody')).toBeUndefined();
+  });
+});
+
+describe('recountProtestantSpaces', () => {
+  it('counts protestant spaces', () => {
+    const state = createTestState();
+    // Make a few spaces protestant
+    state.spaces['Wittenberg'].religion = RELIGION.PROTESTANT;
+    state.spaces['Erfurt'].religion = RELIGION.PROTESTANT;
+    recountProtestantSpaces(state);
+    expect(state.protestantSpaces).toBeGreaterThanOrEqual(2);
+  });
+
+  it('returns 0 when no protestant spaces', () => {
+    const state = createTestState();
+    // All spaces are already catholic/other at game start
+    recountProtestantSpaces(state);
+    expect(state.protestantSpaces).toBe(0);
   });
 });

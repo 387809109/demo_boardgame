@@ -132,15 +132,29 @@ export function buildInitialState(players, options = {}) {
     schmalkaldicLeagueFormed: false,
     algiersInPlay: false,
 
-    // Debaters (track who is in play)
+    // Debaters (track who is in play + committed status)
     debaters: {
-      papal: [...scenario.powerState.papacy.debaters],
-      protestant: [...scenario.powerState.protestant.debaters]
+      papal: scenario.powerState.papacy.debaters.map(
+        id => ({ id, committed: false })
+      ),
+      protestant: scenario.powerState.protestant.debaters.map(
+        id => ({ id, committed: false })
+      )
     },
+
+    // Jesuit universities
+    jesuitUniversities: [],
 
     // Action phase
     impulseIndex: 0,
     consecutivePasses: 0,
+
+    // CP spending (Phase 2)
+    cpRemaining: 0,
+    activeCardNumber: null,
+    impulseActions: [],
+    pendingReformation: null,
+    pendingDebate: null,
 
     // Event markers
     augsburgConfessionActive: false,

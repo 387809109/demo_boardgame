@@ -5,25 +5,94 @@
 
 import { GameEngine } from '../../game/engine.js';
 import config from './config.json';
-import { MAJOR_POWERS, IMPULSE_ORDER, VICTORY } from './constants.js';
+import { MAJOR_POWERS, VICTORY } from './constants.js';
 import { buildInitialState } from './state/state-init.js';
 import { getVisibleState } from './state/state-visible.js';
+import { getPowerForPlayer, canPass } from './state/state-helpers.js';
 import {
-  getPowerForPlayer, canPass, getKeyVp, countKeysForPower
-} from './state/state-helpers.js';
-import {
-  PHASES, transitionPhase, advancePhase, advanceImpulse, getNextPhase
+  PHASES, transitionPhase, advancePhase, advanceImpulse
 } from './phases/phase-manager.js';
 import { CARD_BY_NUMBER } from './data/cards.js';
+import {
+  ACTION_TYPES, isCpAction, isSubAction
+} from './actions/action-types.js';
+import {
+  startCpSpending, endCpSpending, isInCpMode, hasPendingInteraction
+} from './actions/cp-manager.js';
 
-export { PHASES };
+// Military actions
+import {
+  validateMoveFormation, moveFormation,
+  validateRaiseRegular, raiseRegular,
+  validateBuyMercenary, buyMercenary,
+  validateRaiseCavalry, raiseCavalry,
+  validateBuildSquadron, buildSquadron,
+  validateBuildCorsair, buildCorsair,
+  validateControlUnfortified, controlUnfortified
+} from './actions/military-actions.js';
 
-/** Action types for Phase 1 */
-export const ACTION_TYPES = {
-  PLAY_CARD_CP: 'PLAY_CARD_CP',
-  PLAY_CARD_EVENT: 'PLAY_CARD_EVENT',
-  PASS: 'PASS',
-  PHASE_ADVANCE: 'PHASE_ADVANCE'
+// Religious actions
+import {
+  validatePublishTreatise, publishTreatise,
+  validateBurnBooks, burnBooks,
+  validateReformationAttempt, resolveReformationAttempt,
+  validateTranslateScripture, translateScripture,
+  validateBuildStPeters, buildStPeters,
+  validateFoundJesuit, foundJesuit
+} from './actions/religious-actions.js';
+
+// Debate actions
+import {
+  validateCallDebate, callDebate,
+  validateDebateStep, resolveDebateStep,
+  validateDebateFlip, resolveDebateFlip
+} from './actions/debate-actions.js';
+
+export { PHASES, ACTION_TYPES };
+
+/** CP action dispatch table: actionType → { validate, execute } */
+const CP_ACTION_HANDLERS = {
+  // Military
+  [ACTION_TYPES.MOVE_FORMATION]: {
+    validate: validateMoveFormation, execute: moveFormation
+  },
+  [ACTION_TYPES.RAISE_REGULAR]: {
+    validate: validateRaiseRegular, execute: raiseRegular
+  },
+  [ACTION_TYPES.BUY_MERCENARY]: {
+    validate: validateBuyMercenary, execute: buyMercenary
+  },
+  [ACTION_TYPES.RAISE_CAVALRY]: {
+    validate: validateRaiseCavalry, execute: raiseCavalry
+  },
+  [ACTION_TYPES.BUILD_SQUADRON]: {
+    validate: validateBuildSquadron, execute: buildSquadron
+  },
+  [ACTION_TYPES.BUILD_CORSAIR]: {
+    validate: validateBuildCorsair, execute: buildCorsair
+  },
+  [ACTION_TYPES.CONTROL_UNFORTIFIED]: {
+    validate: validateControlUnfortified, execute: controlUnfortified
+  },
+  // Religious
+  [ACTION_TYPES.PUBLISH_TREATISE]: {
+    validate: validatePublishTreatise, execute: publishTreatise
+  },
+  [ACTION_TYPES.BURN_BOOKS]: {
+    validate: validateBurnBooks, execute: burnBooks
+  },
+  [ACTION_TYPES.TRANSLATE_SCRIPTURE]: {
+    validate: validateTranslateScripture, execute: translateScripture
+  },
+  [ACTION_TYPES.BUILD_ST_PETERS]: {
+    validate: validateBuildStPeters, execute: buildStPeters
+  },
+  [ACTION_TYPES.FOUND_JESUIT]: {
+    validate: validateFoundJesuit, execute: foundJesuit
+  },
+  [ACTION_TYPES.CALL_DEBATE]: {
+    validate: validateCallDebate, execute: callDebate
+  }
 };
 
 /**
@@ -70,14 +139,14 @@ export class HISGame extends GameEngine {
    * @returns {{ valid: boolean, error?: string }}
    */
   validateMove(move, state) {
-    const { actionType, playerId } = move;
+    const { actionType, actionData = {}, playerId } = move;
     const power = getPowerForPlayer(state, playerId);
 
     if (!power) {
       return { valid: false, error: 'Player not assigned to a power' };
     }
 
-    // PHASE_ADVANCE can be sent by any player (auto-advance stub phases)
+    // PHASE_ADVANCE can be sent by any player
     if (actionType === ACTION_TYPES.PHASE_ADVANCE) {
       return { valid: true };
     }
@@ -88,16 +157,68 @@ export class HISGame extends GameEngine {
         return { valid: false, error: 'Not your impulse' };
       }
 
+      // Sub-interactions (reformation attempt, debate step)
+      if (actionType === ACTION_TYPES.RESOLVE_REFORMATION_ATTEMPT) {
+        if (state.pendingReformation?.autoFlip) {
+          return validateDebateFlip(state, power, actionData);
+        }
+        return validateReformationAttempt(state, power, actionData);
+      }
+      if (actionType === ACTION_TYPES.RESOLVE_DEBATE_STEP) {
+        return validateDebateStep(state);
+      }
+
+      // If pending interaction, block other actions
+      if (hasPendingInteraction(state)) {
+        if (!isSubAction(actionType)) {
+          return {
+            valid: false,
+            error: 'Must resolve pending interaction first'
+          };
+        }
+      }
+
+      // CP sub-actions
+      if (isCpAction(actionType)) {
+        if (!isInCpMode(state)) {
+          return { valid: false, error: 'Not in CP spending mode' };
+        }
+        const handler = CP_ACTION_HANDLERS[actionType];
+        if (handler) {
+          return handler.validate(state, power, actionData);
+        }
+        return { valid: false, error: `Unknown CP action: ${actionType}` };
+      }
+
+      // END_IMPULSE
+      if (actionType === ACTION_TYPES.END_IMPULSE) {
+        if (hasPendingInteraction(state)) {
+          return {
+            valid: false,
+            error: 'Cannot end impulse with pending interaction'
+          };
+        }
+        return { valid: true };
+      }
+
+      // PASS
       if (actionType === ACTION_TYPES.PASS) {
+        if (isInCpMode(state)) {
+          return { valid: false, error: 'Cannot pass while in CP mode' };
+        }
         const passCheck = canPass(state, power);
         if (!passCheck.allowed) {
           return { valid: false, error: passCheck.reason };
         }
       }
 
+      // PLAY_CARD_CP / PLAY_CARD_EVENT
       if (actionType === ACTION_TYPES.PLAY_CARD_CP ||
           actionType === ACTION_TYPES.PLAY_CARD_EVENT) {
-        const cardNumber = move.actionData?.cardNumber;
+        if (isInCpMode(state)) {
+          return { valid: false, error: 'Already in CP mode' };
+        }
+        const cardNumber = actionData?.cardNumber;
         if (!cardNumber || !state.hands[power].includes(cardNumber)) {
           return { valid: false, error: 'Card not in hand' };
         }
@@ -116,7 +237,7 @@ export class HISGame extends GameEngine {
   processMove(move, state) {
     const newState = JSON.parse(JSON.stringify(state));
     const helpers = this._getPhaseHelpers();
-    const { actionType, actionData, playerId } = move;
+    const { actionType, actionData = {}, playerId } = move;
     const power = getPowerForPlayer(newState, playerId);
 
     switch (actionType) {
@@ -133,8 +254,37 @@ export class HISGame extends GameEngine {
         this._handlePlayCardCp(newState, power, actionData, helpers);
         break;
 
+      case ACTION_TYPES.END_IMPULSE:
+        this._handleEndImpulse(newState, power, helpers);
+        break;
+
       case ACTION_TYPES.PHASE_ADVANCE:
         advancePhase(newState, helpers);
+        break;
+
+      case ACTION_TYPES.RESOLVE_REFORMATION_ATTEMPT:
+        if (newState.pendingReformation?.autoFlip) {
+          resolveDebateFlip(newState, power, actionData, helpers);
+        } else {
+          resolveReformationAttempt(newState, power, actionData, helpers);
+        }
+        this._checkAutoEndImpulse(newState, helpers);
+        break;
+
+      case ACTION_TYPES.RESOLVE_DEBATE_STEP:
+        resolveDebateStep(newState, power, actionData, helpers);
+        this._checkAutoEndImpulse(newState, helpers);
+        break;
+
+      default:
+        // CP sub-actions
+        if (isCpAction(actionType)) {
+          const handler = CP_ACTION_HANDLERS[actionType];
+          if (handler) {
+            handler.execute(newState, power, actionData, helpers);
+          }
+          this._checkAutoEndImpulse(newState, helpers);
+        }
         break;
     }
 
@@ -151,7 +301,6 @@ export class HISGame extends GameEngine {
     helpers.logEvent(state, 'pass', { power });
 
     if (state.consecutivePasses >= VICTORY.consecutivePassesToEnd) {
-      // 6 consecutive passes → end action phase
       helpers.logEvent(state, 'action_phase_end', { turn: state.turn });
       advancePhase(state, helpers);
     } else {
@@ -160,7 +309,7 @@ export class HISGame extends GameEngine {
   }
 
   /**
-   * Handle playing a card for CP.
+   * Handle playing a card for CP — enters CP spending mode.
    * @private
    */
   _handlePlayCardCp(state, power, actionData, helpers) {
@@ -176,7 +325,6 @@ export class HISGame extends GameEngine {
     // Determine where the card goes
     const card = CARD_BY_NUMBER[cardNumber];
     if (card && card.deck === 'home') {
-      // Home cards go back to the power, not discard
       state.homeCardPlayed[power] = true;
     } else if (card && card.removeAfterPlay) {
       state.removedCards.push(cardNumber);
@@ -187,15 +335,39 @@ export class HISGame extends GameEngine {
     // Reset consecutive passes
     state.consecutivePasses = 0;
 
+    const cp = card?.cp || 0;
+
     helpers.logEvent(state, 'play_card', {
-      power,
-      cardNumber,
-      title: card?.title,
-      cp: card?.cp
+      power, cardNumber, title: card?.title, cp
     });
 
-    // Advance to next power's impulse
+    // Enter CP spending mode
+    startCpSpending(state, cardNumber, cp);
+
+    // If card has 0 CP, auto-end impulse
+    if (cp === 0) {
+      this._handleEndImpulse(state, power, helpers);
+    }
+  }
+
+  /**
+   * Handle END_IMPULSE — clean up CP state and advance.
+   * @private
+   */
+  _handleEndImpulse(state, power, helpers) {
+    endCpSpending(state);
     advanceImpulse(state);
+  }
+
+  /**
+   * Auto-end impulse when CP is exhausted and no pending interactions.
+   * @private
+   */
+  _checkAutoEndImpulse(state, helpers) {
+    if (state.cpRemaining <= 0 && !hasPendingInteraction(state)) {
+      endCpSpending(state);
+      advanceImpulse(state);
+    }
   }
 
   /**
@@ -208,12 +380,10 @@ export class HISGame extends GameEngine {
       return this._buildEndResult(state);
     }
 
-    // Only check during victory determination phase
     if (state.phase !== PHASES.VICTORY_DETERMINATION) {
       return { ended: false };
     }
 
-    // Standard victory: VP >= 25 and highest
     const vpTotals = this._calculateVpTotals(state);
     const sorted = Object.entries(vpTotals).sort((a, b) => b[1] - a[1]);
     const highest = sorted[0];
@@ -223,7 +393,6 @@ export class HISGame extends GameEngine {
       return this._buildEndResult(state, highest[0], 'standard_victory');
     }
 
-    // Domination victory: turn >= 4, +5 gap
     if (state.turn >= VICTORY.dominationMinTurn) {
       const second = sorted[1];
       if (highest[1] - second[1] >= VICTORY.dominationGap) {
@@ -232,7 +401,6 @@ export class HISGame extends GameEngine {
       }
     }
 
-    // Time limit: after turn 9
     if (state.turn >= VICTORY.maxTurns) {
       state.status = 'ended';
       return this._buildEndResult(state, highest[0], 'time_limit');
@@ -270,7 +438,6 @@ export class HISGame extends GameEngine {
     const vpTotals = this._calculateVpTotals(state);
 
     if (!winner) {
-      // Find highest VP
       const sorted = Object.entries(vpTotals).sort((a, b) => b[1] - a[1]);
       winner = sorted[0][0];
     }
