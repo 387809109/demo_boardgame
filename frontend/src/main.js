@@ -49,6 +49,9 @@ const DEFAULT_RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_COUNTDOWN_STEP_MS = 1000;
 const DEFAULT_LOCAL_SERVER_URL = 'ws://localhost:7777';
+const COMMIT_HASH = String(
+  import.meta.env.VITE_COMMIT_HASH || import.meta.env.VITE_GIT_COMMIT || ''
+).trim();
 
 /**
  * Application class
@@ -122,14 +125,17 @@ class App {
     /** @type {Object|null} */
     this._joinRoomPrefill = null;
 
-    /** @type {number|null} */
-    this._gameStartAt = null;
+  /** @type {number|null} */
+  this._gameStartAt = null;
 
-    /** @type {{ roomId: string, nickname: string }|null} */
-    this._pendingJoinAnalytics = null;
+  /** @type {{ roomId: string, nickname: string }|null} */
+  this._pendingJoinAnalytics = null;
 
-    this._init();
-  }
+  /** @type {HTMLElement|null} */
+  this._commitBadge = null;
+
+  this._init();
+}
 
   /**
    * Initialize the application
@@ -157,8 +163,43 @@ class App {
       mode: this.mode
     });
 
+    this._renderCommitBadge();
     // Show lobby
     this.showLobby();
+  }
+
+  /**
+   * Render a small commit hash indicator fixed at the top edge.
+   * Uses VITE_COMMIT_HASH from env; fallback to 'dev'.
+   * @private
+   */
+  _renderCommitBadge() {
+    if (this._commitBadge) {
+      return;
+    }
+
+    const badge = document.createElement('div');
+    badge.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      background: rgba(17, 24, 39, 0.9);
+      color: #f9fafb;
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      letter-spacing: 0.05em;
+      padding: 2px 10px;
+      border-bottom-left-radius: 6px;
+      border-bottom-right-radius: 6px;
+      pointer-events: none;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(2px);
+    `;
+    badge.textContent = `Commit: ${COMMIT_HASH || 'dev'}`;
+    document.body.appendChild(badge);
+    this._commitBadge = badge;
   }
 
   /**
