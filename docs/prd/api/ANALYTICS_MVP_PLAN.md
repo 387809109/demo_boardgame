@@ -124,6 +124,11 @@ Implementation notes:
 - `trackEvent(...)` calls `track(...)` only when consent is on.
 - No direct `@vercel/analytics` usage outside wrapper.
 
+Frontend logging:
+- Wrapper logs debug events for consent changes, init lifecycle, skipped tracking, and failures.
+- Optional flag `VITE_ANALYTICS_DEBUG=true` enables logs outside dev mode.
+- Logging is for troubleshooting only and does not include user content or PII.
+
 ### Phase 2: Add MVP Events at Existing Boundaries
 
 Instrument only existing control points:
