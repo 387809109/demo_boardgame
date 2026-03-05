@@ -75,11 +75,6 @@ export function validateMoveFormation(state, power, actionData) {
     return { valid: false, error: `Exceeds formation cap (${totalUnits} > ${cap})` };
   }
 
-  // Phase 2: no moving into spaces with enemy units (battle in Phase 3)
-  if (hasEnemyUnits(state, to, power)) {
-    return { valid: false, error: 'Cannot move into enemy-occupied space (battle not yet implemented)' };
-  }
-
   return { valid: true, cost };
 }
 
@@ -133,6 +128,24 @@ export function moveFormation(state, power, actionData, helpers) {
 
   state.impulseActions.push({ type: 'move', from, to, units });
   helpers.logEvent(state, 'move_formation', { power, from, to, units });
+
+  // If moved into enemy-occupied space → set pending battle
+  if (hasEnemyUnits(state, to, power)) {
+    // Find the defending power (first enemy stack)
+    const defenderStack = state.spaces[to].units.find(
+      u => u.owner !== power && u.owner !== 'independent' &&
+        (u.regulars > 0 || u.mercenaries > 0 || u.cavalry > 0)
+    );
+    if (defenderStack) {
+      state.pendingBattle = {
+        type: 'field_battle',
+        space: to,
+        attackerPower: power,
+        defenderPower: defenderStack.owner,
+        fromSpace: from
+      };
+    }
+  }
 }
 
 // ── Build Units ───────────────────────────────────────────────────

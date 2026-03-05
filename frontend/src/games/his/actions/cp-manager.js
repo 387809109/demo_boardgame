@@ -58,7 +58,10 @@ export function isInCpMode(state) {
  * @returns {boolean}
  */
 export function hasPendingInteraction(state) {
-  return state.pendingReformation !== null || state.pendingDebate !== null;
+  return state.pendingReformation !== null ||
+    state.pendingDebate !== null ||
+    state.pendingBattle !== null ||
+    state.pendingInterception !== null;
 }
 
 /**

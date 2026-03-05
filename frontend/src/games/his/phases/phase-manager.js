@@ -158,9 +158,14 @@ function executeWinter(state, helpers) {
   // Clear any leftover pending interactions
   state.pendingReformation = null;
   state.pendingDebate = null;
+  state.pendingBattle = null;
+  state.pendingInterception = null;
   state.cpRemaining = 0;
   state.activeCardNumber = null;
   state.impulseActions = [];
+
+  // Reset per-turn combat tracking
+  state.piracyUsed = {};
 
   helpers.logEvent(state, 'winter', { turn: state.turn });
 }

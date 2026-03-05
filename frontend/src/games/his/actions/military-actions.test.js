@@ -77,8 +77,9 @@ describe('validateMoveFormation', () => {
     expect(r.cost).toBeGreaterThan(0);
   });
 
-  it('rejects move into enemy-occupied space', () => {
+  it('allows move into enemy-occupied space (triggers pendingBattle)', () => {
     const state = cpState();
+    const helpers = createMockHelpers();
     // Put hapsburg units in Edirne
     state.spaces['Edirne'].units.push({
       owner: 'hapsburg', regulars: 1, mercenaries: 0,
@@ -88,8 +89,17 @@ describe('validateMoveFormation', () => {
       from: 'Istanbul', to: 'Edirne',
       units: { regulars: 1, leaders: ['suleiman'] }
     });
-    expect(r.valid).toBe(false);
-    expect(r.error).toContain('enemy');
+    expect(r.valid).toBe(true);
+
+    // Execute and verify pendingBattle is set
+    moveFormation(state, 'ottoman', {
+      from: 'Istanbul', to: 'Edirne',
+      units: { regulars: 1, leaders: ['suleiman'] }
+    }, helpers);
+    expect(state.pendingBattle).toBeDefined();
+    expect(state.pendingBattle.type).toBe('field_battle');
+    expect(state.pendingBattle.attackerPower).toBe('ottoman');
+    expect(state.pendingBattle.defenderPower).toBe('hapsburg');
   });
 
   it('rejects when CP is insufficient', () => {

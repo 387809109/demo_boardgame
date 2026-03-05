@@ -48,6 +48,20 @@ import {
   validateDebateFlip, resolveDebateFlip
 } from './actions/debate-actions.js';
 
+// Combat actions
+import { resolveFieldBattle } from './actions/combat-actions.js';
+import {
+  validateAssault, executeAssault
+} from './actions/siege-actions.js';
+import {
+  validateNavalMove, executeNavalMove,
+  validatePiracy, executePiracy
+} from './actions/naval-actions.js';
+import { resolveInterception } from './actions/interception.js';
+import {
+  executeRetreat, eliminateFormation
+} from './actions/retreat.js';
+
 export { PHASES, ACTION_TYPES };
 
 /** CP action dispatch table: actionType → { validate, execute } */
@@ -73,6 +87,15 @@ const CP_ACTION_HANDLERS = {
   },
   [ACTION_TYPES.CONTROL_UNFORTIFIED]: {
     validate: validateControlUnfortified, execute: controlUnfortified
+  },
+  [ACTION_TYPES.ASSAULT]: {
+    validate: validateAssault, execute: executeAssault
+  },
+  [ACTION_TYPES.NAVAL_MOVE]: {
+    validate: validateNavalMove, execute: executeNavalMove
+  },
+  [ACTION_TYPES.PIRACY]: {
+    validate: validatePiracy, execute: executePiracy
   },
   // Religious
   [ACTION_TYPES.PUBLISH_TREATISE]: {
@@ -157,7 +180,7 @@ export class HISGame extends GameEngine {
         return { valid: false, error: 'Not your impulse' };
       }
 
-      // Sub-interactions (reformation attempt, debate step)
+      // Sub-interactions (reformation, debate, battle, interception)
       if (actionType === ACTION_TYPES.RESOLVE_REFORMATION_ATTEMPT) {
         if (state.pendingReformation?.autoFlip) {
           return validateDebateFlip(state, power, actionData);
@@ -166,6 +189,30 @@ export class HISGame extends GameEngine {
       }
       if (actionType === ACTION_TYPES.RESOLVE_DEBATE_STEP) {
         return validateDebateStep(state);
+      }
+      if (actionType === ACTION_TYPES.RESOLVE_BATTLE) {
+        if (!state.pendingBattle) {
+          return { valid: false, error: 'No pending battle' };
+        }
+        return { valid: true };
+      }
+      if (actionType === ACTION_TYPES.RESOLVE_INTERCEPTION) {
+        if (!state.pendingInterception) {
+          return { valid: false, error: 'No pending interception' };
+        }
+        return { valid: true };
+      }
+      if (actionType === ACTION_TYPES.RESOLVE_RETREAT) {
+        if (!state.pendingBattle || state.pendingBattle.type !== 'retreat_choice') {
+          return { valid: false, error: 'No pending retreat' };
+        }
+        return { valid: true };
+      }
+      if (actionType === ACTION_TYPES.WITHDRAW_INTO_FORTIFICATION) {
+        if (!state.pendingBattle || !state.pendingBattle.canWithdraw) {
+          return { valid: false, error: 'Cannot withdraw into fortification' };
+        }
+        return { valid: true };
       }
 
       // If pending interaction, block other actions
@@ -276,6 +323,26 @@ export class HISGame extends GameEngine {
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
+      case ACTION_TYPES.RESOLVE_BATTLE:
+        this._handleResolveBattle(newState, power, helpers);
+        this._checkAutoEndImpulse(newState, helpers);
+        break;
+
+      case ACTION_TYPES.RESOLVE_INTERCEPTION:
+        this._handleResolveInterception(newState, power, actionData, helpers);
+        this._checkAutoEndImpulse(newState, helpers);
+        break;
+
+      case ACTION_TYPES.RESOLVE_RETREAT:
+        this._handleResolveRetreat(newState, power, actionData, helpers);
+        this._checkAutoEndImpulse(newState, helpers);
+        break;
+
+      case ACTION_TYPES.WITHDRAW_INTO_FORTIFICATION:
+        this._handleWithdraw(newState, power, helpers);
+        this._checkAutoEndImpulse(newState, helpers);
+        break;
+
       default:
         // CP sub-actions
         if (isCpAction(actionType)) {
@@ -367,6 +434,91 @@ export class HISGame extends GameEngine {
     if (state.cpRemaining <= 0 && !hasPendingInteraction(state)) {
       endCpSpending(state);
       advanceImpulse(state);
+    }
+  }
+
+  /**
+   * Resolve a pending field battle.
+   * @private
+   */
+  _handleResolveBattle(state, power, helpers) {
+    const battle = state.pendingBattle;
+    if (!battle || battle.type !== 'field_battle') return;
+
+    const { space, attackerPower, defenderPower } = battle;
+    state.pendingBattle = null;
+
+    resolveFieldBattle(state, space, attackerPower, defenderPower, helpers);
+  }
+
+  /**
+   * Resolve a pending interception attempt.
+   * @private
+   */
+  _handleResolveInterception(state, power, actionData, helpers) {
+    const interception = state.pendingInterception;
+    if (!interception) return;
+
+    const { interceptorPower, interceptorSpace, targetSpace } = interception;
+    state.pendingInterception = null;
+
+    const result = resolveInterception(
+      state, interceptorPower, interceptorSpace, targetSpace, helpers
+    );
+
+    // If interception succeeded, trigger battle
+    if (result.success) {
+      state.pendingBattle = {
+        type: 'field_battle',
+        space: targetSpace,
+        attackerPower: interception.movingPower,
+        defenderPower: interceptorPower,
+        fromSpace: null
+      };
+    }
+  }
+
+  /**
+   * Resolve a pending retreat choice.
+   * @private
+   */
+  _handleResolveRetreat(state, power, actionData, helpers) {
+    const battle = state.pendingBattle;
+    if (!battle || battle.type !== 'retreat_choice') return;
+
+    const { space, loserPower, winnerPower } = battle;
+    const destination = actionData?.destination;
+    state.pendingBattle = null;
+
+    if (destination && battle.retreatOptions.includes(destination)) {
+      executeRetreat(state, space, loserPower, destination, helpers);
+    } else {
+      // Invalid destination → eliminate
+      eliminateFormation(state, space, loserPower, winnerPower, helpers);
+    }
+  }
+
+  /**
+   * Handle withdraw into fortification.
+   * @private
+   */
+  _handleWithdraw(state, power, helpers) {
+    const battle = state.pendingBattle;
+    if (!battle || !battle.canWithdraw) return;
+
+    const { space, winnerPower } = battle;
+    state.pendingBattle = null;
+
+    // Defender stays in the space (withdrawn into fort)
+    // Attacker initiates siege
+    const sp = state.spaces[space];
+    if (sp.isFortress && sp.controller !== winnerPower) {
+      sp.besieged = true;
+      sp.besiegedBy = winnerPower;
+      sp.siegeEstablishedImpulse = state.turnNumber;
+      helpers.logEvent(state, 'siege_established', {
+        space, besiegedBy: winnerPower
+      });
     }
   }
 

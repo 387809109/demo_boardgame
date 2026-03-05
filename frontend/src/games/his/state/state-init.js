@@ -156,6 +156,12 @@ export function buildInitialState(players, options = {}) {
     pendingReformation: null,
     pendingDebate: null,
 
+    // Combat (Phase 3)
+    pendingBattle: null,
+    pendingInterception: null,
+    capturedLeaders: {},
+    piracyUsed: {},
+
     // Event markers
     augsburgConfessionActive: false,
     printingPressActive: false,
@@ -184,7 +190,10 @@ function buildSpaces(scenario) {
       isFortress: sp.isFortress,
       isPort: sp.isPort,
       languageZone: sp.languageZone,
-      connectedSeaZones: sp.connectedSeaZones
+      connectedSeaZones: sp.connectedSeaZones,
+      besieged: false,
+      besiegedBy: null,
+      siegeEstablishedImpulse: null
     };
   }
 

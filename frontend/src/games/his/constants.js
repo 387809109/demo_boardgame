@@ -438,6 +438,25 @@ export const DEBATE = {
   hitThreshold: 5
 };
 
+// ── Field Battle ─────────────────────────────────────────────────
+
+export const COMBAT = {
+  hitThreshold: 5,
+  defenderBonusDice: 1,
+  transportCap: 5,
+  interceptionThreshold: 5
+};
+
+// ── Naval Combat ────────────────────────────────────────────────
+
+export const NAVAL_COMBAT = {
+  dicePerSquadron: 2,
+  dicePerCorsair: 1,
+  hitThreshold: 5,
+  hitsPerSquadronLost: 2,
+  portDefenderBonusDice: 1
+};
+
 // ── Diplomacy Phase Segment Order ──────────────────────────────────
 
 export const DIPLOMACY_SEGMENTS = [
