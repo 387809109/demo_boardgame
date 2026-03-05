@@ -693,8 +693,9 @@ class App {
       });
     }
 
-    // Simulate AI moves for offline mode
-    if (this.currentGame.mode === 'offline') {
+    // Simulate AI moves for offline mode and host-side online mode with AI
+    if (this.currentGame.mode === 'offline'
+      || (this.currentGame.mode === 'online' && this._isHost() && this._aiPlayers?.length > 0)) {
       setTimeout(() => this._simulateAITurn(), 500);
     }
   }
