@@ -208,9 +208,10 @@ export class CloudNetworkClient extends EventEmitter {
    * Send a game action
    * @param {string} actionType
    * @param {Object} actionData
+   * @param {Object} [extraData={}] - Extra fields (e.g., playerId, gameState)
    */
-  sendGameAction(actionType, actionData) {
-    this.send('GAME_ACTION', { actionType, actionData });
+  sendGameAction(actionType, actionData, extraData = {}) {
+    this.send('GAME_ACTION', { actionType, actionData, ...extraData });
   }
 
   /**
@@ -482,7 +483,6 @@ export class CloudNetworkClient extends EventEmitter {
         nickname: joined.nickname || '',
         playerCount: players.length,
         players,
-        aiPlayers: [],
         gameSettings: {}
       });
     });

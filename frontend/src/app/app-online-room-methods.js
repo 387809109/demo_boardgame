@@ -336,7 +336,9 @@ export function registerAppOnlineRoomMethods(App, deps) {
         this.currentRoom = {
           ...this.currentRoom,
           players: data.players,
-          aiPlayers: data.aiPlayers || this.currentRoom?.aiPlayers || [],
+          aiPlayers: Array.isArray(data.aiPlayers)
+            ? data.aiPlayers
+            : (this.currentRoom?.aiPlayers || []),
           gameSettings,
           returnToRoomPhase: wasReturnToRoomPhase,
           returnStatus: nextReturnStatus,
@@ -386,6 +388,13 @@ export function registerAppOnlineRoomMethods(App, deps) {
                 _gameType: this.currentRoom.gameType,
                 _maxPlayers: this.currentRoom.maxPlayers
               }
+            });
+          }
+
+          // Keep late joiners in sync with current AI list in cloud mode.
+          if (this._isHost() && this.currentRoom?.aiPlayers?.length > 0 && this.network?.isConnected()) {
+            this.network.send('AI_PLAYER_UPDATE', {
+              aiPlayers: this.currentRoom.aiPlayers
             });
           }
         }
