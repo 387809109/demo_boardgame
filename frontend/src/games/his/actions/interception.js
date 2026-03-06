@@ -12,6 +12,7 @@ import {
 } from '../state/state-helpers.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
 import { rollDice } from './religious-actions.js';
+import { areAtWar } from '../state/war-helpers.js';
 
 // ── Check Interceptions ─────────────────────────────────────────
 
@@ -38,8 +39,7 @@ export function checkInterceptions(state, fromSpace, toSpace, movingPower) {
     for (const stack of sp.units) {
       if (stack.owner === movingPower) continue;
       // Only powers at war with moving power can intercept
-      // For Phase 3 we simplify: any non-allied power with units can intercept
-      // (diplomacy/war checks come in Phase 4)
+      if (!areAtWar(state, stack.owner, movingPower)) continue;
       if (stack.regulars + stack.mercenaries + stack.cavalry > 0) {
         // Don't add duplicates for same power
         if (!interceptors.find(i => i.power === stack.owner && i.space === adjName)) {

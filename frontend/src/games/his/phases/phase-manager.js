@@ -5,8 +5,11 @@
  * transitions between phases, and turn advancement.
  */
 
-import { IMPULSE_ORDER, VICTORY } from '../constants.js';
+import { IMPULSE_ORDER, VICTORY, CAPITALS } from '../constants.js';
 import { executeCardDraw } from './phase-card-draw.js';
+import { initDiplomacyPhase } from './phase-diplomacy.js';
+import { initSpringDeployment } from './phase-spring-deployment.js';
+import { getUnitsInSpace } from '../state/state-helpers.js';
 
 // ── Phase Constants ────────────────────────────────────────────────
 
@@ -91,12 +94,19 @@ export function transitionPhase(state, toPhase, helpers) {
       executeWinter(state, helpers);
       break;
 
+    case PHASES.DIPLOMACY:
+      initDiplomacyPhase(state, helpers);
+      break;
+
+    case PHASES.SPRING_DEPLOYMENT:
+      initSpringDeployment(state, helpers);
+      break;
+
     case PHASES.VICTORY_DETERMINATION:
       // VP check happens in checkGameEnd, not here
       break;
 
-    // Stub phases: diplomacy, spring_deployment, diet_of_worms, new_world
-    // These will be implemented in later phases
+    // Stub phases: diet_of_worms, new_world
     default:
       break;
   }
@@ -138,9 +148,8 @@ function advanceTurn(state, helpers) {
 }
 
 /**
- * Winter phase — simplified for Phase 1.
- * Adds 1 regular to each power's capital.
- * Resets per-turn state.
+ * Winter phase — resets per-turn state, removes alliances,
+ * adds 1 regular to each power's friendly-controlled capital.
  */
 function executeWinter(state, helpers) {
   // Reset augsburg confession marker
@@ -166,6 +175,40 @@ function executeWinter(state, helpers) {
 
   // Reset per-turn combat tracking
   state.piracyUsed = {};
+
+  // Remove all alliances (alliances last one turn)
+  state.alliances = [];
+
+  // Reset diplomacy per-turn tracking
+  state.peaceMadeThisTurn = [];
+  state.alliancesFormedThisTurn = [];
+  state.diplomacySegment = null;
+  state.diplomacyActed = {};
+  state.springDeploymentDone = {};
+
+  // Add 1 regular to each power's friendly-controlled, non-besieged capital
+  for (const [power, caps] of Object.entries(CAPITALS)) {
+    for (const cap of caps) {
+      const sp = state.spaces[cap];
+      if (!sp) continue;
+      if (sp.controller !== power) continue;
+      if (sp.besieged) continue;
+      if (sp.unrest) continue;
+
+      let stack = null;
+      for (const u of sp.units) {
+        if (u.owner === power) { stack = u; break; }
+      }
+      if (!stack) {
+        stack = {
+          owner: power, regulars: 0, mercenaries: 0,
+          cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+        };
+        sp.units.push(stack);
+      }
+      stack.regulars += 1;
+    }
+  }
 
   helpers.logEvent(state, 'winter', { turn: state.turn });
 }

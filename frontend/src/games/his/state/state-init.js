@@ -110,6 +110,12 @@ export function buildInitialState(players, options = {}) {
     // Diplomacy
     wars: scenario.wars.map(w => ({ ...w })),
     alliances: [],
+    peaceMadeThisTurn: [],
+    alliancesFormedThisTurn: [],
+    diplomacySegment: null,
+    diplomacyActed: {},
+    springDeploymentDone: {},
+    excommunicated: [],
 
     // VP
     vp,

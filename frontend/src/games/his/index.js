@@ -62,6 +62,22 @@ import {
   executeRetreat, eliminateFormation
 } from './actions/retreat.js';
 
+// Diplomacy actions
+import {
+  validateDOW, executeDOW,
+  validateSueForPeace, executeSueForPeace,
+  validateNegotiate, executeNegotiate,
+  validateRansom, executeRansom
+} from './actions/diplomacy-actions.js';
+import {
+  canActInSegment, markActed, allActedInSegment,
+  advanceDiplomacySegment, isDiplomacyComplete
+} from './phases/phase-diplomacy.js';
+import {
+  validateSpringDeployment, executeSpringDeployment,
+  isSpringDeploymentComplete, skipSpringDeployment
+} from './phases/phase-spring-deployment.js';
+
 export { PHASES, ACTION_TYPES };
 
 /** CP action dispatch table: actionType → { validate, execute } */
@@ -172,6 +188,50 @@ export class HISGame extends GameEngine {
     // PHASE_ADVANCE can be sent by any player
     if (actionType === ACTION_TYPES.PHASE_ADVANCE) {
       return { valid: true };
+    }
+
+    // Diplomacy phase actions
+    if (state.phase === PHASES.DIPLOMACY) {
+      if (!canActInSegment(state, power)) {
+        return { valid: false, error: 'Cannot act in this diplomacy segment' };
+      }
+      switch (actionType) {
+        case ACTION_TYPES.DECLARE_WAR:
+          if (state.diplomacySegment !== 'declarations_of_war') {
+            return { valid: false, error: 'Not in declarations of war segment' };
+          }
+          return validateDOW(state, power, actionData);
+        case ACTION_TYPES.SUE_FOR_PEACE:
+          if (state.diplomacySegment !== 'sue_for_peace') {
+            return { valid: false, error: 'Not in sue for peace segment' };
+          }
+          return validateSueForPeace(state, power, actionData);
+        case ACTION_TYPES.NEGOTIATE:
+          if (state.diplomacySegment !== 'negotiation') {
+            return { valid: false, error: 'Not in negotiation segment' };
+          }
+          return validateNegotiate(state, power, actionData);
+        case ACTION_TYPES.RANSOM_LEADER:
+          if (state.diplomacySegment !== 'ransom') {
+            return { valid: false, error: 'Not in ransom segment' };
+          }
+          return validateRansom(state, power, actionData);
+        case ACTION_TYPES.PASS:
+          return { valid: true };
+        default:
+          return { valid: false, error: `Invalid action for diplomacy phase: ${actionType}` };
+      }
+    }
+
+    // Spring deployment phase actions
+    if (state.phase === PHASES.SPRING_DEPLOYMENT) {
+      if (actionType === ACTION_TYPES.SPRING_DEPLOY) {
+        return validateSpringDeployment(state, power, actionData);
+      }
+      if (actionType === ACTION_TYPES.PASS) {
+        return { valid: true };
+      }
+      return { valid: false, error: `Invalid action for spring deployment: ${actionType}` };
     }
 
     // Action phase moves require it to be this power's impulse
@@ -286,6 +346,20 @@ export class HISGame extends GameEngine {
     const helpers = this._getPhaseHelpers();
     const { actionType, actionData = {}, playerId } = move;
     const power = getPowerForPlayer(newState, playerId);
+
+    // Diplomacy phase actions
+    if (newState.phase === PHASES.DIPLOMACY) {
+      this._handleDiplomacyAction(newState, power, actionType, actionData, helpers);
+      newState.turnNumber++;
+      return newState;
+    }
+
+    // Spring deployment phase actions
+    if (newState.phase === PHASES.SPRING_DEPLOYMENT) {
+      this._handleSpringDeploymentAction(newState, power, actionType, actionData, helpers);
+      newState.turnNumber++;
+      return newState;
+    }
 
     switch (actionType) {
       case ACTION_TYPES.PASS:
@@ -519,6 +593,59 @@ export class HISGame extends GameEngine {
       helpers.logEvent(state, 'siege_established', {
         space, besiegedBy: winnerPower
       });
+    }
+  }
+
+  /**
+   * Handle a diplomacy phase action.
+   * @private
+   */
+  _handleDiplomacyAction(state, power, actionType, actionData, helpers) {
+    switch (actionType) {
+      case ACTION_TYPES.DECLARE_WAR:
+        executeDOW(state, power, actionData, helpers);
+        markActed(state, power);
+        break;
+      case ACTION_TYPES.SUE_FOR_PEACE:
+        executeSueForPeace(state, power, actionData, helpers);
+        markActed(state, power);
+        break;
+      case ACTION_TYPES.NEGOTIATE:
+        executeNegotiate(state, power, actionData, helpers);
+        markActed(state, power);
+        break;
+      case ACTION_TYPES.RANSOM_LEADER:
+        executeRansom(state, power, actionData, helpers);
+        markActed(state, power);
+        break;
+      case ACTION_TYPES.PASS:
+        markActed(state, power);
+        break;
+    }
+
+    // Auto-advance segment when all powers have acted
+    if (allActedInSegment(state)) {
+      const more = advanceDiplomacySegment(state, helpers);
+      if (!more) {
+        // Diplomacy complete → advance to next phase
+        advancePhase(state, helpers);
+      }
+    }
+  }
+
+  /**
+   * Handle a spring deployment phase action.
+   * @private
+   */
+  _handleSpringDeploymentAction(state, power, actionType, actionData, helpers) {
+    if (actionType === ACTION_TYPES.SPRING_DEPLOY) {
+      executeSpringDeployment(state, power, actionData, helpers);
+    } else if (actionType === ACTION_TYPES.PASS) {
+      skipSpringDeployment(state, power);
+    }
+
+    if (isSpringDeploymentComplete(state)) {
+      advancePhase(state, helpers);
     }
   }
 

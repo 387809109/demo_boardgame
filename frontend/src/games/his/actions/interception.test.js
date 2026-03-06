@@ -15,6 +15,8 @@ function addUnits(state, space, power, regs = 1, leaders = []) {
 describe('checkInterceptions', () => {
   it('finds adjacent enemy stacks', () => {
     const state = createTestState();
+    // Declare war so interception is possible
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
     // Move ottoman from Istanbul to Edirne
     // Varna is adjacent to Edirne and has no units by default,
     // so place hapsburg units there

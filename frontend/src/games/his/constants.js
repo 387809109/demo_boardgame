@@ -473,3 +473,44 @@ export const EXCOMMUNICATION_SLOTS = [
   'luther', 'zwingli', 'cranmer', 'calvin',
   'henry_viii', 'francis_i', 'charles_v'
 ];
+
+// ── Declaration of War CP Costs ────────────────────────────────────
+// Cross-reference: DOW_COSTS[declarer][target] = CP cost
+// null = illegal DOW
+
+export const DOW_COSTS = {
+  ottoman:    { hapsburg: 4, england: 6, france: 5, papacy: 5, protestant: null },
+  hapsburg:   { ottoman: 4, england: 3, france: 3, papacy: 2, protestant: null },
+  england:    { ottoman: 6, hapsburg: 3, france: 2, papacy: 4, protestant: null },
+  france:     { ottoman: 5, hapsburg: 3, england: 2, papacy: 3, protestant: null },
+  papacy:     { ottoman: 5, hapsburg: 2, england: 4, france: 3, protestant: null },
+  protestant: { ottoman: null, hapsburg: null, england: null, france: null, papacy: null }
+};
+
+/** Minor power DOW always costs 1 CP */
+export const DOW_MINOR_COST = 1;
+
+// ── Intervention Costs ─────────────────────────────────────────────
+
+export const INTERVENTION_COSTS = {
+  scotland: { power: 'france', cost: 2 },
+  venice: { power: 'papacy', cost: 2 }
+};
+
+// ── Negotiation Limits ─────────────────────────────────────────────
+
+export const NEGOTIATION_LIMITS = {
+  maxCardDrawGifts: 2,
+  maxMercenaryGifts: 4
+};
+
+// ── Capital Spaces ─────────────────────────────────────────────────
+
+export const CAPITALS = {
+  ottoman: ['Istanbul'],
+  hapsburg: ['Vienna', 'Brussels'],
+  england: ['London'],
+  france: ['Paris'],
+  papacy: ['Rome'],
+  protestant: []
+};

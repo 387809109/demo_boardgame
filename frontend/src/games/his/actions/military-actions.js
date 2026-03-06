@@ -11,6 +11,7 @@ import {
   getUnitsInSpace, hasEnemyUnits,
   getFormationCap, countLandUnits, isHomeSpace
 } from '../state/state-helpers.js';
+import { areAtWar } from '../state/war-helpers.js';
 
 // ── Movement ──────────────────────────────────────────────────────
 
@@ -73,6 +74,19 @@ export function validateMoveFormation(state, power, actionData) {
   const cap = getFormationCap(moveLeaders);
   if (totalUnits > cap) {
     return { valid: false, error: `Exceeds formation cap (${totalUnits} > ${cap})` };
+  }
+
+  // War check: must be at war with any enemy in destination
+  if (hasEnemyUnits(state, to, power)) {
+    const enemyStacks = state.spaces[to].units.filter(
+      u => u.owner !== power && u.owner !== 'independent' &&
+        (u.regulars > 0 || u.mercenaries > 0 || u.cavalry > 0)
+    );
+    for (const es of enemyStacks) {
+      if (!areAtWar(state, power, es.owner)) {
+        return { valid: false, error: `Not at war with ${es.owner}` };
+      }
+    }
   }
 
   return { valid: true, cost };

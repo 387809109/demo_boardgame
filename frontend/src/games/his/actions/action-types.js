@@ -38,6 +38,17 @@ export const RELIGIOUS_ACTIONS = {
   FOUND_JESUIT: 'FOUND_JESUIT'
 };
 
+// ── Diplomacy Actions ────────────────────────────────────────────
+
+export const DIPLOMACY_ACTIONS = {
+  DECLARE_WAR: 'DECLARE_WAR',
+  SUE_FOR_PEACE: 'SUE_FOR_PEACE',
+  NEGOTIATE: 'NEGOTIATE',
+  RANSOM_LEADER: 'RANSOM_LEADER',
+  REMOVE_EXCOMMUNICATION: 'REMOVE_EXCOMMUNICATION',
+  SPRING_DEPLOY: 'SPRING_DEPLOY'
+};
+
 // ── Sub-Interaction Actions ───────────────────────────────────────
 
 export const SUB_ACTIONS = {
@@ -56,6 +67,7 @@ export const ACTION_TYPES = {
   ...CARD_ACTIONS,
   ...MILITARY_ACTIONS,
   ...RELIGIOUS_ACTIONS,
+  ...DIPLOMACY_ACTIONS,
   ...SUB_ACTIONS
 };
 

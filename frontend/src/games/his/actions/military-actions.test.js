@@ -80,6 +80,8 @@ describe('validateMoveFormation', () => {
   it('allows move into enemy-occupied space (triggers pendingBattle)', () => {
     const state = cpState();
     const helpers = createMockHelpers();
+    // Declare war so movement is legal
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
     // Put hapsburg units in Edirne
     state.spaces['Edirne'].units.push({
       owner: 'hapsburg', regulars: 1, mercenaries: 0,
