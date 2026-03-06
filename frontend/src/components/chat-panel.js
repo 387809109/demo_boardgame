@@ -8,6 +8,7 @@ import {
   sendChatMessage, fetchChatGames, isApiConfigured, ApiError
 } from '../utils/api-client.js';
 import { createSpinner } from './loading.js';
+import { trackEvent } from '../utils/analytics.js';
 
 /** Suggestion prompts per game */
 const GAME_SUGGESTIONS = {
@@ -223,6 +224,9 @@ export class ChatPanel {
     this._backdrop.style.display = 'flex';
     this._isOpen = true;
     document.body.style.overflow = 'hidden';
+    trackEvent('chat_panel_opened', {
+      game_id: this._selectedGameId || 'generic'
+    });
     this._inputEl.focus();
     if (!this._gamesLoaded) {
       this._loadGames();
@@ -270,6 +274,9 @@ export class ChatPanel {
       this._appendSystem('API 未配置。请在 .env 中设置 VITE_API_URL');
       return;
     }
+    trackEvent('chat_message_sent', {
+      game_id: this._selectedGameId || 'generic'
+    });
 
     // Add user message
     this._messages.push({ role: 'user', content: text });

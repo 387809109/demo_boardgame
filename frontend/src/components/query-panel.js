@@ -6,6 +6,8 @@
 
 import { fetchGames, isApiConfigured, ApiError } from '../utils/api-client.js';
 import { createSpinner } from './loading.js';
+import { trackEvent } from '../utils/analytics.js';
+import { getChatPanel, showChatPanel } from './chat-panel.js';
 
 /**
  * Query Panel for browsing game data from API
@@ -132,6 +134,7 @@ export class QueryPanel {
     this._backdrop.style.display = 'flex';
     this._isOpen = true;
     document.body.style.overflow = 'hidden';
+    trackEvent('query_panel_opened');
 
     await this._loadGames();
   }
@@ -284,6 +287,9 @@ export class QueryPanel {
    * @private
    */
   _createGameCard(game) {
+    const gameId = this._resolveGameId(game);
+    const isInteractive = Boolean(gameId);
+
     const card = document.createElement('div');
     card.className = 'game-query-card';
     card.style.cssText = `
@@ -292,8 +298,19 @@ export class QueryPanel {
       padding: var(--spacing-4);
       border: 1px solid var(--border-light);
       transition: box-shadow var(--transition-fast), transform var(--transition-fast);
-      cursor: default;
+      cursor: ${isInteractive ? 'pointer' : 'default'};
     `;
+
+    if (isInteractive) {
+      card.addEventListener('click', () => {
+        getChatPanel().setGameContext(gameId);
+        trackEvent('query_card_opened_chat', {
+          game_id: gameId,
+          source: 'query_panel'
+        });
+        showChatPanel();
+      });
+    }
 
     card.addEventListener('mouseenter', () => {
       card.style.boxShadow = 'var(--shadow-md)';
@@ -386,6 +403,22 @@ export class QueryPanel {
     }
 
     return card;
+  }
+
+  /**
+   * Resolve game id for chat context, supporting API variations
+   * @param {Object} game
+   * @returns {string}
+   * @private
+   */
+  _resolveGameId(game) {
+    if (typeof game?.gameId === 'string' && game.gameId.trim()) {
+      return game.gameId.trim();
+    }
+    if (typeof game?.id === 'string' && game.id.trim()) {
+      return game.id.trim();
+    }
+    return '';
   }
 
   /**

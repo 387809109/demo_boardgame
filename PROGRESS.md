@@ -1,6 +1,6 @@
 # 项目进度报告
 
-> 最后更新: 2026-02-27
+> 最后更新: 2026-03-01
 
 ---
 
@@ -285,6 +285,7 @@
 | T-A040~T-A046 | 单元测试（21 tests） | ✅ |
 | T-AC001~T-AC006 | AI 规则问答 Step 1（29 tests） | ✅ |
 | T-AC009~T-AC013 | AI 规则问答 Step 2 (RAG-lite, 49 tests) | 🔶 代码完成，待手动测试 |
+| T-AN001~T-AN011 | Analytics MVP（Vercel + Render） | 🔶 前端埋点完成，平台指标/告警与生产验证待完成 |
 | T-A050~T-A058 | 卡牌数据填充 | ⬜ |
 | T-A060~T-A066 | AI/MCP 接口 | ⬜ |
 
@@ -307,9 +308,19 @@
 | `GET /api/v1/chat/:sessionId` | - | 获取对话历史 |
 | `DELETE /api/v1/chat/:sessionId` | - | 删除对话会话 |
 
+### Planning Checkpoint (2026-03-01)
+
+- 🔶 tRPC migration plan drafted and indexed — `docs/prd/api/TRPC_REFACTOR_PLAN.md`
+  - 状态: planning-complete / implementation-pending
+- 🔶 Analytics MVP plan drafted and indexed — `docs/prd/api/ANALYTICS_MVP_PLAN.md`
+  - 状态: planning-complete / implementation-in-progress
+
 ### 待办
 
 - T-AC014：AI 规则问答 Step 2 — 手动端到端测试（启动 API + 前端，验证规则注入效果）
+- T-AN006~T-AN008：Render/Supabase 平台指标基线与告警配置
+- T-AN010：Vercel 生产环境埋点事件可见性验证
+- T-AN011：Analytics 周度复盘模板与固定节奏
 - T-A050~T-A058：卡牌数据填充 (按游戏分别实现)
 - T-A060~T-A066：AI/MCP 接口实现
 
@@ -431,6 +442,18 @@
 ---
 
 ## 最近完成的任务
+
+### 2026-03-01
+
+- 🔶 Analytics MVP 实现启动（Vercel built-in analytics）
+  - 新增 `frontend/src/utils/analytics.js`，统一封装 `initAnalytics` / `trackEvent` / consent gating
+  - 新增设置项 `config.analytics.enabled` 与设置面板隐私开关（默认关闭）
+  - 新增环境变量 `VITE_ANALYTICS_ENABLED`（默认 `false`）
+  - 已接入事件：`app_opened`、`lobby_viewed`、`mode_selected`、`game_selected`、`game_started`、`game_ended`
+  - 已接入联机/稳定性事件：房间创建/加入、网络断开、重连尝试/成功/失败
+  - 已接入功能使用事件：`chat_panel_opened`、`chat_message_sent`、`query_panel_opened`
+  - 验证通过：`npm --prefix frontend run build`、`npm --prefix frontend run test`（767 tests）
+  - 待完成：Render 指标告警配置与 Vercel 生产环境事件可见性验证
 
 ### 2026-02-27
 

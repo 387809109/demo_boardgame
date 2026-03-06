@@ -18,6 +18,7 @@
 | Phase A7: AI/MCP 接口 | ⬜ 待开发 | AI 分析、走法建议、MCP 工具 |
 | Phase AC1~AC3: AI 对话 Step 1 | ✅ 完成 | AI 规则问答核心 (50 个测试通过) |
 | Phase AC4: AI 对话 Step 2 | 🔶 代码完成 | 规则知识库增强 (RAG-lite)，49 个新测试通过，待手动测试 |
+| Phase AN: Analytics MVP | 🔶 进行中 | Vercel 前端埋点已落地，Render/Supabase 平台指标和告警待配置 |
 
 ---
 
@@ -214,12 +215,45 @@
 
 ---
 
+## Phase AN: Analytics MVP（Vercel + Render）🔶 进行中
+
+> 设计方案: `docs/prd/api/ANALYTICS_MVP_PLAN.md`
+
+### AN1: 前端埋点基础（Vercel Analytics）
+
+- [x] **T-AN001** 安装 `@vercel/analytics` 并创建统一埋点封装 `frontend/src/utils/analytics.js`
+- [x] **T-AN002** 增加埋点开关与用户同意机制
+  - `frontend/.env.example` 增加 `VITE_ANALYTICS_ENABLED`
+  - `frontend/src/utils/storage.js` 增加 `config.analytics.enabled`
+  - `frontend/src/layout/settings-panel.js` 增加隐私设置开关
+- [x] **T-AN003** 接入应用生命周期事件
+  - `app_opened`, `lobby_viewed`, `mode_selected`, `game_selected`, `game_started`, `game_ended`
+- [x] **T-AN004** 接入联机/网络可靠性事件
+  - `room_create_attempted/succeeded`, `room_join_attempted/succeeded`
+  - `network_disconnected`, `reconnect_attempted/succeeded/failed`
+- [x] **T-AN005** 接入功能使用事件
+  - `chat_panel_opened`, `chat_message_sent`, `query_panel_opened`
+
+### AN2: 平台指标基线（Render + Supabase）
+
+- [ ] **T-AN006** 配置 Render API 基线指标面板（请求数、P95 延迟、错误率）
+- [ ] **T-AN007** 配置 Render 告警阈值（错误率、延迟、服务不可用）
+- [ ] **T-AN008** 建立 Supabase Realtime/Auth 健康检查清单与巡检流程
+
+### AN3: 验证与发布门禁
+
+- [x] **T-AN009** 前端埋点回归验证（`npm --prefix frontend run build` + `npm --prefix frontend run test`）
+- [ ] **T-AN010** 在 Vercel 生产环境验证自定义事件可见性与字段合规
+- [ ] **T-AN011** 建立每周 Analytics Review 模板（5 个 MVP 问题对照）
+
+---
+
 ## 优先级说明
 
 | 优先级 | 说明 |
 |--------|------|
 | P0 | 核心功能，已完成 |
-| P1 | 卡牌数据填充，提升 API 实用性 |
+| P1 | 卡牌数据填充 + Analytics MVP 落地，提升可用性与可观测性 |
 | P2 | AI/MCP 接口，扩展功能 |
 
 ---
@@ -232,4 +266,6 @@ Phase A1~A5 (已完成)
 Phase A6: 卡牌数据
     ↓
 Phase A7: AI/MCP (可并行开发)
+
+Phase AN: Analytics MVP (可与 A6/A7 并行)
 ```
