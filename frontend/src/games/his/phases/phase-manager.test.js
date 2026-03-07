@@ -10,12 +10,16 @@ import { IMPULSE_ORDER } from '../constants.js';
 import { createTestState, createMockHelpers } from '../test-helpers.js';
 
 describe('getPhaseOrder', () => {
-  it('turn 1 has 8 phases', () => {
-    expect(getPhaseOrder(1)).toHaveLength(8);
+  it('turn 1 has 9 phases (includes luther_95 and diet_of_worms)', () => {
+    expect(getPhaseOrder(1)).toHaveLength(9);
   });
 
   it('turn 1 includes diet_of_worms', () => {
     expect(getPhaseOrder(1)).toContain('diet_of_worms');
+  });
+
+  it('turn 1 starts with luther_95', () => {
+    expect(getPhaseOrder(1)[0]).toBe('luther_95');
   });
 
   it('turn 2 has 7 phases', () => {
@@ -26,8 +30,7 @@ describe('getPhaseOrder', () => {
     expect(getPhaseOrder(2)).not.toContain('diet_of_worms');
   });
 
-  it('first phase is always card_draw', () => {
-    expect(getPhaseOrder(1)[0]).toBe('card_draw');
+  it('first phase is card_draw for non-turn-1', () => {
     expect(getPhaseOrder(2)[0]).toBe('card_draw');
     expect(getPhaseOrder(5)[0]).toBe('card_draw');
   });

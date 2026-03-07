@@ -9,11 +9,15 @@ import { IMPULSE_ORDER, VICTORY, CAPITALS } from '../constants.js';
 import { executeCardDraw } from './phase-card-draw.js';
 import { initDiplomacyPhase } from './phase-diplomacy.js';
 import { initSpringDeployment } from './phase-spring-deployment.js';
+import { executeLuther95 } from './phase-luther95.js';
+import { initDietOfWorms } from './phase-diet-of-worms.js';
+import { resolveNewWorld } from './phase-new-world.js';
 import { getUnitsInSpace } from '../state/state-helpers.js';
 
 // ── Phase Constants ────────────────────────────────────────────────
 
 export const PHASES = {
+  LUTHER_95: 'luther_95',
   CARD_DRAW: 'card_draw',
   DIPLOMACY: 'diplomacy',
   DIET_OF_WORMS: 'diet_of_worms',
@@ -25,6 +29,7 @@ export const PHASES = {
 };
 
 const PHASE_ORDER_TURN_1 = [
+  PHASES.LUTHER_95,
   PHASES.CARD_DRAW,
   PHASES.DIPLOMACY,
   PHASES.DIET_OF_WORMS,
@@ -102,11 +107,22 @@ export function transitionPhase(state, toPhase, helpers) {
       initSpringDeployment(state, helpers);
       break;
 
+    case PHASES.LUTHER_95:
+      executeLuther95(state, helpers);
+      break;
+
+    case PHASES.DIET_OF_WORMS:
+      initDietOfWorms(state, helpers);
+      break;
+
+    case PHASES.NEW_WORLD:
+      resolveNewWorld(state, helpers);
+      break;
+
     case PHASES.VICTORY_DETERMINATION:
       // VP check happens in checkGameEnd, not here
       break;
 
-    // Stub phases: diet_of_worms, new_world
     default:
       break;
   }

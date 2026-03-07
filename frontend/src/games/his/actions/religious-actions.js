@@ -35,7 +35,7 @@ export function rollDice(n) {
  * @param {number[]} dice
  * @returns {number}
  */
-function maxDie(dice) {
+export function maxDie(dice) {
   return Math.max(...dice);
 }
 

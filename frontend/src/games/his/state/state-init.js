@@ -173,6 +173,28 @@ export function buildInitialState(players, options = {}) {
     printingPressActive: false,
     wartburgActive: false,
 
+    // New World
+    newWorld: {
+      underwayExplorations: [],
+      underwayConquests: [],
+      underwayColonies: [],
+      colonies: [],
+      conquests: [],
+      claimedDiscoveries: [],
+      claimedConquests: [],
+      placedExplorers: [],
+      placedConquistadors: [],
+      deadExplorers: [],
+      deadConquistadors: [],
+      exploredThisTurn: {},
+      colonizedThisTurn: {},
+      conqueredThisTurn: {}
+    },
+
+    // Turn 1 tracking
+    lutherPlaced: false,
+    pendingDietOfWorms: null,
+
     // Meta
     eventLog: []
   };

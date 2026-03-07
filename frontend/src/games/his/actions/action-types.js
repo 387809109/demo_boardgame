@@ -49,6 +49,20 @@ export const DIPLOMACY_ACTIONS = {
   SPRING_DEPLOY: 'SPRING_DEPLOY'
 };
 
+// ── New World Actions ──────────────────────────────────────────────
+
+export const NEW_WORLD_ACTIONS = {
+  EXPLORE: 'EXPLORE',
+  COLONIZE: 'COLONIZE',
+  CONQUER: 'CONQUER'
+};
+
+// ── Diet of Worms Actions ─────────────────────────────────────────
+
+export const DIET_ACTIONS = {
+  SUBMIT_DIET_CARD: 'SUBMIT_DIET_CARD'
+};
+
 // ── Sub-Interaction Actions ───────────────────────────────────────
 
 export const SUB_ACTIONS = {
@@ -68,6 +82,8 @@ export const ACTION_TYPES = {
   ...MILITARY_ACTIONS,
   ...RELIGIOUS_ACTIONS,
   ...DIPLOMACY_ACTIONS,
+  ...NEW_WORLD_ACTIONS,
+  ...DIET_ACTIONS,
   ...SUB_ACTIONS
 };
 
@@ -89,7 +105,10 @@ export const ACTION_COST_KEY = {
   CALL_DEBATE: 'call_debate',
   BUILD_ST_PETERS: 'build_st_peters',
   BURN_BOOKS: 'burn_books',
-  FOUND_JESUIT: 'found_jesuit'
+  FOUND_JESUIT: 'found_jesuit',
+  EXPLORE: 'explore',
+  COLONIZE: 'colonize',
+  CONQUER: 'conquer'
 };
 
 /**

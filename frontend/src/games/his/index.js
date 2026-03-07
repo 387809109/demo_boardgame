@@ -78,6 +78,16 @@ import {
   isSpringDeploymentComplete, skipSpringDeployment
 } from './phases/phase-spring-deployment.js';
 
+// New World actions
+import {
+  validateExplore, executeExplore,
+  validateColonize, executeColonize,
+  validateConquer, executeConquer
+} from './actions/new-world-actions.js';
+
+// Diet of Worms
+import { submitDietCard } from './phases/phase-diet-of-worms.js';
+
 export { PHASES, ACTION_TYPES };
 
 /** CP action dispatch table: actionType → { validate, execute } */
@@ -131,6 +141,19 @@ const CP_ACTION_HANDLERS = {
   },
   [ACTION_TYPES.CALL_DEBATE]: {
     validate: validateCallDebate, execute: callDebate
+  },
+  // New World
+  [ACTION_TYPES.EXPLORE]: {
+    validate: (state, power) => validateExplore(state, power),
+    execute: (state, power, _data, helpers) => executeExplore(state, power, helpers)
+  },
+  [ACTION_TYPES.COLONIZE]: {
+    validate: (state, power) => validateColonize(state, power),
+    execute: (state, power, _data, helpers) => executeColonize(state, power, helpers)
+  },
+  [ACTION_TYPES.CONQUER]: {
+    validate: (state, power) => validateConquer(state, power),
+    execute: (state, power, _data, helpers) => executeConquer(state, power, helpers)
   }
 };
 
@@ -164,9 +187,11 @@ export class HISGame extends GameEngine {
     const { players, options = {} } = gameConfig;
     const state = buildInitialState(players, options);
 
-    // Run the first card draw phase
+    // Run Turn 1: Luther's 95 Theses (automatic), then card draw
     const helpers = this._getPhaseHelpers();
-    transitionPhase(state, PHASES.CARD_DRAW, helpers);
+    transitionPhase(state, PHASES.LUTHER_95, helpers);
+    // Luther's 95 Theses is fully automatic — advance to card draw
+    advancePhase(state, helpers);
 
     return state;
   }
@@ -221,6 +246,25 @@ export class HISGame extends GameEngine {
         default:
           return { valid: false, error: `Invalid action for diplomacy phase: ${actionType}` };
       }
+    }
+
+    // Diet of Worms phase actions
+    if (state.phase === PHASES.DIET_OF_WORMS) {
+      if (actionType === ACTION_TYPES.SUBMIT_DIET_CARD) {
+        const validPowers = ['protestant', 'hapsburg', 'papacy'];
+        if (!validPowers.includes(power)) {
+          return { valid: false, error: 'Only Protestant, Hapsburg, and Papacy participate' };
+        }
+        if (state.pendingDietOfWorms?.cards[power] != null) {
+          return { valid: false, error: 'Already submitted a card' };
+        }
+        const cardNumber = actionData?.cardNumber;
+        if (!cardNumber || !state.hands[power].includes(cardNumber)) {
+          return { valid: false, error: 'Card not in hand' };
+        }
+        return { valid: true };
+      }
+      return { valid: false, error: `Invalid action for Diet of Worms: ${actionType}` };
     }
 
     // Spring deployment phase actions
@@ -350,6 +394,19 @@ export class HISGame extends GameEngine {
     // Diplomacy phase actions
     if (newState.phase === PHASES.DIPLOMACY) {
       this._handleDiplomacyAction(newState, power, actionType, actionData, helpers);
+      newState.turnNumber++;
+      return newState;
+    }
+
+    // Diet of Worms phase actions
+    if (newState.phase === PHASES.DIET_OF_WORMS) {
+      if (actionType === ACTION_TYPES.SUBMIT_DIET_CARD) {
+        const result = submitDietCard(newState, power, actionData.cardNumber, helpers);
+        // If all 3 powers have submitted, diet resolves and advances
+        if (result.resolved) {
+          advancePhase(newState, helpers);
+        }
+      }
       newState.turnNumber++;
       return newState;
     }

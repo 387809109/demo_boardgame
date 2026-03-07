@@ -514,3 +514,95 @@ export const CAPITALS = {
   papacy: ['Rome'],
   protestant: []
 };
+
+// ── New World ─────────────────────────────────────────────────────
+
+export const NEW_WORLD_POWERS = ['england', 'france', 'hapsburg'];
+
+/** Max colonies per power */
+export const COLONY_LIMITS = {
+  england: 2,
+  france: 2,
+  hapsburg: 3
+};
+
+/**
+ * Exploration results by modified 2d6 roll.
+ * Ranges: <=4 lost, 5-6 nothing, 7-9 discovery, 10+ deep penetration
+ */
+export const EXPLORATION_RESULTS = {
+  LOST: 'lost',           // <= 4
+  NO_DISCOVERY: 'none',   // 5–6
+  DISCOVERY: 'discovery', // 7–9
+  DEEP: 'deep'            // 10+
+};
+
+export function getExplorationResult(roll) {
+  if (roll <= 4) return EXPLORATION_RESULTS.LOST;
+  if (roll <= 6) return EXPLORATION_RESULTS.NO_DISCOVERY;
+  if (roll <= 9) return EXPLORATION_RESULTS.DISCOVERY;
+  return EXPLORATION_RESULTS.DEEP;
+}
+
+/**
+ * Discoveries in order (index 7–9 match die roll).
+ * Deep penetration (10+) gives choice.
+ */
+export const DISCOVERIES = [
+  null, null, null, null, null, null, null,
+  { id: 'st_lawrence', name: 'St. Lawrence River', vp: 1 },
+  { id: 'great_lakes', name: 'Great Lakes', vp: 1 },
+  { id: 'mississippi', name: 'Mississippi River', vp: 1 }
+];
+
+export const AMAZON = { id: 'amazon', name: 'Amazon River', vp: 2 };
+export const PACIFIC_STRAIT = { id: 'pacific_strait', name: 'Pacific Strait', vp: 1 };
+export const CIRCUMNAVIGATION = { id: 'circumnavigation', name: 'Circumnavigation', vp: 2 };
+
+/**
+ * Circumnavigation results by modified 2d6 roll.
+ * <=9: failure (explorer removed), 10-11: success, 12+: success + card
+ */
+export function getCircumnavigationResult(roll) {
+  if (roll <= 9) return 'failure';
+  if (roll <= 11) return 'success';
+  return 'success_card';
+}
+
+/**
+ * Conquest results by modified 2d6 roll.
+ * <=6: killed, 7-8: nothing, 9+: conquest
+ */
+export const CONQUEST_RESULTS = {
+  KILLED: 'killed',
+  NO_CONQUEST: 'none',
+  CONQUEST: 'conquest'
+};
+
+export function getConquestResult(roll) {
+  if (roll <= 6) return CONQUEST_RESULTS.KILLED;
+  if (roll <= 8) return CONQUEST_RESULTS.NO_CONQUEST;
+  return CONQUEST_RESULTS.CONQUEST;
+}
+
+/**
+ * Conquests in order (index 9–11 match die roll).
+ */
+export const CONQUESTS = [
+  null, null, null, null, null, null, null, null, null,
+  { id: 'inca', name: 'Inca Empire', vp: 2 },
+  { id: 'aztec', name: 'Aztec Empire', vp: 2 },
+  { id: 'maya', name: 'Maya', vp: 1 }
+];
+
+/**
+ * New World Riches table (2d6 per colony/conquest during Card Draw).
+ * Colony column vs Conquest column differ.
+ */
+export const RICHES_RESULTS = {
+  DEPLETE: 'deplete',
+  CARD: 'card',
+  GALLEON: 'galleon',
+  NONE: 'none',
+  ELIMINATED: 'eliminated'
+};
