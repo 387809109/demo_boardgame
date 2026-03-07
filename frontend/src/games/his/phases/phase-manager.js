@@ -5,14 +5,14 @@
  * transitions between phases, and turn advancement.
  */
 
-import { IMPULSE_ORDER, VICTORY, CAPITALS } from '../constants.js';
+import { IMPULSE_ORDER, VICTORY } from '../constants.js';
 import { executeCardDraw } from './phase-card-draw.js';
 import { initDiplomacyPhase } from './phase-diplomacy.js';
 import { initSpringDeployment } from './phase-spring-deployment.js';
 import { executeLuther95 } from './phase-luther95.js';
 import { initDietOfWorms } from './phase-diet-of-worms.js';
 import { resolveNewWorld } from './phase-new-world.js';
-import { getUnitsInSpace } from '../state/state-helpers.js';
+import { executeWinter } from './phase-winter.js';
 
 // ── Phase Constants ────────────────────────────────────────────────
 
@@ -161,72 +161,6 @@ function advanceTurn(state, helpers) {
 
   // Start new turn with card draw
   transitionPhase(state, PHASES.CARD_DRAW, helpers);
-}
-
-/**
- * Winter phase — resets per-turn state, removes alliances,
- * adds 1 regular to each power's friendly-controlled capital.
- */
-function executeWinter(state, helpers) {
-  // Reset augsburg confession marker
-  state.augsburgConfessionActive = false;
-
-  // Reset all debaters to uncommitted
-  for (const side of ['papal', 'protestant']) {
-    if (state.debaters[side]) {
-      for (const d of state.debaters[side]) {
-        d.committed = false;
-      }
-    }
-  }
-
-  // Clear any leftover pending interactions
-  state.pendingReformation = null;
-  state.pendingDebate = null;
-  state.pendingBattle = null;
-  state.pendingInterception = null;
-  state.cpRemaining = 0;
-  state.activeCardNumber = null;
-  state.impulseActions = [];
-
-  // Reset per-turn combat tracking
-  state.piracyUsed = {};
-
-  // Remove all alliances (alliances last one turn)
-  state.alliances = [];
-
-  // Reset diplomacy per-turn tracking
-  state.peaceMadeThisTurn = [];
-  state.alliancesFormedThisTurn = [];
-  state.diplomacySegment = null;
-  state.diplomacyActed = {};
-  state.springDeploymentDone = {};
-
-  // Add 1 regular to each power's friendly-controlled, non-besieged capital
-  for (const [power, caps] of Object.entries(CAPITALS)) {
-    for (const cap of caps) {
-      const sp = state.spaces[cap];
-      if (!sp) continue;
-      if (sp.controller !== power) continue;
-      if (sp.besieged) continue;
-      if (sp.unrest) continue;
-
-      let stack = null;
-      for (const u of sp.units) {
-        if (u.owner === power) { stack = u; break; }
-      }
-      if (!stack) {
-        stack = {
-          owner: power, regulars: 0, mercenaries: 0,
-          cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
-        };
-        sp.units.push(stack);
-      }
-      stack.regulars += 1;
-    }
-  }
-
-  helpers.logEvent(state, 'winter', { turn: state.turn });
 }
 
 /**

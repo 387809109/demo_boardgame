@@ -191,6 +191,11 @@ export function buildInitialState(players, options = {}) {
       conqueredThisTurn: {}
     },
 
+    // Excommunication
+    excommunicatedReformers: [],  // reformer IDs removed this turn (return next turn)
+    excommunicatedRulers: {},     // { [power]: true } — persists until removed
+    mandatoryEventsPlayed: [],    // card numbers of mandatory events already resolved
+
     // Turn 1 tracking
     lutherPlaced: false,
     pendingDietOfWorms: null,

@@ -105,6 +105,7 @@ export const CARDS = [
     availableTurn: 1,
     category: 'MANDATORY',
     removeAfterPlay: true,
+    dueByTurn: 3,
     description: "Algiers space is now in play. Add an Ottoman square control marker, 2 Ottoman regulars, 2 corsairs, and Barbarossa to that space. Ottomans may now build corsairs and initiate piracy."
   },
   {
@@ -115,6 +116,7 @@ export const CARDS = [
     availableTurn: 1,
     category: 'MANDATORY',
     removeAfterPlay: false,
+    dueByTurn: 2,
     description: "Leo X dies. Clement VII replaces Leo as the ruler of the Papacy. Place this card in the ruler space of the Papal power card. Admin Rating: Save 1 card. Card Bonus: No extra cards."
   },
   {
@@ -145,6 +147,7 @@ export const CARDS = [
     availableTurn: 1,
     category: 'MANDATORY',
     removeAfterPlay: true,
+    dueByTurn: 4,
     description: "If it is Turn 2 or later and 12 or more spaces are currently under Protestant religious influence OR this is the Winter Phase of Turn 4, the Protestant defense league is formed as specified in 21.6. Protestant spaces in unrest count towards the total of 12."
   },
   {
@@ -155,6 +158,7 @@ export const CARDS = [
     availableTurn: 3,
     category: 'MANDATORY',
     removeAfterPlay: false,
+    dueByTurn: 4,
     description: "Clement VII dies; remove his card from game. Place this card in the ruler space of the Papal power card. Papacy now wins ties during Counter Reformation attempts. Admin Rating: Save 1 card. Card Bonus: 1 extra card."
   },
   {
@@ -165,6 +169,7 @@ export const CARDS = [
     availableTurn: 5,
     category: 'MANDATORY',
     removeAfterPlay: true,
+    dueByTurn: 6,
     description: "Papal player may choose 2 spaces under Catholic religious influence anywhere on the map and place a Jesuit University in each space. The Papal player may now found Jesuit universities."
   },
   {

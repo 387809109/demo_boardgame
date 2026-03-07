@@ -88,6 +88,9 @@ import {
 // Diet of Worms
 import { submitDietCard } from './phases/phase-diet-of-worms.js';
 
+// Event cards
+import { executeEvent, validateEvent } from './actions/event-actions.js';
+
 export { PHASES, ACTION_TYPES };
 
 /** CP action dispatch table: actionType → { validate, execute } */
@@ -373,6 +376,11 @@ export class HISGame extends GameEngine {
         if (!cardNumber || !state.hands[power].includes(cardNumber)) {
           return { valid: false, error: 'Card not in hand' };
         }
+        // Validate event-specific constraints
+        if (actionType === ACTION_TYPES.PLAY_CARD_EVENT) {
+          const eventCheck = validateEvent(state, power, cardNumber, actionData);
+          if (!eventCheck.valid) return eventCheck;
+        }
       }
     }
 
@@ -428,8 +436,7 @@ export class HISGame extends GameEngine {
         break;
 
       case ACTION_TYPES.PLAY_CARD_EVENT:
-        // Stub: treat same as CP play for now (events in Phase 6)
-        this._handlePlayCardCp(newState, power, actionData, helpers);
+        this._handlePlayCardEvent(newState, power, actionData, helpers);
         break;
 
       case ACTION_TYPES.END_IMPULSE:
@@ -545,6 +552,54 @@ export class HISGame extends GameEngine {
     // If card has 0 CP, auto-end impulse
     if (cp === 0) {
       this._handleEndImpulse(state, power, helpers);
+    }
+  }
+
+  /**
+   * Handle playing a card for its event effect.
+   * @private
+   */
+  _handlePlayCardEvent(state, power, actionData, helpers) {
+    const { cardNumber } = actionData;
+    const hand = state.hands[power];
+    const cardIndex = hand.indexOf(cardNumber);
+
+    if (cardIndex === -1) return;
+
+    // Remove card from hand
+    hand.splice(cardIndex, 1);
+
+    // Determine where the card goes
+    const card = CARD_BY_NUMBER[cardNumber];
+    if (card && card.deck === 'home') {
+      state.homeCardPlayed[power] = true;
+    } else if (card && card.removeAfterPlay) {
+      state.removedCards.push(cardNumber);
+    } else {
+      state.discard.push(cardNumber);
+    }
+
+    // Track mandatory events
+    if (card && card.category === 'MANDATORY') {
+      state.mandatoryEventsPlayed.push(cardNumber);
+    }
+
+    // Reset consecutive passes
+    state.consecutivePasses = 0;
+
+    helpers.logEvent(state, 'play_card_event', {
+      power, cardNumber, title: card?.title
+    });
+
+    // Execute the event
+    const result = executeEvent(state, power, cardNumber, actionData, helpers);
+
+    // If event grants CP, enter CP spending mode
+    if (result?.grantCp) {
+      startCpSpending(state, cardNumber, result.grantCp);
+    } else {
+      // Event-only card — end impulse
+      advanceImpulse(state);
     }
   }
 

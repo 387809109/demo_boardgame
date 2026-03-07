@@ -49,6 +49,13 @@ export const DIPLOMACY_ACTIONS = {
   SPRING_DEPLOY: 'SPRING_DEPLOY'
 };
 
+// ── Excommunication Actions ───────────────────────────────────────
+
+export const EXCOMMUNICATION_ACTIONS = {
+  EXCOMMUNICATE_REFORMER: 'EXCOMMUNICATE_REFORMER',
+  EXCOMMUNICATE_RULER: 'EXCOMMUNICATE_RULER'
+};
+
 // ── New World Actions ──────────────────────────────────────────────
 
 export const NEW_WORLD_ACTIONS = {
@@ -82,6 +89,7 @@ export const ACTION_TYPES = {
   ...MILITARY_ACTIONS,
   ...RELIGIOUS_ACTIONS,
   ...DIPLOMACY_ACTIONS,
+  ...EXCOMMUNICATION_ACTIONS,
   ...NEW_WORLD_ACTIONS,
   ...DIET_ACTIONS,
   ...SUB_ACTIONS

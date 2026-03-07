@@ -531,3 +531,89 @@ export function recountProtestantSpaces(state) {
   }
   state.protestantSpaces = count;
 }
+
+// ── Winter Phase Helpers ──────────────────────────────────────────
+
+/**
+ * BFS to find a friendly path between two land spaces.
+ * All intermediate spaces must be friendly-controlled and unrest-free.
+ * (Enemy units are ignored per Winter rules.)
+ * @param {Object} state
+ * @param {string} from
+ * @param {string} to
+ * @param {string} power
+ * @param {string[]} [alliedPowers] - Powers treated as friendly
+ * @returns {string[]|null} Path array (including from & to), or null
+ */
+export function findFriendlyPath(state, from, to, power, alliedPowers = []) {
+  if (from === to) return [from];
+  const friendly = new Set([power, ...alliedPowers]);
+
+  const visited = new Set([from]);
+  const queue = [[from]];
+
+  while (queue.length > 0) {
+    const path = queue.shift();
+    const current = path[path.length - 1];
+    const neighbors = getAllAdjacentSpaces(current);
+
+    for (const next of neighbors) {
+      if (visited.has(next)) continue;
+      visited.add(next);
+
+      if (next === to) return [...path, next];
+
+      // Intermediate spaces must be friendly-controlled and unrest-free
+      const sp = state.spaces[next];
+      if (!sp) continue;
+      if (!friendly.has(sp.controller)) continue;
+      if (sp.unrest) continue;
+
+      queue.push([...path, next]);
+    }
+  }
+  return null;
+}
+
+/**
+ * Find the nearest fortified space controlled by the given power.
+ * @param {Object} state
+ * @param {string} from
+ * @param {string} power
+ * @param {string[]} [alliedPowers]
+ * @returns {string|null}
+ */
+export function findNearestFortifiedSpace(state, from, power, alliedPowers = []) {
+  const friendly = new Set([power, ...alliedPowers]);
+  const visited = new Set([from]);
+  const queue = [from];
+
+  // Check 'from' itself
+  const fromSp = state.spaces[from];
+  if (fromSp && fromSp.isFortress && friendly.has(fromSp.controller)) {
+    return from;
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    const neighbors = getAllAdjacentSpaces(current);
+
+    for (const next of neighbors) {
+      if (visited.has(next)) continue;
+      visited.add(next);
+
+      const sp = state.spaces[next];
+      if (!sp) continue;
+
+      if (sp.isFortress && friendly.has(sp.controller) && !sp.unrest) {
+        return next;
+      }
+
+      // Can traverse friendly spaces
+      if (friendly.has(sp.controller) && !sp.unrest) {
+        queue.push(next);
+      }
+    }
+  }
+  return null;
+}
