@@ -366,3 +366,204 @@ function removeDebater(state, side, debaterId) {
   const idx = debaters.findIndex(d => d.id === debaterId);
   if (idx !== -1) debaters.splice(idx, 1);
 }
+
+// ── Council of Trent ────────────────────────────────────────────
+
+/**
+ * Validate debater selection for Council of Trent.
+ * @param {Object} state
+ * @param {string} power - 'papacy' or 'protestant'
+ * @param {Object} actionData - { debaterIds: string[] }
+ * @returns {{ valid: boolean, error?: string }}
+ */
+export function validateCouncilChoice(state, power, actionData) {
+  const council = state.pendingCouncilOfTrent;
+  if (!council) return { valid: false, error: 'No pending Council of Trent' };
+
+  const { debaterIds } = actionData;
+  if (!debaterIds || !Array.isArray(debaterIds)) {
+    return { valid: false, error: 'Must specify debaterIds array' };
+  }
+
+  if (council.phase === 'papacy_choose') {
+    if (power !== 'papacy') {
+      return { valid: false, error: 'Papacy must choose debaters first' };
+    }
+    if (debaterIds.length > council.maxPapacy) {
+      return { valid: false, error: `Cannot select more than ${council.maxPapacy} debaters` };
+    }
+    if (debaterIds.length === 0) {
+      return { valid: false, error: 'Must select at least 1 debater' };
+    }
+    // Verify all are available papal debaters
+    for (const id of debaterIds) {
+      const d = (state.debaters.papal || []).find(dd => dd.id === id);
+      if (!d) return { valid: false, error: `Debater "${id}" not available` };
+    }
+    return { valid: true };
+  }
+
+  if (council.phase === 'protestant_choose') {
+    if (power !== 'protestant') {
+      return { valid: false, error: 'Protestant must choose debaters now' };
+    }
+    if (debaterIds.length > council.maxProtestant) {
+      return { valid: false, error: `Cannot select more than ${council.maxProtestant} debaters` };
+    }
+    if (debaterIds.length === 0) {
+      return { valid: false, error: 'Must select at least 1 debater' };
+    }
+    for (const id of debaterIds) {
+      const d = (state.debaters.protestant || []).find(dd => dd.id === id);
+      if (!d) return { valid: false, error: `Debater "${id}" not available` };
+    }
+    return { valid: true };
+  }
+
+  return { valid: false, error: `Invalid Council phase: ${council.phase}` };
+}
+
+/**
+ * Execute debater selection for Council of Trent.
+ */
+export function executeCouncilChoice(state, power, actionData, helpers) {
+  const council = state.pendingCouncilOfTrent;
+  const { debaterIds } = actionData;
+
+  if (council.phase === 'papacy_choose') {
+    council.papacyDebaters = debaterIds;
+    // Mark as committed
+    for (const id of debaterIds) {
+      markCommitted(state, 'papal', id);
+    }
+    council.phase = 'protestant_choose';
+    helpers.logEvent(state, 'council_papacy_choose', { debaterIds });
+    return;
+  }
+
+  if (council.phase === 'protestant_choose') {
+    council.protestantDebaters = debaterIds;
+    for (const id of debaterIds) {
+      markCommitted(state, 'protestant', id);
+    }
+    council.phase = 'resolve';
+    council.round = 1;
+    council.papacyWins = 0;
+    council.protestantWins = 0;
+    council.totalRounds = 3;
+    helpers.logEvent(state, 'council_protestant_choose', { debaterIds });
+    return;
+  }
+}
+
+/**
+ * Resolve one round of the Council of Trent debate.
+ * Each side rolls dice = sum of debater values. Hits on 5+.
+ * Side with more hits wins the round.
+ * @param {Object} state
+ * @param {Object} helpers
+ * @returns {Object} Round result
+ */
+export function resolveCouncilRound(state, helpers) {
+  const council = state.pendingCouncilOfTrent;
+  if (!council || council.phase !== 'resolve') {
+    return { error: 'Council not in resolve phase' };
+  }
+
+  // Calculate dice for each side
+  let papacyDice = 0;
+  for (const id of council.papacyDebaters) {
+    const def = getDebaterDef(id);
+    if (def) papacyDice += def.value;
+  }
+
+  let protestantDice = 0;
+  for (const id of council.protestantDebaters) {
+    const def = getDebaterDef(id);
+    if (def) protestantDice += def.value;
+  }
+
+  papacyDice = Math.max(papacyDice, 1);
+  protestantDice = Math.max(protestantDice, 1);
+
+  const papacyRolls = rollDice(papacyDice);
+  const protestantRolls = rollDice(protestantDice);
+
+  const papacyHits = papacyRolls.filter(d => d >= DEBATE.hitThreshold).length;
+  const protestantHits = protestantRolls.filter(
+    d => d >= DEBATE.hitThreshold).length;
+
+  let roundWinner = 'tie';
+  if (papacyHits > protestantHits) {
+    roundWinner = 'papacy';
+    council.papacyWins++;
+  } else if (protestantHits > papacyHits) {
+    roundWinner = 'protestant';
+    council.protestantWins++;
+  } else {
+    // Tie: papacy wins ties at Council of Trent
+    roundWinner = 'papacy';
+    council.papacyWins++;
+  }
+
+  const result = {
+    round: council.round,
+    papacyRolls, protestantRolls,
+    papacyHits, protestantHits,
+    roundWinner
+  };
+
+  helpers.logEvent(state, 'council_round', result);
+
+  council.round++;
+
+  // Check if Council is decided (best of 3 = first to 2 wins)
+  if (council.papacyWins >= 2 || council.protestantWins >= 2 ||
+      council.round > council.totalRounds) {
+    return finalizeCouncil(state, helpers, result);
+  }
+
+  return { status: 'round_complete', ...result };
+}
+
+/**
+ * Finalize Council of Trent — apply results and clear state.
+ */
+function finalizeCouncil(state, helpers, lastRoundResult) {
+  const council = state.pendingCouncilOfTrent;
+  const winner = council.papacyWins >= council.protestantWins
+    ? 'papacy' : 'protestant';
+
+  // Winner gains 1 VP
+  if (state.vp[winner] !== undefined) {
+    state.vp[winner]++;
+  }
+
+  // Winner gets to flip spaces (hit difference from final tally)
+  const spacesToFlip = Math.max(
+    Math.abs(council.papacyWins - council.protestantWins), 1);
+
+  const isProtestantWin = winner === 'protestant';
+  state.pendingReformation = {
+    type: isProtestantWin ? 'reformation' : 'counter_reformation',
+    zone: null, // Council can flip any zone
+    attemptsLeft: spacesToFlip,
+    initiator: winner,
+    source: 'council',
+    autoFlip: true
+  };
+
+  const finalResult = {
+    status: 'council_complete',
+    winner,
+    papacyWins: council.papacyWins,
+    protestantWins: council.protestantWins,
+    spacesToFlip,
+    ...lastRoundResult
+  };
+
+  helpers.logEvent(state, 'council_complete', finalResult);
+  state.pendingCouncilOfTrent = null;
+
+  return finalResult;
+}

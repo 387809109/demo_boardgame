@@ -724,6 +724,234 @@ describe('EVENT_HANDLERS', () => {
     });
   });
 
+  // ── Card #1: Janissaries ───────────────────────────────────────
+
+  describe('#1 Janissaries', () => {
+    it('rejects non-Ottoman player', () => {
+      const state = eventState();
+      const r = validateEvent(state, 'france', 1, { mode: 'combat' });
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('Ottoman');
+    });
+
+    it('rejects missing mode', () => {
+      const state = eventState();
+      const r = validateEvent(state, 'ottoman', 1, {});
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('mode');
+    });
+
+    it('combat mode sets janissariesBonus for field battle', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'ottoman', 1,
+        { mode: 'combat', combatType: 'field' }, helpers);
+
+      expect(state.janissariesBonus).toEqual({ type: 'field', dice: 5 });
+    });
+
+    it('combat mode sets janissariesBonus for naval', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'ottoman', 1,
+        { mode: 'combat', combatType: 'naval' }, helpers);
+
+      expect(state.janissariesBonus).toEqual({ type: 'naval', dice: 4 });
+    });
+
+    it('recruit mode rejects more than 4 regulars', () => {
+      const state = eventState();
+      const r = validateEvent(state, 'ottoman', 1, {
+        mode: 'recruit',
+        placements: [{ space: 'Istanbul', count: 5 }]
+      });
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('4');
+    });
+
+    it('recruit mode rejects non-Ottoman space', () => {
+      const state = eventState();
+      const r = validateEvent(state, 'ottoman', 1, {
+        mode: 'recruit',
+        placements: [{ space: 'Paris', count: 2 }]
+      });
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('not Ottoman');
+    });
+
+    it('recruit mode places regulars', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'ottoman', 1, {
+        mode: 'recruit',
+        placements: [
+          { space: 'Istanbul', count: 2 },
+          { space: 'Scutari', count: 2 }
+        ]
+      }, helpers);
+
+      const istStack = state.spaces['Istanbul'].units.find(
+        u => u.owner === 'ottoman');
+      expect(istStack.regulars).toBeGreaterThanOrEqual(2);
+    });
+
+    it('recruit mode accepts valid placement', () => {
+      const state = eventState();
+      const r = validateEvent(state, 'ottoman', 1, {
+        mode: 'recruit',
+        placements: [{ space: 'Istanbul', count: 4 }]
+      });
+      expect(r.valid).toBe(true);
+    });
+  });
+
+  // ── Card #6: Leipzig Debate ──────────────────────────────────────
+
+  describe('#6 Leipzig Debate', () => {
+    it('rejects non-Papacy player', () => {
+      const state = eventState();
+      const r = validateEvent(state, 'protestant', 6, { zone: 'german' });
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('Papacy');
+    });
+
+    it('rejects missing zone', () => {
+      const state = eventState();
+      const r = validateEvent(state, 'papacy', 6, {});
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('zone');
+    });
+
+    it('accepts valid debate call', () => {
+      const state = eventState();
+      const r = validateEvent(state, 'papacy', 6, { zone: 'german' });
+      expect(r.valid).toBe(true);
+    });
+
+    it('sets pendingLeipzigDebate with zone', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 6,
+        { zone: 'german', specifyDebater: 'eck' }, helpers);
+
+      expect(state.pendingLeipzigDebate).toEqual({
+        zone: 'german',
+        specifyDebater: 'eck',
+        blockDebater: null
+      });
+    });
+
+    it('sets blockDebater option', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 6,
+        { zone: 'german', blockDebater: 'luther' }, helpers);
+
+      expect(state.pendingLeipzigDebate.blockDebater).toBe('luther');
+    });
+  });
+
+  // ── Card #7: Here I Stand ────────────────────────────────────────
+
+  describe('#7 Here I Stand', () => {
+    it('rejects non-Protestant player', () => {
+      const state = eventState();
+      state.lutherPlaced = true;
+      const r = validateEvent(state, 'papacy', 7, { mode: 'retrieve' });
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('Protestant');
+    });
+
+    it('rejects when Luther not alive', () => {
+      const state = eventState();
+      state.lutherPlaced = false;
+      const r = validateEvent(state, 'protestant', 7,
+        { mode: 'retrieve', cardNumber: 50 });
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('Luther');
+    });
+
+    it('rejects missing mode', () => {
+      const state = eventState();
+      state.lutherPlaced = true;
+      const r = validateEvent(state, 'protestant', 7, {});
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('mode');
+    });
+
+    it('retrieve rejects card not in discard', () => {
+      const state = eventState();
+      state.lutherPlaced = true;
+      state.discard = [50, 60];
+      const r = validateEvent(state, 'protestant', 7,
+        { mode: 'retrieve', cardNumber: 99 });
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('discard');
+    });
+
+    it('retrieve moves card from discard to hand', () => {
+      const state = eventState();
+      state.lutherPlaced = true;
+      state.discard = [50, 60, 70];
+      state.hands = { protestant: [10] };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'protestant', 7,
+        { mode: 'retrieve', cardNumber: 60 }, helpers);
+
+      expect(state.discard).not.toContain(60);
+      expect(state.hands.protestant).toContain(60);
+    });
+
+    it('substitute rejects without pending debate', () => {
+      const state = eventState();
+      state.lutherPlaced = true;
+      const r = validateEvent(state, 'protestant', 7,
+        { mode: 'substitute' });
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('pending debate');
+    });
+
+    it('substitute rejects non-German zone', () => {
+      const state = eventState();
+      state.lutherPlaced = true;
+      state.pendingDebate = {
+        zone: 'english', attackerSide: 'protestant',
+        attackerId: 'melanchthon', defenderId: 'eck'
+      };
+      const r = validateEvent(state, 'protestant', 7,
+        { mode: 'substitute' });
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('German');
+    });
+
+    it('substitute replaces debater with Luther', () => {
+      const state = eventState();
+      state.lutherPlaced = true;
+      state.pendingDebate = {
+        zone: 'german', attackerSide: 'protestant',
+        attackerId: 'melanchthon', defenderId: 'eck'
+      };
+      state.debaters = {
+        protestant: [{ id: 'melanchthon', committed: false }]
+      };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'protestant', 7,
+        { mode: 'substitute' }, helpers);
+
+      expect(state.pendingDebate.attackerId).toBe('luther');
+      const mel = state.debaters.protestant.find(
+        d => d.id === 'melanchthon');
+      expect(mel.committed).toBe(true);
+    });
+  });
+
   // ── Utility Functions ──────────────────────────────────────────
 
   describe('executeEvent', () => {

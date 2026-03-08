@@ -184,6 +184,170 @@ EVENT_HANDLERS[5] = {
   }
 };
 
+// ── Card #1: Janissaries (Ottoman Home Card) ──────────────────────
+// Mode A: +5 dice field battle or +4 dice naval (response card)
+// Mode B: Add 4 regulars to Ottoman home spaces
+EVENT_HANDLERS[1] = {
+  validate(state, power, actionData) {
+    if (power !== 'ottoman') {
+      return { valid: false, error: 'Only Ottoman can play Janissaries' };
+    }
+    const mode = actionData?.mode;
+    if (mode === 'combat') {
+      return { valid: true };
+    }
+    if (mode === 'recruit') {
+      const placements = actionData.placements || [];
+      const total = placements.reduce((s, p) => s + (p.count || 0), 0);
+      if (total > 4) {
+        return { valid: false, error: 'Cannot place more than 4 regulars' };
+      }
+      for (const p of placements) {
+        const sp = state.spaces[p.space];
+        if (!sp) return { valid: false, error: `Space "${p.space}" not found` };
+        if (sp.controller !== 'ottoman') {
+          return { valid: false, error: `"${p.space}" not Ottoman-controlled` };
+        }
+      }
+      return { valid: true };
+    }
+    return { valid: false, error: 'Must specify mode: "combat" or "recruit"' };
+  },
+  execute(state, power, actionData, helpers) {
+    const mode = actionData.mode;
+
+    if (mode === 'combat') {
+      const combatType = actionData.combatType || 'field';
+      const dice = combatType === 'naval' ? 4 : 5;
+      state.janissariesBonus = { type: combatType, dice };
+      helpers.logEvent(state, 'event_janissaries_combat', {
+        power, combatType, dice
+      });
+      return;
+    }
+
+    if (mode === 'recruit') {
+      const placements = actionData.placements || [];
+      for (const p of placements) {
+        const sp = state.spaces[p.space];
+        let stack = sp.units.find(u => u.owner === 'ottoman');
+        if (!stack) {
+          stack = {
+            owner: 'ottoman', regulars: 0, mercenaries: 0,
+            cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+          };
+          sp.units.push(stack);
+        }
+        stack.regulars += (p.count || 0);
+      }
+      helpers.logEvent(state, 'event_janissaries_recruit', {
+        power, placements
+      });
+    }
+  }
+};
+
+// ── Card #6: Leipzig Debate (Papal Home Card) ─────────────────────
+// Call a debate with option to specify debater or block enemy debater
+EVENT_HANDLERS[6] = {
+  validate(state, power, actionData) {
+    if (power !== 'papacy') {
+      return { valid: false, error: 'Only Papacy can play Leipzig Debate' };
+    }
+    const { zone } = actionData;
+    if (!zone) {
+      return { valid: false, error: 'Must specify language zone' };
+    }
+    return { valid: true };
+  },
+  execute(state, power, actionData, helpers) {
+    const { zone, specifyDebater, blockDebater } = actionData;
+
+    state.pendingLeipzigDebate = {
+      zone,
+      specifyDebater: specifyDebater || null,
+      blockDebater: blockDebater || null
+    };
+
+    helpers.logEvent(state, 'event_leipzig_debate', {
+      power, zone, specifyDebater, blockDebater
+    });
+  }
+};
+
+// ── Card #7: Here I Stand (Protestant Home Card) ──────────────────
+// Mode A: Retrieve card from discard; Mode B: Substitute Luther in debate
+EVENT_HANDLERS[7] = {
+  validate(state, power, actionData) {
+    if (power !== 'protestant') {
+      return { valid: false, error: 'Only Protestant can play Here I Stand' };
+    }
+    // Luther must be alive (placed and not excommunicated to death)
+    if (!state.lutherPlaced) {
+      return { valid: false, error: 'Luther must be alive' };
+    }
+    const mode = actionData?.mode;
+    if (mode === 'retrieve') {
+      const cardNumber = actionData.cardNumber;
+      if (!cardNumber) {
+        return { valid: false, error: 'Must specify card to retrieve' };
+      }
+      if (!state.discard.includes(cardNumber)) {
+        return { valid: false, error: 'Card not in discard pile' };
+      }
+      return { valid: true };
+    }
+    if (mode === 'substitute') {
+      if (!state.pendingDebate) {
+        return { valid: false, error: 'No pending debate for substitution' };
+      }
+      if (state.pendingDebate.zone !== 'german') {
+        return { valid: false, error: 'Luther can only substitute in German zone' };
+      }
+      return { valid: true };
+    }
+    return { valid: false, error: 'Must specify mode: "retrieve" or "substitute"' };
+  },
+  execute(state, power, actionData, helpers) {
+    const mode = actionData.mode;
+
+    if (mode === 'retrieve') {
+      const cardNumber = actionData.cardNumber;
+      const idx = state.discard.indexOf(cardNumber);
+      if (idx !== -1) {
+        state.discard.splice(idx, 1);
+        state.hands.protestant.push(cardNumber);
+      }
+      helpers.logEvent(state, 'event_here_i_stand_retrieve', {
+        power, cardNumber
+      });
+      return;
+    }
+
+    if (mode === 'substitute') {
+      const debate = state.pendingDebate;
+      const oldDebaterId = debate.attackerSide === 'protestant'
+        ? debate.attackerId : debate.defenderId;
+
+      // Replace with Luther
+      if (debate.attackerSide === 'protestant') {
+        debate.attackerId = 'luther';
+      } else {
+        debate.defenderId = 'luther';
+      }
+
+      // Old debater becomes committed
+      const debaters = state.debaters.protestant || [];
+      const old = debaters.find(d => d.id === oldDebaterId);
+      if (old) old.committed = true;
+
+      helpers.logEvent(state, 'event_here_i_stand_substitute', {
+        power, replacedDebater: oldDebaterId
+      });
+    }
+  }
+};
+
 // ── Card #3: Six Wives of Henry VIII (English Home Card) ───────────
 // Mode A: Declare war + 5 CP; Mode B: Advance marital status + pregnancy
 EVENT_HANDLERS[3] = {
@@ -674,6 +838,581 @@ EVENT_HANDLERS[114] = {
     helpers.logEvent(state, 'event_la_foret_embassy', {
       power, allied, cardDraws
     });
+  }
+};
+
+// ── Combat Cards (#24-30) ─────────────────────────────────────────
+
+// #24 Arquebusiers: +2 extra dice in field battle or naval combat
+EVENT_HANDLERS[24] = {
+  execute(state, power, actionData, helpers) {
+    state.pendingCombatBonus = { card: 24, dice: 2, types: ['field', 'naval'] };
+    helpers.logEvent(state, 'event_arquebusiers', { power });
+  }
+};
+
+// #25 Field Artillery: +2 dice field battle (+3 for France/Ottoman)
+EVENT_HANDLERS[25] = {
+  execute(state, power, actionData, helpers) {
+    const dice = (power === 'france' || power === 'ottoman') ? 3 : 2;
+    state.pendingCombatBonus = { card: 25, dice, types: ['field'] };
+    helpers.logEvent(state, 'event_field_artillery', { power, dice });
+  }
+};
+
+// #26 Mercenaries Bribed: half opponent's mercs switch sides
+EVENT_HANDLERS[26] = {
+  validate(state, power) {
+    if (power === 'ottoman') return { valid: false, error: 'Not playable by Ottomans' };
+    return { valid: true };
+  },
+  execute(state, power, actionData, helpers) {
+    const targetSpace = actionData.targetSpace;
+    const targetPower = actionData.targetPower;
+    if (!targetSpace || !targetPower || targetPower === 'ottoman') return;
+    const sp = state.spaces[targetSpace];
+    if (!sp) return;
+    const enemyStack = sp.units.find(u => u.owner === targetPower);
+    if (!enemyStack) return;
+    const switched = Math.ceil(enemyStack.mercenaries / 2);
+    enemyStack.mercenaries -= switched;
+    let myStack = sp.units.find(u => u.owner === power);
+    if (!myStack) {
+      myStack = {
+        owner: power, regulars: 0, mercenaries: 0, cavalry: 0,
+        squadrons: 0, corsairs: 0, leaders: []
+      };
+      sp.units.push(myStack);
+    }
+    myStack.mercenaries += switched;
+    helpers.logEvent(state, 'event_mercenaries_bribed', {
+      power, targetPower, targetSpace, switched
+    });
+  }
+};
+
+// #27 Mercenaries Grow Restless: remove all enemy mercs before assault
+EVENT_HANDLERS[27] = {
+  execute(state, power, actionData, helpers) {
+    const targetSpace = actionData.targetSpace;
+    const targetPower = actionData.targetPower;
+    if (!targetSpace || !targetPower) return;
+    const sp = state.spaces[targetSpace];
+    if (!sp) return;
+    const enemyStack = sp.units.find(u => u.owner === targetPower);
+    if (enemyStack) {
+      const removed = enemyStack.mercenaries;
+      enemyStack.mercenaries = 0;
+      helpers.logEvent(state, 'event_mercenaries_restless', {
+        power, targetPower, targetSpace, removed
+      });
+    }
+  }
+};
+
+// #28 Siege Mining: +3 dice in assault (attacker)
+EVENT_HANDLERS[28] = {
+  execute(state, power, actionData, helpers) {
+    state.pendingCombatBonus = { card: 28, dice: 3, types: ['assault'] };
+    helpers.logEvent(state, 'event_siege_mining', { power });
+  }
+};
+
+// #29 Surprise Attack: roll first in field battle
+EVENT_HANDLERS[29] = {
+  execute(state, power, actionData, helpers) {
+    state.pendingCombatBonus = { card: 29, rollFirst: true, types: ['field'] };
+    helpers.logEvent(state, 'event_surprise_attack', { power });
+  }
+};
+
+// #30 Tercios: Hapsburg +3 dice (hit on 4+) or anti-Hapsburg -3 dice
+EVENT_HANDLERS[30] = {
+  execute(state, power, actionData, helpers) {
+    const mode = actionData.mode || 'hapsburg';
+    if (mode === 'hapsburg') {
+      state.pendingCombatBonus = {
+        card: 30, dice: 3, hitOn4: true, types: ['field']
+      };
+    } else {
+      state.pendingCombatBonus = {
+        card: 30, reduceDice: 3, targetPower: 'hapsburg', types: ['field']
+      };
+    }
+    helpers.logEvent(state, 'event_tercios', { power, mode });
+  }
+};
+
+// ── Response Cards (#31-38) ───────────────────────────────────────
+
+// #31 Foul Weather: -1 CP, restrict movement for impulse
+EVENT_HANDLERS[31] = {
+  execute(state, power, actionData, helpers) {
+    const targetPower = actionData.targetPower;
+    state.pendingFoulWeather = {
+      targetPower,
+      maxMoveSpaces: 1,
+      noAssault: true,
+      noPiracy: true,
+      noNavalMove: true
+    };
+    helpers.logEvent(state, 'event_foul_weather', { power, targetPower });
+  }
+};
+
+// #32 Gout: stop leader from moving/assaulting this impulse
+EVENT_HANDLERS[32] = {
+  execute(state, power, actionData, helpers) {
+    const targetLeader = actionData.targetLeader;
+    state.pendingGout = { targetLeader };
+    helpers.logEvent(state, 'event_gout', { power, targetLeader });
+  }
+};
+
+// #33 Landsknechts: place mercs (4 Hapsburg, 2 others, Ottoman removes 2)
+EVENT_HANDLERS[33] = {
+  execute(state, power, actionData, helpers) {
+    if (power === 'ottoman') {
+      // Remove 2 mercenaries anywhere
+      const targets = actionData.removals || [];
+      for (const t of targets.slice(0, 2)) {
+        const sp = state.spaces[t.space];
+        if (!sp) continue;
+        const stack = sp.units.find(u => u.owner === t.owner);
+        if (stack && stack.mercenaries > 0) stack.mercenaries--;
+      }
+      helpers.logEvent(state, 'event_landsknechts_remove', {
+        power, targets
+      });
+      return;
+    }
+    const count = power === 'hapsburg' ? 4 : 2;
+    const placements = actionData.placements || [];
+    let placed = 0;
+    for (const p of placements) {
+      if (placed >= count) break;
+      const sp = state.spaces[p.space];
+      if (!sp) continue;
+      const stack = sp.units.find(u => u.owner === power);
+      if (!stack) continue; // must have friendly units
+      const toPlace = Math.min(p.count || 1, count - placed);
+      stack.mercenaries += toPlace;
+      placed += toPlace;
+    }
+    helpers.logEvent(state, 'event_landsknechts', { power, count, placed });
+  }
+};
+
+// #34 Professional Rowers: modify naval roll ±2 or +3 dice naval
+EVENT_HANDLERS[34] = {
+  execute(state, power, actionData, helpers) {
+    const mode = actionData.mode || 'modify';
+    if (mode === 'modify') {
+      state.pendingNavalModifier = { modifier: actionData.modifier || 2 };
+    } else {
+      state.pendingCombatBonus = { card: 34, dice: 3, types: ['naval'] };
+    }
+    helpers.logEvent(state, 'event_professional_rowers', { power, mode });
+  }
+};
+
+// #35 Siege Artillery: +2 dice in assault (hit on 3+), requires LOC
+EVENT_HANDLERS[35] = {
+  execute(state, power, actionData, helpers) {
+    state.pendingCombatBonus = {
+      card: 35, dice: 2, hitOn3: true, types: ['assault']
+    };
+    helpers.logEvent(state, 'event_siege_artillery', { power });
+  }
+};
+
+// #36 Swiss Mercenaries: place mercs (4 French if France/Ottoman, 2 else)
+EVENT_HANDLERS[36] = {
+  execute(state, power, actionData, helpers) {
+    const isFrenchBoosted = (power === 'france' || power === 'ottoman');
+    const placePower = isFrenchBoosted ? 'france' : power;
+    const count = isFrenchBoosted ? 4 : 2;
+    const placements = actionData.placements || [];
+    let placed = 0;
+    for (const p of placements) {
+      if (placed >= count) break;
+      const sp = state.spaces[p.space];
+      if (!sp) continue;
+      const stack = sp.units.find(u => u.owner === placePower);
+      if (!stack) continue;
+      const toPlace = Math.min(p.count || 1, count - placed);
+      stack.mercenaries += toPlace;
+      placed += toPlace;
+    }
+    helpers.logEvent(state, 'event_swiss_mercenaries', {
+      power, placePower, count, placed
+    });
+  }
+};
+
+// #37 The Wartburg: cancel event play (response)
+EVENT_HANDLERS[37] = {
+  validate(state, power) {
+    if (power !== 'protestant') {
+      return { valid: false, error: 'Only Protestant can play The Wartburg' };
+    }
+    if (!state.lutherPlaced) {
+      return { valid: false, error: 'Luther must be alive' };
+    }
+    return { valid: true };
+  },
+  execute(state, power, actionData, helpers) {
+    state.pendingEventCancelled = true;
+    state.protestantNoDebatesThisTurn = true;
+    // Commit Luther
+    const debaters = state.debaters?.protestant || [];
+    const luther = debaters.find(d => d.id === 'luther');
+    if (luther) luther.committed = true;
+    helpers.logEvent(state, 'event_wartburg', { power });
+  }
+};
+
+// #38 Halley's Comet: discard from hand OR force skip impulse
+EVENT_HANDLERS[38] = {
+  execute(state, power, actionData, helpers) {
+    const mode = actionData.mode || 'discard';
+    if (mode === 'discard') {
+      const targetPower = actionData.targetPower;
+      if (targetPower && state.hands?.[targetPower]?.length > 0) {
+        const idx = Math.floor(
+          Math.random() * state.hands[targetPower].length
+        );
+        const discarded = state.hands[targetPower].splice(idx, 1)[0];
+        state.discard.push(discarded);
+        helpers.logEvent(state, 'event_halleys_comet_discard', {
+          power, targetPower, discarded
+        });
+      }
+    } else if (mode === 'skip') {
+      const targetPower = actionData.targetPower;
+      state.pendingSkipImpulse = state.pendingSkipImpulse || [];
+      state.pendingSkipImpulse.push(targetPower);
+      helpers.logEvent(state, 'event_halleys_comet_skip', {
+        power, targetPower
+      });
+    }
+  }
+};
+
+// ── Turn 3-4 Era Cards (#39-54) ──────────────────────────────────
+
+// #39 Augsburg Confession: -1 papal counter-ref rolls, -1 die debates
+EVENT_HANDLERS[39] = {
+  validate(state, power) {
+    // Melanchthon must be uncommitted
+    const debaters = state.debaters?.protestant || [];
+    const mel = debaters.find(d => d.id === 'melanchthon');
+    if (mel && mel.committed) {
+      return { valid: false, error: 'Melanchthon is committed' };
+    }
+    return { valid: true };
+  },
+  execute(state, power, actionData, helpers) {
+    state.augsburgConfessionActive = true;
+    // Commit Melanchthon
+    const debaters = state.debaters?.protestant || [];
+    const mel = debaters.find(d => d.id === 'melanchthon');
+    if (mel) mel.committed = true;
+    helpers.logEvent(state, 'event_augsburg_confession', { power });
+  }
+};
+
+// #40 Machiavelli: Declare war at no cost + 2 CP
+EVENT_HANDLERS[40] = {
+  execute(state, power, actionData, helpers) {
+    const target = actionData.targetPower;
+    if (target && !state.wars.some(w =>
+      (w.a === power && w.b === target) ||
+      (w.a === target && w.b === power)
+    )) {
+      state.wars.push({ a: power, b: target });
+    }
+    helpers.logEvent(state, 'event_machiavelli', { power, target });
+    return { grantCp: 2 };
+  }
+};
+
+// #41 Marburg Colloquy: commit debaters, make ref attempts
+EVENT_HANDLERS[41] = {
+  execute(state, power, actionData, helpers) {
+    const committed = actionData.commitDebaters || [];
+    const debaters = state.debaters?.protestant || [];
+    let totalValue = 0;
+    for (const id of committed) {
+      const d = debaters.find(x => x.id === id);
+      if (d) {
+        d.committed = true;
+        totalValue += d.value || 0;
+      }
+    }
+    state.pendingReformation = {
+      attemptsRemaining: totalValue,
+      zones: 'all',
+      playedBy: power
+    };
+    helpers.logEvent(state, 'event_marburg_colloquy', {
+      power, committed, totalValue
+    });
+  }
+};
+
+// #42 Roxelana: free assault OR send Suleiman to Istanbul
+EVENT_HANDLERS[42] = {
+  execute(state, power, actionData, helpers) {
+    if (power === 'ottoman') {
+      state.pendingFreeAssault = {
+        power: 'ottoman', requireLeader: 'suleiman'
+      };
+      helpers.logEvent(state, 'event_roxelana_assault', { power });
+    } else {
+      // Send Suleiman to Istanbul
+      for (const sp of Object.values(state.spaces)) {
+        for (const stack of sp.units) {
+          if (stack.owner === 'ottoman') {
+            const idx = stack.leaders.indexOf('suleiman');
+            if (idx !== -1) {
+              stack.leaders.splice(idx, 1);
+            }
+          }
+        }
+      }
+      const istanbul = state.spaces['Istanbul'];
+      if (istanbul) {
+        let stack = istanbul.units.find(u => u.owner === 'ottoman');
+        if (!stack) {
+          stack = {
+            owner: 'ottoman', regulars: 0, mercenaries: 0, cavalry: 0,
+            squadrons: 0, corsairs: 0, leaders: []
+          };
+          istanbul.units.push(stack);
+        }
+        if (!stack.leaders.includes('suleiman')) {
+          stack.leaders.push('suleiman');
+        }
+      }
+      helpers.logEvent(state, 'event_roxelana_return', { power });
+      return { grantCp: 2 };
+    }
+  }
+};
+
+// #43 Zwingli Dons Armor: kill 1 Catholic unit near Zurich, remove Zwingli
+EVENT_HANDLERS[43] = {
+  execute(state, power, actionData, helpers) {
+    const targetSpace = actionData.targetSpace;
+    if (targetSpace) {
+      const sp = state.spaces[targetSpace];
+      if (sp) {
+        for (const stack of sp.units) {
+          if (
+            stack.owner === 'papacy' ||
+            (stack.owner !== 'protestant' && stack.owner !== 'ottoman')
+          ) {
+            if (stack.regulars > 0) { stack.regulars--; break; }
+            else if (stack.mercenaries > 0) { stack.mercenaries--; break; }
+          }
+        }
+      }
+    }
+    // Remove Zwingli reformer and debater
+    for (const sp of Object.values(state.spaces)) {
+      if (sp.reformer === 'zwingli') sp.reformer = null;
+    }
+    const debaters = state.debaters?.protestant || [];
+    const zwingli = debaters.find(d => d.id === 'zwingli');
+    if (zwingli) zwingli.removed = true;
+    helpers.logEvent(state, 'event_zwingli_dons_armor', {
+      power, targetSpace
+    });
+  }
+};
+
+// #44 Affair of the Placards: 4 ref attempts French zone, commit Cop
+EVENT_HANDLERS[44] = {
+  validate(state) {
+    const debaters = state.debaters?.protestant || [];
+    const cop = debaters.find(d => d.id === 'cop');
+    if (cop && cop.committed) {
+      return { valid: false, error: 'Cop is committed' };
+    }
+    return { valid: true };
+  },
+  execute(state, power, actionData, helpers) {
+    state.pendingReformation = {
+      attemptsRemaining: 4,
+      zones: 'french',
+      playedBy: power
+    };
+    const debaters = state.debaters?.protestant || [];
+    const cop = debaters.find(d => d.id === 'cop');
+    if (cop) cop.committed = true;
+    helpers.logEvent(state, 'event_affair_of_placards', { power });
+  }
+};
+
+// #45 Calvin Expelled: remove Calvin for rest of turn
+EVENT_HANDLERS[45] = {
+  execute(state, power, actionData, helpers) {
+    for (const sp of Object.values(state.spaces)) {
+      if (sp.reformer === 'calvin') sp.reformer = null;
+    }
+    const debaters = state.debaters?.protestant || [];
+    const calvin = debaters.find(d => d.id === 'calvin');
+    if (calvin) {
+      calvin.committed = true;
+      calvin.expelledUntilNextTurn = true;
+    }
+    helpers.logEvent(state, 'event_calvin_expelled', { power });
+  }
+};
+
+// #46 Calvin's Institutes: 5 ref French zone +1 modifier, commit Calvin
+EVENT_HANDLERS[46] = {
+  validate(state) {
+    const debaters = state.debaters?.protestant || [];
+    const calvin = debaters.find(d => d.id === 'calvin');
+    if (calvin && calvin.committed) {
+      return { valid: false, error: 'Calvin is committed' };
+    }
+    return { valid: true };
+  },
+  execute(state, power, actionData, helpers) {
+    state.pendingReformation = {
+      attemptsRemaining: 5,
+      zones: 'french',
+      modifier: 1,
+      playedBy: power
+    };
+    const debaters = state.debaters?.protestant || [];
+    const calvin = debaters.find(d => d.id === 'calvin');
+    if (calvin) calvin.committed = true;
+    helpers.logEvent(state, 'event_calvins_institutes', { power });
+  }
+};
+
+// #47 Copernicus: VP based on Protestant influence
+EVENT_HANDLERS[47] = {
+  execute(state, power, actionData, helpers) {
+    let protCount = 0;
+    let totalHome = 0;
+    for (const sp of Object.values(state.spaces)) {
+      if (sp.homePower === power) {
+        totalHome++;
+        if (sp.religion === 'protestant') protCount++;
+      }
+    }
+    const halfOrMore = protCount >= Math.ceil(totalHome / 2);
+    if (halfOrMore) {
+      state.vp[power] = (state.vp[power] || 0) + 2;
+      helpers.logEvent(state, 'event_copernicus', {
+        power, vp: 2, protCount, totalHome
+      });
+    } else {
+      state.vp[power] = (state.vp[power] || 0) + 1;
+      helpers.logEvent(state, 'event_copernicus', {
+        power, vp: 1, protCount, totalHome, pendingChoice: true
+      });
+    }
+  }
+};
+
+// #48 Galleons: place marker on power's colonies
+EVENT_HANDLERS[48] = {
+  execute(state, power, actionData, helpers) {
+    const targetPower = actionData.targetPower || power;
+    state.galleons = state.galleons || {};
+    state.galleons[targetPower] = true;
+    helpers.logEvent(state, 'event_galleons', { power, targetPower });
+  }
+};
+
+// #49 Huguenot Raiders: add raider marker
+EVENT_HANDLERS[49] = {
+  execute(state, power, actionData, helpers) {
+    const targetPower = actionData.targetPower;
+    state.raiders = state.raiders || {};
+    state.raiders[targetPower] = true;
+    helpers.logEvent(state, 'event_huguenot_raiders', {
+      power, targetPower
+    });
+  }
+};
+
+// #50 Mercator's Map: free exploration voyage with +2
+EVENT_HANDLERS[50] = {
+  execute(state, power, actionData, helpers) {
+    const targetPower = actionData.targetPower || power;
+    state.pendingExploration = state.pendingExploration || {};
+    state.pendingExploration[targetPower] = {
+      modifier: 2, source: 'mercator'
+    };
+    helpers.logEvent(state, 'event_mercators_map', {
+      power, targetPower
+    });
+  }
+};
+
+// #51 Michael Servetus: +1 VP, random discard from Protestant
+EVENT_HANDLERS[51] = {
+  execute(state, power, actionData, helpers) {
+    state.vp[power] = (state.vp[power] || 0) + 1;
+    if (state.hands?.protestant?.length > 0) {
+      const idx = Math.floor(
+        Math.random() * state.hands.protestant.length
+      );
+      const discarded = state.hands.protestant.splice(idx, 1)[0];
+      state.discard.push(discarded);
+      helpers.logEvent(state, 'event_michael_servetus', {
+        power, vp: 1, discarded
+      });
+    } else {
+      helpers.logEvent(state, 'event_michael_servetus', {
+        power, vp: 1
+      });
+    }
+  }
+};
+
+// #52 Michelangelo: roll 2 dice, add total to St. Peter's
+EVENT_HANDLERS[52] = {
+  execute(state, power, actionData, helpers) {
+    const die1 = actionData.die1
+      ?? (Math.floor(Math.random() * 6) + 1);
+    const die2 = actionData.die2
+      ?? (Math.floor(Math.random() * 6) + 1);
+    const total = die1 + die2;
+    state.stPetersFund = (state.stPetersFund || 0) + total;
+    helpers.logEvent(state, 'event_michelangelo', {
+      power, die1, die2, total
+    });
+  }
+};
+
+// #53 Plantations: +1 to colony rolls
+EVENT_HANDLERS[53] = {
+  execute(state, power, actionData, helpers) {
+    const targetPower = actionData.targetPower || power;
+    state.plantations = state.plantations || {};
+    state.plantations[targetPower] =
+      (state.plantations[targetPower] || 0) + 1;
+    helpers.logEvent(state, 'event_plantations', {
+      power, targetPower
+    });
+  }
+};
+
+// #54 Potosi Silver Mines: add Potosi to colony box
+EVENT_HANDLERS[54] = {
+  execute(state, power, actionData, helpers) {
+    const targetPower = actionData.targetPower || power;
+    state.potosi = state.potosi || {};
+    state.potosi[targetPower] = true;
+    helpers.logEvent(state, 'event_potosi', { power, targetPower });
   }
 };
 
