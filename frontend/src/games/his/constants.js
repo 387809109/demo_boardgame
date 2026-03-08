@@ -341,6 +341,21 @@ export const MARITAL_STATUS = [
   'katherine_parr'
 ];
 
+/**
+ * Pregnancy Table (rule 21.3).
+ * Roll 1d6 when Henry remarries.
+ * Result: no_child, boy (Edward), girl (Elizabeth), or both.
+ */
+export const PREGNANCY_TABLE = [
+  null, // index 0 unused
+  { result: 'no_child' },        // roll 1
+  { result: 'no_child' },        // roll 2
+  { result: 'boy' },             // roll 3 — Edward born
+  { result: 'girl' },            // roll 4 — Elizabeth born
+  { result: 'boy' },             // roll 5 — Edward born
+  { result: 'boy_and_girl' }     // roll 6 — Both born
+];
+
 // ── Chateaux Table (France) ────────────────────────────────────────
 
 export const CHATEAU_TABLE = [

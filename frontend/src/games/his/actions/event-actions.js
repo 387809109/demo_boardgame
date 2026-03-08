@@ -13,7 +13,11 @@
  */
 
 import { CARD_BY_NUMBER } from '../data/cards.js';
-import { RULERS, CHATEAU_TABLE, CHATEAU_MODIFIERS } from '../constants.js';
+import {
+  RULERS, CHATEAU_TABLE, CHATEAU_MODIFIERS,
+  MARITAL_STATUS, PREGNANCY_TABLE
+} from '../constants.js';
+import { areAllied } from '../state/war-helpers.js';
 
 // ── Italian Keys (Master of Italy) ─────────────────────────────────
 
@@ -175,6 +179,76 @@ EVENT_HANDLERS[5] = {
       }
       helpers.logEvent(state, 'event_papal_bull_ruler', {
         targetPower
+      });
+    }
+  }
+};
+
+// ── Card #3: Six Wives of Henry VIII (English Home Card) ───────────
+// Mode A: Declare war + 5 CP; Mode B: Advance marital status + pregnancy
+EVENT_HANDLERS[3] = {
+  validate(state, power, actionData) {
+    if (power !== 'england') {
+      return { valid: false, error: 'Only England can play Six Wives' };
+    }
+    const mode = actionData?.mode;
+    if (mode === 'war') {
+      return { valid: true };
+    }
+    if (mode === 'marital') {
+      if (state.turn < 2) {
+        return { valid: false, error: 'Marital advancement requires Turn 2+' };
+      }
+      if (state.rulers.england !== 'henry_viii') {
+        return { valid: false, error: 'Henry VIII must be ruler' };
+      }
+      if (state.capturedLeaders?.includes('henry_viii')) {
+        return { valid: false, error: 'Henry VIII is captured' };
+      }
+      const idx = MARITAL_STATUS.indexOf(state.henryMaritalStatus);
+      if (idx === -1 || idx >= MARITAL_STATUS.length - 1) {
+        return { valid: false, error: 'Cannot advance marital status further' };
+      }
+      return { valid: true };
+    }
+    return { valid: false, error: 'Must specify mode: "war" or "marital"' };
+  },
+  execute(state, power, actionData, helpers) {
+    const mode = actionData.mode;
+
+    if (mode === 'war') {
+      // Declare war on target + grant 5 CP
+      const target = actionData.targetPower;
+      if (target && !state.wars.some(w =>
+        (w.a === 'england' && w.b === target) ||
+        (w.a === target && w.b === 'england')
+      )) {
+        state.wars.push({ a: 'england', b: target });
+      }
+      helpers.logEvent(state, 'event_six_wives_war', { power, target });
+      return { grantCp: 5 };
+    }
+
+    if (mode === 'marital') {
+      const oldIdx = MARITAL_STATUS.indexOf(state.henryMaritalStatus);
+      const newStatus = MARITAL_STATUS[oldIdx + 1];
+      state.henryMaritalStatus = newStatus;
+
+      // Roll on pregnancy table
+      const roll = actionData.dieRoll ?? (Math.floor(Math.random() * 6) + 1);
+      const pregnancy = PREGNANCY_TABLE[roll];
+      let childResult = pregnancy?.result || 'no_child';
+
+      if (childResult === 'boy' || childResult === 'boy_and_girl') {
+        state.edwardBorn = true;
+      }
+      if (childResult === 'girl' || childResult === 'boy_and_girl') {
+        state.elizabethBorn = true;
+      }
+
+      helpers.logEvent(state, 'event_six_wives_marital', {
+        power, oldStatus: MARITAL_STATUS[oldIdx],
+        newStatus, roll, childResult
       });
     }
   }
@@ -403,6 +477,202 @@ EVENT_HANDLERS[18] = {
     }
     helpers.logEvent(state, 'event_dragut', {
       power, location: barbarossaLocation
+    });
+  }
+};
+
+// ── Card #19: Edward VI (English Succession) ──────────────────────
+// Henry VIII dies, Edward VI becomes ruler, Dudley placed
+EVENT_HANDLERS[19] = {
+  execute(state, power, actionData, helpers) {
+    replaceRuler(state, 'england', 'henry_viii', 'edward_vi', helpers);
+    state.rulerCards = state.rulerCards || {};
+    state.rulerCards.england = 19;
+
+    // Remove Henry VIII home card (#3) from game
+    if (!state.removedCards.includes(3)) {
+      state.removedCards.push(3);
+    }
+
+    // Place Dudley leader if not already on map
+    const dudleySpace = actionData.dudleySpace || 'London';
+    const sp = state.spaces[dudleySpace];
+    if (sp) {
+      let stack = sp.units.find(u => u.owner === 'england');
+      if (!stack) {
+        stack = {
+          owner: 'england', regulars: 0, mercenaries: 0,
+          cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+        };
+        sp.units.push(stack);
+      }
+      if (!stack.leaders.includes('dudley')) {
+        stack.leaders.push('dudley');
+      }
+    }
+
+    // English armies become Protestant
+    state.englandProtestant = true;
+
+    helpers.logEvent(state, 'event_edward_vi', { power, dudleySpace });
+  }
+};
+
+// ── Card #21: Mary I (English Succession) ─────────────────────────
+// Edward VI dies, Mary I becomes ruler, English armies become Catholic
+EVENT_HANDLERS[21] = {
+  execute(state, power, actionData, helpers) {
+    replaceRuler(state, 'england', 'edward_vi', 'mary_i', helpers);
+    state.rulerCards = state.rulerCards || {};
+    state.rulerCards.england = 21;
+
+    // Remove Edward VI card (#19) from game
+    if (!state.removedCards.includes(19)) {
+      state.removedCards.push(19);
+    }
+
+    // English armies become Catholic again
+    state.englandProtestant = false;
+
+    helpers.logEvent(state, 'event_mary_i', { power });
+  }
+};
+
+// ── Card #20: Henry II (French Succession) ────────────────────────
+// Francis I dies, Henry II becomes ruler
+EVENT_HANDLERS[20] = {
+  execute(state, power, actionData, helpers) {
+    replaceRuler(state, 'france', 'francis_i', 'henry_ii', helpers);
+    state.rulerCards = state.rulerCards || {};
+    state.rulerCards.france = 20;
+
+    // Remove Francis I home card (#4) from game
+    if (!state.removedCards.includes(4)) {
+      state.removedCards.push(4);
+    }
+
+    helpers.logEvent(state, 'event_henry_ii', { power });
+  }
+};
+
+// ── Card #22: Julius III (Papal Succession) ───────────────────────
+// Paul III dies, Julius III becomes ruler
+EVENT_HANDLERS[22] = {
+  execute(state, power, actionData, helpers) {
+    // Remove Paul III card (#14) from game
+    if (!state.removedCards.includes(14)) {
+      state.removedCards.push(14);
+    }
+    replaceRuler(state, 'papacy', 'paul_iii', 'julius_iii', helpers);
+    state.rulerCards = state.rulerCards || {};
+    state.rulerCards.papacy = 22;
+
+    // Papacy continues to win ties during Counter-Reformation
+    state.papacyWinsCounterReformTies = true;
+
+    helpers.logEvent(state, 'event_julius_iii', { power });
+  }
+};
+
+// ── Card #23: Elizabeth I (English Succession) ────────────────────
+// Mary I dies, Elizabeth I becomes ruler
+EVENT_HANDLERS[23] = {
+  execute(state, power, actionData, helpers) {
+    replaceRuler(state, 'england', 'mary_i', 'elizabeth_i', helpers);
+    state.rulerCards = state.rulerCards || {};
+    state.rulerCards.england = 23;
+
+    // Remove Mary I card (#21) from game
+    if (!state.removedCards.includes(21)) {
+      state.removedCards.push(21);
+    }
+
+    // English armies become Protestant; no Papacy card interference
+    state.englandProtestant = true;
+    state.papacyCardInterference = false;
+
+    helpers.logEvent(state, 'event_elizabeth_i', { power });
+  }
+};
+
+// ── Card #97: Scots Raid (Conditional Mandatory) ──────────────────
+// Ignored unless Scotland allied to France; Stirling → French, then CP
+EVENT_HANDLERS[97] = {
+  execute(state, power, actionData, helpers) {
+    // Ignored if Scotland not allied to France
+    if (!areAllied(state, 'scotland', 'france')) {
+      helpers.logEvent(state, 'event_scots_raid_ignored', { power });
+      return;
+    }
+
+    // Switch Stirling to French control if not already
+    const stirling = state.spaces['Stirling'];
+    if (stirling && stirling.controller !== 'france') {
+      // Displace non-French/Scottish units
+      stirling.units = stirling.units.filter(
+        u => u.owner === 'france' || u.owner === 'scotland'
+      );
+      stirling.controller = 'france';
+    }
+
+    // Grant CP (6 normal, 3 if leader transferred)
+    const leaderTransfer = actionData.leaderTransfer || false;
+    const cp = leaderTransfer ? 3 : 6;
+
+    helpers.logEvent(state, 'event_scots_raid', {
+      power, leaderTransfer, cp
+    });
+
+    return { grantCp: cp };
+  }
+};
+
+// ── Card #113: Imperial Coronation (Remove After Play) ────────────
+// If Charles V in Italian zone → Hapsburgs + playing power draw 1 card
+EVENT_HANDLERS[113] = {
+  execute(state, power, actionData, helpers) {
+    // Check if Charles V is in an Italian language zone space
+    let charlesInItaly = false;
+    for (const sp of Object.values(state.spaces)) {
+      if (sp.languageZone === 'italian') {
+        for (const stack of sp.units) {
+          if (stack.owner === 'hapsburg' && stack.leaders.includes('charles_v')) {
+            charlesInItaly = true;
+            break;
+          }
+        }
+      }
+      if (charlesInItaly) break;
+    }
+
+    const cardDraws = {};
+    if (charlesInItaly) {
+      cardDraws.hapsburg = 1;
+      if (power !== 'hapsburg') {
+        cardDraws[power] = 1;
+      }
+    }
+
+    helpers.logEvent(state, 'event_imperial_coronation', {
+      power, charlesInItaly, cardDraws
+    });
+  }
+};
+
+// ── Card #114: La Forêt's Embassy in Istanbul (Remove After Play) ─
+// If France and Ottoman allied → both draw 1 card
+EVENT_HANDLERS[114] = {
+  execute(state, power, actionData, helpers) {
+    const allied = areAllied(state, 'france', 'ottoman');
+    const cardDraws = {};
+
+    if (allied) {
+      cardDraws.france = 1;
+      cardDraws.ottoman = 1;
+    }
+
+    helpers.logEvent(state, 'event_la_foret_embassy', {
+      power, allied, cardDraws
     });
   }
 };

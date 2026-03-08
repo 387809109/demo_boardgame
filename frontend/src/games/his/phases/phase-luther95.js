@@ -13,6 +13,7 @@ import { rollDice, maxDie } from '../actions/religious-actions.js';
 import {
   getAllAdjacentSpaces, calcReformationDice, recountProtestantSpaces
 } from '../state/state-helpers.js';
+import { placeReformer } from '../state/reformer-helpers.js';
 
 /**
  * Execute the Luther's 95 Theses phase.
@@ -29,6 +30,7 @@ export function executeLuther95(state, helpers) {
 
   // 2. Place Luther reformer marker
   state.lutherPlaced = true;
+  placeReformer(state, 'luther', 'Wittenberg');
 
   helpers.logEvent(state, 'luther_95_theses', {
     wittenberg: 'protestant', lutherPlaced: true

@@ -68,11 +68,35 @@ export function executeWinter(state, helpers) {
 // ── Step 1: Loan markers ────────────────────────────────────────────
 
 function removeLoanMarkers(state, helpers) {
-  // Loaned squadrons are returned (placeholder for when loan system exists)
-  if (state.loanedSquadrons && state.loanedSquadrons.length > 0) {
-    state.loanedSquadrons = [];
-    helpers.logEvent(state, 'loans_removed', {});
+  if (!state.loanedSquadrons || state.loanedSquadrons.length === 0) return;
+
+  // Return loaned squadrons to their lenders
+  for (const loan of state.loanedSquadrons) {
+    const { lender, borrower, port, count } = loan;
+    const sp = state.spaces[port];
+    if (!sp) continue;
+
+    const borrowerStack = sp.units.find(u => u.owner === borrower);
+    if (borrowerStack) {
+      const toReturn = Math.min(borrowerStack.squadrons, count);
+      borrowerStack.squadrons -= toReturn;
+
+      let lenderStack = sp.units.find(u => u.owner === lender);
+      if (!lenderStack) {
+        lenderStack = {
+          owner: lender, regulars: 0, mercenaries: 0,
+          cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+        };
+        sp.units.push(lenderStack);
+      }
+      lenderStack.squadrons += toReturn;
+    }
   }
+
+  helpers.logEvent(state, 'loans_returned', {
+    count: state.loanedSquadrons.length
+  });
+  state.loanedSquadrons = [];
 }
 
 // ── Step 2: Renegade leader ─────────────────────────────────────────

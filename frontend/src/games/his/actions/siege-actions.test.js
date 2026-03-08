@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   establishSiege, validateAssault, executeAssault,
-  checkSiegeBreak, checkRelief
+  checkSiegeBreak, checkRelief, hasLineOfCommunication
 } from './siege-actions.js';
 import { startCpSpending } from './cp-manager.js';
 import { createTestState, createMockHelpers } from '../test-helpers.js';
@@ -26,6 +26,22 @@ function findFortress(state, controller) {
   return Object.entries(state.spaces).find(
     ([, sp]) => sp.isFortress && sp.controller === controller
   );
+}
+
+/**
+ * Set up Belgrade as a fortress besieged by Ottoman.
+ * Ottoman has LOC via Nicopolis (Ottoman) → Scutari (Ottoman fortress).
+ */
+function setupOttomanSiege(cp = 10) {
+  const state = cpState(cp);
+  const belgrade = state.spaces['Belgrade'];
+  belgrade.controller = 'hapsburg';
+  belgrade.isFortress = true;
+  belgrade.besieged = true;
+  belgrade.besiegedBy = 'ottoman';
+  belgrade.siegeEstablishedImpulse = -1;
+  belgrade.units.push(makeStack('ottoman', 5));
+  return state;
 }
 
 describe('establishSiege', () => {
@@ -55,120 +71,87 @@ describe('establishSiege', () => {
 describe('validateAssault', () => {
   it('rejects when space not besieged', () => {
     const state = cpState();
-    const fort = findFortress(state, 'hapsburg');
-    if (fort) {
-      const r = validateAssault(state, 'ottoman', { space: fort[0] });
-      expect(r.valid).toBe(false);
-      expect(r.error).toContain('not under siege');
-    }
+    const r = validateAssault(state, 'ottoman', { space: 'Belgrade' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('not under siege');
   });
 
   it('rejects when not the besieger', () => {
-    const state = cpState();
-    const fort = findFortress(state, 'hapsburg');
-    if (fort) {
-      state.spaces[fort[0]].besieged = true;
-      state.spaces[fort[0]].besiegedBy = 'france';
-      const r = validateAssault(state, 'ottoman', { space: fort[0] });
-      expect(r.valid).toBe(false);
-      expect(r.error).toContain('not the besieger');
-    }
+    const state = setupOttomanSiege();
+    state.spaces['Belgrade'].besiegedBy = 'france';
+    const r = validateAssault(state, 'ottoman', { space: 'Belgrade' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('not the besieger');
   });
 
   it('rejects same impulse as establishment', () => {
-    const state = cpState();
-    const fort = findFortress(state, 'hapsburg');
-    if (fort) {
-      state.spaces[fort[0]].besieged = true;
-      state.spaces[fort[0]].besiegedBy = 'ottoman';
-      state.spaces[fort[0]].siegeEstablishedImpulse = state.turnNumber;
-      state.spaces[fort[0]].units.push(makeStack('ottoman', 5));
-      const r = validateAssault(state, 'ottoman', { space: fort[0] });
-      expect(r.valid).toBe(false);
-      expect(r.error).toContain('same impulse');
-    }
+    const state = setupOttomanSiege();
+    state.spaces['Belgrade'].siegeEstablishedImpulse = state.turnNumber;
+    const r = validateAssault(state, 'ottoman', { space: 'Belgrade' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('same impulse');
   });
 
   it('rejects insufficient CP', () => {
-    const state = cpState(0);
-    const fort = findFortress(state, 'hapsburg');
-    if (fort) {
-      state.spaces[fort[0]].besieged = true;
-      state.spaces[fort[0]].besiegedBy = 'ottoman';
-      state.spaces[fort[0]].siegeEstablishedImpulse = -1;
-      state.spaces[fort[0]].units.push(makeStack('ottoman', 5));
-      const r = validateAssault(state, 'ottoman', { space: fort[0] });
-      expect(r.valid).toBe(false);
-      expect(r.error).toContain('CP');
-    }
+    const state = setupOttomanSiege(0);
+    const r = validateAssault(state, 'ottoman', { space: 'Belgrade' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('CP');
   });
 
-  it('accepts valid assault', () => {
-    const state = cpState();
-    const fort = findFortress(state, 'hapsburg');
-    if (fort) {
-      state.spaces[fort[0]].besieged = true;
-      state.spaces[fort[0]].besiegedBy = 'ottoman';
-      state.spaces[fort[0]].siegeEstablishedImpulse = -1;
-      state.spaces[fort[0]].units.push(makeStack('ottoman', 5));
-      const r = validateAssault(state, 'ottoman', { space: fort[0] });
-      expect(r.valid).toBe(true);
-    }
+  it('rejects without line of communication', () => {
+    const state = setupOttomanSiege();
+    // Cut LOC by making all Ottoman spaces non-Ottoman
+    state.spaces['Nicopolis'].controller = 'hapsburg';
+    state.spaces['Nezh'].controller = 'hapsburg';
+    state.spaces['Szegedin'].controller = 'hapsburg';
+    state.spaces['Scutari'].controller = 'hapsburg';
+
+    const r = validateAssault(state, 'ottoman', { space: 'Belgrade' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('line of communication');
+  });
+
+  it('accepts valid assault with LOC', () => {
+    const state = setupOttomanSiege();
+    const r = validateAssault(state, 'ottoman', { space: 'Belgrade' });
+    expect(r.valid).toBe(true);
   });
 });
 
 describe('executeAssault', () => {
   it('returns assault result with dice', () => {
-    const state = cpState();
+    const state = setupOttomanSiege();
     const helpers = createMockHelpers();
-    const fort = findFortress(state, 'hapsburg');
-    if (fort) {
-      state.spaces[fort[0]].besieged = true;
-      state.spaces[fort[0]].besiegedBy = 'ottoman';
-      state.spaces[fort[0]].units.push(makeStack('ottoman', 6));
 
-      const result = executeAssault(state, 'ottoman', { space: fort[0] }, helpers);
-      expect(result).toHaveProperty('attackerDice');
-      expect(result).toHaveProperty('defenderDice');
-      expect(result).toHaveProperty('success');
-    }
+    const result = executeAssault(state, 'ottoman',
+      { space: 'Belgrade' }, helpers);
+    expect(result).toHaveProperty('attackerDice');
+    expect(result).toHaveProperty('defenderDice');
+    expect(result).toHaveProperty('success');
   });
 
   it('deducts CP', () => {
-    const state = cpState(10);
+    const state = setupOttomanSiege(10);
     const helpers = createMockHelpers();
-    const fort = findFortress(state, 'hapsburg');
-    if (fort) {
-      state.spaces[fort[0]].besieged = true;
-      state.spaces[fort[0]].besiegedBy = 'ottoman';
-      state.spaces[fort[0]].units.push(makeStack('ottoman', 6));
 
-      executeAssault(state, 'ottoman', { space: fort[0] }, helpers);
-      expect(state.cpRemaining).toBeLessThan(10);
-    }
+    executeAssault(state, 'ottoman', { space: 'Belgrade' }, helpers);
+    expect(state.cpRemaining).toBeLessThan(10);
   });
 
   it('successful assault changes controller', () => {
-    const state = cpState();
-    const helpers = createMockHelpers();
-    const fort = findFortress(state, 'hapsburg');
-    if (!fort) return;
-
-    // Run many times to find a success
     let success = false;
     for (let i = 0; i < 50 && !success; i++) {
-      const s = cpState();
+      const s = setupOttomanSiege();
       const h = createMockHelpers();
-      s.spaces[fort[0]].besieged = true;
-      s.spaces[fort[0]].besiegedBy = 'ottoman';
       // No defenders, lots of attackers — high success chance
-      s.spaces[fort[0]].units = [makeStack('ottoman', 8)];
-      s.spaces[fort[0]].controller = 'hapsburg';
+      s.spaces['Belgrade'].units = [makeStack('ottoman', 8)];
+      s.spaces['Belgrade'].controller = 'hapsburg';
 
-      const r = executeAssault(s, 'ottoman', { space: fort[0] }, h);
+      const r = executeAssault(s, 'ottoman', { space: 'Belgrade' }, h);
       if (r.success) {
-        expect(s.spaces[fort[0]].controller).toBe('ottoman');
-        expect(s.spaces[fort[0]].besieged).toBe(false);
+        expect(s.spaces['Belgrade'].controller).toBe('ottoman');
+        expect(s.spaces['Belgrade'].besieged).toBe(false);
         success = true;
       }
     }
@@ -176,74 +159,82 @@ describe('executeAssault', () => {
   });
 
   it('uses half dice when defenders present', () => {
-    const state = cpState();
+    const state = setupOttomanSiege();
     const helpers = createMockHelpers();
-    const fort = findFortress(state, 'hapsburg');
-    if (fort) {
-      state.spaces[fort[0]].besieged = true;
-      state.spaces[fort[0]].besiegedBy = 'ottoman';
-      state.spaces[fort[0]].units = [
-        makeStack('ottoman', 6),
-        makeStack('hapsburg', 2)
-      ];
+    state.spaces['Belgrade'].units = [
+      makeStack('ottoman', 6),
+      makeStack('hapsburg', 2)
+    ];
 
-      const result = executeAssault(state, 'ottoman', { space: fort[0] }, helpers);
-      // 6 regulars / 2 = 3 dice (rounded up)
-      expect(result.attackerDice).toBe(3);
-    }
+    const result = executeAssault(state, 'ottoman',
+      { space: 'Belgrade' }, helpers);
+    // 6 regulars / 2 = 3 dice (rounded up)
+    expect(result.attackerDice).toBe(3);
+  });
+});
+
+describe('hasLineOfCommunication', () => {
+  it('returns true when path to friendly fortress exists', () => {
+    const state = cpState();
+    // Ottoman at Nicopolis, Scutari is Ottoman fortress
+    expect(hasLineOfCommunication(state, 'Nicopolis', 'ottoman')).toBe(true);
+  });
+
+  it('returns false when no path to friendly fortress', () => {
+    const state = cpState();
+    // Give Ottoman a random isolated space with no fortress nearby
+    state.spaces['Paris'].controller = 'ottoman';
+    // Paris neighbors are all France-controlled
+    expect(hasLineOfCommunication(state, 'Paris', 'ottoman')).toBe(false);
+  });
+
+  it('returns true when space itself is a friendly fortress', () => {
+    const state = cpState();
+    // Scutari is Ottoman fortress
+    expect(hasLineOfCommunication(state, 'Scutari', 'ottoman')).toBe(true);
+  });
+
+  it('returns true via capital even if not fortress', () => {
+    const state = cpState();
+    // Istanbul is Ottoman capital
+    expect(hasLineOfCommunication(state, 'Istanbul', 'ottoman')).toBe(true);
   });
 });
 
 describe('checkSiegeBreak', () => {
   it('breaks siege when besieger has fewer units', () => {
-    const state = cpState();
+    const state = setupOttomanSiege();
     const helpers = createMockHelpers();
-    const fort = findFortress(state, 'hapsburg');
-    if (fort) {
-      state.spaces[fort[0]].besieged = true;
-      state.spaces[fort[0]].besiegedBy = 'ottoman';
-      state.spaces[fort[0]].units = [
-        makeStack('ottoman', 1),
-        makeStack('hapsburg', 3)
-      ];
+    state.spaces['Belgrade'].units = [
+      makeStack('ottoman', 1),
+      makeStack('hapsburg', 3)
+    ];
 
-      const broken = checkSiegeBreak(state, fort[0], helpers);
-      expect(broken).toBe(true);
-      expect(state.spaces[fort[0]].besieged).toBe(false);
-    }
+    const broken = checkSiegeBreak(state, 'Belgrade', helpers);
+    expect(broken).toBe(true);
+    expect(state.spaces['Belgrade'].besieged).toBe(false);
   });
 
   it('does not break siege when besieger has more units', () => {
-    const state = cpState();
+    const state = setupOttomanSiege();
     const helpers = createMockHelpers();
-    const fort = findFortress(state, 'hapsburg');
-    if (fort) {
-      state.spaces[fort[0]].besieged = true;
-      state.spaces[fort[0]].besiegedBy = 'ottoman';
-      state.spaces[fort[0]].units = [
-        makeStack('ottoman', 5),
-        makeStack('hapsburg', 2)
-      ];
+    state.spaces['Belgrade'].units = [
+      makeStack('ottoman', 5),
+      makeStack('hapsburg', 2)
+    ];
 
-      const broken = checkSiegeBreak(state, fort[0], helpers);
-      expect(broken).toBe(false);
-      expect(state.spaces[fort[0]].besieged).toBe(true);
-    }
+    const broken = checkSiegeBreak(state, 'Belgrade', helpers);
+    expect(broken).toBe(false);
+    expect(state.spaces['Belgrade'].besieged).toBe(true);
   });
 });
 
 describe('checkRelief', () => {
   it('returns shouldBattle for besieged space', () => {
-    const state = cpState();
-    const fort = findFortress(state, 'hapsburg');
-    if (fort) {
-      state.spaces[fort[0]].besieged = true;
-      state.spaces[fort[0]].besiegedBy = 'ottoman';
-
-      const result = checkRelief(state, fort[0]);
-      expect(result.shouldBattle).toBe(true);
-      expect(result.besiegingPower).toBe('ottoman');
-    }
+    const state = setupOttomanSiege();
+    const result = checkRelief(state, 'Belgrade');
+    expect(result.shouldBattle).toBe(true);
+    expect(result.besiegingPower).toBe('ottoman');
   });
 
   it('returns false for non-besieged space', () => {

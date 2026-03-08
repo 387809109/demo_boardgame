@@ -14,6 +14,7 @@ import {
   LAND_ADJACENCY, LAND_SPACES, SPACE_BY_NAME, PORTS_BY_SEA_ZONE
 } from '../data/map-data.js';
 import { ARMY_LEADERS } from '../data/leaders.js';
+import { getReformerDiceBonus } from './reformer-helpers.js';
 
 /**
  * Get the power assigned to a player.
@@ -417,12 +418,14 @@ export function calcReformationDice(state, targetSpace) {
     if (!sp) continue;
     if (sp.religion === RELIGION.PROTESTANT) protestant++;
     if (getUnitsInSpace(state, name, 'protestant')) protestant++;
-    // TODO: adjacent reformer +1
   }
+
+  // Reformer bonuses (adjacent + in target)
+  const reformerBonus = getReformerDiceBonus(state, targetSpace);
+  protestant += reformerBonus.total;
 
   // Protestant stack in target
   if (getUnitsInSpace(state, targetSpace, 'protestant')) protestant += 2;
-  // TODO: reformer in target +2
 
   // Printing press bonus
   if (state.printingPressActive) protestant++;
@@ -475,10 +478,13 @@ export function calcCounterReformationDice(state, targetSpace) {
     if (!sp) continue;
     if (sp.religion === RELIGION.PROTESTANT) protestant++;
     if (getUnitsInSpace(state, name, 'protestant')) protestant++;
-    // TODO: adjacent reformer +1
   }
+
+  // Reformer bonuses for defense (adjacent + in target)
+  const reformerBonus = getReformerDiceBonus(state, targetSpace);
+  protestant += reformerBonus.total;
+
   if (getUnitsInSpace(state, targetSpace, 'protestant')) protestant += 2;
-  // TODO: reformer in target +2
 
   return { papal: Math.max(1, papal), protestant: Math.max(1, protestant) };
 }
@@ -500,6 +506,8 @@ export function getAvailableDebaters(state, side, zone, committedOnly) {
     if (!def) return false;
     // Entry turn check
     if (def.entryTurn > state.turn) return false;
+    // Conditional debaters (Cranmer, Coverdale, Latimer) require Edward/Elizabeth born
+    if (def.conditional && !(state.edwardBorn || state.elizabethBorn)) return false;
     // Zone filter (Protestant debaters are zone-specific)
     if (zone && side === 'protestant' && def.zone !== zone) return false;
     // Committed filter

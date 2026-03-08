@@ -5,14 +5,49 @@
  * Section 15 of the rulebook.
  */
 
-import { ACTION_COSTS, COMBAT } from '../constants.js';
+import { ACTION_COSTS, COMBAT, CAPITALS } from '../constants.js';
 import { spendCp } from './cp-manager.js';
 import {
-  getUnitsInSpace, countLandUnits, getAllAdjacentSpaces
+  getUnitsInSpace, countLandUnits, getAllAdjacentSpaces,
+  findFriendlyPath
 } from '../state/state-helpers.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
 import { rollDice } from './religious-actions.js';
 import { applyCasualties } from './combat-actions.js';
+
+// ── Line of Communication ───────────────────────────────────────
+
+/**
+ * Check if a power has a line of communication from a space.
+ * LOC = path of friendly-controlled land spaces to a friendly
+ * fortified home space (fortress or capital).
+ * @param {Object} state
+ * @param {string} space - Source space
+ * @param {string} power - Power needing LOC
+ * @returns {boolean}
+ */
+export function hasLineOfCommunication(state, space, power) {
+  // Find all friendly fortified home spaces as targets
+  const targets = [];
+  const capitals = CAPITALS[power] || [];
+  for (const [name, sp] of Object.entries(state.spaces)) {
+    if (sp.controller !== power) continue;
+    if (sp.besieged) continue;
+    if (sp.isFortress || capitals.includes(name)) {
+      targets.push(name);
+    }
+  }
+
+  if (targets.length === 0) return false;
+
+  // BFS from source to any target
+  for (const target of targets) {
+    const path = findFriendlyPath(state, space, target, power);
+    if (path) return true;
+  }
+
+  return false;
+}
 
 // ── Establish Siege ─────────────────────────────────────────────
 
@@ -76,12 +111,10 @@ export function validateAssault(state, power, actionData) {
     return { valid: false, error: 'No units available for assault' };
   }
 
-  // LOC check: simplified — must have a path to a home space
-  // Full LOC checking deferred to later; for now just verify units exist
-  // (placeholder for future Phase)
-
-  // Naval check: no enemy naval in adjacent sea zones (simplified)
-  // Full check deferred to later
+  // LOC check: must have a path to a friendly fortified home space
+  if (!hasLineOfCommunication(state, space, power)) {
+    return { valid: false, error: 'No line of communication to a friendly fortified space' };
+  }
 
   return { valid: true };
 }

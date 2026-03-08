@@ -167,6 +167,7 @@ export function buildInitialState(players, options = {}) {
     pendingInterception: null,
     capturedLeaders: {},
     piracyUsed: {},
+    loanedSquadrons: [],
 
     // Event markers
     augsburgConfessionActive: false,

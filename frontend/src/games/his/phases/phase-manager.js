@@ -5,7 +5,7 @@
  * transitions between phases, and turn advancement.
  */
 
-import { IMPULSE_ORDER, VICTORY } from '../constants.js';
+import { IMPULSE_ORDER, MAJOR_POWERS, VICTORY } from '../constants.js';
 import { executeCardDraw } from './phase-card-draw.js';
 import { initDiplomacyPhase } from './phase-diplomacy.js';
 import { initSpringDeployment } from './phase-spring-deployment.js';
@@ -13,6 +13,7 @@ import { executeLuther95 } from './phase-luther95.js';
 import { initDietOfWorms } from './phase-diet-of-worms.js';
 import { resolveNewWorld } from './phase-new-world.js';
 import { executeWinter } from './phase-winter.js';
+import { checkImmediateVictory } from '../state/victory-checks.js';
 
 // ── Phase Constants ────────────────────────────────────────────────
 
@@ -120,7 +121,7 @@ export function transitionPhase(state, toPhase, helpers) {
       break;
 
     case PHASES.VICTORY_DETERMINATION:
-      // VP check happens in checkGameEnd, not here
+      resolveVictoryDetermination(state, helpers);
       break;
 
     default:
@@ -134,6 +135,8 @@ export function transitionPhase(state, toPhase, helpers) {
  * @param {Object} helpers
  */
 export function advancePhase(state, helpers) {
+  if (state.status === 'ended') return;
+
   const next = getNextPhase(state);
 
   if (next) {
@@ -145,11 +148,82 @@ export function advancePhase(state, helpers) {
 }
 
 /**
+ * Resolve the Victory Determination phase.
+ * Checks immediate victories, VP standard/domination wins, and time limit.
+ * Sets state.status = 'ended' if someone wins.
+ * @param {Object} state
+ * @param {Object} helpers
+ */
+function resolveVictoryDetermination(state, helpers) {
+  // 1. Check immediate victories (military auto-win, religious victory)
+  const immediate = checkImmediateVictory(state);
+  if (immediate.victory) {
+    state.status = 'ended';
+    state.winner = immediate.winner;
+    state.winReason = immediate.type;
+    helpers.logEvent(state, 'game_end', {
+      winner: immediate.winner, reason: immediate.type
+    });
+    return;
+  }
+
+  // 2. Calculate VP totals
+  const vpTotals = {};
+  for (const power of MAJOR_POWERS) {
+    vpTotals[power] = (state.vp[power] || 0) + (state.bonusVp?.[power] || 0);
+  }
+  const sorted = Object.entries(vpTotals).sort((a, b) => b[1] - a[1]);
+  const [topPower, topVp] = sorted[0];
+
+  // 3. Standard victory: 25+ VP
+  if (topVp >= VICTORY.standardVp) {
+    state.status = 'ended';
+    state.winner = topPower;
+    state.winReason = 'standard_victory';
+    helpers.logEvent(state, 'game_end', {
+      winner: topPower, reason: 'standard_victory', vp: topVp
+    });
+    return;
+  }
+
+  // 4. Domination victory: Turn 4+, gap >= 5
+  if (state.turn >= VICTORY.dominationMinTurn) {
+    const [, secondVp] = sorted[1];
+    if (topVp - secondVp >= VICTORY.dominationGap) {
+      state.status = 'ended';
+      state.winner = topPower;
+      state.winReason = 'domination_victory';
+      helpers.logEvent(state, 'game_end', {
+        winner: topPower, reason: 'domination_victory', vp: topVp, gap: topVp - secondVp
+      });
+      return;
+    }
+  }
+
+  // 5. Time limit: after turn 9
+  if (state.turn >= VICTORY.maxTurns) {
+    state.status = 'ended';
+    state.winner = topPower;
+    state.winReason = 'time_limit';
+    helpers.logEvent(state, 'game_end', {
+      winner: topPower, reason: 'time_limit', vp: topVp
+    });
+    return;
+  }
+
+  helpers.logEvent(state, 'victory_determination_pass', {
+    turn: state.turn, vpTotals
+  });
+}
+
+/**
  * Advance to the next turn.
  * @param {Object} state
  * @param {Object} helpers
  */
 function advanceTurn(state, helpers) {
+  if (state.status === 'ended') return;
+
   state.turn++;
   helpers.logEvent(state, 'turn_advance', { turn: state.turn });
 

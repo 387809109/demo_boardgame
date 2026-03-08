@@ -91,6 +91,9 @@ import { submitDietCard } from './phases/phase-diet-of-worms.js';
 // Event cards
 import { executeEvent, validateEvent } from './actions/event-actions.js';
 
+// Victory checks
+import { checkImmediateVictory } from './state/victory-checks.js';
+
 export { PHASES, ACTION_TYPES };
 
 /** CP action dispatch table: actionType → { validate, execute } */
@@ -453,16 +456,19 @@ export class HISGame extends GameEngine {
         } else {
           resolveReformationAttempt(newState, power, actionData, helpers);
         }
+        this._checkVictory(newState, helpers);
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
       case ACTION_TYPES.RESOLVE_DEBATE_STEP:
         resolveDebateStep(newState, power, actionData, helpers);
+        this._checkVictory(newState, helpers);
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
       case ACTION_TYPES.RESOLVE_BATTLE:
         this._handleResolveBattle(newState, power, helpers);
+        this._checkVictory(newState, helpers);
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
@@ -488,6 +494,7 @@ export class HISGame extends GameEngine {
           if (handler) {
             handler.execute(newState, power, actionData, helpers);
           }
+          this._checkVictory(newState, helpers);
           this._checkAutoEndImpulse(newState, helpers);
         }
         break;
@@ -610,6 +617,21 @@ export class HISGame extends GameEngine {
   _handleEndImpulse(state, power, helpers) {
     endCpSpending(state);
     advanceImpulse(state);
+  }
+
+  /**
+   * Check for immediate victory after a control-changing action.
+   * @private
+   */
+  _checkVictory(state, helpers) {
+    if (state.status === 'ended') return;
+    const result = checkImmediateVictory(state);
+    if (result.victory) {
+      state.status = 'ended';
+      helpers.logEvent(state, 'immediate_victory', {
+        winner: result.winner, type: result.type
+      });
+    }
   }
 
   /**

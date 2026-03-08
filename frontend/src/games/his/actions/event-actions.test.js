@@ -116,6 +116,89 @@ describe('EVENT_HANDLERS', () => {
     });
   });
 
+  // ── Card #3: Six Wives of Henry VIII ──────────────────────────
+
+  describe('#3 Six Wives of Henry VIII', () => {
+    it('validates only england can play', () => {
+      const state = eventState();
+      const result = validateEvent(state, 'france', 3, { mode: 'war' });
+      expect(result.valid).toBe(false);
+    });
+
+    it('validates mode is required', () => {
+      const state = eventState();
+      const result = validateEvent(state, 'england', 3, {});
+      expect(result.valid).toBe(false);
+    });
+
+    it('war mode declares war and grants 5 CP', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      const result = executeEvent(state, 'england', 3,
+        { mode: 'war', targetPower: 'france' }, helpers);
+
+      expect(result).toEqual({ grantCp: 5 });
+      expect(state.wars.some(w =>
+        (w.a === 'england' && w.b === 'france') ||
+        (w.a === 'france' && w.b === 'england')
+      )).toBe(true);
+    });
+
+    it('marital mode validates Turn 2+ and Henry alive', () => {
+      const state = eventState({ turn: 1 });
+      const result = validateEvent(state, 'england', 3, { mode: 'marital' });
+      expect(result.valid).toBe(false);
+    });
+
+    it('marital mode advances status and rolls pregnancy', () => {
+      const state = eventState({
+        henryMaritalStatus: 'catherine_of_aragon'
+      });
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 3,
+        { mode: 'marital', dieRoll: 3 }, helpers);
+
+      expect(state.henryMaritalStatus).toBe('ask_divorce');
+      expect(state.edwardBorn).toBe(true); // roll 3 = boy
+    });
+
+    it('pregnancy roll 4 births Elizabeth', () => {
+      const state = eventState({
+        henryMaritalStatus: 'ask_divorce'
+      });
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 3,
+        { mode: 'marital', dieRoll: 4 }, helpers);
+
+      expect(state.henryMaritalStatus).toBe('anne_boleyn');
+      expect(state.elizabethBorn).toBe(true);
+    });
+
+    it('pregnancy roll 6 births both', () => {
+      const state = eventState({
+        henryMaritalStatus: 'anne_boleyn'
+      });
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 3,
+        { mode: 'marital', dieRoll: 6 }, helpers);
+
+      expect(state.edwardBorn).toBe(true);
+      expect(state.elizabethBorn).toBe(true);
+    });
+
+    it('rejects marital if at last status', () => {
+      const state = eventState({
+        henryMaritalStatus: 'katherine_parr'
+      });
+      const result = validateEvent(state, 'england', 3, { mode: 'marital' });
+      expect(result.valid).toBe(false);
+    });
+  });
+
   // ── Card #9: Barbary Pirates ───────────────────────────────────
 
   describe('#9 Barbary Pirates', () => {
@@ -338,6 +421,306 @@ describe('EVENT_HANDLERS', () => {
       const stack = algiers.units.find(u => u.owner === 'ottoman');
       expect(stack.leaders).toContain('dragut');
       expect(stack.leaders).not.toContain('barbarossa');
+    });
+  });
+
+  // ── Card #19: Edward VI ───────────────────────────────────────
+
+  describe('#19 Edward VI', () => {
+    it('replaces Henry VIII with Edward VI', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 19, {}, helpers);
+
+      expect(state.rulers.england).toBe('edward_vi');
+      expect(state.rulerCards.england).toBe(19);
+    });
+
+    it('removes Card #3 from game', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 19, {}, helpers);
+
+      expect(state.removedCards).toContain(3);
+    });
+
+    it('places Dudley leader', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 19,
+        { dudleySpace: 'London' }, helpers);
+
+      const london = state.spaces['London'];
+      const stack = london.units.find(u => u.owner === 'england');
+      expect(stack.leaders).toContain('dudley');
+    });
+
+    it('sets England to Protestant', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 19, {}, helpers);
+
+      expect(state.englandProtestant).toBe(true);
+    });
+  });
+
+  // ── Card #21: Mary I ────────────────────────────────────────────
+
+  describe('#21 Mary I', () => {
+    it('replaces Edward VI with Mary I', () => {
+      const state = eventState();
+      state.rulers.england = 'edward_vi';
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 21, {}, helpers);
+
+      expect(state.rulers.england).toBe('mary_i');
+      expect(state.rulerCards.england).toBe(21);
+    });
+
+    it('removes Card #19 from game', () => {
+      const state = eventState();
+      state.rulers.england = 'edward_vi';
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 21, {}, helpers);
+
+      expect(state.removedCards).toContain(19);
+    });
+
+    it('sets England back to Catholic', () => {
+      const state = eventState();
+      state.rulers.england = 'edward_vi';
+      state.englandProtestant = true;
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 21, {}, helpers);
+
+      expect(state.englandProtestant).toBe(false);
+    });
+  });
+
+  // ── Card #20: Henry II ────────────────────────────────────────
+
+  describe('#20 Henry II', () => {
+    it('replaces Francis I with Henry II', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'france', 20, {}, helpers);
+
+      expect(state.rulers.france).toBe('henry_ii');
+      expect(state.rulerCards.france).toBe(20);
+    });
+
+    it('removes Card #4 from game', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'france', 20, {}, helpers);
+
+      expect(state.removedCards).toContain(4);
+    });
+  });
+
+  // ── Card #22: Julius III ────────────────────────────────────────
+
+  describe('#22 Julius III', () => {
+    it('replaces Paul III with Julius III', () => {
+      const state = eventState();
+      state.rulers.papacy = 'paul_iii';
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 22, {}, helpers);
+
+      expect(state.rulers.papacy).toBe('julius_iii');
+      expect(state.rulerCards.papacy).toBe(22);
+    });
+
+    it('removes Card #14 from game', () => {
+      const state = eventState();
+      state.rulers.papacy = 'paul_iii';
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 22, {}, helpers);
+
+      expect(state.removedCards).toContain(14);
+    });
+
+    it('maintains papacy counter-reform ties', () => {
+      const state = eventState();
+      state.rulers.papacy = 'paul_iii';
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 22, {}, helpers);
+
+      expect(state.papacyWinsCounterReformTies).toBe(true);
+    });
+  });
+
+  // ── Card #23: Elizabeth I ───────────────────────────────────────
+
+  describe('#23 Elizabeth I', () => {
+    it('replaces Mary I with Elizabeth I', () => {
+      const state = eventState();
+      state.rulers.england = 'mary_i';
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 23, {}, helpers);
+
+      expect(state.rulers.england).toBe('elizabeth_i');
+      expect(state.rulerCards.england).toBe(23);
+    });
+
+    it('removes Card #21 from game', () => {
+      const state = eventState();
+      state.rulers.england = 'mary_i';
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 23, {}, helpers);
+
+      expect(state.removedCards).toContain(21);
+    });
+
+    it('sets England to Protestant', () => {
+      const state = eventState();
+      state.rulers.england = 'mary_i';
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 23, {}, helpers);
+
+      expect(state.englandProtestant).toBe(true);
+    });
+  });
+
+  // ── Card #97: Scots Raid ────────────────────────────────────────
+
+  describe('#97 Scots Raid', () => {
+    it('is ignored if Scotland not allied to France', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      const result = executeEvent(state, 'france', 97, {}, helpers);
+
+      expect(result).toBeUndefined();
+      const log = state.eventLog.find(e => e.type === 'event_scots_raid_ignored');
+      expect(log).toBeDefined();
+    });
+
+    it('switches Stirling to French control when allied', () => {
+      const state = eventState();
+      state.alliances.push({ a: 'scotland', b: 'france' });
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'france', 97, {}, helpers);
+
+      expect(state.spaces['Stirling'].controller).toBe('france');
+    });
+
+    it('displaces non-French/Scottish units from Stirling', () => {
+      const state = eventState();
+      state.alliances.push({ a: 'scotland', b: 'france' });
+      state.spaces['Stirling'].units.push({
+        owner: 'england', regulars: 2, mercenaries: 0,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      });
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'france', 97, {}, helpers);
+
+      const engStack = state.spaces['Stirling'].units.find(u => u.owner === 'england');
+      expect(engStack).toBeUndefined();
+    });
+
+    it('grants 6 CP normally', () => {
+      const state = eventState();
+      state.alliances.push({ a: 'scotland', b: 'france' });
+      const helpers = createMockHelpers();
+
+      const result = executeEvent(state, 'france', 97, {}, helpers);
+
+      expect(result).toEqual({ grantCp: 6 });
+    });
+
+    it('grants 3 CP with leader transfer', () => {
+      const state = eventState();
+      state.alliances.push({ a: 'scotland', b: 'france' });
+      const helpers = createMockHelpers();
+
+      const result = executeEvent(state, 'france', 97,
+        { leaderTransfer: true }, helpers);
+
+      expect(result).toEqual({ grantCp: 3 });
+    });
+  });
+
+  // ── Card #113: Imperial Coronation ──────────────────────────────
+
+  describe('#113 Imperial Coronation', () => {
+    it('grants card draws when Charles V is in Italy', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      // Place Charles V in an Italian space
+      const genoa = state.spaces['Genoa'];
+      let hapStack = genoa.units.find(u => u.owner === 'hapsburg');
+      if (!hapStack) {
+        hapStack = {
+          owner: 'hapsburg', regulars: 0, mercenaries: 0,
+          cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+        };
+        genoa.units.push(hapStack);
+      }
+      hapStack.leaders.push('charles_v');
+
+      executeEvent(state, 'france', 113, {}, helpers);
+
+      const log = state.eventLog.find(e => e.type === 'event_imperial_coronation');
+      expect(log.data.charlesInItaly).toBe(true);
+      expect(log.data.cardDraws.hapsburg).toBe(1);
+      expect(log.data.cardDraws.france).toBe(1);
+    });
+
+    it('no card draws when Charles V not in Italy', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'france', 113, {}, helpers);
+
+      const log = state.eventLog.find(e => e.type === 'event_imperial_coronation');
+      expect(log.data.charlesInItaly).toBe(false);
+      expect(Object.keys(log.data.cardDraws)).toHaveLength(0);
+    });
+  });
+
+  // ── Card #114: La Forêt's Embassy ───────────────────────────────
+
+  describe('#114 La Forêt\'s Embassy', () => {
+    it('grants card draws when France and Ottoman allied', () => {
+      const state = eventState();
+      state.alliances.push({ a: 'france', b: 'ottoman' });
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'ottoman', 114, {}, helpers);
+
+      const log = state.eventLog.find(e => e.type === 'event_la_foret_embassy');
+      expect(log.data.allied).toBe(true);
+      expect(log.data.cardDraws.france).toBe(1);
+      expect(log.data.cardDraws.ottoman).toBe(1);
+    });
+
+    it('no card draws when not allied', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'ottoman', 114, {}, helpers);
+
+      const log = state.eventLog.find(e => e.type === 'event_la_foret_embassy');
+      expect(log.data.allied).toBe(false);
     });
   });
 
