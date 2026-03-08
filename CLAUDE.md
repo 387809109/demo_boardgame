@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **桌游集成客户端** - A web-based board game platform supporting single-player and LAN multiplayer modes. Built with vanilla JavaScript (frontend) and Node.js WebSocket server (backend).
 
-**Current Status**: Frontend implemented (v0.1.0) with UNO game, single-player AI, and online multiplayer support. Local backend complete. Cloud backend (Supabase) complete. REST API service (Render) deployed.
+**Current Status**: Frontend implemented with UNO complete and Werewolf P0/P1 complete (P2/P3 pending), single-player AI, and online multiplayer support. Mobile responsive adaptation (T-F123) is code-complete and pending acceptance. Local backend is complete (with minor reconnect improvements pending). Cloud backend (Supabase) is complete (including reconnect support). REST API service (Render) is deployed, with card-data seeding and AI/MCP endpoints pending.
 
 ## Architecture
 
@@ -81,7 +81,7 @@ demo_boardgame/
 │   ├── games/             # Game rule documentation (AI-facing)
 │   │   ├── TEMPLATE.md    # Template for new game rules
 │   │   ├── uno/RULES.md   # UNO technical rules
-│   │   └── werewolf/      # Werewolf (in development)
+│   │   └── werewolf/      # Werewolf (P0/P1 complete, P2/P3 in development)
 │   │       ├── RULES.md   # Technical rules (template)
 │   │       └── PLAN.md    # Development plan
 │   └── prd/
@@ -101,7 +101,7 @@ npm install
 npm run dev              # Start dev server at localhost:5173
 npm run build            # Production build to dist/
 
-# Backend (not yet implemented)
+# Backend (local WebSocket server, implemented)
 cd backend/server
 npm install
 node index.js            # Start WebSocket server on port 7777
@@ -253,11 +253,11 @@ Example: `docs/games/werewolf/PLAN.md`
 | `docs/dev_rules/ROLE_INPUT_TEMPLATE.md` | 角色描述输入模板 |
 | `docs/PROTOCOL.md` | WebSocket message specification |
 | `docs/prd/frontend/README.md` | Frontend implementation guide with templates |
-| `docs/prd/frontend/TASKS.md` | Frontend task checklist (T-F001 to T-F112) |
+| `docs/prd/frontend/TASKS.md` | Frontend task checklist (T-F001 to T-F127) |
 | `docs/prd/backend/README.md` | Backend implementation guide with templates |
-| `docs/prd/backend/TASKS.md` | Backend task checklist (T-B001 to T-B113) |
+| `docs/prd/backend/TASKS.md` | Backend task checklist (T-B001 to T-B120) |
 | `docs/prd/cloud/PLAN.md` | **Cloud backend design & architecture** |
-| `docs/prd/cloud/TASKS.md` | Cloud backend task checklist (T-C001 to T-C043) |
+| `docs/prd/cloud/TASKS.md` | Cloud backend task checklist (T-C001 to T-C044) |
 | `docs/prd/api/README.md` | **API service design (Render)** |
 | `docs/prd/api/TRPC_REFACTOR_PLAN.md` | tRPC migration architecture, rollout, and legacy cleanup baseline |
 | `docs/prd/api/ANALYTICS_MVP_PLAN.md` | MVP analytics scope, event schema, rollout, and privacy guardrails |

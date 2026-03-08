@@ -20,6 +20,8 @@
 
 **灵感来源**: 本项目架构参考了优秀的开源项目 [无名杀 (Noname)](https://github.com/libnoname/noname)，采用纯Web技术实现轻量化桌游客户端。
 
+> 当前详细进度、测试统计与待开发清单请以 [PROGRESS.md](PROGRESS.md) 为准。
+
 ### 核心价值
 
 - 🌐 **无需安装** - 基于浏览器，打开网页即可开始游戏
@@ -66,17 +68,18 @@
 
 ## 🎯 支持的游戏
 
-### ✅ 已支持
+### ✅ 已支持（可玩）
 
 | 游戏 | 类型 | 玩家数 | 功能 |
 |------|------|--------|------|
 | 🃏 UNO | 纸牌 | 2-8人 | 单机AI、联机对战、自定义规则 |
+| 🐺 狼人杀 | 社交推理 | 6-20人 | P0/P1 已完成，联机可玩 |
 
-### 🚧 开发中
+### 🚧 迭代中
 
-| 游戏 | 类型 | 玩家数 | 状态 |
-|------|------|--------|------|
-| 🐺 狼人杀 | 社交推理 | 6-12人 | 规划中 |
+- 狼人杀 P2/P3 角色扩展
+- 移动端适配（代码完成，待验收）与端到端集成测试
+- API 卡牌数据填充与 AI/MCP 能力
 
 ### 📋 规划中
 
@@ -275,7 +278,11 @@ demo_boardgame/
 │       ├── connection-manager.js
 │       ├── room-manager.js
 │       ├── message-router.js
-│       └── tests/             # 后端测试 (107 tests)
+│       └── tests/             # 后端测试
+│
+├── api/                       # REST API 服务 (Render)
+├── cloud/                     # Supabase 配置与迁移
+├── landing_page/              # 官网/营销页
 │
 ├── docs/                       # 项目文档
 │   ├── PROTOCOL.md            # WebSocket 通信协议
@@ -310,12 +317,12 @@ node index.js
 # 4. 运行前端测试
 cd frontend
 npm test
-# ✅ 126 个 UNO 测试用例
+# ✅ 前端测试通过（当前 768 tests）
 
 # 5. 运行后端测试
 cd backend/server
 npm test
-# ✅ 107 个后端测试用例
+# ✅ 后端测试通过（当前 153 tests）
 
 # 6. 构建前端生产版本
 cd frontend
@@ -337,7 +344,7 @@ npm run build
 - **DRY 原则** - 避免代码重复
 - **KISS 原则** - 保持简单
 
-详细说明请参阅 [开发原则文档](rules/DEVELOPMENT_PRINCIPLES.md)
+详细说明请参阅 [开发原则文档](docs/dev_rules/DEVELOPMENT_PRINCIPLES.md)
 
 ### 代码规范
 
@@ -347,7 +354,7 @@ npm run build
 - **模块系统** - 使用ES6 modules (`import`/`export`)
 - **变量声明** - 使用 `const`/`let`，禁用 `var`
 
-详细规范请参阅 [代码风格指南](rules/CODE_STYLE_GUIDE.md)
+详细规范请参阅 [代码风格指南](docs/dev_rules/CODE_STYLE_GUIDE.md)
 
 ### 设计系统
 
@@ -358,7 +365,7 @@ npm run build
 - **间距系统** - 基于4px网格
 - **组件规范** - 按钮、输入框、卡片等
 
-详细规范请参阅 [设计系统文档](rules/DESIGN_SYSTEM.md)
+详细规范请参阅 [开发规范总览](docs/dev_rules/README.md)
 
 ### 前后端协作
 
@@ -376,9 +383,9 @@ npm run build
 
 **协作文档**:
 - [WebSocket通信协议](docs/PROTOCOL.md) - 前后端必读
-- [前端开发指南](docs/FRONTEND_GUIDE.md) - 前端开发者专用
-- [后端开发指南](docs/BACKEND_GUIDE.md) - 后端开发者专用
-- [协作开发流程](docs/COLLABORATION.md) - 团队协作规范
+- [前端开发指南](docs/prd/frontend/README.md) - 前端开发者专用
+- [后端开发指南](docs/prd/backend/README.md) - 后端开发者专用
+- [云端方案](docs/prd/cloud/PLAN.md) - Supabase 云端架构与流程
 
 ---
 
@@ -388,21 +395,22 @@ npm run build
 
 - [x] 核心框架搭建
 - [x] 单机模式实现（AI 对战）
-- [x] 集成 UNO 游戏（126 个测试）
+- [x] 集成 UNO 游戏（130 个测试）
 - [x] 基础 UI 完成
 
 ### Phase 2: 联机功能 ✅ 完成
 
-- [x] WebSocket 服务器（107 个测试）
+- [x] WebSocket 服务器（153 个测试）
 - [x] 房间创建/加入
 - [x] 实时游戏同步
 - [x] 聊天功能
 
 ### Phase 3: 当前进行中
 
-- [ ] 狼人杀游戏开发
-- [ ] 性能优化
-- [ ] 更多游戏规则选项
+- [x] 狼人杀 P0/P1 完成（含手动端到端）
+- [ ] 狼人杀 P2/P3 角色扩展
+- [ ] 移动端适配（代码完成，待验收）与端到端集成测试
+- [ ] Analytics 平台监控/告警落地
 
 ### Phase 4: 未来计划
 
@@ -444,7 +452,7 @@ npm run build
 - [ ] 添加必要的文档
 - [ ] Commit 消息符合规范
 
-详细贡献指南请参阅 [贡献指南](rules/README.md#贡献指南)
+详细贡献指南请参阅 [开发规范总览](docs/dev_rules/README.md)
 
 ### Commit 消息规范
 
@@ -463,24 +471,23 @@ chore: 构建配置或辅助工具变动
 ## 📄 文档索引
 
 ### 产品文档
-- [产品需求文档 (PRD)](PRD.md) - 完整的产品规划和功能需求
-- [Landing Page](landing-page.html) - 产品介绍页面
+- [产品需求文档 (PRD)](docs/prd/PRD.md) - 完整的产品规划和功能需求
+- [Landing Page](landing_page/README.md) - 产品介绍页面
 
 ### 开发规范
-- [开发规范总览](rules/README.md) - 规范文档入口
-- [开发原则](rules/DEVELOPMENT_PRINCIPLES.md) - SOLID, DRY, KISS 原则
-- [代码风格指南](rules/CODE_STYLE_GUIDE.md) - 命名、格式、注释规范
-- [设计系统](rules/DESIGN_SYSTEM.md) - 颜色、字体、组件规范
+- [开发规范总览](docs/dev_rules/README.md) - 规范文档入口
+- [开发原则](docs/dev_rules/DEVELOPMENT_PRINCIPLES.md) - SOLID, DRY, KISS 原则
+- [代码风格指南](docs/dev_rules/CODE_STYLE_GUIDE.md) - 命名、格式、注释规范
 
 ### 技术文档
 
 #### 协作开发（重要）
 
 - [WebSocket通信协议](docs/PROTOCOL.md) - 前后端通信规范（必读）
-- [前端开发指南](docs/FRONTEND_GUIDE.md) - 前端开发者专用
-- [后端开发指南](docs/BACKEND_GUIDE.md) - 后端开发者专用
-- [协作开发流程](docs/COLLABORATION.md) - 前后端协作规范
-- [AI Coding 指南](docs/AI_CODING_GUIDE.md) - AI 编程助手优化文档 ⭐
+- [前端开发指南](docs/prd/frontend/README.md) - 前端开发者专用
+- [后端开发指南](docs/prd/backend/README.md) - 后端开发者专用
+- [云端方案](docs/prd/cloud/PLAN.md) - Supabase 云端架构与流程
+- [AI Coding 指南](CLAUDE.md) - AI 协作约定与项目上下文 ⭐
 
 #### 其他文档
 
@@ -535,14 +542,15 @@ npm run test:coverage # 查看覆盖率
 
 | 模块 | 测试框架 | 测试数量 | 覆盖率 |
 |------|----------|----------|--------|
-| 前端 UNO 游戏 | Vitest | 126 | - |
-| 后端服务器 | Jest | 107 | 88%+ |
+| 前端（整体） | Vitest | 768 | - |
+| 后端服务器 | Jest | 153 | 语句 89% / 行 88% |
+| API 服务 | Jest | 99 | - |
 
 ### 测试策略
 
 - **单元测试** - 游戏规则、状态管理、消息路由
 - **集成测试** - WebSocket 连接、房间管理
-- **端到端测试** - 完整游戏流程（规划中）
+- **端到端测试** - 完整游戏流程（进行中：手动已覆盖，自动化待补）
 
 ---
 
@@ -707,9 +715,9 @@ in the Software without restriction...
 ![GitHub Pull Requests](https://img.shields.io/github/issues-pr/your-org/board-game-client)
 ![GitHub Last Commit](https://img.shields.io/github/last-commit/your-org/board-game-client)
 
-**开发状态**: 🚧 Beta 版本 (联机功能已完成)
+**开发状态**: 🚧 开发中（整体约 90%，见 PROGRESS.md）
 **最新版本**: v0.2.0
-**最后更新**: 2026-01-26
+**最后更新**: 2026-03-08
 
 ---
 

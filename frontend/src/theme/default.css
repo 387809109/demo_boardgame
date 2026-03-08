@@ -623,3 +623,162 @@ ul, ol {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--neutral-400);
 }
+
+/* ========================================
+   Responsive Layout (T-F123)
+   ======================================== */
+
+.game-board .sidebar-toggle-btn {
+  display: none;
+}
+
+.game-board .sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .game-board .game-header {
+    padding: var(--spacing-2) var(--spacing-3) !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: var(--spacing-2);
+  }
+
+  .game-board .game-header-left {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: var(--spacing-2) !important;
+  }
+
+  .game-board .game-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .game-board .game-main {
+    position: relative;
+  }
+
+  .game-board .game-content {
+    flex-direction: column !important;
+    gap: var(--spacing-3) !important;
+    padding: var(--spacing-3) !important;
+    overflow-y: auto !important;
+  }
+
+  .game-board .player-ring-container {
+    min-width: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+    min-height: 250px;
+    align-items: flex-start !important;
+  }
+
+  .game-board .game-ui-container {
+    width: 100%;
+    justify-content: flex-start !important;
+  }
+
+  .game-board .game-ui-container > * {
+    width: 100%;
+  }
+
+  .game-board .action-bar {
+    justify-content: flex-start !important;
+    padding: var(--spacing-2) var(--spacing-3) !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .game-board .sidebar-toggle-btn {
+    display: inline-flex !important;
+  }
+
+  .game-board .sidebar-container {
+    position: fixed !important;
+    top: 0;
+    right: 0;
+    width: min(88vw, 320px) !important;
+    height: 100vh;
+    z-index: var(--z-modal);
+    transform: translateX(100%);
+    transition: transform var(--transition-base);
+    box-shadow: var(--shadow-lg);
+    border-left: 1px solid var(--border-light);
+  }
+
+  .game-board .sidebar-container .game-sidebar {
+    width: 100% !important;
+    height: 100%;
+  }
+
+  .game-board.mobile-sidebar-open .sidebar-container {
+    transform: translateX(0);
+  }
+
+  .game-board .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-base);
+    z-index: calc(var(--z-modal) - 1);
+  }
+
+  .game-board.mobile-sidebar-open .sidebar-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .waiting-room .waiting-room-header {
+    padding: var(--spacing-3) var(--spacing-4) !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: var(--spacing-3);
+  }
+
+  .waiting-room .waiting-room-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--spacing-2) !important;
+  }
+
+  .waiting-room .waiting-room-start-controls {
+    align-items: flex-start !important;
+    width: 100%;
+  }
+
+  .waiting-room .waiting-room-layout {
+    grid-template-columns: 1fr !important;
+    gap: var(--spacing-3) !important;
+    padding: var(--spacing-3) !important;
+    max-width: 100% !important;
+  }
+
+  .waiting-room .waiting-room-chat-panel {
+    height: 320px !important;
+  }
+
+  .waiting-room .waiting-room-chat-input-area {
+    flex-wrap: wrap;
+  }
+
+  .waiting-room .waiting-room-chat-input-area .chat-input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .game-board .btn,
+  .waiting-room .btn {
+    min-height: 40px;
+  }
+
+  .game-board .input,
+  .waiting-room .input {
+    font-size: 16px;
+  }
+}

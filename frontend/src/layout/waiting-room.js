@@ -149,7 +149,7 @@ export class WaitingRoom {
     const canRemoveAI = isHost && supportsAI && (this.room.aiPlayers?.length || 0) > 0;
 
     this.element.innerHTML = `
-      <header style="
+      <header class="waiting-room-header" style="
         background: var(--gradient-primary);
         color: white;
         padding: var(--spacing-4) var(--spacing-6);
@@ -157,14 +157,14 @@ export class WaitingRoom {
         justify-content: space-between;
         align-items: center;
       ">
-        <div>
+        <div class="waiting-room-header-info">
           <h2 style="margin: 0; font-size: var(--text-xl);">等待大厅</h2>
           <p style="margin: var(--spacing-1) 0 0 0; opacity: 0.9; font-size: var(--text-sm);">
             房间 ID: ${this.room.id} | 游戏: ${this.room.gameType} | 目标人数: ${maxPlayers}
           </p>
         </div>
-        <div style="display: flex; align-items: center; gap: var(--spacing-3);">
-          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: var(--spacing-1);">
+        <div class="waiting-room-header-actions" style="display: flex; align-items: center; gap: var(--spacing-3);">
+          <div class="waiting-room-start-controls" style="display: flex; flex-direction: column; align-items: flex-end; gap: var(--spacing-1);">
             ${isHost ? `
               <button class="btn btn-primary start-game-btn" ${!canStart ? 'disabled' : ''}>
                 开始游戏
@@ -194,7 +194,7 @@ export class WaitingRoom {
         </div>
       </header>
 
-      <div style="
+      <div class="waiting-room-layout" style="
         flex: 1;
         display: grid;
         grid-template-columns: 1fr 300px;
@@ -275,7 +275,7 @@ export class WaitingRoom {
           </div>
         </div>
 
-        <div class="chat-panel card" style="display: flex; flex-direction: column; height: 400px;">
+        <div class="waiting-room-chat-panel chat-panel card" style="display: flex; flex-direction: column; height: 400px;">
           <div class="card-header">
             <h3 style="margin: 0;">聊天</h3>
           </div>
@@ -289,7 +289,7 @@ export class WaitingRoom {
           ">
             ${this.chatMessages.map(msg => this._renderChatMessage(msg)).join('')}
           </div>
-          <div style="padding: var(--spacing-3); border-top: 1px solid var(--border-light); display: flex; gap: var(--spacing-2);">
+          <div class="waiting-room-chat-input-area" style="padding: var(--spacing-3); border-top: 1px solid var(--border-light); display: flex; gap: var(--spacing-2);">
             <input type="text" class="input chat-input" placeholder="发送消息..." style="flex: 1;">
             <button class="btn btn-primary btn-sm send-chat-btn">发送</button>
           </div>
