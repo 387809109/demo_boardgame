@@ -1,6 +1,6 @@
 # 项目进度报告
 
-> 最后更新: 2026-03-01
+> 最后更新: 2026-03-08
 
 ---
 
@@ -61,7 +61,7 @@
 | T-F061 | UNO 游戏类 index.js | ✅ |
 | T-F062 | UNO 规则 rules.js | ✅ |
 | T-F063 | UNO UI ui.js | ✅ |
-| T-F064 | UNO 单元测试 (126 tests) | ✅ |
+| T-F064 | UNO 单元测试 (130 tests) | ✅ |
 | T-F065 | UNO 游戏设置 | ✅ |
 | T-F-DOC-002 | UNO AI 规则文档 | ✅ |
 | T-F-DOC-003 | UNO 用户规则书 | ✅ |
@@ -102,13 +102,14 @@
 | T-F100 | 渲染性能优化 | ✅ |
 | T-F101 | 网络性能优化 | ⬜ |
 | T-F102 | 资源加载优化 | ⬜ |
-| T-F110 | 核心模块单元测试 (160 tests) | ✅ |
-| T-F111 | 工具函数测试 (109 tests) | ✅ |
+| T-F110 | 核心模块单元测试 (165 tests) | ✅ |
+| T-F111 | 工具函数测试 (114 tests) | ✅ |
 | T-F112 | 集成测试 | ⬜ |
-| T-F123 | 移动端响应式布局适配 | ⬜ |
+| T-F123 | 移动端响应式布局适配 | 🔶 已开发（待验收） |
 | T-F124 | 游戏数据查询面板 (API 集成) | ✅ |
 | T-F125 | 联机断线重连（客户端） | ✅（本地 + 云端） |
-| T-F126 | AI 规则问答面板 (Chat API 集成) | ✅ |
+| T-F126 | 主动退出后短时可恢复对局（低优先） | ⬜ |
+| T-F127 | 主入口文件模块化拆分（main.js） | ✅ |
 
 ### Phase 6: 可选功能 ⬜ 未开始
 
@@ -251,7 +252,7 @@
 | T-C033 | 大厅用户信息展示 | ✅ |
 | T-C034 | 集成测试 | ✅ |
 
-### Phase C5: 文档更新 🔶 进行中
+### Phase C5: 文档更新 ✅ 完成
 
 | 任务 ID | 描述 | 状态 |
 |---------|------|------|
@@ -328,7 +329,7 @@
 
 ## 测试覆盖率
 
-### 前端测试统计 (767 tests passing)
+### 前端测试统计 (768 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -336,18 +337,18 @@
 | rules.test.js | 36 | ✅ |
 | engine.test.js | 47 | ✅ |
 | network.test.js | 60 | ✅ |
-| cloud-network.test.js | 54 | ✅ |
+| cloud-network.test.js | 55 | ✅ |
 | storage.test.js | 39 | ✅ |
 | validators.test.js | 75 | ✅ |
 | uno/index.test.js | 79 | ✅ |
 | uno/ui.test.js | 2 | ✅ |
 | uno/rules.test.js | 49 | ✅ |
 | waiting-room.test.js | 4 | ✅ |
-| werewolf/index.test.js | 173 | ✅ |
-| werewolf/ui.test.js | 3 | ✅ |
+| werewolf/index.test.js | 258 | ✅ |
+| werewolf/ui.test.js | 11 | ✅ |
 | player-avatar.test.js | 4 | ✅ |
 | auth.test.js | 27 | ✅ |
-| **总计** | **767** | ✅ |
+| **总计** | **768** | ✅ |
 
 ### 后端测试统计 (153 tests passing)
 
@@ -420,17 +421,16 @@
 
 5. **按需快照替代逐 action 全量传输** - 减少带宽消耗和隐藏信息泄露 (T-B118)
 6. **狼人杀 P2 角色推进** - 守护天使/狱卒/小偷等 (T-F078)
-7. **移动端适配** - 响应式布局，手机可用 (T-F123)
+7. **移动端适配验收与回归** - 多设备手动验收并修复剩余问题 (T-F123)
 8. **后端广播优化** - 广播器实现 (T-B100-T-B102)
 9. **监控与日志** - 统计信息和健康检查 (T-B110-T-B113)
 
 ### 低优先级
 
-12. **定期清理过期重连会话** - 心跳循环中自动清理 (T-B119)
-13. **使用 crypto.randomUUID 生成 sessionId** - 增强会话安全性 (T-B120)
-14. **狼人杀 P2-P3 角色** - 高级及扩展角色 (T-F078, T-F079)
-15. **网络性能优化** - 消息压缩、批量发送 (T-F101)
-16. **主动退出后短时可恢复对局** - 退出后保留短窗口恢复能力（与真正退房语义区分）
+12. **使用 crypto.randomUUID 生成 sessionId** - 增强会话安全性 (T-B120)
+13. **狼人杀 P2-P3 角色** - 高级及扩展角色 (T-F078, T-F079)
+14. **网络性能优化** - 消息压缩、批量发送 (T-F101)
+15. **主动退出后短时可恢复对局** - 退出后保留短窗口恢复能力（与真正退房语义区分）
 
 ### 可选功能 (Optional)
 
@@ -442,6 +442,15 @@
 ---
 
 ## 最近完成的任务
+
+### 2026-03-08
+
+- 🔶 T-F123 移动端响应式布局适配代码完成，待验收
+  - 修改 `frontend/src/layout/game-board.js`：新增移动端侧栏抽屉、遮罩层、窗口尺寸监听与 ESC 关闭
+  - 修改 `frontend/src/layout/waiting-room.js`：补齐响应式 class，用于窄屏单列堆叠
+  - 修改 `frontend/src/theme/default.css`：新增 `@media (max-width: 768px)` 规则，覆盖 GameBoard/WaitingRoom/触摸交互
+  - 验证通过：`npm --prefix frontend run test -- --run`（768 tests），`npm --prefix frontend run build`
+  - 待验收：iPhone SE (375px) 到 iPad (768px) 的手动端到端可用性检查
 
 ### 2026-03-01
 
@@ -542,7 +551,7 @@
 
 ### 2026-02-12
 
-- ✅ T-F126 前端 AI 规则问答面板
+- ✅ 前端 AI 规则问答面板（关联 T-AC001~T-AC008）
   - 新增 `frontend/src/components/chat-panel.js` — 聊天面板组件 (模态对话框、消息气泡、建议问题、会话管理)
   - 修改 `frontend/src/utils/api-client.js` — 新增 del/sendChatMessage/getChatHistory/deleteChatSession
   - 修改 `frontend/src/layout/game-lobby.js` — 大厅添加「💬 规则问答」按钮
@@ -560,7 +569,7 @@
   - API 全部 50 个测试通过 (原有 24 + 新增 26)
   - PRD 文档: `docs/prd/api/AI_CHAT_PRD.md` v1.1.0
 
-- ✅ 前端入口文件模块化拆分（`docs/dev_rules/CODE_STYLE_GUIDE.md` 合规）
+- ✅ T-F127 前端入口文件模块化拆分（`docs/dev_rules/CODE_STYLE_GUIDE.md` 合规）
   - 将 `frontend/src/main.js` 中联机房间逻辑拆分到 `frontend/src/app/app-online-room-methods.js`
   - 将重连流程逻辑拆分到 `frontend/src/app/app-reconnect-methods.js`
   - `main.js` 从 `1755` 行降至 `826` 行，满足“单文件不超过 1000 行”要求

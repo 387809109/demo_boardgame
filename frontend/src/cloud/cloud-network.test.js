@@ -583,6 +583,35 @@ describe('CloudNetworkClient', () => {
 
       expect(handler).toHaveBeenCalledTimes(1);
     });
+
+    it('should dispatch RETURN_TO_ROOM_STATUS as-is', () => {
+      const handler = vi.fn();
+      client.onMessage('RETURN_TO_ROOM_STATUS', handler);
+
+      ch._simulateBroadcast('RETURN_TO_ROOM_STATUS', {
+        type: 'RETURN_TO_ROOM_STATUS',
+        playerId: 'server',
+        data: {
+          allReturned: true,
+          players: [
+            { id: 'player-1', nickname: 'Alice', isHost: true, returned: true },
+            { id: 'player-2', nickname: 'Bob', isHost: false, returned: true }
+          ]
+        }
+      });
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allReturned: true,
+          players: expect.arrayContaining([
+            expect.objectContaining({ id: 'player-1', returned: true }),
+            expect.objectContaining({ id: 'player-2', returned: true })
+          ])
+        }),
+        expect.any(Object)
+      );
+    });
   });
 
   // ── RECONNECT_REQUEST handling (Bug 5) ─────────────────

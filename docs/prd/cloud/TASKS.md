@@ -10,11 +10,11 @@
 | Phase | 进度 | 说明 |
 |-------|------|------|
 | Phase C1: 基础设施 | ✅ 完成 | Supabase 配置、依赖、客户端初始化 |
-| Phase C2: 用户认证 | ✅ 完成 | 注册/登录、会话管理、UI (单元测试待补) |
-| Phase C3: CloudNetworkClient | ✅ 完成 | Realtime 网络客户端 (单元测试待补) |
+| Phase C2: 用户认证 | ✅ 完成 | 注册/登录、会话管理、UI（含单元测试） |
+| Phase C3: CloudNetworkClient | ✅ 完成 | Realtime 网络客户端（含单元测试） |
 | Phase C4: 前端集成 | ✅ 完成 | 大厅改造、模式切换、手动测试通过 |
-| Phase C5: 文档更新 | 🔶 进行中 | CLAUDE.md/PROGRESS.md 已更新，PROTOCOL.md 待更新 |
-| Phase C6: 断线重连支持 | ⬜ 未开始 | Host-Relayed 方案，前置: T-B116+T-B117 |
+| Phase C5: 文档更新 | ✅ 完成 | CLAUDE.md / PROGRESS.md / TASKS.md / PROTOCOL.md 已更新 |
+| Phase C6: 断线重连支持 | ✅ 完成 | Host-Relayed 方案已落地（T-C044） |
 
 ---
 
@@ -396,7 +396,7 @@
   - 增加 "云端后端进度详情" 章节
   - 更新 "下一步工作建议"
 
-- [ ] **T-C042** 创建 `docs/prd/cloud/TASKS.md` (本文件)
+- [x] **T-C042** 创建 `docs/prd/cloud/TASKS.md` (本文件)
   - ✅ 已创建
 
 - [x] **T-C043** 更新 `docs/PROTOCOL.md`

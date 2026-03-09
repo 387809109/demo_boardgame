@@ -40,6 +40,10 @@ export class GameBoard {
     this._lastSkippedPlayerId = null;
     this._lastCurrentPlayer = null;
     this._activeSkipBadgePlayerId = null;
+    this._mobileSidebarOpen = false;
+    this._isMobileLayoutCached = this._isMobileLayout();
+    this._handleWindowResize = this._handleWindowResize.bind(this);
+    this._handleKeydown = this._handleKeydown.bind(this);
 
     // Selection mode state
     this._selectionMode = false;
@@ -86,7 +90,7 @@ export class GameBoard {
         box-shadow: var(--shadow-sm);
         z-index: 10;
       ">
-        <div style="display: flex; align-items: center; gap: var(--spacing-4);">
+        <div class="game-header-left" style="display: flex; align-items: center; gap: var(--spacing-4);">
           <h2 style="margin: 0; font-size: var(--text-lg);">${this.game?.config?.name || '游戏'}</h2>
           ${state ? `
             <span class="turn-badge" style="
@@ -104,7 +108,8 @@ export class GameBoard {
             <div class="phase-timer-container"></div>
           ` : ''}
         </div>
-        <div style="display: flex; gap: var(--spacing-2);">
+        <div class="game-header-actions" style="display: flex; gap: var(--spacing-2);">
+          <button class="btn btn-ghost btn-sm sidebar-toggle-btn" title="侧栏面板">☰ 面板</button>
           <button class="btn btn-ghost btn-sm query-btn" title="游戏查询">🔍</button>
           <button class="btn btn-ghost btn-sm chat-btn" title="规则问答">💬</button>
           <button class="btn btn-ghost btn-sm rules-btn" title="查看规则">📖 规则</button>
@@ -166,6 +171,7 @@ export class GameBoard {
         </main>
 
         <div class="sidebar-container"></div>
+        <div class="sidebar-overlay" aria-hidden="true"></div>
       </div>
     `;
 
@@ -173,6 +179,7 @@ export class GameBoard {
     this._renderSidebar();
     this._renderPhaseTimer();
     this._bindEvents();
+    this._applyMobileSidebarState();
   }
 
   /**
@@ -221,6 +228,8 @@ export class GameBoard {
       .filter(p => p.alive === false)
       .map(p => p.id);
 
+    const isMobile = this._isMobileLayout();
+
     // Create player ring
     this.playerRing = new PlayerRing({
       players,
@@ -234,8 +243,8 @@ export class GameBoard {
       onPlayerSelect: this._selectionMode ? (playerId) => {
         this._selectionCallback?.(playerId);
       } : null,
-      minRadius: 140,
-      maxRadius: 200
+      minRadius: isMobile ? 84 : 140,
+      maxRadius: isMobile ? 120 : 200
     });
 
     container.appendChild(this.playerRing.getElement());
@@ -375,15 +384,26 @@ export class GameBoard {
    * @private
    */
   _bindEvents() {
+    this.element.querySelector('.sidebar-toggle-btn')?.addEventListener('click', () => {
+      this._toggleMobileSidebar();
+    });
+
+    this.element.querySelector('.sidebar-overlay')?.addEventListener('click', () => {
+      this._closeMobileSidebar();
+    });
+
     this.element.querySelector('.leave-btn')?.addEventListener('click', () => {
+      this._closeMobileSidebar();
       this.options.onLeave?.();
     });
 
     this.element.querySelector('.query-btn')?.addEventListener('click', () => {
+      this._closeMobileSidebar();
       showQueryPanel();
     });
 
     this.element.querySelector('.chat-btn')?.addEventListener('click', () => {
+      this._closeMobileSidebar();
       const gameId = this.gameConfig?.id || this.game?.config?.id;
       if (gameId) {
         getChatPanel().setGameContext(gameId);
@@ -392,9 +412,78 @@ export class GameBoard {
     });
 
     this.element.querySelector('.rules-btn')?.addEventListener('click', () => {
+      this._closeMobileSidebar();
       const gameId = this.gameConfig?.id || this.game?.config?.id || 'uno';
       window.open(`/rules/${gameId}.html`, '_blank', 'width=900,height=700');
     });
+  }
+
+  /**
+   * Whether current viewport should use mobile layout
+   * @returns {boolean}
+   * @private
+   */
+  _isMobileLayout() {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false;
+    }
+    return window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  /**
+   * Apply mobile sidebar open/close state to root element
+   * @private
+   */
+  _applyMobileSidebarState() {
+    if (!this.element) return;
+    const shouldOpen = this._isMobileLayout() && this._mobileSidebarOpen;
+    this.element.classList.toggle('mobile-sidebar-open', shouldOpen);
+  }
+
+  /**
+   * Toggle sidebar drawer on mobile layout
+   * @private
+   */
+  _toggleMobileSidebar() {
+    if (!this._isMobileLayout()) return;
+    this._mobileSidebarOpen = !this._mobileSidebarOpen;
+    this._applyMobileSidebarState();
+  }
+
+  /**
+   * Close sidebar drawer
+   * @private
+   */
+  _closeMobileSidebar() {
+    if (!this._mobileSidebarOpen) return;
+    this._mobileSidebarOpen = false;
+    this._applyMobileSidebarState();
+  }
+
+  /**
+   * Sync responsive state on resize
+   * @private
+   */
+  _handleWindowResize() {
+    const isMobile = this._isMobileLayout();
+    if (isMobile === this._isMobileLayoutCached) return;
+    this._isMobileLayoutCached = isMobile;
+    if (!isMobile) {
+      this._mobileSidebarOpen = false;
+    }
+    this._applyMobileSidebarState();
+    this._renderPlayerRing();
+  }
+
+  /**
+   * Close drawer on Escape key for mobile
+   * @param {KeyboardEvent} event
+   * @private
+   */
+  _handleKeydown(event) {
+    if (event.key === 'Escape') {
+      this._closeMobileSidebar();
+    }
   }
 
   /**
@@ -650,12 +739,22 @@ export class GameBoard {
    */
   mount(container) {
     container.appendChild(this.element);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', this._handleWindowResize);
+      window.addEventListener('keydown', this._handleKeydown);
+    }
+    this._isMobileLayoutCached = this._isMobileLayout();
+    this._applyMobileSidebarState();
   }
 
   /**
    * Unmount
    */
   unmount() {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', this._handleWindowResize);
+      window.removeEventListener('keydown', this._handleKeydown);
+    }
     if (this.playerRing) {
       this.playerRing.destroy();
       this.playerRing = null;

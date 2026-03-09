@@ -8,7 +8,7 @@
 
 ### 1.1 项目初始化
 
-- [ ] **T-B001** 创建项目目录结构
+- [x] **T-B001** 创建项目目录结构
   ```
   server/
   ├── index.js
@@ -24,7 +24,7 @@
   └── package.json
   ```
 
-- [ ] **T-B002** 初始化 package.json
+- [x] **T-B002** 初始化 package.json
   ```json
   {
     "name": "board-game-server",
@@ -46,7 +46,7 @@
   }
   ```
 
-- [ ] **T-B003** 创建配置文件 `config.js`
+- [x] **T-B003** 创建配置文件 `config.js`
   ```javascript
   module.exports = {
     port: process.env.PORT || 7777,
@@ -64,7 +64,7 @@
 
 ### 1.2 工具模块
 
-- [ ] **T-B010** 创建日志工具 `utils/logger.js`
+- [x] **T-B010** 创建日志工具 `utils/logger.js`
   ```javascript
   const logger = {
     info(message, data) { /* ... */ }
@@ -77,7 +77,7 @@
   - 格式: `[LEVEL] ISO时间 消息 数据`
   - 支持配置日志级别
 
-- [ ] **T-B011** 创建验证工具 `utils/validator.js`
+- [x] **T-B011** 创建验证工具 `utils/validator.js`
   ```javascript
   function validateMessage(message) {
     // 验证必需字段: type, timestamp, playerId
@@ -95,7 +95,7 @@
 
 ### 1.3 连接管理
 
-- [ ] **T-B020** 创建连接管理器 `connection-manager.js`
+- [x] **T-B020** 创建连接管理器 `connection-manager.js`
   ```javascript
   class ConnectionManager {
     constructor()
@@ -112,7 +112,7 @@
     - `connections: Map<connectionId, Connection>`
     - `playerConnections: Map<playerId, connectionId>`
 
-- [ ] **T-B021** 连接管理器单元测试
+- [x] **T-B021** 连接管理器单元测试
   - 测试添加连接
   - 测试绑定玩家
   - 测试移除连接
@@ -122,7 +122,7 @@
 
 ### 1.4 房间管理
 
-- [ ] **T-B030** 创建房间管理器 `room-manager.js`
+- [x] **T-B030** 创建房间管理器 `room-manager.js`
   ```javascript
   class RoomManager {
     constructor()
@@ -140,7 +140,7 @@
   - 依赖: T-B010
   - 数据结构: `rooms: Map<roomId, Room>`
 
-- [ ] **T-B031** 房间管理器单元测试
+- [x] **T-B031** 房间管理器单元测试
   - 测试创建房间
   - 测试加入房间
   - 测试移除玩家
@@ -151,7 +151,7 @@
 
 ### 1.5 消息路由
 
-- [ ] **T-B040** 创建消息路由器 `message-router.js`
+- [x] **T-B040** 创建消息路由器 `message-router.js`
   ```javascript
   class MessageRouter {
     constructor(roomManager, connectionManager)
@@ -168,7 +168,7 @@
   ```
   - 依赖: T-B020, T-B030, T-B010
 
-- [ ] **T-B041** 消息路由器单元测试
+- [x] **T-B041** 消息路由器单元测试
   - 测试 JOIN 消息处理
   - 测试 LEAVE 消息处理
   - 测试 GAME_ACTION 转发
@@ -179,7 +179,7 @@
 
 ### 1.6 服务器入口
 
-- [ ] **T-B050** 创建服务器入口 `index.js`
+- [x] **T-B050** 创建服务器入口 `index.js`
   ```javascript
   class GameServer {
     constructor(port)
@@ -197,7 +197,7 @@
     - 断开处理
     - 优雅关闭 (SIGTERM)
 
-- [ ] **T-B051** 服务器集成测试
+- [x] **T-B051** 服务器集成测试
   - 测试连接建立
   - 测试消息收发
   - 测试断开处理
@@ -208,7 +208,7 @@
 
 ### 2.1 JOIN 消息
 
-- [ ] **T-B060** 实现 JOIN 消息处理
+- [x] **T-B060** 实现 JOIN 消息处理
   ```javascript
   handleJoin(connectionId, playerId, data) {
     const { roomId, nickname, gameType } = data;
@@ -221,7 +221,7 @@
   - 输出: 广播 `PLAYER_JOINED`
   - 错误: `ROOM_FULL`, `INVALID_ROOM_ID`
 
-- [ ] **T-B061** JOIN 消息测试
+- [x] **T-B061** JOIN 消息测试
   - 测试创建新房间
   - 测试加入已有房间
   - 测试房间满员拒绝
@@ -230,7 +230,7 @@
 
 ### 2.2 LEAVE 消息
 
-- [ ] **T-B062** 实现 LEAVE 消息处理
+- [x] **T-B062** 实现 LEAVE 消息处理
   ```javascript
   handleLeave(connectionId, playerId, data) {
     // 1. 从房间移除玩家
@@ -240,7 +240,7 @@
   ```
   - 输出: 广播 `PLAYER_LEFT`
 
-- [ ] **T-B063** LEAVE 消息测试
+- [x] **T-B063** LEAVE 消息测试
   - 测试正常离开
   - 测试房间自动删除
 
@@ -248,7 +248,7 @@
 
 ### 2.3 START_GAME 消息
 
-- [ ] **T-B064** 实现 START_GAME 消息处理
+- [x] **T-B064** 实现 START_GAME 消息处理
   ```javascript
   handleStartGame(connectionId, playerId, data) {
     const { gameType, gameConfig } = data;
@@ -261,7 +261,7 @@
   - 输出: 广播 `GAME_STARTED`
   - 错误: `PERMISSION_DENIED`, `INVALID_PLAYER_COUNT`
 
-- [ ] **T-B065** START_GAME 消息测试
+- [x] **T-B065** START_GAME 消息测试
   - 测试房主开始游戏
   - 测试非房主被拒绝
 
@@ -269,7 +269,7 @@
 
 ### 2.4 GAME_ACTION 消息
 
-- [ ] **T-B066** 实现 GAME_ACTION 消息处理
+- [x] **T-B066** 实现 GAME_ACTION 消息处理
   ```javascript
   handleGameAction(connectionId, playerId, data) {
     // 1. 查找玩家所在房间
@@ -281,7 +281,7 @@
   - 输出: 广播 `GAME_STATE_UPDATE` (包含 `lastAction`)
   - 注意: **不验证操作合法性** (由前端处理)
 
-- [ ] **T-B067** GAME_ACTION 消息测试
+- [x] **T-B067** GAME_ACTION 消息测试
   - 测试正常转发
   - 测试玩家不在房间
 
@@ -289,7 +289,7 @@
 
 ### 2.5 CHAT_MESSAGE 消息
 
-- [ ] **T-B068** 实现 CHAT_MESSAGE 消息处理
+- [x] **T-B068** 实现 CHAT_MESSAGE 消息处理
   ```javascript
   handleChatMessage(connectionId, playerId, data) {
     const { message, isPublic } = data;
@@ -301,7 +301,7 @@
   - 输入: `{ message, isPublic }`
   - 输出: 广播 `CHAT_MESSAGE_BROADCAST`
 
-- [ ] **T-B069** CHAT_MESSAGE 消息测试
+- [x] **T-B069** CHAT_MESSAGE 消息测试
   - 测试正常聊天
   - 测试消息过长
 
@@ -309,7 +309,7 @@
 
 ### 2.6 PING/PONG 心跳
 
-- [ ] **T-B070** 实现心跳机制
+- [x] **T-B070** 实现心跳机制
   ```javascript
   handlePing(connectionId, playerId) {
     // 回复 PONG
@@ -324,7 +324,7 @@
   - 客户端每 30 秒发送 PING
   - 服务器立即回复 PONG
 
-- [ ] **T-B071** 实现心跳超时检测 (可选)
+- [x] **T-B071** 实现心跳超时检测 (可选)
   - 90 秒无心跳断开连接
 
 ---
@@ -333,7 +333,7 @@
 
 ### 3.1 断开连接处理
 
-- [ ] **T-B080** 实现断开连接处理
+- [x] **T-B080** 实现断开连接处理
   ```javascript
   handleDisconnect(connectionId) {
     // 1. 获取玩家 ID
@@ -345,7 +345,7 @@
   ```
   - 输出: 广播 `PLAYER_LEFT`
 
-- [ ] **T-B081** 断开处理测试
+- [x] **T-B081** 断开处理测试
   - 测试正常断开
   - 测试房主断开
 
@@ -353,7 +353,7 @@
 
 ### 3.2 房主断开处理
 
-- [ ] **T-B082** 实现房主断开处理
+- [x] **T-B082** 实现房主断开处理
   ```javascript
   // 当房主断开时，游戏结束
   // 广播 GAME_ENDED (reason: 'host_disconnected')
@@ -366,7 +366,7 @@
 
 ### 4.1 消息验证
 
-- [ ] **T-B090** 实现消息格式验证
+- [x] **T-B090** 实现消息格式验证
   ```javascript
   function validateMessage(message) {
     if (!message.type) return { valid: false, error: 'Missing type' };
@@ -376,7 +376,7 @@
   }
   ```
 
-- [ ] **T-B091** 实现错误响应
+- [x] **T-B091** 实现错误响应
   ```javascript
   function sendError(ws, playerId, code, message, severity = 'error') {
     ws.send(JSON.stringify({
@@ -392,7 +392,7 @@
 
 ### 4.2 异常处理
 
-- [ ] **T-B092** 实现全局异常捕获
+- [x] **T-B092** 实现全局异常捕获
   ```javascript
   process.on('uncaughtException', (error) => {
     logger.error('Uncaught exception:', error);
@@ -403,7 +403,7 @@
   });
   ```
 
-- [ ] **T-B093** 实现优雅关闭
+- [x] **T-B093** 实现优雅关闭
   ```javascript
   process.on('SIGTERM', () => {
     logger.info('SIGTERM received: closing server');
@@ -685,3 +685,4 @@ wscat -c ws://localhost:7777
 3. **容错性**: 任何异常都不能导致服务器崩溃
 4. **日志详尽**: 所有关键操作都要记录日志
 5. **测试优先**: 每个模块都要有对应的测试
+
