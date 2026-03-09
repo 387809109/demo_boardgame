@@ -12,16 +12,16 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 
 | 指标 | 数值 |
 |------|------|
-| 源码文件 | 40 个 JS 文件 |
+| 源码文件 | 47 个 JS 文件 |
 | 测试文件 | 32 个 test.js 文件 |
-| 源码行数 | ~16,000 行 |
+| 源码行数 | ~17,300 行 |
 | 测试行数 | ~10,000 行 |
 | 单元测试 | **870 个**，全部通过 |
 | 事件处理器 | **135/135 张卡牌已实现** |
 
-**已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅
+**已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅
 
-**当前**：Phase 8（UI / 地图渲染）待规划
+**当前**：Phase 9（SVG 地图与基础 UI）进行中
 
 ---
 
@@ -67,6 +67,18 @@ frontend/src/games/his/
 │   ├── new-world-actions.js             # 探索、征服、殖民
 │   ├── loan-actions.js                  # 中队借调（盟友间）
 │   └── conclave-actions.js              # 教宗选举
+│
+├── map/
+│   ├── map-renderer.js            270  # SVG 地图渲染（134 空间 + 15 海域）
+│   ├── map-overlay.js             140  # 单位/控制/宗教标记叠加
+│   └── map-interaction.js         130  # 缩放、平移、触摸手势
+│
+├── ui/
+│   ├── status-bar.js              110  # 回合/阶段/VP 状态栏
+│   ├── hand-panel.js              170  # 手牌显示与选择
+│   └── power-panel.js             160  # 势力仪表盘
+│
+├── ui.js                          280  # HisUI 主 UI 类（集成所有子组件）
 │
 └── phases/
     ├── phase-manager.js            247  # 阶段状态机 + 胜利判定
@@ -179,28 +191,22 @@ frontend/src/games/his/
 
 ---
 
-### Phase 6: 卡牌事件 ⚠️ 部分完成（25/135）
+### Phase 6: 卡牌事件 ✅ 完成
 
-> 框架完成，已实现 25 张关键事件卡处理器。
+> **135/135 张卡牌处理器全部实现**，分布在 3 个文件中。
 
 | # | 任务 | 状态 |
 |---|------|------|
 | 6.1 | 事件分发框架 `EVENT_HANDLERS[N]` | ✅ |
-| 6.2 | Home Cards (#1-#7) | ✅ 7 张全部实现 |
+| 6.2 | Home Cards (#1-#7) | ✅ 7 张 |
 | 6.3 | 统治者继承 (#10, #14, #19-#23) | ✅ 7 张 |
 | 6.4 | 特殊事件 (#9, #11-#13, #15-#18) | ✅ 8 张 |
 | 6.5 | 外交/军事事件 (#97, #113, #114) | ✅ 3 张 |
-| 6.6 | 剩余事件卡 (~110 张) | ❌ 待实现 |
+| 6.6 | 主牌堆卡牌 (#24-#54) | ✅ 31 张 (`event-actions.js`) |
+| 6.7 | 扩展事件卡 (#55-#116) | ✅ 59 张 (`event-actions-extended.js`) |
+| 6.8 | 外交牌事件 (#201-#219) | ✅ 19 张 (`event-actions-diplomacy.js`) |
 
-**已实现的 25 张**：
-`#1` Janissaries, `#2` Holy Roman Emperor, `#3` Six Wives, `#4` Francis I,
-`#5` Clement VII, `#6` Leipzig Debate, `#7` Here I Stand,
-`#9` Barbary Pirates, `#10` Clement VII (succession), `#11` Schmalkaldic League,
-`#12` Copernicus, `#13` Michelangelo, `#14` Paul III,
-`#15` Printing Press, `#16` Peasants War, `#17` Council of Trent,
-`#18` Dragut, `#19` Edward VI, `#20` Henry II, `#21` Mary I,
-`#22` Julius III, `#23` Elizabeth I,
-`#97` Scots Raid, `#113` Imperial Coronation, `#114` La Forêt's Embassy
+**测试**：79 + 120 + 32 = **231 个事件卡测试**，全部通过
 
 ---
 
@@ -226,39 +232,28 @@ frontend/src/games/his/
 
 ---
 
-### Phase 8: 剩余事件卡补全 ❌ 待开始
+### Phase 8: 剩余事件卡补全 ✅ 完成
 
-> 实现剩余 ~110 张事件卡处理器。按势力分批。
-
-| # | 任务 | 卡牌数 |
-|---|------|--------|
-| 8.1 | 奥斯曼事件 | ~12 张 |
-| 8.2 | 哈布斯堡事件 | ~12 张 |
-| 8.3 | 英格兰事件 | ~12 张 |
-| 8.4 | 法兰西事件 | ~12 张 |
-| 8.5 | 教廷事件 | ~12 张 |
-| 8.6 | 新教事件 | ~12 张 |
-| 8.7 | 通用/外交事件 | ~25 张 |
-| 8.8 | 响应卡 + 战斗卡 | ~15 张 |
-
-**里程碑**：135 张卡牌事件全部可用
+> 已合并至 Phase 6 完成。135/135 处理器分布于 3 个文件，870 个测试全部通过。
 
 ---
 
-### Phase 9: SVG 地图与基础 UI ❌ 待开始
+### Phase 9: SVG 地图与基础 UI ⬅️ 进行中
 
-> 可视化、可交互的游戏界面。可从 Phase 2 起并行。
+> 可视化、可交互的游戏界面。
 
-| # | 任务 | 文件 |
-|---|------|------|
-| 9.1 | 制作/转换欧洲 SVG 地图 | `map/map-svg.js` |
-| 9.2 | SVG 渲染、缩放、平移 | `map/map-svg.js` |
-| 9.3 | 单位/控制/宗教标记叠加 | `map/map-overlay.js` |
-| 9.4 | 空间点击、移动交互 | `map/map-interaction.js` |
-| 9.5 | 主 UI 类 | `ui/ui.js` |
-| 9.6 | 手牌显示与打出 | `ui/ui-hand.js` |
-| 9.7 | 势力仪表盘 | `ui/ui-power-panel.js` |
-| 9.8 | 回合/阶段状态栏 | `ui/ui-status-bar.js` |
+| # | 任务 | 文件 | 状态 |
+|---|------|------|------|
+| 9.1 | 地图坐标数据 | `data/map-data.js` (SPACE_COORDINATES) | ✅ |
+| 9.2 | SVG 地图渲染 | `map/map-renderer.js` (~270 行) | ✅ |
+| 9.3 | 单位/标记叠加 | `map/map-overlay.js` (~140 行) | ✅ |
+| 9.4 | 缩放、平移交互 | `map/map-interaction.js` (~130 行) | ✅ |
+| 9.5 | 主 UI 类 | `ui.js` (~280 行) | ✅ |
+| 9.6 | 手牌面板 | `ui/hand-panel.js` (~170 行) | ✅ |
+| 9.7 | 势力仪表盘 | `ui/power-panel.js` (~160 行) | ✅ |
+| 9.8 | 状态栏 | `ui/status-bar.js` (~110 行) | ✅ |
+| 9.9 | main.js 注册 HisUI | `main.js` | ✅ |
+| 9.10 | 视觉调优与功能测试 | — | ❌ |
 
 **里程碑**：首个"可发布"版本——通过 Web UI 完整游玩
 
@@ -319,23 +314,24 @@ frontend/src/games/his/
 | Phase 3 战斗系统 | ~2,500 | ~1,500 | ✅ |
 | Phase 4 外交 | ~1,500 | ~900 | ✅ |
 | Phase 5 VP 与胜利 | ~1,000 | ~400 | ✅ |
-| Phase 6 事件卡 | ~3,000 | ~900 (25/135) | ⚠️ |
+| Phase 6 事件卡 | ~3,000 | ~3,300 (135/135) | ✅ |
 | Phase 7 特殊机制 | ~2,500 | ~1,500 | ✅ |
-| Phase 8 剩余事件 | — | — | ❌ |
-| Phase 9 SVG+UI | ~4,000 | — | ❌ |
+| Phase 8 剩余事件 | — | （合并至 P6） | ✅ |
+| Phase 9 SVG+UI | ~4,000 | ~1,260 | ⬅️ |
 | Phase 10 高级 UI | ~3,000 | — | ❌ |
 | Phase 11 场景测试 | ~1,000 | — | ❌ |
-| **源码合计** | ~27,500 | **~12,500** | |
-| **测试合计** | ~8,000-12,000 | **~8,000** | 718 tests |
+| **源码合计** | ~27,500 | **~16,000** | |
+| **测试合计** | ~8,000-12,000 | **~10,000** | 870 tests |
 
 **依赖关系图**：
 ```
-P0 → P1 → P2 → P3 → P5 → P6(部分) → P7 ← 当前位置
+P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
                 ↘ P4 ↗                    ↓
-                                          P8（剩余事件卡）
-           P2 ────────────────→ P9（SVG+UI）→ P10
-                                              ↑
-                                    P7+P8 → P11
+                                    P9（SVG+UI）⬅️ 当前
+                                         ↓
+                                    P10（高级 UI）
+                                         ↓
+                                    P11（场景测试）
 ```
 
 ---
@@ -361,7 +357,9 @@ P0 → P1 → P2 → P3 → P5 → P6(部分) → P7 ← 当前位置
 | debate-actions.test.js | 49 | 辩论 + 特伦托会议 |
 | diplomacy-actions.test.js | 46 | 外交 |
 | excommunication-actions.test.js | 24 | 绝罚 |
-| event-actions.test.js | 79 | 事件卡（25 张） |
+| event-actions.test.js | 79 | 事件卡 #1-54 |
+| event-actions-extended.test.js | 120 | 事件卡 #55-116 |
+| event-actions-diplomacy.test.js | 32 | 外交牌 #201-219 |
 | new-world-actions.test.js | 28 | 新世界 |
 | loan-actions.test.js | 10 | 中队借调 |
 | conclave-actions.test.js | 13 | 教宗选举 |
@@ -374,7 +372,7 @@ P0 → P1 → P2 → P3 → P5 → P6(部分) → P7 ← 当前位置
 | phase-new-world.test.js | 8 | 新世界阶段 |
 | phase-winter.test.js | 18 | 冬季阶段 |
 | index.test.js | 23 | 集成测试 |
-| **合计** | **718** | |
+| **合计** | **870** | |
 
 运行命令：
 ```bash

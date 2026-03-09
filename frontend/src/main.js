@@ -45,6 +45,7 @@ import { WerewolfUI } from './games/werewolf/ui.js';
 
 import { HISGame } from './games/his/index.js';
 import hisConfig from './games/his/config.json';
+import { HisUI } from './games/his/ui.js';
 
 const RECONNECT_CONTEXT_KEY = 'reconnectContext';
 const RECONNECT_RESPONSE_TIMEOUT_MS = 8000;
@@ -599,6 +600,9 @@ class App {
       this.currentView.setGameUI(gameUI);
     } else if (gameType === 'werewolf') {
       gameUI = new WerewolfUI();
+      this.currentView.setGameUI(gameUI);
+    } else if (gameType === 'his') {
+      gameUI = new HisUI();
       this.currentView.setGameUI(gameUI);
     }
 
