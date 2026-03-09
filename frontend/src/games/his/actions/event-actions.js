@@ -18,6 +18,8 @@ import {
   MARITAL_STATUS, PREGNANCY_TABLE
 } from '../constants.js';
 import { areAllied } from '../state/war-helpers.js';
+import { EXTENDED_EVENT_HANDLERS } from './event-actions-extended.js';
+import { DIPLOMACY_EVENT_HANDLERS } from './event-actions-diplomacy.js';
 
 // ── Italian Keys (Master of Italy) ─────────────────────────────────
 
@@ -1415,6 +1417,10 @@ EVENT_HANDLERS[54] = {
     helpers.logEvent(state, 'event_potosi', { power, targetPower });
   }
 };
+
+// ── Merge Extended & Diplomacy Handlers ──────────────────────────────
+
+Object.assign(EVENT_HANDLERS, EXTENDED_EVENT_HANDLERS, DIPLOMACY_EVENT_HANDLERS);
 
 // ── Utility: Execute Event ─────────────────────────────────────────
 

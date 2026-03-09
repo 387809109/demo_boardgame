@@ -12,16 +12,16 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 
 | 指标 | 数值 |
 |------|------|
-| 源码文件 | 37 个 JS 文件 |
-| 测试文件 | 30 个 test.js 文件 |
-| 源码行数 | ~12,500 行 |
-| 测试行数 | ~8,000 行 |
-| 单元测试 | **718 个**，全部通过 |
-| 事件处理器 | 25/135 张卡牌已实现 |
+| 源码文件 | 40 个 JS 文件 |
+| 测试文件 | 32 个 test.js 文件 |
+| 源码行数 | ~16,000 行 |
+| 测试行数 | ~10,000 行 |
+| 单元测试 | **870 个**，全部通过 |
+| 事件处理器 | **135/135 张卡牌已实现** |
 
-**已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 (部分) → 7 ✅
+**已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅
 
-**当前**：Phase 6 补全（剩余事件卡）
+**当前**：Phase 8（UI / 地图渲染）待规划
 
 ---
 
@@ -61,7 +61,9 @@ frontend/src/games/his/
 │   ├── debate-actions.js           569  # 辩论（含特伦托会议多轮结算）
 │   ├── diplomacy-actions.js        371  # 宣战、求和、谈判、赎回领袖
 │   ├── excommunication-actions.js  243  # 绝罚改革者/统治者
-│   ├── event-actions.js            881  # 事件分发表 EVENT_HANDLERS[N]（25 张）
+│   ├── event-actions.js          1,462  # 事件分发表 EVENT_HANDLERS[N]（#1-54 + 合并）
+│   ├── event-actions-extended.js 1,429  # 扩展事件处理器（#55-116）
+│   ├── event-actions-diplomacy.js  420  # 外交牌事件处理器（#201-219）
 │   ├── new-world-actions.js             # 探索、征服、殖民
 │   ├── loan-actions.js                  # 中队借调（盟友间）
 │   └── conclave-actions.js              # 教宗选举
