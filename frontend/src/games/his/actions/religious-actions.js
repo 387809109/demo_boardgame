@@ -162,7 +162,15 @@ export function validateReformationAttempt(state, power, actionData) {
 
 /**
  * Execute a single reformation attempt.
- * @returns {{ success: boolean, protestantDice: number[], papalDice: number[] }}
+ *
+ * Per rulebook 18.3/18.4:
+ * - Compare highest single die (not hit count)
+ * - Auto-success: if attacker max die >= 6 and target in target zone
+ * - Ties: Protestant wins in target zone for reformation;
+ *   Papacy wins in target zone (only with Paul III/Julius III) for counter-ref
+ * - Full Bible translation gives +1 to each Protestant die
+ *
+ * @returns {{ success: boolean, protestantDice: number[], papalDice: number[], autoSuccess: boolean }}
  */
 export function resolveReformationAttempt(state, power, actionData, helpers) {
   const pending = state.pendingReformation;
@@ -173,56 +181,98 @@ export function resolveReformationAttempt(state, power, actionData, helpers) {
     ? calcReformationDice(state, targetSpace)
     : calcCounterReformationDice(state, targetSpace);
 
-  const protestantRolls = rollDice(
-    isReformation ? diceCalc.protestant : diceCalc.protestant
-  );
-  const papalRolls = rollDice(
-    isReformation ? diceCalc.papal : diceCalc.papal
-  );
+  const sp = state.spaces[targetSpace];
+  const inZone = sp.languageZone === pending.zone;
 
-  const protestantMax = maxDie(protestantRolls);
-  const papalMax = maxDie(papalRolls);
+  // Apply dice modifier from Full Bible (+1 to each Protestant die)
+  const diceModifier = pending.diceModifier || 0;
 
-  // Determine winner
-  let success;
   if (isReformation) {
-    // Protestant wins ties if in target zone
-    const sp = state.spaces[targetSpace];
-    const inZone = sp.languageZone === pending.zone;
-    success = protestantMax > papalMax || (protestantMax === papalMax && inZone);
-  } else {
-    // Counter-reformation: Papacy wins if higher
-    // Tie: Papacy wins if Paul III or Julius III is ruler and in zone
-    const papacyRuler = state.rulers.papacy;
-    const tieWin = (papacyRuler === 'paul_iii' || papacyRuler === 'julius_iii') &&
-      state.spaces[targetSpace].languageZone === pending.zone;
-    success = papalMax > protestantMax || (papalMax === protestantMax && tieWin);
-  }
+    // Protestant attacks
+    const protestantRolls = rollDice(diceCalc.protestant);
+    const modifiedRolls = diceModifier
+      ? protestantRolls.map(d => d + diceModifier)
+      : protestantRolls;
+    const protestantMax = maxDie(modifiedRolls);
 
-  // Apply result
-  if (success) {
-    const sp = state.spaces[targetSpace];
-    const wasProt = sp.religion === RELIGION.PROTESTANT;
-    sp.religion = isReformation ? RELIGION.PROTESTANT : RELIGION.CATHOLIC;
-    recountProtestantSpaces(state);
+    // Auto-success: max die >= 6 and in target zone
+    let success = false;
+    let autoSuccess = false;
+    let papalRolls = [];
+    let papalMax = 0;
 
-    helpers.logEvent(state, isReformation ? 'reformation_success' : 'counter_reformation_success', {
-      space: targetSpace, protestantDice: protestantRolls, papalDice: papalRolls
+    if (protestantMax >= 6 && inZone) {
+      success = true;
+      autoSuccess = true;
+    } else {
+      papalRolls = rollDice(diceCalc.papal);
+      papalMax = maxDie(papalRolls);
+      // Protestant wins ties in target zone
+      success = protestantMax > papalMax ||
+        (protestantMax === papalMax && inZone);
+    }
+
+    // Apply result
+    if (success) {
+      sp.religion = RELIGION.PROTESTANT;
+      recountProtestantSpaces(state);
+    }
+
+    const eventType = success ? 'reformation_success' : 'reformation_failure';
+    helpers.logEvent(state, eventType, {
+      space: targetSpace, protestantDice: protestantRolls,
+      papalDice: papalRolls, protestantMax, papalMax, autoSuccess
     });
+
+    pending.attemptsLeft--;
+    if (pending.attemptsLeft <= 0) state.pendingReformation = null;
+
+    return { success, protestantDice: protestantRolls, papalDice: papalRolls, autoSuccess };
   } else {
-    helpers.logEvent(state, isReformation ? 'reformation_failure' : 'counter_reformation_failure', {
-      space: targetSpace, protestantDice: protestantRolls, papalDice: papalRolls
+    // Counter-reformation: Papacy attacks
+    const papalRolls = rollDice(diceCalc.papal);
+    // Augsburg Confession: -1 to each papal die
+    const augsburgMod = state.augsburgConfessionActive ? -1 : 0;
+    const modifiedPapalRolls = augsburgMod
+      ? papalRolls.map(d => Math.max(1, d + augsburgMod))
+      : papalRolls;
+    const papalMax = maxDie(modifiedPapalRolls);
+
+    // Auto-success: papal max = 6 and in zone and Pope is Paul III/Julius III
+    const papacyRuler = state.rulers?.papacy;
+    const papalTieWin = (papacyRuler === 'paul_iii' || papacyRuler === 'julius_iii') && inZone;
+
+    let success = false;
+    let autoSuccess = false;
+    let protestantRolls = [];
+    let protestantMax = 0;
+
+    if (papalMax >= 6 && papalTieWin) {
+      success = true;
+      autoSuccess = true;
+    } else {
+      protestantRolls = rollDice(diceCalc.protestant);
+      protestantMax = maxDie(protestantRolls);
+      success = papalMax > protestantMax ||
+        (papalMax === protestantMax && papalTieWin);
+    }
+
+    if (success) {
+      sp.religion = RELIGION.CATHOLIC;
+      recountProtestantSpaces(state);
+    }
+
+    const eventType = success ? 'counter_reformation_success' : 'counter_reformation_failure';
+    helpers.logEvent(state, eventType, {
+      space: targetSpace, protestantDice: protestantRolls,
+      papalDice: papalRolls, papalMax, protestantMax, autoSuccess
     });
+
+    pending.attemptsLeft--;
+    if (pending.attemptsLeft <= 0) state.pendingReformation = null;
+
+    return { success, protestantDice: protestantRolls, papalDice: papalRolls, autoSuccess };
   }
-
-  pending.attemptsLeft--;
-
-  // Clear pending if no attempts left
-  if (pending.attemptsLeft <= 0) {
-    state.pendingReformation = null;
-  }
-
-  return { success, protestantDice: protestantRolls, papalDice: papalRolls };
 }
 
 // ── Translate Scripture ───────────────────────────────────────────

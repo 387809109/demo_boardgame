@@ -26,6 +26,7 @@ export class HandPanel {
     this._el = null;
     this._onAction = null;
     this._selectedIndex = -1;
+    this._tooltip = null;
   }
 
   /**
@@ -151,6 +152,16 @@ export class HandPanel {
     type.textContent = CARD_TYPE_LABELS[card.type] || card.type || '';
     el.appendChild(type);
 
+    // Hover tooltip (always active)
+    el.addEventListener('mouseenter', () => {
+      if (canPlay && !isSelected) el.style.transform = 'translateY(-2px)';
+      this._showTooltip(card, el);
+    });
+    el.addEventListener('mouseleave', () => {
+      if (canPlay && !isSelected) el.style.transform = '';
+      this._hideTooltip();
+    });
+
     // Click handler
     if (canPlay) {
       el.addEventListener('click', () => {
@@ -162,12 +173,6 @@ export class HandPanel {
           });
         }
       });
-      el.addEventListener('mouseenter', () => {
-        if (!isSelected) el.style.transform = 'translateY(-2px)';
-      });
-      el.addEventListener('mouseleave', () => {
-        if (!isSelected) el.style.transform = '';
-      });
     }
 
     return el;
@@ -176,5 +181,70 @@ export class HandPanel {
   /** Clear card selection */
   clearSelection() {
     this._selectedIndex = -1;
+  }
+
+  _showTooltip(card, anchorEl) {
+    this._hideTooltip();
+    const tip = document.createElement('div');
+    tip.className = 'his-card-tooltip';
+    tip.style.cssText = `
+      position: fixed;
+      z-index: 1000;
+      background: rgba(255,255,255,0.97);
+      border: 1px solid var(--border-default, #cbd5e1);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      max-width: 280px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      pointer-events: none;
+      line-height: 1.4;
+    `;
+
+    let html = `<div style="font-weight:700;font-size:13px;margin-bottom:4px;">#${card.number} ${card.name}</div>`;
+    html += `<div style="display:flex;gap:8px;margin-bottom:6px;">`;
+    html += `<span style="background:#5c6bc0;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;">${card.cp || 0} CP</span>`;
+    if (card.type) {
+      const typeLabel = CARD_TYPE_LABELS[card.type] || card.type;
+      html += `<span style="background:#e0e0e0;padding:1px 6px;border-radius:3px;font-size:10px;">${typeLabel}</span>`;
+    }
+    if (card.deck) {
+      html += `<span style="background:#f5f5f5;padding:1px 6px;border-radius:3px;font-size:10px;color:#666;">${card.deck}</span>`;
+    }
+    if (card.removeAfterPlay) {
+      html += `<span style="background:#ffcdd2;padding:1px 6px;border-radius:3px;font-size:10px;color:#c62828;">移除</span>`;
+    }
+    html += `</div>`;
+    if (card.description) {
+      html += `<div style="color:#475569;font-size:11px;">${card.description}</div>`;
+    }
+
+    tip.innerHTML = html;
+    document.body.appendChild(tip);
+    this._tooltip = tip;
+
+    // Position above card
+    const rect = anchorEl.getBoundingClientRect();
+    tip.style.left = `${Math.max(4, rect.left)}px`;
+    tip.style.bottom = `${window.innerHeight - rect.top + 6}px`;
+
+    // Clamp to viewport
+    requestAnimationFrame(() => {
+      const tipRect = tip.getBoundingClientRect();
+      if (tipRect.right > window.innerWidth - 4) {
+        tip.style.left = `${window.innerWidth - tipRect.width - 4}px`;
+      }
+      if (tipRect.top < 4) {
+        tip.style.bottom = 'auto';
+        tip.style.top = `${rect.bottom + 6}px`;
+      }
+    });
+  }
+
+  _hideTooltip() {
+    if (this._tooltip && this._tooltip.parentNode) {
+      this._tooltip.parentNode.removeChild(this._tooltip);
+    }
+    this._tooltip = null;
   }
 }

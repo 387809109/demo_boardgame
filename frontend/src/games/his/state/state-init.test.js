@@ -94,7 +94,7 @@ describe('buildInitialState', () => {
     it('Istanbul has cavalry and squadron', () => {
       const ist = state.spaces['Istanbul'];
       expect(ist.units[0].cavalry).toBe(1);
-      expect(ist.units[0].squadrons).toBe(1);
+      expect(ist.units[0].squadrons).toBe(2);
     });
 
     it('Istanbul has 2 leaders', () => {

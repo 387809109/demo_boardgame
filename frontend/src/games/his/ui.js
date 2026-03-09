@@ -22,6 +22,10 @@ import { MapInteraction } from './map/map-interaction.js';
 import { StatusBar } from './ui/status-bar.js';
 import { HandPanel } from './ui/hand-panel.js';
 import { PowerPanel } from './ui/power-panel.js';
+import { DiplomacyPanel } from './ui/diplomacy-panel.js';
+import { PowerDetailPanel } from './ui/power-detail-panel.js';
+import { ReligiousStrugglePanel } from './ui/religious-struggle-panel.js';
+import { CARD_BY_NUMBER } from './data/cards.js';
 
 export class HisUI {
   constructor() {
@@ -39,6 +43,9 @@ export class HisUI {
     this._statusBar = new StatusBar();
     this._handPanel = new HandPanel();
     this._powerPanel = new PowerPanel();
+    this._diplomacyPanel = new DiplomacyPanel();
+    this._powerDetailPanel = new PowerDetailPanel();
+    this._religiousStrugglePanel = new ReligiousStrugglePanel();
 
     // Selected space for info display
     this._selectedSpace = null;
@@ -141,18 +148,71 @@ export class HisUI {
 
     mainArea.appendChild(mapContainer);
 
-    // 2b. Sidebar (power panel)
-    const sidebarEl = this._powerPanel.render();
-    this._powerPanel.update(state, this._playerPower);
-    mainArea.appendChild(sidebarEl);
+    // 2b. Sidebar with tabs
+    const sidebar = document.createElement('div');
+    sidebar.className = 'his-sidebar';
+    sidebar.style.cssText = `
+      display: flex; flex-direction: column; gap: 0;
+      min-width: 220px; max-width: 280px;
+    `;
 
+    // Tab bar
+    this._sidebarTabs = document.createElement('div');
+    this._sidebarTabs.style.cssText = `
+      display: flex; gap: 0; border-bottom: 2px solid #e2e8f0;
+    `;
+    this._sidebarContent = document.createElement('div');
+    this._sidebarContent.style.cssText = `
+      flex: 1; min-height: 0; overflow-y: auto;
+    `;
+
+    // Render all panels (hidden by default)
+    const powerEl = this._powerPanel.render();
+    const diploEl = this._diplomacyPanel.render();
+    const detailEl = this._powerDetailPanel.render();
+    const rsEl = this._religiousStrugglePanel.render();
+
+    this._sidebarPanels = {
+      power: powerEl, diplomacy: diploEl,
+      detail: detailEl, religious: rsEl,
+    };
+    const tabDefs = [
+      { key: 'power', label: '势力' },
+      { key: 'diplomacy', label: '外交' },
+      { key: 'detail', label: '详情' },
+      { key: 'religious', label: '宗教' },
+    ];
+    this._activeTab = 'power';
+    for (const def of tabDefs) {
+      const tab = document.createElement('button');
+      tab.style.cssText = `
+        flex:1;padding:4px 2px;font-size:10px;font-weight:600;
+        border:none;cursor:pointer;background:transparent;
+        border-bottom:2px solid transparent;margin-bottom:-2px;
+      `;
+      tab.textContent = def.label;
+      tab.addEventListener('click', () => this._switchTab(def.key));
+      this._sidebarTabs.appendChild(tab);
+    }
+
+    sidebar.appendChild(this._sidebarTabs);
+    sidebar.appendChild(this._sidebarContent);
+
+    // Initialize panels
+    this._powerPanel.update(state, this._playerPower);
+    this._diplomacyPanel.update(state);
+    this._powerDetailPanel.update(state, this._playerPower);
+    this._religiousStrugglePanel.update(state);
+    this._switchTab('power');
+
+    mainArea.appendChild(sidebar);
     this._container.appendChild(mainArea);
 
     // 3. Hand panel
     const handEl = this._handPanel.render((action) => {
       if (this.onAction) this.onAction(action);
     });
-    const hand = state.hands?.[this._playerPower] || [];
+    const hand = this._resolveHandCards(state);
     const canPlay = state.activePower === this._playerPower
       && state.phase === 'action';
     this._handPanel.update(hand, this._playerPower, canPlay);
@@ -175,11 +235,32 @@ export class HisUI {
     if (this._mapOverlay) this._mapOverlay.update(state);
 
     this._powerPanel.update(state, this._playerPower);
+    this._diplomacyPanel.update(state);
+    this._powerDetailPanel.update(state, this._playerPower);
+    this._religiousStrugglePanel.update(state);
 
-    const hand = state.hands?.[this._playerPower] || [];
+    const hand = this._resolveHandCards(state);
     const canPlay = state.activePower === this._playerPower
       && state.phase === 'action';
     this._handPanel.update(hand, this._playerPower, canPlay);
+  }
+
+  _switchTab(key) {
+    this._activeTab = key;
+    this._sidebarContent.innerHTML = '';
+    const panel = this._sidebarPanels[key];
+    if (panel) this._sidebarContent.appendChild(panel);
+
+    // Update tab styles
+    if (this._sidebarTabs) {
+      const tabs = this._sidebarTabs.children;
+      const keys = ['power', 'diplomacy', 'detail', 'religious'];
+      for (let i = 0; i < tabs.length; i++) {
+        const isActive = keys[i] === key;
+        tabs[i].style.borderBottomColor = isActive ? '#5c6bc0' : 'transparent';
+        tabs[i].style.color = isActive ? '#5c6bc0' : '#64748b';
+      }
+    }
   }
 
   /**
@@ -215,6 +296,29 @@ export class HisUI {
   }
 
   // ── Private Helpers ──────────────────────────────────────────
+
+  /**
+   * Convert hand card numbers to card objects for display.
+   * state.hands[power] stores card numbers; hand-panel expects objects.
+   */
+  _resolveHandCards(state) {
+    const raw = state.hands?.[this._playerPower];
+    if (!raw || !Array.isArray(raw)) return [];
+    return raw.map(cardNum => {
+      const card = CARD_BY_NUMBER[cardNum];
+      if (!card) return { number: cardNum, cp: 0, name: `Card ${cardNum}`, type: '', associatedPower: '' };
+      return {
+        number: card.number,
+        cp: card.cp,
+        name: card.title || card.name || `Card ${card.number}`,
+        type: card.category || card.deck || '',
+        associatedPower: card.deck === 'home' ? this._playerPower : '',
+        description: card.description || '',
+        deck: card.deck || '',
+        removeAfterPlay: card.removeAfterPlay || false
+      };
+    });
+  }
 
   _resolvePlayerPower(state, playerId) {
     if (!state || !state.players) return 'ottoman';
@@ -271,6 +375,8 @@ export class HisUI {
         if (u.regulars > 0) parts.push(`${u.regulars}正规`);
         if (u.mercenaries > 0) parts.push(`${u.mercenaries}雇佣`);
         if (u.cavalry > 0) parts.push(`${u.cavalry}骑兵`);
+        if (u.squadrons > 0) parts.push(`${u.squadrons}舰队`);
+        if (u.corsairs > 0) parts.push(`${u.corsairs}海盗`);
         if (parts.length > 0) {
           html += `${u.owner}: ${parts.join(', ')}<br>`;
         }

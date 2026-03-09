@@ -9,7 +9,7 @@ import { IMPULSE_ORDER, MAJOR_POWERS, VICTORY } from '../constants.js';
 import { executeCardDraw } from './phase-card-draw.js';
 import { initDiplomacyPhase } from './phase-diplomacy.js';
 import { initSpringDeployment } from './phase-spring-deployment.js';
-import { executeLuther95 } from './phase-luther95.js';
+import { initLuther95 } from './phase-luther95.js';
 import { initDietOfWorms } from './phase-diet-of-worms.js';
 import { resolveNewWorld } from './phase-new-world.js';
 import { executeWinter } from './phase-winter.js';
@@ -109,7 +109,7 @@ export function transitionPhase(state, toPhase, helpers) {
       break;
 
     case PHASES.LUTHER_95:
-      executeLuther95(state, helpers);
+      initLuther95(state, helpers);
       break;
 
     case PHASES.DIET_OF_WORMS:

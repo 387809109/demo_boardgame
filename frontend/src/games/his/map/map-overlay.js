@@ -9,6 +9,7 @@
  */
 
 import { SPACE_COORDINATES, SEA_ZONE_COORDINATES } from '../data/map-data.js';
+import { LEADER_BY_ID } from '../data/leaders.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const SCALE = 1700 / 5100;
@@ -81,40 +82,40 @@ export class MapOverlay {
     let offsetY = -14;
     for (const unit of units) {
       const color = POWER_COLORS[unit.owner] || POWER_COLORS.independent;
-      const total = (unit.regulars || 0) + (unit.mercenaries || 0)
+      const landTotal = (unit.regulars || 0) + (unit.mercenaries || 0)
         + (unit.cavalry || 0);
+      const navalTotal = (unit.squadrons || 0) + (unit.corsairs || 0);
       const leaders = unit.leaders || [];
 
-      if (total === 0 && leaders.length === 0) continue;
+      if (landTotal === 0 && navalTotal === 0 && leaders.length === 0) continue;
 
-      // Unit counter background
-      const counterW = 18;
-      const counterH = 10;
-      const rect = svgEl('rect', {
-        x: cx - counterW / 2 + 12,
-        y: cy + offsetY,
-        width: counterW,
-        height: counterH,
-        rx: 2,
-        fill: color,
-        stroke: '#fff',
-        'stroke-width': '0.5',
-        opacity: '0.9',
-        class: 'his-unit-counter',
-      });
-      stackGroup.appendChild(rect);
+      // Land unit counter
+      if (landTotal > 0) {
+        const counterW = 20;
+        const counterH = 10;
+        const rect = svgEl('rect', {
+          x: cx - counterW / 2 + 12,
+          y: cy + offsetY,
+          width: counterW,
+          height: counterH,
+          rx: 2,
+          fill: color,
+          stroke: '#fff',
+          'stroke-width': '0.5',
+          opacity: '0.9',
+          class: 'his-unit-counter',
+        });
+        stackGroup.appendChild(rect);
 
-      // Unit count text
-      let countText = '';
-      if (unit.regulars > 0) countText += `${unit.regulars}R`;
-      if (unit.mercenaries > 0) {
-        countText += (countText ? '+' : '') + `${unit.mercenaries}M`;
-      }
-      if (unit.cavalry > 0) {
-        countText += (countText ? '+' : '') + `${unit.cavalry}C`;
-      }
+        let countText = '';
+        if (unit.regulars > 0) countText += `${unit.regulars}R`;
+        if (unit.mercenaries > 0) {
+          countText += (countText ? '+' : '') + `${unit.mercenaries}M`;
+        }
+        if (unit.cavalry > 0) {
+          countText += (countText ? '+' : '') + `${unit.cavalry}C`;
+        }
 
-      if (countText) {
         const text = svgEl('text', {
           x: cx + 12,
           y: cy + offsetY + counterH / 2 + 1,
@@ -127,26 +128,100 @@ export class MapOverlay {
         });
         text.textContent = countText;
         stackGroup.appendChild(text);
+        offsetY += counterH + 2;
       }
 
-      // Leader badges (below counter)
-      if (leaders.length > 0) {
-        const leaderText = svgEl('text', {
+      // Naval unit counter (blue-tinted)
+      if (navalTotal > 0) {
+        const counterW = 20;
+        const counterH = 10;
+        const navalColor = '#1565c0';
+        const rect = svgEl('rect', {
+          x: cx - counterW / 2 + 12,
+          y: cy + offsetY,
+          width: counterW,
+          height: counterH,
+          rx: 2,
+          fill: navalColor,
+          stroke: color,
+          'stroke-width': '0.8',
+          opacity: '0.9',
+          class: 'his-unit-counter his-naval-counter',
+        });
+        stackGroup.appendChild(rect);
+
+        let navalText = '';
+        if (unit.squadrons > 0) navalText += `${unit.squadrons}S`;
+        if (unit.corsairs > 0) {
+          navalText += (navalText ? '+' : '') + `${unit.corsairs}P`;
+        }
+
+        const text = svgEl('text', {
           x: cx + 12,
-          y: cy + offsetY + counterH + 5,
+          y: cy + offsetY + counterH / 2 + 1,
           'text-anchor': 'middle',
-          'font-size': '3.5',
-          fill: color,
+          'dominant-baseline': 'middle',
+          'font-size': '4',
+          fill: '#fff',
           'font-weight': 'bold',
           'pointer-events': 'none',
         });
-        leaderText.textContent = leaders.length === 1
-          ? leaders[0].slice(0, 6)
-          : `${leaders.length} ldrs`;
-        stackGroup.appendChild(leaderText);
+        text.textContent = navalText;
+        stackGroup.appendChild(text);
+        offsetY += counterH + 2;
       }
 
-      offsetY += counterH + (leaders.length > 0 ? 10 : 4);
+      // Leader badges with attributes
+      for (const leaderId of leaders) {
+        const ldr = LEADER_BY_ID[leaderId];
+        let label;
+        if (ldr) {
+          const shortName = ldr.name.length > 8
+            ? ldr.name.slice(0, 7) + '…'
+            : ldr.name;
+          if (ldr.type === 'army') {
+            label = `★${shortName} ${ldr.battle}/${ldr.command}`;
+          } else if (ldr.type === 'naval') {
+            label = `⚓${shortName} B${ldr.battle}`;
+          } else {
+            label = shortName;
+          }
+        } else {
+          label = leaderId.slice(0, 8);
+        }
+
+        // Leader badge background
+        const badgeW = 28;
+        const badgeH = 7;
+        const badgeRect = svgEl('rect', {
+          x: cx - badgeW / 2 + 12,
+          y: cy + offsetY,
+          width: badgeW,
+          height: badgeH,
+          rx: 2,
+          fill: color,
+          stroke: '#fff',
+          'stroke-width': '0.3',
+          opacity: '0.85',
+        });
+        stackGroup.appendChild(badgeRect);
+
+        const leaderText = svgEl('text', {
+          x: cx + 12,
+          y: cy + offsetY + badgeH / 2 + 1,
+          'text-anchor': 'middle',
+          'dominant-baseline': 'middle',
+          'font-size': '3.2',
+          fill: this._contrastColor(color),
+          'font-weight': 'bold',
+          'pointer-events': 'none',
+        });
+        leaderText.textContent = label;
+        stackGroup.appendChild(leaderText);
+        offsetY += badgeH + 1;
+      }
+
+      offsetY += 3;
     }
 
     this._group.appendChild(stackGroup);

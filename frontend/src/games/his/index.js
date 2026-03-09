@@ -85,6 +85,12 @@ import {
   validateConquer, executeConquer
 } from './actions/new-world-actions.js';
 
+// Luther's 95 Theses
+import {
+  validateLuther95Target, resolveLuther95Attempt,
+  isLuther95Complete, cleanupLuther95
+} from './phases/phase-luther95.js';
+
 // Diet of Worms
 import { submitDietCard } from './phases/phase-diet-of-worms.js';
 
@@ -193,11 +199,9 @@ export class HISGame extends GameEngine {
     const { players, options = {} } = gameConfig;
     const state = buildInitialState(players, options);
 
-    // Run Turn 1: Luther's 95 Theses (automatic), then card draw
+    // Run Turn 1: Luther's 95 Theses (interactive — waits for Protestant input)
     const helpers = this._getPhaseHelpers();
     transitionPhase(state, PHASES.LUTHER_95, helpers);
-    // Luther's 95 Theses is fully automatic — advance to card draw
-    advancePhase(state, helpers);
 
     return state;
   }
@@ -252,6 +256,21 @@ export class HISGame extends GameEngine {
         default:
           return { valid: false, error: `Invalid action for diplomacy phase: ${actionType}` };
       }
+    }
+
+    // Luther's 95 Theses phase actions
+    if (state.phase === PHASES.LUTHER_95) {
+      if (actionType === ACTION_TYPES.SELECT_LUTHER95_TARGET) {
+        return validateLuther95Target(state, power, actionData);
+      }
+      if (actionType === ACTION_TYPES.PHASE_ADVANCE) {
+        // Allow advancing only when phase is complete
+        if (!isLuther95Complete(state)) {
+          return { valid: false, error: 'Luther 95 Theses phase not complete' };
+        }
+        return { valid: true };
+      }
+      return { valid: false, error: `Invalid action for Luther 95 phase: ${actionType}` };
     }
 
     // Diet of Worms phase actions
@@ -405,6 +424,24 @@ export class HISGame extends GameEngine {
     // Diplomacy phase actions
     if (newState.phase === PHASES.DIPLOMACY) {
       this._handleDiplomacyAction(newState, power, actionType, actionData, helpers);
+      newState.turnNumber++;
+      return newState;
+    }
+
+    // Luther's 95 Theses phase actions
+    if (newState.phase === PHASES.LUTHER_95) {
+      if (actionType === ACTION_TYPES.SELECT_LUTHER95_TARGET) {
+        resolveLuther95Attempt(newState, actionData, helpers);
+
+        // Auto-advance if all attempts done or no valid targets
+        if (isLuther95Complete(newState)) {
+          cleanupLuther95(newState);
+          advancePhase(newState, helpers);
+        }
+      } else if (actionType === ACTION_TYPES.PHASE_ADVANCE) {
+        cleanupLuther95(newState);
+        advancePhase(newState, helpers);
+      }
       newState.turnNumber++;
       return newState;
     }

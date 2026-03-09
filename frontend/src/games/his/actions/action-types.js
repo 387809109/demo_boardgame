@@ -70,6 +70,12 @@ export const DIET_ACTIONS = {
   SUBMIT_DIET_CARD: 'SUBMIT_DIET_CARD'
 };
 
+// ── Luther's 95 Theses Phase Actions ─────────────────────────────
+
+export const LUTHER95_ACTIONS = {
+  SELECT_LUTHER95_TARGET: 'SELECT_LUTHER95_TARGET'
+};
+
 // ── Sub-Interaction Actions ───────────────────────────────────────
 
 export const SUB_ACTIONS = {
@@ -92,6 +98,7 @@ export const ACTION_TYPES = {
   ...EXCOMMUNICATION_ACTIONS,
   ...NEW_WORLD_ACTIONS,
   ...DIET_ACTIONS,
+  ...LUTHER95_ACTIONS,
   ...SUB_ACTIONS
 };
 

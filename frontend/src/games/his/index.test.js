@@ -42,12 +42,12 @@ describe('HISGame', () => {
       expect(state.turn).toBe(1);
     });
 
-    it('executes first card draw', () => {
+    it('starts at Luther 95 phase (interactive)', () => {
       const game = startGame();
       const state = game.getState();
-      for (const power of MAJOR_POWERS) {
-        expect(state.hands[power].length).toBeGreaterThan(0);
-      }
+      expect(state.phase).toBe('luther_95');
+      expect(state.pendingLuther95).toBeDefined();
+      expect(state.activePower).toBe('protestant');
     });
 
     it('assigns all 6 powers', () => {
@@ -69,14 +69,10 @@ describe('HISGame', () => {
       state.activePower = IMPULSE_ORDER[0];
       state.impulseIndex = 0;
       state.consecutivePasses = 0;
-      // Remove home + mandatory cards and trim to 1 card per power
+      state.pendingLuther95 = null;
+      // Set up hands with non-home, non-mandatory cards for pass tests
       for (const power of MAJOR_POWERS) {
-        state.hands[power] = state.hands[power]
-          .filter(c => {
-            const card = CARD_BY_NUMBER[c];
-            return card && card.deck !== 'home' && card.category !== 'MANDATORY';
-          })
-          .slice(0, 1);
+        state.hands[power] = [50]; // Card #50 is a non-home, non-mandatory card
       }
     });
 
@@ -130,6 +126,11 @@ describe('HISGame', () => {
       state.activePower = 'ottoman';
       state.impulseIndex = 0;
       state.consecutivePasses = 3;
+      state.pendingLuther95 = null;
+      // Manually deal cards since card_draw hasn't happened
+      if (state.hands.ottoman.length === 0) {
+        state.hands.ottoman = [1, 8, 9]; // Home card #1 + others
+      }
     });
 
     it('removes card from hand', () => {
@@ -195,6 +196,11 @@ describe('HISGame', () => {
       state.phase = PHASES.ACTION;
       state.activePower = 'ottoman';
       state.impulseIndex = 0;
+      state.pendingLuther95 = null;
+      // Manually deal cards since card_draw hasn't happened
+      if (state.hands.ottoman.length === 0) {
+        state.hands.ottoman = [1, 8, 9]; // Home card #1 + others
+      }
     });
 
     it('rejects non-assigned player', () => {

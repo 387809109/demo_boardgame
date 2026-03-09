@@ -10,8 +10,9 @@ const PHASE_LABELS = {
   spring_deployment: '春季部署',
   action: '行动阶段',
   winter: '冬季阶段',
-  luther95: '95条论纲',
+  luther_95: '95条论纲',
   diet_of_worms: '沃尔姆斯议会',
+  victory_determination: '胜利判定',
   new_world: '新世界结算',
 };
 

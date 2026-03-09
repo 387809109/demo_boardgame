@@ -338,14 +338,15 @@ export function isValidReformationTarget(state, spaceName) {
   const space = state.spaces[spaceName];
   if (!space || space.religion !== RELIGION.CATHOLIC) return false;
 
-  // Adjacent to a Protestant space (connections + passes)
+  // Contains a reformer
+  if (space.reformer) return true;
+
+  // Adjacent to a Protestant space (connections + passes, per 18.3 step 1)
   const allAdj = getAllAdjacentSpaces(spaceName);
   for (const name of allAdj) {
     const adj = state.spaces[name];
     if (adj && adj.religion === RELIGION.PROTESTANT) return true;
   }
-
-  // TODO: Contains a reformer (Phase 7+)
 
   // Port-linked to a Protestant port
   if (space.isPort && space.connectedSeaZones) {
@@ -401,7 +402,12 @@ export function isValidCounterReformTarget(state, spaceName) {
 
 /**
  * Calculate Reformation dice for an attempt.
- * Protestant attacking: adjacency + presence bonuses.
+ * Per rulebook 18.3:
+ * - Protestant base dice: adjacency to Protestant spaces, reformers, Protestant units
+ * - Papal defense dice: adjacency to Catholic spaces, Jesuit universities, Catholic units
+ * - Passes and unrest spaces do NOT provide dice bonuses
+ * - At least 1 die for each side
+ *
  * @param {Object} state
  * @param {string} targetSpace
  * @returns {{ protestant: number, papal: number }}
@@ -410,17 +416,16 @@ export function calcReformationDice(state, targetSpace) {
   let protestant = 0;
   let papal = 0;
   const adj = getAdjacentSpaces(targetSpace);
-  const target = state.spaces[targetSpace];
 
-  // Protestant dice — connections only (not passes)
+  // Protestant dice — connections only (not passes), excluding unrest spaces
   for (const name of adj.connections) {
     const sp = state.spaces[name];
-    if (!sp) continue;
+    if (!sp || sp.unrest) continue;
     if (sp.religion === RELIGION.PROTESTANT) protestant++;
     if (getUnitsInSpace(state, name, 'protestant')) protestant++;
   }
 
-  // Reformer bonuses (adjacent + in target)
+  // Reformer bonuses (adjacent connections only + in target, excludes passes/unrest)
   const reformerBonus = getReformerDiceBonus(state, targetSpace);
   protestant += reformerBonus.total;
 
@@ -430,14 +435,12 @@ export function calcReformationDice(state, targetSpace) {
   // Printing press bonus
   if (state.printingPressActive) protestant++;
 
-  // Papal dice — connections only
+  // Papal defense dice — connections only, excluding unrest spaces
   for (const name of adj.connections) {
     const sp = state.spaces[name];
-    if (!sp) continue;
+    if (!sp || sp.unrest) continue;
     if (sp.religion === RELIGION.CATHOLIC) papal++;
-    // Adjacent Jesuit university
     if (state.jesuitUniversities.includes(name)) papal++;
-    // Adjacent Catholic stack (papacy or any Catholic power with units)
     if (getUnitsInSpace(state, name, 'papacy')) papal++;
   }
 
@@ -451,7 +454,11 @@ export function calcReformationDice(state, targetSpace) {
 
 /**
  * Calculate Counter-Reformation dice.
- * Papal attacking: adjacency + Jesuit bonuses.
+ * Per rulebook 18.4:
+ * - Papal attack dice: adjacency to Catholic spaces, Jesuit universities, Catholic units
+ * - Protestant defense dice: adjacency to Protestant spaces, reformers, Protestant units
+ * - Passes and unrest spaces do NOT provide dice bonuses
+ *
  * @param {Object} state
  * @param {string} targetSpace
  * @returns {{ papal: number, protestant: number }}
@@ -461,10 +468,10 @@ export function calcCounterReformationDice(state, targetSpace) {
   let protestant = 0;
   const adj = getAdjacentSpaces(targetSpace);
 
-  // Papal dice — connections only
+  // Papal dice — connections only, excluding unrest
   for (const name of adj.connections) {
     const sp = state.spaces[name];
-    if (!sp) continue;
+    if (!sp || sp.unrest) continue;
     if (sp.religion === RELIGION.CATHOLIC) papal++;
     if (state.jesuitUniversities.includes(name)) papal++;
     if (getUnitsInSpace(state, name, 'papacy')) papal++;
@@ -472,15 +479,15 @@ export function calcCounterReformationDice(state, targetSpace) {
   if (state.jesuitUniversities.includes(targetSpace)) papal += 2;
   if (getUnitsInSpace(state, targetSpace, 'papacy')) papal += 2;
 
-  // Protestant defense dice — connections only
+  // Protestant defense dice — connections only, excluding unrest
   for (const name of adj.connections) {
     const sp = state.spaces[name];
-    if (!sp) continue;
+    if (!sp || sp.unrest) continue;
     if (sp.religion === RELIGION.PROTESTANT) protestant++;
     if (getUnitsInSpace(state, name, 'protestant')) protestant++;
   }
 
-  // Reformer bonuses for defense (adjacent + in target)
+  // Reformer bonuses for defense (connections only + in target, excludes passes/unrest)
   const reformerBonus = getReformerDiceBonus(state, targetSpace);
   protestant += reformerBonus.total;
 

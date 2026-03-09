@@ -7,7 +7,7 @@
  * Key reformers: Luther (Wittenberg), Zwingli (Zurich), Calvin (Geneva)
  */
 
-import { getAllAdjacentSpaces } from './state-helpers.js';
+import { getAllAdjacentSpaces, getAdjacentSpaces } from './state-helpers.js';
 
 /**
  * Place a reformer on the map.
@@ -84,13 +84,12 @@ export function getAdjacentReformers(state, spaceName) {
 /**
  * Calculate dice bonus from reformers for reformation/counter-reformation.
  *
- * Rules:
- * - +1 die per adjacent reformer (Protestant reformers for Protestant side)
+ * Per rulebook 18.3:
  * - +2 dice if reformer is in the target space itself
+ * - +1 die per adjacent reformer (connections only, NOT passes or unrest spaces)
  *
  * @param {Object} state
  * @param {string} targetSpace
- * @param {'protestant'|'papal'} side - Which side is attacking
  * @returns {{ adjacentBonus: number, inSpaceBonus: number, total: number }}
  */
 export function getReformerDiceBonus(state, targetSpace) {
@@ -103,9 +102,17 @@ export function getReformerDiceBonus(state, targetSpace) {
     inSpaceBonus = 2;
   }
 
-  // Check adjacent spaces for reformers
-  const adjReformers = getAdjacentReformers(state, targetSpace);
-  adjacentBonus = adjReformers.length;
+  // Check adjacent spaces for reformers (connections only, not passes)
+  // Per 18.3: "隔山口、或处于动乱空间内的邻接空间/改革家/单位堆不提供加骰"
+  const adj = getAdjacentSpaces(targetSpace);
+  for (const adjName of adj.connections) {
+    const sp = state.spaces?.[adjName];
+    if (!sp) continue;
+    if (sp.unrest) continue; // unrest spaces don't provide bonuses
+    if (sp.reformer) {
+      adjacentBonus++;
+    }
+  }
 
   return {
     adjacentBonus,

@@ -216,14 +216,19 @@ export interface GameState {
 ## 4. Turn and Phase Engine
 
 Each turn executes these phases in order:
-1. `card_draw` (Turn 1: special setup — place initial units, deal starting hands; Turn 2+: add turn-gated cards, reshuffle, deal)
-2. `diplomacy` (Turn 1: abbreviated — no peace/ransom/excommunication segments)
-3. `diet_of_worms` (Turn 1 only — Hapsburg, Papacy, Protestant each play 1 card)
-4. `spring_deployment`
-5. `action` (impulse loop until 6 consecutive passes; Luther's 95 Theses is a mandatory event played during this phase on Turn 1)
-6. `winter`
-7. `new_world`
-8. `victory_determination`
+
+Turn 1 only:
+1. `luther_95` (Interactive: Protestant player makes 5 sequential reformation attempts in German zone, choosing targets one at a time; +1 bonus die per attempt)
+2. `card_draw` (Turn 1: special setup — place initial units, deal starting hands; Turn 2+: add turn-gated cards, reshuffle, deal)
+3. `diplomacy` (Turn 1: abbreviated — no peace/ransom/excommunication segments)
+4. `diet_of_worms` (Turn 1 only — Hapsburg, Papacy, Protestant each play 1 card)
+5. `spring_deployment`
+6. `action` (impulse loop until 6 consecutive passes)
+7. `winter`
+8. `new_world`
+9. `victory_determination`
+
+Turn 2+: phases 2-9 only (no `luther_95` or `diet_of_worms`).
 
 Action phase loop:
 - On a power's impulse, choose exactly one:
@@ -482,32 +487,72 @@ Naval build costs:
 Religious actions are a dedicated combat-like system with adjacency modifiers.
 
 Main entry points:
-- Luther's 95 Theses (Turn 1 mandatory setup action).
+
+- Luther's 95 Theses (Turn 1 mandatory, separate phase before card draw).
 - Diet of Worms (Turn 1 religious contest).
-- Publish Treatise.
-- Translate Scripture.
-- Call Theological Debate.
-- Burn Books.
+- Publish Treatise (2 CP, 2 attempts in chosen language zone).
+- Translate Scripture (1+ CP, advance translation track).
+- Call Theological Debate (3 CP).
+- Burn Books (2 CP, Papacy counter-reformation).
 - Event-driven reform/counter-reform attempts.
 
-Reformation attempt algorithm:
-1. Select legal Catholic target space.
-2. Compute Protestant dice from adjacency/reformer/units + bonuses.
-3. Roll Protestant dice, track highest modified result.
-4. Check automatic success conditions.
-5. Compute and roll Papal defense dice.
-6. Compare highest results with language-zone tie rule.
-7. Flip religion if successful; apply electorate and special side effects.
+### Luther's 95 Theses (Turn 1, Phase 1)
 
-Counter Reformation algorithm mirrors the above with Catholic initiative and its own auto-success/tie modifiers.
+Interactive phase — Protestant player chooses targets sequentially:
 
-Theological debate:
+1. Wittenberg becomes Protestant; Luther reformer placed there; 2 Protestant regulars placed from Electorate board.
+2. Protestant gets 5 reformation attempts, **German zone only**.
+3. Each attempt: Protestant player chooses a valid target → dice rolled → result displayed.
+4. After each attempt, valid targets are **recalculated** (newly converted spaces create new adjacency).
+5. Each attempt gets **+1 bonus die** (from Luther's 95 Theses event).
+6. This is the only mandatory event that does NOT grant 2 CP afterwards.
+
+### Reformation Attempt Algorithm (Section 18.3)
+
+1. **Select target**: Must be Catholic, and satisfy one of: contains a reformer, adjacent to a Protestant space (connections + passes), or port-linked to a Protestant port. Target can be in any language zone, but tie-break and auto-success only apply in the action's target language zone.
+2. **Protestant base dice** (connections only, NOT passes; exclude unrest spaces):
+   - +1 per adjacent Protestant space
+   - +1 per adjacent reformer
+   - +1 per adjacent Protestant army stack
+   - +2 if reformer in target space
+   - +2 if Protestant army stack in target space
+   - Minimum 1 die even if all above are 0
+3. **Bonus dice** (if applicable):
+   - +1 if Printing Press played this turn
+   - +1 if from Luther's 95 Theses
+   - +1 from applicable debater bonus
+4. **Protestant rolls**: Roll total dice; if Full Bible or Calvin's Institutes applies and target is in target zone, each die result +1. Record **highest single modified die** (not hit count).
+5. **Auto-success**: If highest modified die ≥ 6 AND target is in target language zone → automatic success, no Papal defense roll.
+6. **Papal defense dice** (connections only, exclude passes/unrest):
+   - +1 per adjacent Catholic space
+   - +1 per adjacent Jesuit university
+   - +1 per adjacent Catholic army stack
+   - +2 if Jesuit university in target
+   - +2 if Catholic army stack in target
+   - Minimum 1 die
+7. **Papal rolls**: Record highest single die.
+8. **Compare**: Protestant highest > Papal highest → success. **Tie**: Protestant wins if target is in the action's target language zone; otherwise Papal wins.
+9. **On success**: Flip to Protestant. If electorate space, place 2 Protestant regulars from Electorate board (Section 21.6).
+
+### Counter-Reformation Algorithm (Section 18.4)
+
+Mirrors reformation with reversed roles:
+
+- Papal attacks (same adjacency dice rules but for Catholic side).
+- Auto-success: Papal max = 6 AND target in target zone AND Pope is Paul III or Julius III.
+- Tie: Papal wins only if Pope is Paul III/Julius III and target in target zone; otherwise Protestant wins.
+- Augsburg Confession: if played this turn, each Papal die −1.
+
+### Theological Debate (Section 18.5)
+
 - Random/selected debater picks per rules.
-- Roll debate dice (attacker then defender).
-- Two-round handling for ties in first round.
-- Convert spaces by hit differential.
-- Burn/disgrace debaters if margin exceeds debate value.
-- Award VP for burned/disgraced debaters.
+- Roll debate dice: attacker gets debater value + 3 dice, each 5/6 = 1 hit.
+- Defender: uncommitted gets value + 2; committed gets value + 1.
+- First round tie → second round with new debaters from same zone.
+- Second round tie → debate ends with no result.
+- Winner converts spaces equal to hit differential.
+- Burn Protestant debater if Papal margin > debater's debate value (award VP).
+- Disgrace Papal debater if Protestant margin > debater's debate value (award VP).
 
 ## 18. Winter Phase (Section 19)
 

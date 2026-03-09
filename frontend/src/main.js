@@ -485,7 +485,7 @@ class App {
    * @private
    */
   _getGameConfig(gameId) {
-    const configs = { uno: unoConfig, werewolf: werewolfConfig };
+    const configs = { uno: unoConfig, werewolf: werewolfConfig, his: hisConfig };
     return configs[gameId] || { id: gameId, name: gameId, minPlayers: 2, maxPlayers: 4 };
   }
 
@@ -613,8 +613,19 @@ class App {
         : state;
       this.currentView.updateState(visible);
 
-      // Re-render game UI (reuse existing instance)
-      if (gameUI) {
+      // Update game UI state (avoid full re-render to preserve zoom/pan)
+      if (gameUI && gameUI.updateState) {
+        gameUI.updateState(visible);
+        // Re-render action bar (lightweight, no map state to lose)
+        const actionBar = this.currentView.getActionBar?.();
+        if (actionBar && gameUI.renderActions) {
+          actionBar.innerHTML = '';
+          const actionsEl = gameUI.renderActions(visible, this.playerId, (action) => {
+            this.currentView.options?.onAction?.(action);
+          });
+          if (actionsEl) actionBar.appendChild(actionsEl);
+        }
+      } else if (gameUI) {
         this.currentView.setGameUI(gameUI);
       }
 

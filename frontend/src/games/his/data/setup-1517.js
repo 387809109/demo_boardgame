@@ -26,40 +26,41 @@ export const SCENARIO_1517 = {
   // Only non-zero fields are listed.
   deployments: {
     ottoman: [
-      { space: 'Istanbul',  units: { regulars: 7, cavalry: 1, squadrons: 1, leaders: ['suleiman', 'ibrahim'] } },
+      { space: 'Istanbul',  units: { regulars: 7, cavalry: 1, squadrons: 2, leaders: ['suleiman', 'ibrahim'] } },
       { space: 'Edirne',    units: { regulars: 1 } },
-      { space: 'Salonika',  units: { regulars: 1, squadrons: 1 } },
-      { space: 'Athens',    units: { regulars: 1, squadrons: 1 } }
+      { space: 'Salonika',  units: { regulars: 1, squadrons: 2 } },
+      { space: 'Athens',    units: { regulars: 1, squadrons: 2 } }
     ],
     hapsburg: [
       { space: 'Valladolid', units: { regulars: 4, leaders: ['charles_v', 'duke_of_alva'] } },
-      { space: 'Seville',    units: { regulars: 1, squadrons: 1 } },
-      { space: 'Barcelona',  units: { regulars: 1, squadrons: 1 } },
+      { space: 'Seville',    units: { regulars: 1, squadrons: 2 } },
+      { space: 'Barcelona',  units: { regulars: 1, squadrons: 2 } },
       { space: 'Navarre',    units: { regulars: 1 } },
       { space: 'Tunis',      units: { regulars: 1 } },
-      { space: 'Naples',     units: { regulars: 2, squadrons: 1 } },
+      { space: 'Naples',     units: { regulars: 2, squadrons: 2 } },
       { space: 'Besançon',   units: { regulars: 1 } },
       { space: 'Brussels',   units: { regulars: 1 } },
       { space: 'Vienna',     units: { regulars: 4, leaders: ['ferdinand'] } },
       { space: 'Antwerp',    units: { regulars: 3 } }
     ],
     england: [
-      { space: 'London',     units: { regulars: 3, squadrons: 1, leaders: ['henry_viii', 'charles_brandon'] } },
-      { space: 'Portsmouth', units: { squadrons: 1 } },
+      { space: 'London',     units: { regulars: 3, squadrons: 2, leaders: ['henry_viii', 'charles_brandon'] } },
+      { space: 'Portsmouth', units: { squadrons: 2 } },
       { space: 'Calais',     units: { regulars: 2 } },
       { space: 'York',       units: { regulars: 1 } },
       { space: 'Bristol',    units: { regulars: 1 } }
     ],
     france: [
       { space: 'Paris',      units: { regulars: 4, leaders: ['francis_i', 'montmorency'] } },
-      { space: 'Rouen',      units: { regulars: 1, squadrons: 1 } },
+      { space: 'Rouen',      units: { regulars: 1, squadrons: 2 } },
       { space: 'Bordeaux',   units: { regulars: 2 } },
       { space: 'Lyon',       units: { regulars: 1 } },
-      { space: 'Marseille',  units: { regulars: 1, squadrons: 1 } },
-      { space: 'Milan',      units: { regulars: 2 } }
+      { space: 'Marseille',  units: { regulars: 1, squadrons: 2 } },
+      { space: 'Milan',      units: { regulars: 2 } },
+      { space: 'Turin',      units: { regulars: 1 } }
     ],
     papacy: [
-      { space: 'Rome',       units: { regulars: 1, squadrons: 1 } },
+      { space: 'Rome',       units: { regulars: 1, squadrons: 2 } },
       { space: 'Ravenna',    units: { regulars: 1 } }
     ],
     protestant: [
@@ -80,7 +81,7 @@ export const SCENARIO_1517 = {
       { space: 'Candia', units: { regulars: 1 } }
     ],
     genoa: [
-      { space: 'Genoa', units: { regulars: 2, squadrons: 1, leaders: ['andrea_doria'] } }
+      { space: 'Genoa', units: { regulars: 2, squadrons: 2, leaders: ['andrea_doria'] } }
     ],
     hungary_bohemia: [
       { space: 'Belgrade', units: { regulars: 1 } },
@@ -88,7 +89,7 @@ export const SCENARIO_1517 = {
       { space: 'Prague',   units: { regulars: 1 } }
     ],
     scotland: [
-      { space: 'Edinburgh', units: { regulars: 3, squadrons: 1 } },
+      { space: 'Edinburgh', units: { regulars: 3, squadrons: 2 } },
       { space: 'Stirling',  units: {} }  // fortress marker only
     ]
   },
@@ -106,7 +107,7 @@ export const SCENARIO_1517 = {
     ottoman:  ['Istanbul', 'Edirne', 'Salonika', 'Athens'],
     hapsburg: ['Valladolid', 'Seville', 'Barcelona', 'Navarre', 'Tunis', 'Naples', 'Vienna', 'Antwerp'],
     england:  ['London', 'Calais', 'York', 'Bristol'],
-    france:   ['Paris', 'Rouen', 'Bordeaux', 'Lyon', 'Marseille', 'Milan'],
+    france:   ['Paris', 'Rouen', 'Bordeaux', 'Lyon', 'Marseille', 'Milan', 'Turin'],
     papacy:   ['Rome', 'Ravenna']
   },
 
