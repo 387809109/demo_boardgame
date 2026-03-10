@@ -104,6 +104,38 @@ describe('validateMoveFormation', () => {
     expect(state.pendingBattle.defenderPower).toBe('hapsburg');
   });
 
+  it('allows move into active minor stack when allied major is at war', () => {
+    const state = cpState();
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+    state.alliances.push({ a: 'venice', b: 'hapsburg' });
+    state.spaces['Edirne'].units.push({
+      owner: 'venice', regulars: 1, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    });
+
+    const r = validateMoveFormation(state, 'ottoman', {
+      from: 'Istanbul', to: 'Edirne',
+      units: { regulars: 1 }
+    });
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects move into active minor stack when allied major is not at war', () => {
+    const state = cpState();
+    state.alliances.push({ a: 'venice', b: 'hapsburg' });
+    state.spaces['Edirne'].units.push({
+      owner: 'venice', regulars: 1, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    });
+
+    const r = validateMoveFormation(state, 'ottoman', {
+      from: 'Istanbul', to: 'Edirne',
+      units: { regulars: 1 }
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('venice');
+  });
+
   it('rejects when CP is insufficient', () => {
     const state = cpState(0);
     const r = validateMoveFormation(state, 'ottoman', {
@@ -301,21 +333,52 @@ describe('validateBuildSquadron', () => {
 describe('validateBuildCorsair', () => {
   it('accepts for ottoman port', () => {
     const state = cpState();
+    state.piracyEnabled = true;
     const r = validateBuildCorsair(state, 'ottoman', { space: 'Istanbul' });
     expect(r.valid).toBe(true);
   });
 
   it('rejects for non-ottoman', () => {
     const state = cpState();
+    state.piracyEnabled = true;
     const r = validateBuildCorsair(state, 'hapsburg', { space: 'Istanbul' });
     expect(r.valid).toBe(false);
+  });
+
+  it('rejects when piracy is not enabled', () => {
+    const state = cpState();
+    state.piracyEnabled = false;
+    const r = validateBuildCorsair(state, 'ottoman', { space: 'Istanbul' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Barbary Pirates');
+  });
+
+  it('accepts in Ottoman-controlled Algiers when piracy enabled', () => {
+    const state = cpState();
+    state.piracyEnabled = true;
+    state.spaces.Algiers.controller = 'ottoman';
+    state.spaces.Algiers.units = [];
+
+    const r = validateBuildCorsair(state, 'ottoman', { space: 'Algiers' });
+    expect(r.valid).toBe(true);
+  });
+
+  it('accepts in Ottoman-controlled pirate haven port when piracy enabled', () => {
+    const state = cpState();
+    state.piracyEnabled = true;
+    state.spaces.Tripoli.controller = 'ottoman';
+    state.spaces.Tripoli.pirateHaven = true;
+    state.spaces.Tripoli.units = [];
+
+    const r = validateBuildCorsair(state, 'ottoman', { space: 'Tripoli' });
+    expect(r.valid).toBe(true);
   });
 });
 
 describe('validateControlUnfortified', () => {
   it('rejects fortified space', () => {
     const state = cpState();
-    // Besançon is a fortress — place ottoman units to bypass "no units" check
+    // Besançon is a fortress — place ottoman units to bypass other checks
     state.spaces['Besançon'].units.push({
       owner: 'ottoman', regulars: 1, mercenaries: 0,
       cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
@@ -327,44 +390,132 @@ describe('validateControlUnfortified', () => {
 
   it('rejects if already controlled', () => {
     const state = cpState();
-    // Find an unfortified ottoman space
-    const space = Object.entries(state.spaces).find(
-      ([, sp]) => sp.controller === 'ottoman' && !sp.isFortress
-    );
-    if (space) {
-      const r = validateControlUnfortified(state, 'ottoman', { space: space[0] });
-      expect(r.valid).toBe(false);
-      expect(r.error).toContain('Already controlled');
-    }
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Edirne' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Already controlled');
   });
 
-  it('rejects without units in space', () => {
+  it('accepts controlling occupied unfortified space with LOC', () => {
     const state = cpState();
-    // Find an unfortified non-ottoman space with no ottoman units
-    const space = Object.entries(state.spaces).find(
-      ([, sp]) => sp.controller === 'france' && !sp.isFortress
-    );
-    if (space) {
-      const r = validateControlUnfortified(state, 'ottoman', { space: space[0] });
-      expect(r.valid).toBe(false);
-      expect(r.error).toContain('units');
-    }
+    state.spaces['Edirne'].controller = 'france';
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Edirne' });
+    expect(r.valid).toBe(true);
   });
 
-  it('accepts valid unfortified space with units', () => {
+  it('rejects when no line of communication', () => {
     const state = cpState();
-    // Find unfortified non-ottoman space and place ottoman units there
-    const entry = Object.entries(state.spaces).find(
-      ([, sp]) => sp.controller !== 'ottoman' && !sp.isFortress
-    );
-    if (entry) {
-      entry[1].units.push({
-        owner: 'ottoman', regulars: 1, mercenaries: 0,
-        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
-      });
-      const r = validateControlUnfortified(state, 'ottoman', { space: entry[0] });
-      expect(r.valid).toBe(true);
+    state.spaces['Edirne'].controller = 'france';
+    state.spaces['Istanbul'].controller = 'hapsburg';
+    state.spaces['Scutari'].controller = 'hapsburg';
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Edirne' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('line of communication');
+  });
+
+  it('accepts adjacent control when friendly land adjacent and no enemy adjacent', () => {
+    const state = cpState();
+    state.spaces['Sofia'].controller = 'france';
+    state.spaces['Sofia'].units = [];
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Sofia' });
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects adjacent control when enemy land is adjacent', () => {
+    const state = cpState();
+    state.spaces['Sofia'].controller = 'france';
+    state.spaces['Sofia'].units = [];
+    state.spaces['Edirne'].units = [{
+      owner: 'france', regulars: 1, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    }];
+    state.spaces['Nezh'].units.push({
+      owner: 'ottoman', regulars: 1, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    });
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Sofia' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('enemy land units adjacent');
+  });
+
+  it('does not allow adjacency through pass-only links', () => {
+    const state = cpState();
+    state.spaces['Larissa'].controller = 'france';
+    state.spaces['Larissa'].units = [];
+    state.spaces['Larissa'].units = state.spaces['Larissa'].units
+      .filter(u => u.owner !== 'ottoman');
+    state.spaces['Salonika'].units = state.spaces['Salonika'].units
+      .filter(u => u.owner !== 'ottoman');
+    state.spaces['Lepanto'].units = (state.spaces['Lepanto'].units || [])
+      .filter(u => u.owner !== 'ottoman');
+    state.spaces['Athens'].units = state.spaces['Athens'].units
+      .filter(u => u.owner !== 'ottoman');
+    state.spaces['Durazzo'].units.push({
+      owner: 'ottoman', regulars: 1, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    });
+
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Larissa' });
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects control if non-allied land units are in target space', () => {
+    const state = cpState();
+    state.spaces['Edirne'].controller = 'france';
+    state.spaces['Edirne'].units.push({
+      owner: 'france', regulars: 1, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    });
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Edirne' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('non-allied land units');
+  });
+
+  it('allows unrest removal without LOC when occupying unrest space', () => {
+    const state = cpState();
+    state.spaces['Paris'].unrest = true;
+    state.spaces['Paris'].units.push({
+      owner: 'ottoman', regulars: 1, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    });
+    state.spaces['Istanbul'].controller = 'hapsburg';
+    state.spaces['Scutari'].controller = 'hapsburg';
+
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Paris' });
+    expect(r.valid).toBe(true);
+  });
+
+  it('allows Protestant special unrest removal before Schmalkaldic League', () => {
+    const state = cpState();
+    state.spaces['Wittenberg'].unrest = true;
+    state.spaces['Wittenberg'].units = state.spaces['Wittenberg'].units
+      .filter(u => u.owner !== 'protestant');
+    for (const sp of Object.values(state.spaces)) {
+      sp.units = (sp.units || []).filter(u => u.owner !== 'protestant');
     }
+
+    const r = validateControlUnfortified(state, 'protestant', { space: 'Wittenberg' });
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects Protestant special unrest removal after Schmalkaldic League', () => {
+    const state = cpState();
+    state.schmalkaldicLeagueFormed = true;
+    state.spaces['Wittenberg'].unrest = true;
+    for (const sp of Object.values(state.spaces)) {
+      sp.units = (sp.units || []).filter(u => u.owner !== 'protestant');
+    }
+
+    const r = validateControlUnfortified(state, 'protestant', { space: 'Wittenberg' });
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects friendly-controlled target space', () => {
+    const state = cpState();
+    state.alliances.push({ a: 'ottoman', b: 'france' });
+    state.spaces['Sofia'].controller = 'france';
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Sofia' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('friendly-controlled');
   });
 });
 
@@ -372,16 +523,19 @@ describe('controlUnfortified', () => {
   it('changes controller', () => {
     const state = cpState();
     const helpers = createMockHelpers();
-    const entry = Object.entries(state.spaces).find(
-      ([, sp]) => sp.controller !== 'ottoman' && !sp.isFortress
-    );
-    if (entry) {
-      entry[1].units.push({
-        owner: 'ottoman', regulars: 1, mercenaries: 0,
-        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
-      });
-      controlUnfortified(state, 'ottoman', { space: entry[0] }, helpers);
-      expect(state.spaces[entry[0]].controller).toBe('ottoman');
-    }
+    state.spaces['Edirne'].controller = 'france';
+    controlUnfortified(state, 'ottoman', { space: 'Edirne' }, helpers);
+    expect(state.spaces['Edirne'].controller).toBe('ottoman');
+  });
+
+  it('removes unrest without changing controller', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    state.spaces['Paris'].controller = 'france';
+    state.spaces['Paris'].unrest = true;
+
+    controlUnfortified(state, 'ottoman', { space: 'Paris' }, helpers);
+    expect(state.spaces['Paris'].unrest).toBe(false);
+    expect(state.spaces['Paris'].controller).toBe('france');
   });
 });

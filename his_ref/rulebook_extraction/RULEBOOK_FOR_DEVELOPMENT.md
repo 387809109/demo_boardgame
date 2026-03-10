@@ -325,6 +325,17 @@ Declarations of war:
 - Set diplomatic state to at-war.
 - Resolve minor-power interventions and alliance interactions.
 
+Implementation completion notes (high-priority validation):
+- During negotiations, only clauses that immediately mutate current game state are rules-binding; future promises remain non-binding.
+- At negotiation close, agreements must be publicly declared in impulse order and fully confirmed by all involved powers; partial confirmation voids the entire package.
+- Peace segment is skipped on the final turn; peace eligibility requires at least one of: captured leader suffered, or loss of home space suffered.
+- War Winner VP from peace: normally +1, plus an extra +1 if the war involved Ottoman.
+- DOW on Scotland/Venice opens immediate 2 CP intervention windows for France/Papacy; successful intervention activates the minor and creates new war states.
+- DOW legality should be implemented as two layers:
+  1. Always-on restrictions (allied targets, pre-Schmalkaldic Protestant limits, independent keys not valid DOW targets, etc.).
+  2. Diplomacy-phase-only restrictions (cannot DOW powers just peaced/allied this same diplomacy phase).
+- If war state is forced during Action Phase by event text, update diplomatic status immediately; if both navies already share a sea zone, resolve immediate naval combat (tie forces both sides to retreat).
+
 ## 9. Spring Deployment (Phase 5)
 
 - Free move for one formation from capital to friendly-controlled destination.
@@ -360,6 +371,9 @@ Line of Communication (LOC):
 - Trace from friendly controlled fortified home space (major or allied minor home as allowed).
 - Path must be friendly-controlled and free of unrest.
 - LOC restrictions differ from Winter return path (enemy units matter for LOC, not for Winter return).
+- Intermediate nodes (except final target) must also be free of enemy units/leaders, including naval units.
+- Before `Schmalkaldic League` has fired, LOC may not trace through electorates.
+- LOC over sea zones must be connected through friendly-controlled ports and supported by friendly naval presence in those sea zones.
 
 Control unfortified space:
 - Cost: 1 CP.
@@ -370,6 +384,7 @@ Unrest effects:
 - Blocks LOC tracing through space.
 - Blocks movement options and construction in that space.
 - Affects VP/key/card accounting and some piracy defense effects.
+- Removing unrest via `Control Unfortified Space` does not require LOC to that target (unlike flipping political control).
 
 ## 12. Land Movement and Reaction (Section 13)
 
@@ -384,10 +399,17 @@ Core checks:
 4. Defender may avoid battle or withdraw into fortifications.
 5. If opposing stacks remain in same unfortified space -> field battle.
 
+Destination/formation completion constraints:
+- Entering foreign-controlled spaces is legal only if relationship is `atWar` or `allied`.
+- Leader-only movement is legal, but leaders cannot enter enemy-controlled/enemy-occupied spaces; lone leaders in unfortified spaces are captured if enemy land enters.
+- Stacks that already lost a field battle this impulse, or are currently in siege relation, cannot be used for new proactive move actions.
+
 Interception:
 - Triggered by adjacent enemy eligible stacks.
 - Resolve by impulse order when multiple powers can intercept.
 - First successful intercept blocks others.
+- A stack may attempt intercept at most once per impulse; no intercept over passes; besieged units cannot intercept.
+- Moves entering an unbesieged friendly fortified space cannot be intercepted.
 
 ## 13. Field Battle (Section 14)
 
@@ -441,6 +463,8 @@ Naval movement action:
 - Cost: 1 CP.
 - Moves all eligible naval stacks of active power in that action.
 - Resolve movement, response windows, interception, avoid battle, then naval combats.
+- Movement is only to adjacent sea zone/port; entering an enemy-controlled port is legal only if enemy naval units are present there.
+- Genoese/Venetian naval units and Andrea Doria may not enter Atlantic Ocean.
 
 Naval combat (10-step procedure per Section 16.2):
 - Attacker dice: 2 per squadron + 1 per corsair + highest naval leader battle rating.
@@ -458,6 +482,7 @@ Naval transport:
 - Formation cap 5 land units + leaders for transport.
 - Must end in port before impulse ends.
 - If losing arrival field battle, transported units eliminated.
+- Starting a naval transport chain requires at least 2 CP still available in the impulse (must be able to leave sea and end in port).
 
 Piracy:
 - Ottoman-only, cost 2 CP, once per sea zone per turn.
@@ -465,6 +490,9 @@ Piracy:
 - Target rolls anti-piracy dice first.
 - Remaining corsairs roll piracy hits.
 - Per hit target chooses one cost: lose squadron, give random card, or give Ottoman piracy VP.
+- Anti-piracy dice sources are separate pools: target squadrons in target sea zone (2 dice each) + adjacent squadrons of powers at war with Ottoman (1 die each) + adjacent fortress dice (1 each, keys do not qualify).
+- Fortress anti-piracy dice are disabled if fortress is in unrest or currently besieged.
+- Ottoman piracy VP has global cap 10; if target hand is empty, "give random card" is not a legal per-hit choice.
 
 ## 16. Unit Construction (Section 17)
 
@@ -495,6 +523,21 @@ Main entry points:
 - Call Theological Debate (3 CP).
 - Burn Books (2 CP, Papacy counter-reformation).
 - Event-driven reform/counter-reform attempts.
+
+### Religious Modifiers and Debater Constraints (Section 18.2)
+
+- Reformer modifiers: +2 in target space, +1 from adjacent spaces (Protestant side).
+- Jesuit university modifiers: +2 in target space, +1 from adjacent spaces (Papal side).
+- Unit-stack modifiers follow the same-space/adjacent pattern, but do not stack multiple times from extra units in the same stack.
+- English unit confession depends on ruler:
+  - Edward VI / Elizabeth I: Protestant side.
+  - Mary I: Catholic side.
+  - Henry VIII: neutral (no religious modifier contribution).
+- Ottoman units are always confession-neutral and never contribute religious modifiers.
+- Debater usage limits:
+  - Each debater can be committed at most once per turn; reset in Winter.
+  - Per impulse, Protestant and Papacy may each apply at most one debater bonus for reform/counter-reform/translation class actions.
+  - Debaters granting "extra attempts" must be committed before that attempt series starts.
 
 ### Luther's 95 Theses (Turn 1, Phase 1)
 
@@ -567,6 +610,20 @@ Execute globally in order:
 8. Uncommit all debaters.
 9. Auto-trigger overdue mandatory events.
 
+Return/attrition completion rules:
+- Resolve naval return before land return; after loan markers are removed, loaned squadrons return to nearest legal owner ports.
+- Land return attrition path check: all path spaces except origin must be friendly-controlled and unrest-free; unlike LOC, enemy unit presence is ignored here.
+- Non-capital fortified spaces have stack cap 4; excess units must continue to capital/home key destinations and re-run attrition path checks.
+- If a power's capital is enemy-controlled, units that would be forced to return there are eliminated instead.
+- Protestant has no capital: always return to nearest legal Protestant-controlled fortified space(s), splitting stacks when necessary.
+- Hapsburg may return to either capital; before `Schmalkaldic League`, Hapsburg winter return may not enter/pass electorates.
+- Overdue mandatory events must auto-fire in Winter without granting normal +2 CP:
+  - `Clement VII` (latest Turn 2 Winter)
+  - `Barbary Pirates` (latest Turn 3 Winter)
+  - `Schmalkaldic League` (latest Turn 4 Winter)
+  - `Paul III` (latest Turn 4 Winter)
+  - `Society of Jesus` (latest Turn 6 Winter)
+
 ## 19. New World Subsystem (Section 20)
 
 Actions:
@@ -622,9 +679,12 @@ Activation/deactivation:
 - Triggered by diplomacy intervention and specific events.
 - Active minors act as military extensions of allied major power.
 - Hungary/Bohemia has special permanent-activation path after Ottoman defeat condition.
+- Scotland/Venice can be activated via "DOW then intervention" flow and may immediately create additional major-power war links.
+- Implementation constraint: whenever validating "can attack/intercept/enter enemy-occupied destination", hostility must be propagated through active minor alliances in both directions (minor↔major and minor↔minor via allied majors at war).
 
 Independent keys:
 - Capturable and then persist under major control unless specific event reverts them.
+- `Metz`, `Milan`, `Florence`, and `Tunis` are independent-key targets; they may be besieged directly without prior declaration of war.
 
 ## 22. Scoring and Victory (Section 23)
 
@@ -640,6 +700,7 @@ Victory-determination algorithm:
 4. Check Domination victory (Turn >= 4 only).
 5. If Turn 9 ended without winner, Time Limit victory.
 6. Tie-break by previous turn VP totals (walk backward turn-by-turn).
+- Recommended engine pattern: run incremental victory re-check after any state delta touching key-control, religious flips, war-winner VP, or New World resolution.
 
 ## 23. Recommended Engine Architecture
 

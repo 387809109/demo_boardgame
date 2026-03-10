@@ -5,15 +5,15 @@
  * Section 15 of the rulebook.
  */
 
-import { ACTION_COSTS, COMBAT, CAPITALS } from '../constants.js';
+import { ACTION_COSTS, COMBAT } from '../constants.js';
 import { spendCp } from './cp-manager.js';
 import {
-  getUnitsInSpace, countLandUnits, getAllAdjacentSpaces,
-  findFriendlyPath
+  getUnitsInSpace, countLandUnits, getAllAdjacentSpaces
 } from '../state/state-helpers.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
 import { rollDice } from './religious-actions.js';
 import { applyCasualties } from './combat-actions.js';
+import { hasLineOfCommunicationForControl } from './military-actions.js';
 
 // ── Line of Communication ───────────────────────────────────────
 
@@ -27,26 +27,7 @@ import { applyCasualties } from './combat-actions.js';
  * @returns {boolean}
  */
 export function hasLineOfCommunication(state, space, power) {
-  // Find all friendly fortified home spaces as targets
-  const targets = [];
-  const capitals = CAPITALS[power] || [];
-  for (const [name, sp] of Object.entries(state.spaces)) {
-    if (sp.controller !== power) continue;
-    if (sp.besieged) continue;
-    if (sp.isFortress || capitals.includes(name)) {
-      targets.push(name);
-    }
-  }
-
-  if (targets.length === 0) return false;
-
-  // BFS from source to any target
-  for (const target of targets) {
-    const path = findFriendlyPath(state, space, target, power);
-    if (path) return true;
-  }
-
-  return false;
+  return hasLineOfCommunicationForControl(state, power, space);
 }
 
 // ── Establish Siege ─────────────────────────────────────────────
@@ -65,6 +46,9 @@ export function establishSiege(state, space, besiegingPower, helpers) {
   sp.besieged = true;
   sp.besiegedBy = besiegingPower;
   sp.siegeEstablishedImpulse = state.turnNumber;
+  sp.siegeEstablishedTurn = state.turn;
+  sp.siegeEstablishedCardNumber = state.activeCardNumber ?? null;
+  sp.siegeEstablishedBy = besiegingPower;
 
   helpers.logEvent(state, 'siege_established', {
     space, besiegedBy: besiegingPower
@@ -91,8 +75,15 @@ export function validateAssault(state, power, actionData) {
     return { valid: false, error: 'You are not the besieger' };
   }
 
-  // Cannot assault same impulse siege was established
-  if (sp.siegeEstablishedImpulse === state.turnNumber) {
+  // Cannot assault in the same impulse that established the siege.
+  const sameCardImpulse = (
+    sp.siegeEstablishedCardNumber != null &&
+    state.activeCardNumber != null &&
+    sp.siegeEstablishedTurn === state.turn &&
+    sp.siegeEstablishedBy === power &&
+    sp.siegeEstablishedCardNumber === state.activeCardNumber
+  );
+  if (sameCardImpulse || sp.siegeEstablishedImpulse === state.turnNumber) {
     return { valid: false, error: 'Cannot assault in same impulse as siege establishment' };
   }
 
@@ -190,6 +181,9 @@ export function executeAssault(state, power, actionData, helpers) {
     sp.besieged = false;
     sp.besiegedBy = null;
     sp.siegeEstablishedImpulse = null;
+    sp.siegeEstablishedTurn = null;
+    sp.siegeEstablishedCardNumber = null;
+    sp.siegeEstablishedBy = null;
     sp.controller = power;
 
     // Capture defender leaders
@@ -253,6 +247,9 @@ export function checkSiegeBreak(state, space, helpers) {
     sp.besieged = false;
     sp.besiegedBy = null;
     sp.siegeEstablishedImpulse = null;
+    sp.siegeEstablishedTurn = null;
+    sp.siegeEstablishedCardNumber = null;
+    sp.siegeEstablishedBy = null;
 
     helpers.logEvent(state, 'siege_broken', { space, reason: 'insufficient_units' });
     return true;

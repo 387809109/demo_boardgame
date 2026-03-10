@@ -211,6 +211,22 @@ describe('canAttack', () => {
     expect(canAttack(state, 'ottoman', 'hungary_bohemia')).toBe(true);
   });
 
+  it('true for active minor attacking enemy major of its ally', () => {
+    const state = makeState(
+      [['ottoman', 'hapsburg']],
+      [['venice', 'hapsburg']]
+    );
+    expect(canAttack(state, 'venice', 'ottoman')).toBe(true);
+  });
+
+  it('true for active minor attacking active minor of enemy major', () => {
+    const state = makeState(
+      [['france', 'hapsburg']],
+      [['scotland', 'france'], ['hungary_bohemia', 'hapsburg']]
+    );
+    expect(canAttack(state, 'scotland', 'hungary_bohemia')).toBe(true);
+  });
+
   it('false for attacking minor with no war on ally', () => {
     const state = makeState([], [['scotland', 'france']]);
     expect(canAttack(state, 'hapsburg', 'scotland')).toBe(false);

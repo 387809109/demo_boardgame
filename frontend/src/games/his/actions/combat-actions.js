@@ -280,6 +280,9 @@ function checkSiegeInitiation(state, space, winnerPower, helpers) {
     sp.besieged = true;
     sp.besiegedBy = winnerPower;
     sp.siegeEstablishedImpulse = state.turnNumber;
+    sp.siegeEstablishedTurn = state.turn;
+    sp.siegeEstablishedCardNumber = state.activeCardNumber ?? null;
+    sp.siegeEstablishedBy = winnerPower;
 
     helpers.logEvent(state, 'siege_established', {
       space, besiegedBy: winnerPower

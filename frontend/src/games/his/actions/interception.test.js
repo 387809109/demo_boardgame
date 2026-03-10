@@ -30,6 +30,32 @@ describe('checkInterceptions', () => {
     expect(hapEntry.space).toBe('Varna');
   });
 
+  it('treats active minor stacks as hostile when allied major is at war', () => {
+    const state = createTestState();
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+    state.alliances.push({ a: 'venice', b: 'hapsburg' });
+    addUnits(state, 'Varna', 'venice', 2);
+
+    const interceptors = checkInterceptions(
+      state, 'Istanbul', 'Edirne', 'ottoman'
+    );
+    const veniceEntry = interceptors.find(i => i.power === 'venice');
+    expect(veniceEntry).toBeDefined();
+    expect(veniceEntry.space).toBe('Varna');
+  });
+
+  it('does not treat active minor stacks as hostile without ally war', () => {
+    const state = createTestState();
+    state.alliances.push({ a: 'venice', b: 'hapsburg' });
+    addUnits(state, 'Varna', 'venice', 2);
+
+    const interceptors = checkInterceptions(
+      state, 'Istanbul', 'Edirne', 'ottoman'
+    );
+    const veniceEntry = interceptors.find(i => i.power === 'venice');
+    expect(veniceEntry).toBeUndefined();
+  });
+
   it('excludes source space', () => {
     const state = createTestState();
     // Istanbul is adjacent to Edirne, but it's the source

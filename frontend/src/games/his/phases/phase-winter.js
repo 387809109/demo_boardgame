@@ -16,10 +16,19 @@
 
 import { CAPITALS, MAJOR_POWERS } from '../constants.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
-import { PORTS_BY_SEA_ZONE } from '../data/map-data.js';
-import {
-  getUnitsInSpace, findNearestFortifiedSpace
-} from '../state/state-helpers.js';
+import { PORTS_BY_SEA_ZONE, SEA_EDGES, SEA_ZONES } from '../data/map-data.js';
+import { findNearestFortifiedSpace } from '../state/state-helpers.js';
+import { LEADER_BY_ID } from '../data/leaders.js';
+
+const SEA_ADJACENCY = (() => {
+  const adj = {};
+  for (const zone of SEA_ZONES) adj[zone] = [];
+  for (const { a, b } of SEA_EDGES) {
+    if (adj[a]) adj[a].push(b);
+    if (adj[b]) adj[b].push(a);
+  }
+  return adj;
+})();
 
 /**
  * Execute the full Winter phase.
@@ -118,10 +127,140 @@ function removeRenegadeLeader(state, helpers) {
 // ── Step 3: Return naval units ──────────────────────────────────────
 
 function returnNavalUnits(state, helpers) {
-  // Naval units in sea zones return to nearest friendly port
-  // For simplicity, iterate all spaces and find squadrons/corsairs
-  // that are in sea-zone-adjacent ports but need to go home
-  // (Full sea zone tracking deferred — naval units on map stay at ports)
+  const candidates = [];
+  for (const [spaceName, sp] of Object.entries(state.spaces)) {
+    for (const stack of sp.units || []) {
+      if (!hasNavalAssets(stack)) continue;
+      if (sp.isPort && sp.controller === stack.owner) continue;
+      candidates.push({ from: spaceName, stack });
+    }
+  }
+
+  for (const { from, stack } of candidates) {
+    if (!hasNavalAssets(stack)) continue;
+
+    const destination = findNearestControlledPort(state, from, stack.owner);
+    if (!destination) {
+      const removed = removeNavalAssets(stack);
+      if (removed > 0) {
+        helpers.logEvent(state, 'winter_naval_eliminated', {
+          from,
+          owner: stack.owner,
+          removed
+        });
+      }
+      continue;
+    }
+
+    if (destination === from) continue;
+    moveNavalAssets(state, from, destination, stack);
+    helpers.logEvent(state, 'winter_naval_return', {
+      from,
+      to: destination,
+      owner: stack.owner
+    });
+  }
+}
+
+function hasNavalAssets(stack) {
+  if ((stack.squadrons || 0) > 0 || (stack.corsairs || 0) > 0) return true;
+  return (stack.leaders || []).some(lid => LEADER_BY_ID[lid]?.type === 'naval');
+}
+
+function isSeaZone(spaceName) {
+  return SEA_ZONES.includes(spaceName);
+}
+
+function getConnectedSeaZonesForPort(state, portName) {
+  const zones = new Set(state.spaces[portName]?.connectedSeaZones || []);
+  for (const [seaZone, ports] of Object.entries(PORTS_BY_SEA_ZONE)) {
+    if (ports.includes(portName)) zones.add(seaZone);
+  }
+  return [...zones];
+}
+
+function getNavalNeighbors(state, node) {
+  if (isSeaZone(node)) {
+    return [...(SEA_ADJACENCY[node] || []), ...(PORTS_BY_SEA_ZONE[node] || [])];
+  }
+  if (state.spaces[node]?.isPort) {
+    return getConnectedSeaZonesForPort(state, node);
+  }
+  return [];
+}
+
+function findNearestControlledPort(state, from, owner) {
+  const startSpace = state.spaces[from];
+  if (startSpace?.isPort && startSpace.controller === owner) return from;
+
+  const visited = new Set([from]);
+  const queue = [from];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    for (const next of getNavalNeighbors(state, current)) {
+      if (visited.has(next)) continue;
+      visited.add(next);
+
+      const nextSpace = state.spaces[next];
+      if (nextSpace?.isPort && nextSpace.controller === owner) {
+        return next;
+      }
+      queue.push(next);
+    }
+  }
+  return null;
+}
+
+function ensureStackInPort(state, portName, owner) {
+  const sp = state.spaces[portName];
+  if (!sp) return null;
+  let stack = sp.units.find(u => u.owner === owner);
+  if (!stack) {
+    stack = {
+      owner, regulars: 0, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    };
+    sp.units.push(stack);
+  }
+  return stack;
+}
+
+function moveNavalAssets(state, from, to, sourceStack) {
+  const destStack = ensureStackInPort(state, to, sourceStack.owner);
+  if (!destStack) return;
+
+  destStack.squadrons += sourceStack.squadrons || 0;
+  destStack.corsairs += sourceStack.corsairs || 0;
+  sourceStack.squadrons = 0;
+  sourceStack.corsairs = 0;
+
+  const navalLeaders = (sourceStack.leaders || [])
+    .filter(lid => LEADER_BY_ID[lid]?.type === 'naval');
+  sourceStack.leaders = (sourceStack.leaders || [])
+    .filter(lid => LEADER_BY_ID[lid]?.type !== 'naval');
+  destStack.leaders.push(...navalLeaders);
+
+  if (
+    sourceStack.regulars === 0 &&
+    sourceStack.mercenaries === 0 &&
+    sourceStack.cavalry === 0 &&
+    sourceStack.squadrons === 0 &&
+    sourceStack.corsairs === 0 &&
+    sourceStack.leaders.length === 0
+  ) {
+    const fromSpace = state.spaces[from];
+    fromSpace.units = fromSpace.units.filter(u => u !== sourceStack);
+  }
+}
+
+function removeNavalAssets(stack) {
+  const removed = (stack.squadrons || 0) + (stack.corsairs || 0);
+  stack.squadrons = 0;
+  stack.corsairs = 0;
+  stack.leaders = (stack.leaders || [])
+    .filter(lid => LEADER_BY_ID[lid]?.type !== 'naval');
+  return removed;
 }
 
 // ── Step 4: Return land units ───────────────────────────────────────

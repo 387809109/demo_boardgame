@@ -152,6 +152,50 @@ describe('advancePhase', () => {
     expect(state.turn).toBe(10);
     expect(state.status).toBe('ended');
   });
+
+  it('returns due naval leaders from turnTrack on turn advance', () => {
+    const state = createTestState({ phase: 'victory_determination', turn: 1 });
+    const helpers = createMockHelpers();
+    state.turnTrack.navalLeaders.push({
+      power: 'ottoman',
+      leaderId: 'dragut',
+      returnTurn: 2,
+      source: 'naval_combat_elimination',
+      space: 'Ionian Sea'
+    });
+
+    advancePhase(state, helpers);
+
+    expect(state.turn).toBe(2);
+    const hasDragut = Object.values(state.spaces).some(sp =>
+      (sp.units || []).some(stack => (stack.leaders || []).includes('dragut'))
+    );
+    expect(hasDragut).toBe(true);
+    expect(state.turnTrack.navalLeaders).toHaveLength(0);
+    const ev = state.eventLog.find(e => e.type === 'turn_track_naval_leader_return');
+    expect(ev).toBeDefined();
+  });
+
+  it('releases due naval unit entries from turnTrack on turn advance', () => {
+    const state = createTestState({ phase: 'victory_determination', turn: 1 });
+    const helpers = createMockHelpers();
+    state.turnTrack.navalUnits.push({
+      power: 'ottoman',
+      type: 'squadron',
+      count: 2,
+      returnTurn: 2,
+      source: 'naval_combat_casualties',
+      space: 'Ionian Sea'
+    });
+
+    advancePhase(state, helpers);
+
+    expect(state.turn).toBe(2);
+    expect(state.turnTrack.navalUnits).toHaveLength(0);
+    const ev = state.eventLog.find(e => e.type === 'turn_track_naval_units_released');
+    expect(ev).toBeDefined();
+    expect(ev.data.released.ottoman.squadron).toBe(2);
+  });
 });
 
 describe('winter phase — debater/CP reset', () => {

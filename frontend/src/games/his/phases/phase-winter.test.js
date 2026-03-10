@@ -16,7 +16,102 @@ function winterState(overrides = {}) {
   return { ...state, ...overrides };
 }
 
+function placeSeaNaval(state, seaZone, owner, squadrons = 0, corsairs = 0, leaders = []) {
+  if (!state.spaces[seaZone]) state.spaces[seaZone] = { units: [] };
+  state.spaces[seaZone].units.push({
+    owner,
+    regulars: 0,
+    mercenaries: 0,
+    cavalry: 0,
+    squadrons,
+    corsairs,
+    leaders
+  });
+}
+
+function sumNavalInControlledPorts(state, owner) {
+  let total = 0;
+  for (const sp of Object.values(state.spaces)) {
+    if (!sp.isPort || sp.controller !== owner) continue;
+    for (const u of sp.units || []) {
+      if (u.owner !== owner) continue;
+      total += (u.squadrons || 0) + (u.corsairs || 0);
+    }
+  }
+  return total;
+}
+
+function sumAllNaval(state, owner) {
+  let total = 0;
+  for (const sp of Object.values(state.spaces)) {
+    for (const u of sp.units || []) {
+      if (u.owner !== owner) continue;
+      total += (u.squadrons || 0) + (u.corsairs || 0);
+    }
+  }
+  return total;
+}
+
 describe('executeWinter', () => {
+  // ── Step 3: Naval return ───────────────────────────────────────
+
+  it('returns sea-zone naval units to controlled ports', () => {
+    const state = winterState();
+    const helpers = createMockHelpers();
+    const before = sumNavalInControlledPorts(state, 'ottoman');
+
+    placeSeaNaval(state, 'Ionian Sea', 'ottoman', 2, 0);
+    executeWinter(state, helpers);
+
+    const after = sumNavalInControlledPorts(state, 'ottoman');
+    const source = state.spaces['Ionian Sea'].units.find(u => u.owner === 'ottoman');
+    expect(after).toBe(before + 2);
+    expect((source?.squadrons || 0) + (source?.corsairs || 0)).toBe(0);
+  });
+
+  it('returns naval units from non-controlled ports to controlled ports', () => {
+    const state = winterState();
+    const helpers = createMockHelpers();
+    const before = sumNavalInControlledPorts(state, 'ottoman');
+
+    state.spaces['Corfu'].units.push({
+      owner: 'ottoman',
+      regulars: 0,
+      mercenaries: 0,
+      cavalry: 0,
+      squadrons: 1,
+      corsairs: 0,
+      leaders: []
+    });
+
+    executeWinter(state, helpers);
+
+    const after = sumNavalInControlledPorts(state, 'ottoman');
+    const inCorfu = state.spaces['Corfu'].units.find(u => u.owner === 'ottoman');
+    expect(after).toBe(before + 1);
+    expect((inCorfu?.squadrons || 0) + (inCorfu?.corsairs || 0)).toBe(0);
+  });
+
+  it('eliminates naval units if no controlled port exists', () => {
+    const state = winterState();
+    const helpers = createMockHelpers();
+    placeSeaNaval(state, 'Ionian Sea', 'ottoman', 2, 0);
+
+    for (const sp of Object.values(state.spaces)) {
+      if (sp.isPort && sp.controller === 'ottoman') {
+        sp.controller = 'hapsburg';
+      }
+    }
+
+    const before = sumAllNaval(state, 'ottoman');
+    executeWinter(state, helpers);
+    const after = sumAllNaval(state, 'ottoman');
+
+    expect(after).toBeLessThan(before);
+    const eliminatedEvent = state.eventLog.find(e => e.type === 'winter_naval_eliminated');
+    expect(eliminatedEvent).toBeDefined();
+  });
+
   // ── Step 5: Alliance removal ────────────────────────────────────
 
   it('removes all alliances', () => {

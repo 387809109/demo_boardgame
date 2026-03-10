@@ -179,6 +179,16 @@ describe('buildInitialState', () => {
       expect(state.piracyTrack).toBe(0);
     });
 
+    it('piracyEnabled is false before Barbary Pirates', () => {
+      expect(state.piracyEnabled).toBe(false);
+    });
+
+    it('turnTrack naval pools are initialized empty', () => {
+      expect(state.turnTrack).toBeDefined();
+      expect(state.turnTrack.navalUnits).toEqual([]);
+      expect(state.turnTrack.navalLeaders).toEqual([]);
+    });
+
     it('chateauxTrack is 0', () => {
       expect(state.chateauxTrack).toBe(0);
     });

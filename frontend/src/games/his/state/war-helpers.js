@@ -157,7 +157,7 @@ export function isMinorActive(state, minorPower) {
 
 /**
  * Check if a power can attack another (are at war, directly or via minors).
- * A major power at war with a minor's ally is also at war with that minor.
+ * Active minors inherit hostility from their allied major power.
  * @param {Object} state
  * @param {string} attacker
  * @param {string} target
@@ -167,14 +167,24 @@ export function canAttack(state, attacker, target) {
   // Direct war
   if (areAtWar(state, attacker, target)) return true;
 
-  // Attacker at war with minor's major ally
-  if (isMinorPower(target)) {
-    const ally = getMinorAlly(state, target);
-    if (ally && areAtWar(state, attacker, ally)) return true;
+  // Active minor powers project hostility through their allied major.
+  const attackerReps = [attacker];
+  if (isMinorPower(attacker)) {
+    const ally = getMinorAlly(state, attacker);
+    if (ally) attackerReps.push(ally);
   }
 
-  // Target is a major, attacker is at war with target's allied minor
-  // (doesn't make you at war with the major — only the minor fights)
+  const targetReps = [target];
+  if (isMinorPower(target)) {
+    const ally = getMinorAlly(state, target);
+    if (ally) targetReps.push(ally);
+  }
+
+  for (const a of attackerReps) {
+    for (const t of targetReps) {
+      if (areAtWar(state, a, t)) return true;
+    }
+  }
 
   return false;
 }

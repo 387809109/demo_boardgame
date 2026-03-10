@@ -294,6 +294,9 @@ export class HISGame extends GameEngine {
 
     // Spring deployment phase actions
     if (state.phase === PHASES.SPRING_DEPLOYMENT) {
+      if (state.activePower !== power) {
+        return { valid: false, error: 'Not your spring deployment impulse' };
+      }
       if (actionType === ACTION_TYPES.SPRING_DEPLOY) {
         return validateSpringDeployment(state, power, actionData);
       }
@@ -761,6 +764,9 @@ export class HISGame extends GameEngine {
       sp.besieged = true;
       sp.besiegedBy = winnerPower;
       sp.siegeEstablishedImpulse = state.turnNumber;
+      sp.siegeEstablishedTurn = state.turn;
+      sp.siegeEstablishedCardNumber = state.activeCardNumber ?? null;
+      sp.siegeEstablishedBy = winnerPower;
       helpers.logEvent(state, 'siege_established', {
         space, besiegedBy: winnerPower
       });
@@ -817,7 +823,13 @@ export class HISGame extends GameEngine {
 
     if (isSpringDeploymentComplete(state)) {
       advancePhase(state, helpers);
+      return;
     }
+
+    // Continue spring deployment in impulse order.
+    do {
+      advanceImpulse(state);
+    } while (state.springDeploymentDone?.[state.activePower]);
   }
 
   /**

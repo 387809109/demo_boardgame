@@ -49,10 +49,17 @@ describe('validateDOW', () => {
 
   it('rejects DOW on power you made peace with this turn', () => {
     const state = makeState();
-    state.peaceMadeThisTurn = ['england'];
+    state.peaceMadeThisTurn = ['england|ottoman'];
     const r = validateDOW(state, 'ottoman', { target: 'england' });
     expect(r.valid).toBe(false);
     expect(r.error).toContain('peace');
+  });
+
+  it('does not reject DOW for unrelated peace pair', () => {
+    const state = makeState();
+    state.peaceMadeThisTurn = ['england|france'];
+    const r = validateDOW(state, 'ottoman', { target: 'hapsburg' });
+    expect(r.valid).toBe(true);
   });
 
   it('accepts valid major-on-major DOW with correct cost', () => {
@@ -87,6 +94,14 @@ describe('validateDOW', () => {
     const r = validateDOW(state, 'protestant', { target: 'hapsburg' });
     expect(r.valid).toBe(false);
     // DOW_COSTS.protestant.hapsburg is null
+  });
+
+  it('rejects DOW on active allied minor power', () => {
+    const state = makeState();
+    addAlliance(state, 'france', 'scotland');
+    const r = validateDOW(state, 'england', { target: 'scotland' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('allied with france');
   });
 });
 
@@ -142,11 +157,21 @@ describe('validateSueForPeace', () => {
     expect(r.valid).toBe(false);
   });
 
-  it('accepts when at war', () => {
+  it('accepts when at war and has qualifying losses', () => {
+    const state = makeState();
+    addWar(state, 'ottoman', 'england');
+    // England controls an Ottoman home space => qualifies to sue for peace
+    state.spaces['Istanbul'].controller = 'england';
+    const r = validateSueForPeace(state, 'ottoman', { target: 'england' });
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects when at war but has no qualifying losses', () => {
     const state = makeState();
     addWar(state, 'ottoman', 'england');
     const r = validateSueForPeace(state, 'ottoman', { target: 'england' });
-    expect(r.valid).toBe(true);
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('captured leader or lost home space');
   });
 });
 
@@ -155,23 +180,24 @@ describe('executeSueForPeace', () => {
     const state = makeState();
     const helpers = createMockHelpers();
     addWar(state, 'ottoman', 'england');
+    state.spaces['Istanbul'].controller = 'england';
     const vpBefore = state.vp.england;
 
     executeSueForPeace(state, 'ottoman', { target: 'england' }, helpers);
 
     expect(areAtWar(state, 'ottoman', 'england')).toBe(false);
-    expect(state.vp.england).toBe(vpBefore + 1);
+    expect(state.vp.england).toBe(vpBefore + 2);
   });
 
   it('tracks peace made this turn', () => {
     const state = makeState();
     const helpers = createMockHelpers();
     addWar(state, 'ottoman', 'england');
+    state.spaces['Istanbul'].controller = 'england';
 
     executeSueForPeace(state, 'ottoman', { target: 'england' }, helpers);
 
-    expect(state.peaceMadeThisTurn).toContain('england');
-    expect(state.peaceMadeThisTurn).toContain('ottoman');
+    expect(state.peaceMadeThisTurn).toContain('england|ottoman');
   });
 });
 
@@ -251,6 +277,7 @@ describe('validateNegotiate', () => {
 
   it('gift_cards: accepts valid count', () => {
     const state = makeState();
+    state.hands.ottoman = [11, 12, 1]; // 1 is Ottoman home card and excluded
     const r = validateNegotiate(state, 'ottoman', {
       type: 'gift_cards', target: 'england', count: 2
     });
@@ -276,8 +303,10 @@ describe('validateNegotiate', () => {
 
   it('gift_mercenaries: accepts valid count', () => {
     const state = makeState();
-    const r = validateNegotiate(state, 'ottoman', {
-      type: 'gift_mercenaries', target: 'england', count: 2
+    const stack = state.spaces['London'].units.find(u => u.owner === 'england');
+    stack.mercenaries = 3;
+    const r = validateNegotiate(state, 'england', {
+      type: 'gift_mercenaries', target: 'france', count: 2
     });
     expect(r.valid).toBe(true);
   });
@@ -308,7 +337,7 @@ describe('executeNegotiate', () => {
     // hapsburg vs france initial war
     executeNegotiate(state, 'hapsburg', { type: 'end_war', target: 'france' }, helpers);
     expect(areAtWar(state, 'hapsburg', 'france')).toBe(false);
-    expect(state.peaceMadeThisTurn).toContain('france');
+    expect(state.peaceMadeThisTurn).toContain('france|hapsburg');
   });
 
   it('form_alliance creates alliance', () => {
@@ -331,29 +360,34 @@ describe('executeNegotiate', () => {
   it('gift_cards draws cards for target', () => {
     const state = makeState();
     const helpers = createMockHelpers();
-    const deckSize = state.deck.length;
+    state.hands.ottoman = [11, 12, 1];
     const handSize = state.hands.england.length;
+    const giverBefore = state.hands.ottoman.length;
 
     executeNegotiate(state, 'ottoman', {
       type: 'gift_cards', target: 'england', count: 2
     }, helpers);
 
-    expect(state.deck.length).toBe(deckSize - 2);
+    expect(state.hands.ottoman.length).toBe(giverBefore - 2);
+    expect(state.hands.ottoman).toContain(1); // home card not giftable
     expect(state.hands.england.length).toBe(handSize + 2);
   });
 
   it('gift_mercenaries adds mercs to target space', () => {
     const state = makeState();
     const helpers = createMockHelpers();
+    const giver = state.spaces['London'].units.find(u => u.owner === 'england');
+    giver.mercenaries = 3;
+    const giverBefore = giver.mercenaries;
 
-    executeNegotiate(state, 'ottoman', {
-      type: 'gift_mercenaries', target: 'england', count: 3, space: 'London'
+    executeNegotiate(state, 'england', {
+      type: 'gift_mercenaries', target: 'france', count: 3, space: 'Paris'
     }, helpers);
 
-    const stack = state.spaces['London'].units.find(u => u.owner === 'england');
+    const stack = state.spaces['Paris'].units.find(u => u.owner === 'france');
     expect(stack).toBeDefined();
-    // Mercs added (may already have some from setup)
     expect(stack.mercenaries).toBeGreaterThanOrEqual(3);
+    expect(giver.mercenaries).toBe(giverBefore - 3);
   });
 
   it('return_leader removes from captured list', () => {

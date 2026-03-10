@@ -11,9 +11,92 @@ import {
 } from '../constants.js';
 import {
   areAtWar, addWar, removeWar, areAllied, addAlliance,
-  removeAlliance, isMinorPower, getMinorAlly, canAttack
+  isMinorPower, getMinorAlly
 } from '../state/war-helpers.js';
-import { getUnitsInSpace, countLandUnits } from '../state/state-helpers.js';
+import { getUnitsInSpace, isHomeSpace } from '../state/state-helpers.js';
+import { CARD_BY_NUMBER } from '../data/cards.js';
+import { LEADER_BY_ID } from '../data/leaders.js';
+
+function makeDiploPairKey(a, b) {
+  return [a, b].sort().join('|');
+}
+
+function hasDiploPair(list, a, b) {
+  if (!Array.isArray(list) || list.length === 0) return false;
+  const key = makeDiploPairKey(a, b);
+  for (const entry of list) {
+    if (typeof entry === 'string') {
+      if (entry === key) return true;
+      if (entry.includes('|') || entry.includes('-')) {
+        const parts = entry.split(entry.includes('|') ? '|' : '-');
+        if (parts.length === 2 && makeDiploPairKey(parts[0], parts[1]) === key) {
+          return true;
+        }
+      }
+      continue;
+    }
+    if (entry && typeof entry === 'object' && entry.a && entry.b) {
+      if (makeDiploPairKey(entry.a, entry.b) === key) return true;
+    }
+  }
+  return false;
+}
+
+function recordDiploPair(list, a, b) {
+  if (!Array.isArray(list)) return;
+  const key = makeDiploPairKey(a, b);
+  if (!list.includes(key)) list.push(key);
+}
+
+function countPowerMercenaries(state, power) {
+  let total = 0;
+  for (const sp of Object.values(state.spaces)) {
+    for (const stack of sp.units || []) {
+      if (stack.owner === power) {
+        total += stack.mercenaries || 0;
+      }
+    }
+  }
+  return total;
+}
+
+function removePowerMercenaries(state, power, count) {
+  let remaining = count;
+  for (const sp of Object.values(state.spaces)) {
+    for (const stack of sp.units || []) {
+      if (stack.owner !== power || remaining <= 0) continue;
+      const available = stack.mercenaries || 0;
+      if (available <= 0) continue;
+      const take = Math.min(available, remaining);
+      stack.mercenaries -= take;
+      remaining -= take;
+    }
+    if (remaining <= 0) break;
+  }
+}
+
+function hasLossesEligibleForPeace(state, power, target) {
+  // Leader captured by target
+  const capturedByTarget = state.capturedLeaders?.[target] || [];
+  const lostLeader = capturedByTarget.some((leaderId) => {
+    const leader = LEADER_BY_ID[leaderId];
+    return leader?.faction === power;
+  });
+  if (lostLeader) return true;
+
+  // Any home space of power currently controlled by target
+  for (const [spaceName, sp] of Object.entries(state.spaces)) {
+    if (!isHomeSpace(spaceName, power)) continue;
+    if (sp.controller === target) return true;
+  }
+
+  return false;
+}
+
+function getNegotiableCardsInHand(state, power) {
+  const hand = state.hands?.[power] || [];
+  return hand.filter((cardNumber) => CARD_BY_NUMBER[cardNumber]?.deck !== 'home');
+}
 
 // ── Declaration of War ─────────────────────────────────────────
 
@@ -38,6 +121,11 @@ export function validateDOW(state, power, actionData) {
     return { valid: false, error: `Cannot declare war on an ally` };
   }
 
+  // Cannot DOW a power you allied with this diplomacy phase
+  if (hasDiploPair(state.alliancesFormedThisTurn, power, target)) {
+    return { valid: false, error: 'Cannot declare war on a power you allied with this turn' };
+  }
+
   // Protestant restrictions
   if (power === 'protestant' || target === 'protestant') {
     if (!state.schmalkaldicLeagueFormed) {
@@ -46,16 +134,46 @@ export function validateDOW(state, power, actionData) {
   }
 
   // Cannot DOW on power you made peace with this turn
-  if (state.peaceMadeThisTurn && state.peaceMadeThisTurn.includes(target)) {
+  if (hasDiploPair(state.peaceMadeThisTurn, power, target)) {
     return { valid: false, error: 'Cannot declare war on a power you made peace with this turn' };
   }
 
   // Calculate cost
   let cost;
   if (isMinorPower(target)) {
+    if (target === 'hungary_bohemia' && power !== 'ottoman') {
+      return { valid: false, error: 'Only Ottoman can declare war on Hungary/Bohemia' };
+    }
+    if (target === 'scotland') {
+      if (['ottoman', 'papacy', 'protestant'].includes(power)) {
+        return { valid: false, error: `${power} cannot declare war on Scotland` };
+      }
+      if (areAllied(state, power, 'france')) {
+        return { valid: false, error: 'Cannot declare war on Scotland while allied with France' };
+      }
+      if (hasDiploPair(state.peaceMadeThisTurn, power, 'france')) {
+        return { valid: false, error: 'Cannot declare war on Scotland after peacing with France this turn' };
+      }
+    }
+    if (target === 'venice') {
+      if (power === 'england') {
+        return { valid: false, error: 'England cannot declare war on Venice' };
+      }
+      if (areAllied(state, power, 'papacy')) {
+        return { valid: false, error: 'Cannot declare war on Venice while allied with Papacy' };
+      }
+      if (hasDiploPair(state.peaceMadeThisTurn, power, 'papacy')) {
+        return { valid: false, error: 'Cannot declare war on Venice after peacing with Papacy this turn' };
+      }
+    }
+
+    const minorAlly = getMinorAlly(state, target);
+    if (minorAlly && minorAlly !== power) {
+      return { valid: false, error: `${target} is allied with ${minorAlly}; declare war on ${minorAlly} instead` };
+    }
+
     cost = DOW_MINOR_COST;
     // Check if minor is allied to declaring power
-    const minorAlly = getMinorAlly(state, target);
     if (minorAlly === power) {
       return { valid: false, error: `${target} is your minor ally` };
     }
@@ -122,6 +240,23 @@ export function validateSueForPeace(state, power, actionData) {
     return { valid: false, error: `Not at war with ${target}` };
   }
 
+  // Final-turn peace segment is skipped
+  if (state.turn >= 9) {
+    return { valid: false, error: 'Cannot sue for peace in final turn' };
+  }
+
+  // Protestant vs Hapsburg/Papacy peace restriction
+  const proVsCathPower =
+    (power === 'protestant' && (target === 'hapsburg' || target === 'papacy'))
+    || (target === 'protestant' && (power === 'hapsburg' || power === 'papacy'));
+  if (proVsCathPower) {
+    return { valid: false, error: 'Peace not allowed between Protestant and Hapsburg/Papacy in this war' };
+  }
+
+  if (!hasLossesEligibleForPeace(state, power, target)) {
+    return { valid: false, error: 'Cannot sue for peace without captured leader or lost home space' };
+  }
+
   return { valid: true };
 }
 
@@ -138,20 +273,15 @@ export function executeSueForPeace(state, power, actionData, helpers) {
 
   removeWar(state, power, target);
 
-  // Winner (target) gets 1 VP for winning the war
-  const winnerVp = 1;
+  // Winner (target) gets 1 VP (2 VP if war involved Ottoman)
+  const winnerVp = (power === 'ottoman' || target === 'ottoman') ? 2 : 1;
   if (state.vp[target] !== undefined) {
     state.vp[target] += winnerVp;
   }
 
   // Track peace made this turn
   if (!state.peaceMadeThisTurn) state.peaceMadeThisTurn = [];
-  state.peaceMadeThisTurn.push(target);
-
-  // Also add reverse so target can't DOW power either
-  if (!state.peaceMadeThisTurn.includes(power)) {
-    state.peaceMadeThisTurn.push(power);
-  }
+  recordDiploPair(state.peaceMadeThisTurn, power, target);
 
   helpers.logEvent(state, 'sue_for_peace', {
     power, target, winnerVp
@@ -209,6 +339,9 @@ export function validateNegotiate(state, power, actionData) {
       if (count > NEGOTIATION_LIMITS.maxCardDrawGifts) {
         return { valid: false, error: `Max ${NEGOTIATION_LIMITS.maxCardDrawGifts} card gifts per turn` };
       }
+      if (getNegotiableCardsInHand(state, power).length < count) {
+        return { valid: false, error: 'Not enough non-home cards in hand to gift' };
+      }
       return { valid: true };
     }
 
@@ -220,6 +353,9 @@ export function validateNegotiate(state, power, actionData) {
       }
       if (target === 'ottoman') {
         return { valid: false, error: 'Cannot gift mercenaries to Ottoman' };
+      }
+      if (countPowerMercenaries(state, power) < count) {
+        return { valid: false, error: 'Not enough mercenaries to gift' };
       }
       return { valid: true };
     }
@@ -254,7 +390,7 @@ export function executeNegotiate(state, power, actionData, helpers) {
     case 'end_war': {
       removeWar(state, power, target);
       if (!state.peaceMadeThisTurn) state.peaceMadeThisTurn = [];
-      state.peaceMadeThisTurn.push(target, power);
+      recordDiploPair(state.peaceMadeThisTurn, power, target);
       helpers.logEvent(state, 'negotiate_end_war', { power, target });
       return { warEnded: true };
     }
@@ -276,11 +412,16 @@ export function executeNegotiate(state, power, actionData, helpers) {
 
     case 'gift_cards': {
       const { count } = actionData;
-      // Draw random cards from deck for target
+      // Draw random cards from giver hand (home cards excluded)
       const drawn = [];
-      for (let i = 0; i < count && state.deck.length > 0; i++) {
-        const idx = Math.floor(Math.random() * state.deck.length);
-        const card = state.deck.splice(idx, 1)[0];
+      const giverHand = state.hands[power] || [];
+      const giftable = getNegotiableCardsInHand(state, power);
+
+      for (let i = 0; i < count && giftable.length > 0; i++) {
+        const pickIdx = Math.floor(Math.random() * giftable.length);
+        const card = giftable.splice(pickIdx, 1)[0];
+        const handIdx = giverHand.indexOf(card);
+        if (handIdx !== -1) giverHand.splice(handIdx, 1);
         state.hands[target].push(card);
         drawn.push(card);
       }
@@ -290,6 +431,8 @@ export function executeNegotiate(state, power, actionData, helpers) {
 
     case 'gift_mercenaries': {
       const { count, space } = actionData;
+      removePowerMercenaries(state, power, count);
+
       // Add mercenaries to target's stack at specified space
       let stack = getUnitsInSpace(state, space, target);
       if (!stack) {

@@ -92,6 +92,21 @@ describe('validateAssault', () => {
     expect(r.error).toContain('same impulse');
   });
 
+  it('rejects same card impulse even when turnNumber has advanced', () => {
+    const state = setupOttomanSiege();
+    state.activeCardNumber = 99;
+    state.turn = 1;
+    state.turnNumber += 3; // simulate later actions in same impulse
+    state.spaces['Belgrade'].siegeEstablishedImpulse = state.turnNumber - 2;
+    state.spaces['Belgrade'].siegeEstablishedTurn = 1;
+    state.spaces['Belgrade'].siegeEstablishedCardNumber = 99;
+    state.spaces['Belgrade'].siegeEstablishedBy = 'ottoman';
+
+    const r = validateAssault(state, 'ottoman', { space: 'Belgrade' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('same impulse');
+  });
+
   it('rejects insufficient CP', () => {
     const state = setupOttomanSiege(0);
     const r = validateAssault(state, 'ottoman', { space: 'Belgrade' });

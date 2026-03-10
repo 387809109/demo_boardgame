@@ -137,6 +137,7 @@ export function buildInitialState(players, options = {}) {
     jesuitUnlocked: false,
     schmalkaldicLeagueFormed: false,
     algiersInPlay: false,
+    piracyEnabled: false,
 
     // Debaters (track who is in play + committed status)
     debaters: {
@@ -201,6 +202,12 @@ export function buildInitialState(players, options = {}) {
     lutherPlaced: false,
     pendingDietOfWorms: null,
 
+    // Turn track reminders (delayed re-entry / rebuild eligibility)
+    turnTrack: {
+      navalLeaders: [],
+      navalUnits: []
+    },
+
     // Meta
     eventLog: []
   };
@@ -227,7 +234,10 @@ function buildSpaces(scenario) {
       connectedSeaZones: sp.connectedSeaZones,
       besieged: false,
       besiegedBy: null,
-      siegeEstablishedImpulse: null
+      siegeEstablishedImpulse: null,
+      siegeEstablishedTurn: null,
+      siegeEstablishedCardNumber: null,
+      siegeEstablishedBy: null
     };
   }
 

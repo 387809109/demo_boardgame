@@ -14,6 +14,8 @@ import { initDietOfWorms } from './phase-diet-of-worms.js';
 import { resolveNewWorld } from './phase-new-world.js';
 import { executeWinter } from './phase-winter.js';
 import { checkImmediateVictory } from '../state/victory-checks.js';
+import { LEADER_BY_ID } from '../data/leaders.js';
+import { isHomeSpace } from '../state/state-helpers.js';
 
 // ── Phase Constants ────────────────────────────────────────────────
 
@@ -147,6 +149,137 @@ export function advancePhase(state, helpers) {
   }
 }
 
+function ensureTurnTrack(state) {
+  state.turnTrack = state.turnTrack || {};
+  if (!Array.isArray(state.turnTrack.navalLeaders)) state.turnTrack.navalLeaders = [];
+  if (!Array.isArray(state.turnTrack.navalUnits)) state.turnTrack.navalUnits = [];
+  return state.turnTrack;
+}
+
+function ensurePowerStack(state, spaceName, power) {
+  const sp = state.spaces[spaceName];
+  if (!sp) return null;
+  let stack = (sp.units || []).find(u => u.owner === power);
+  if (!stack) {
+    stack = {
+      owner: power, regulars: 0, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    };
+    sp.units = sp.units || [];
+    sp.units.push(stack);
+  }
+  return stack;
+}
+
+function isLeaderOnMap(state, leaderId) {
+  for (const sp of Object.values(state.spaces)) {
+    for (const stack of sp.units || []) {
+      if ((stack.leaders || []).includes(leaderId)) return true;
+    }
+  }
+  return false;
+}
+
+function getControlledPorts(state, power, homeOnly) {
+  const ports = [];
+  for (const [spaceName, sp] of Object.entries(state.spaces)) {
+    if (!sp?.isPort) continue;
+    if (sp.controller !== power) continue;
+    if (homeOnly && !isHomeSpace(spaceName, power)) continue;
+    ports.push(spaceName);
+  }
+  ports.sort();
+  return ports;
+}
+
+function chooseNavalLeaderReturnPort(state, power, preferredSpace) {
+  const preferred = state.spaces[preferredSpace];
+  if (preferred?.isPort && preferred.controller === power) return preferredSpace;
+
+  const controlledHomePorts = getControlledPorts(state, power, true);
+  if (controlledHomePorts.length > 0) return controlledHomePorts[0];
+
+  const controlledPorts = getControlledPorts(state, power, false);
+  if (controlledPorts.length > 0) return controlledPorts[0];
+
+  return null;
+}
+
+function resolveTurnTrack(state, helpers) {
+  const turnTrack = ensureTurnTrack(state);
+
+  const leaderRemaining = [];
+  for (const entry of turnTrack.navalLeaders) {
+    const dueTurn = entry?.returnTurn ?? Number.POSITIVE_INFINITY;
+    if (dueTurn > state.turn) {
+      leaderRemaining.push(entry);
+      continue;
+    }
+
+    const leaderId = entry?.leaderId;
+    const leader = LEADER_BY_ID[leaderId];
+    const power = entry?.power || leader?.faction;
+    if (!leaderId || leader?.type !== 'naval' || !power) {
+      continue;
+    }
+
+    if (isLeaderOnMap(state, leaderId)) {
+      continue;
+    }
+
+    const destination = chooseNavalLeaderReturnPort(state, power, entry.space);
+    if (!destination) {
+      leaderRemaining.push({ ...entry, returnTurn: state.turn + 1 });
+      helpers.logEvent(state, 'turn_track_naval_leader_delayed', {
+        power, leaderId, reason: 'no_controlled_port', turn: state.turn
+      });
+      continue;
+    }
+
+    const stack = ensurePowerStack(state, destination, power);
+    if (!stack) {
+      leaderRemaining.push({ ...entry, returnTurn: state.turn + 1 });
+      continue;
+    }
+    if (!stack.leaders.includes(leaderId)) {
+      stack.leaders.push(leaderId);
+    }
+
+    helpers.logEvent(state, 'turn_track_naval_leader_return', {
+      power, leaderId, to: destination, turn: state.turn
+    });
+  }
+  turnTrack.navalLeaders = leaderRemaining;
+
+  const released = {};
+  const unitRemaining = [];
+  for (const entry of turnTrack.navalUnits) {
+    const dueTurn = entry?.returnTurn ?? Number.POSITIVE_INFINITY;
+    if (dueTurn > state.turn) {
+      unitRemaining.push(entry);
+      continue;
+    }
+
+    const power = entry?.power;
+    const type = entry?.type;
+    const count = Math.max(0, entry?.count || 0);
+    if (!power || count <= 0 || (type !== 'squadron' && type !== 'corsair')) {
+      continue;
+    }
+
+    if (!released[power]) released[power] = { squadron: 0, corsair: 0 };
+    released[power][type] += count;
+  }
+  turnTrack.navalUnits = unitRemaining;
+
+  if (Object.keys(released).length > 0) {
+    helpers.logEvent(state, 'turn_track_naval_units_released', {
+      turn: state.turn,
+      released
+    });
+  }
+}
+
 /**
  * Resolve the Victory Determination phase.
  * Checks immediate victories, VP standard/domination wins, and time limit.
@@ -232,6 +365,8 @@ function advanceTurn(state, helpers) {
     state.status = 'ended';
     return;
   }
+
+  resolveTurnTrack(state, helpers);
 
   // Start new turn with card draw
   transitionPhase(state, PHASES.CARD_DRAW, helpers);
