@@ -55,6 +55,15 @@ describe('validateDietCard', () => {
       expect(r.valid).toBe(false);
     }
   });
+
+  it('rejects mandatory event cards by category', () => {
+    const { state } = setupDiet();
+    // #9 Barbary Pirates is MANDATORY
+    state.hands.protestant = [9];
+    const r = validateDietCard(state, 'protestant', 9);
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('mandatory');
+  });
 });
 
 describe('submitDietCard', () => {
@@ -99,6 +108,24 @@ describe('submitDietCard', () => {
     const log = state.eventLog.find(e => e.type === 'diet_of_worms_resolved');
     expect(log).toBeDefined();
     expect(log.data.winner).toMatch(/^(protestant|catholic|draw)$/);
+  });
+
+  it('moves remove-after-play cards to removed pile', () => {
+    const { state, helpers } = setupDiet();
+    // #38 Halley's Comet has removeAfterPlay=true
+    state.hands.protestant = [38];
+    submitDietCard(state, 'protestant', 38, helpers);
+    expect(state.removedCards).toContain(38);
+    expect(state.discard).not.toContain(38);
+  });
+
+  it('moves non-remove cards to discard pile', () => {
+    const { state, helpers } = setupDiet();
+    // #50 Mercator's Map has removeAfterPlay=false
+    state.hands.protestant = [50];
+    submitDietCard(state, 'protestant', 50, helpers);
+    expect(state.discard).toContain(50);
+    expect(state.removedCards).not.toContain(50);
   });
 });
 

@@ -15,7 +15,10 @@
  *    (German zone, adjacent to existing Catholic spaces)
  * 6. Tie: no effect
  *
- * Cards go to discard (or home played track if home card).
+ * Card disposal follows normal play rules:
+ * - Home cards: mark as played
+ * - Remove After Play: moved to removed pile
+ * - Others: moved to discard pile
  */
 
 import { RELIGION } from '../constants.js';
@@ -62,7 +65,7 @@ export function validateDietCard(state, power, cardNumber) {
   }
   // Cannot play mandatory event cards
   const card = CARD_BY_NUMBER[cardNumber];
-  if (card && card.mandatory) {
+  if (card && card.category === 'MANDATORY') {
     return { valid: false, error: 'Cannot play a mandatory event card' };
   }
   return { valid: true };
@@ -89,6 +92,8 @@ export function submitDietCard(state, power, cardNumber, helpers) {
   const card = CARD_BY_NUMBER[cardNumber];
   if (card && card.deck === 'home') {
     state.homeCardPlayed[power] = true;
+  } else if (card?.removeAfterPlay) {
+    state.removedCards.push(cardNumber);
   } else {
     state.discard.push(cardNumber);
   }
