@@ -49,6 +49,7 @@ class MockNetwork {
     this.startGame = vi.fn();
     this.send = vi.fn();
     this.sendGameAction = vi.fn();
+    this.sendSnapshotResponse = vi.fn();
     this.sendChat = vi.fn();
     this.leaveRoom = vi.fn();
     this.requestReconnect = vi.fn(async () => {});
@@ -651,6 +652,35 @@ describe('App integration flows', () => {
     expect(app.currentGame.executeMove).toHaveBeenCalledWith({
       playerId: 'player-2',
       actionType: 'play'
+    });
+  });
+
+  it('responds to SNAPSHOT_REQUEST as local host with visible state', () => {
+    const app = new AppClass();
+    app.mode = 'local';
+    app.network = new NetworkClientMock();
+    app.currentRoom = {
+      id: 'room-1',
+      players: [{ id: app.playerId, nickname: 'Host', isHost: true }],
+      gameSettings: { mode: 'house' }
+    };
+    app.currentGame = {
+      getVisibleState: vi.fn(() => ({ turn: 3 })),
+      getState: vi.fn(() => ({ turn: 999 }))
+    };
+    app._setupNetworkHandlers();
+
+    app.network.emitMessage('SNAPSHOT_REQUEST', {
+      roomId: 'room-1',
+      targetPlayerId: 'player-2',
+      requestId: 'snap-1'
+    });
+
+    expect(app.currentGame.getVisibleState).toHaveBeenCalledWith('player-2');
+    expect(app.network.sendSnapshotResponse).toHaveBeenCalledWith('room-1', 'player-2', {
+      requestId: 'snap-1',
+      gameState: { turn: 3 },
+      gameSettings: { mode: 'house' }
     });
   });
 

@@ -641,6 +641,26 @@ export function registerAppOnlineRoomMethods(App, deps) {
         }
       });
 
+      net.onMessage('SNAPSHOT_REQUEST', (data) => {
+        // Local server asks host to provide a visibility-safe snapshot for reconnecting player.
+        if (this.mode !== 'local' || !this.currentGame || !this._isHost()) return;
+        if (!data?.roomId || data.roomId !== this.currentRoom?.id || !data?.targetPlayerId) return;
+
+        const gameState = typeof this.currentGame.getVisibleState === 'function'
+          ? this.currentGame.getVisibleState(data.targetPlayerId)
+          : this.currentGame.getState();
+        if (!gameState || typeof gameState !== 'object') return;
+
+        const gameSettings = this.currentRoom?.gameSettings
+          || this._currentGameSettings
+          || {};
+        this.network.sendSnapshotResponse(data.roomId, data.targetPlayerId, {
+          requestId: data.requestId,
+          gameState,
+          gameSettings
+        });
+      });
+
       net.onMessage('RECONNECT_REQUEST', (data) => {
         // Cloud acting host: send game snapshot to reconnecting player
         if (!this.currentGame || !data?.playerId) return;

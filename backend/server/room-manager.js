@@ -17,6 +17,8 @@
 import { config } from './config.js';
 import { debug, info, warn } from './utils/logger.js';
 
+const SNAPSHOT_REQUEST_TTL_MS = 15000;
+
 export class RoomManager {
   constructor() {
     /** @type {Map<string, Room>} */
@@ -52,11 +54,7 @@ export class RoomManager {
       returnStatus: new Map(), // playerId -> hasReturnedToRoom
       disconnectedPlayers: new Set(), // playerId currently disconnected but recoverable
       reconnectSessions: new Map(), // playerId -> { sessionId, nickname, expiresAt }
-      gameSnapshot: {
-        gameState: null,
-        lastAction: null,
-        lastActionId: null
-      },
+      pendingSnapshotRequests: new Map(), // targetPlayerId -> { requestId, requesterPlayerId, expiresAt }
       createdAt: Date.now(),
       gameStarted: false
     };
@@ -518,49 +516,58 @@ export class RoomManager {
   }
 
   /**
-   * Update room snapshot used for reconnect synchronization
+   * Register a pending reconnect snapshot request for target player.
    * @param {string} roomId - Room ID
-   * @param {Object} snapshot - Partial snapshot data
-   * @returns {boolean} Success
+   * @param {string} targetPlayerId - Reconnecting player ID
+   * @param {string} requesterPlayerId - Player requesting snapshot (usually host)
+   * @returns {{ requestId: string }|null}
    */
-  updateGameSnapshot(roomId, snapshot) {
-    const room = this.rooms.get(roomId);
-    if (!room) {
-      return false;
-    }
-
-    const nextSnapshot = snapshot || {};
-    room.gameSnapshot = {
-      ...room.gameSnapshot,
-      ...nextSnapshot
-    };
-    return true;
-  }
-
-  /**
-   * Get reconnect snapshot for a room
-   * @param {string} roomId - Room ID
-   * @returns {Object|null} Snapshot
-   */
-  getGameSnapshot(roomId) {
+  createSnapshotRequest(roomId, targetPlayerId, requesterPlayerId) {
     const room = this.rooms.get(roomId);
     if (!room) {
       return null;
     }
 
-    return {
-      roomId,
-      gameType: room.gameType,
-      players: room.players.map(p => ({
-        id: p.id,
-        nickname: p.nickname,
-        isHost: p.isHost
-      })),
-      gameSettings: { ...(room.gameSettings || {}) },
-      gameState: room.gameSnapshot?.gameState || null,
-      lastAction: room.gameSnapshot?.lastAction || null,
-      lastActionId: room.gameSnapshot?.lastActionId || null
-    };
+    if (!(room.pendingSnapshotRequests instanceof Map)) {
+      room.pendingSnapshotRequests = new Map();
+    }
+
+    this._pruneExpiredSnapshotRequests(room);
+
+    const requestId = `snap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    room.pendingSnapshotRequests.set(targetPlayerId, {
+      requestId,
+      requesterPlayerId,
+      expiresAt: Date.now() + SNAPSHOT_REQUEST_TTL_MS
+    });
+    return { requestId };
+  }
+
+  /**
+   * Consume a pending snapshot request if it matches target/requestId.
+   * @param {string} roomId - Room ID
+   * @param {string} targetPlayerId - Reconnecting player ID
+   * @param {string|null} [requestId=null] - Optional request ID for strict validation
+   * @returns {{ requestId: string, requesterPlayerId: string, expiresAt: number }|null}
+   */
+  consumeSnapshotRequest(roomId, targetPlayerId, requestId = null) {
+    const room = this.rooms.get(roomId);
+    if (!room || !(room.pendingSnapshotRequests instanceof Map)) {
+      return null;
+    }
+
+    this._pruneExpiredSnapshotRequests(room);
+    const entry = room.pendingSnapshotRequests.get(targetPlayerId);
+    if (!entry) {
+      return null;
+    }
+
+    if (requestId && entry.requestId !== requestId) {
+      return null;
+    }
+
+    room.pendingSnapshotRequests.delete(targetPlayerId);
+    return entry;
   }
 
   /**
@@ -570,6 +577,7 @@ export class RoomManager {
    */
   _pruneExpiredReconnectSessions(room) {
     const now = Date.now();
+    this._pruneExpiredSnapshotRequests(room);
     for (const [playerId, session] of [...room.reconnectSessions.entries()]) {
       if (!session || session.expiresAt <= now) {
         room.reconnectSessions.delete(playerId);
@@ -594,6 +602,7 @@ export class RoomManager {
   pruneAllExpiredSessions() {
     const expiredHostRooms = [];
     for (const [roomId, room] of this.rooms) {
+      this._pruneExpiredSnapshotRequests(room);
       const hostId = room.host;
       const hadHostSession = room.reconnectSessions.has(hostId);
       this._pruneExpiredReconnectSessions(room);
@@ -603,6 +612,25 @@ export class RoomManager {
       }
     }
     return expiredHostRooms;
+  }
+
+  /**
+   * Remove expired pending snapshot requests for a room.
+   * @private
+   * @param {Object} room - Room object
+   */
+  _pruneExpiredSnapshotRequests(room) {
+    if (!(room.pendingSnapshotRequests instanceof Map)) {
+      room.pendingSnapshotRequests = new Map();
+      return;
+    }
+
+    const now = Date.now();
+    for (const [targetPlayerId, request] of [...room.pendingSnapshotRequests.entries()]) {
+      if (!request || request.expiresAt <= now) {
+        room.pendingSnapshotRequests.delete(targetPlayerId);
+      }
+    }
   }
 
   /**

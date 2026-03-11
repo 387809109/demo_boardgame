@@ -176,6 +176,9 @@ export class MessageRouter {
       case 'RECONNECT_REQUEST':
         this.handleReconnectRequest(connId, playerId, data);
         break;
+      case 'SNAPSHOT_RESPONSE':
+        this.handleSnapshotResponse(connId, playerId, data);
+        break;
       case 'PING':
         this.handlePing(connId, playerId);
         break;
@@ -316,11 +319,6 @@ export class MessageRouter {
       }
     });
 
-    this.roomManager.updateGameSnapshot(roomId, {
-      gameState: startPayload.initialState || null,
-      lastAction: null,
-      lastActionId: null
-    });
   }
 
   /**
@@ -367,20 +365,8 @@ export class MessageRouter {
           playerId: actionPlayerId,
           actionType: data?.actionType,
           actionData: data?.actionData
-        },
-        // Pass through any game state from the sender
-        gameState: data?.gameState
+        }
       }
-    });
-
-    this.roomManager.updateGameSnapshot(roomId, {
-      gameState: data?.gameState ?? null,
-      lastAction: {
-        playerId: actionPlayerId,
-        actionType: data?.actionType,
-        actionData: data?.actionData
-      },
-      lastActionId: Date.now().toString()
     });
   }
 
@@ -420,6 +406,15 @@ export class MessageRouter {
       return;
     }
 
+    // Non-host reconnect requires an online host to provide on-demand snapshot.
+    if (room.host !== playerId) {
+      const hostSocket = this.connectionManager.getConnection(room.host);
+      if (!hostSocket || hostSocket.readyState !== 1) {
+        this._sendReconnectRejected(connId, playerId, 'HOST_DISCONNECTED', 'Host is disconnected, snapshot unavailable');
+        return;
+      }
+    }
+
     const reconnectResult = this.roomManager.reconnectPlayer(roomId, playerId, sessionId);
     if (!reconnectResult.success) {
       this._sendReconnectRejected(
@@ -441,13 +436,17 @@ export class MessageRouter {
       }
     });
 
-    const snapshot = this.roomManager.getGameSnapshot(roomId);
-    if (snapshot) {
-      this._sendToConnection(connId, {
-        type: 'GAME_SNAPSHOT',
+    const snapshotRequest = this.roomManager.createSnapshotRequest(roomId, playerId, room.host);
+    if (snapshotRequest) {
+      this.sendToPlayer(room.host, {
+        type: 'SNAPSHOT_REQUEST',
         timestamp: Date.now(),
         playerId: 'server',
-        data: snapshot
+        data: {
+          roomId,
+          targetPlayerId: playerId,
+          requestId: snapshotRequest.requestId
+        }
       });
     }
 
@@ -475,6 +474,75 @@ export class MessageRouter {
         data: returnStatus
       });
     }
+  }
+
+  /**
+   * Handle SNAPSHOT_RESPONSE from host and forward to reconnect target.
+   * @param {string} connId - Connection ID
+   * @param {string} playerId - Sender player ID
+   * @param {object} data - Message data
+   */
+  handleSnapshotResponse(connId, playerId, data) {
+    const { roomId, targetPlayerId, requestId, gameState, gameSettings } = data || {};
+
+    const roomValidation = validateRoomId(roomId);
+    if (!roomValidation.valid) {
+      this.sendError(connId, playerId, 'INVALID_MESSAGE_FORMAT', roomValidation.error, 'error');
+      return;
+    }
+
+    if (!targetPlayerId || typeof targetPlayerId !== 'string') {
+      this.sendError(connId, playerId, 'INVALID_MESSAGE_FORMAT', 'targetPlayerId is required', 'error');
+      return;
+    }
+
+    if (!gameState || typeof gameState !== 'object') {
+      this.sendError(connId, playerId, 'INVALID_MESSAGE_FORMAT', 'gameState is required', 'error');
+      return;
+    }
+
+    const senderRoomId = this.roomManager.findPlayerRoom(playerId);
+    if (senderRoomId !== roomId) {
+      this.sendError(connId, playerId, 'PERMISSION_DENIED', 'Snapshot sender is not in target room', 'error');
+      return;
+    }
+
+    if (!this.roomManager.isHost(roomId, playerId)) {
+      this.sendError(connId, playerId, 'PERMISSION_DENIED', 'Only host can send snapshot response', 'error');
+      return;
+    }
+
+    const pendingRequest = this.roomManager.consumeSnapshotRequest(roomId, targetPlayerId, requestId || null);
+    if (!pendingRequest) {
+      this.sendError(connId, playerId, 'INVALID_ACTION', 'No pending snapshot request for target player', 'warning');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(roomId);
+    if (!room) {
+      this.sendError(connId, playerId, 'GAME_NOT_FOUND', 'Room not found', 'warning');
+      return;
+    }
+
+    const outboundSettings = gameSettings && typeof gameSettings === 'object'
+      ? gameSettings
+      : this.roomManager.getGameSettings(roomId);
+    this.sendToPlayer(targetPlayerId, {
+      type: 'GAME_SNAPSHOT',
+      timestamp: Date.now(),
+      playerId: 'server',
+      data: {
+        roomId,
+        gameType: room.gameType,
+        players: room.players.map(p => ({
+          id: p.id,
+          nickname: p.nickname,
+          isHost: p.isHost
+        })),
+        gameSettings: outboundSettings,
+        gameState
+      }
+    });
   }
 
   /**

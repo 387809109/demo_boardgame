@@ -397,6 +397,7 @@ describe('MessageRouter', () => {
       const msg1 = JSON.parse(mockWs1.send.mock.calls[0][0]);
       expect(msg1.type).toBe('GAME_STATE_UPDATE');
       expect(msg1.data.lastAction.actionType).toBe('PLAY_CARD');
+      expect(msg1.data.gameState).toBeUndefined();
     });
 
     it('should error if game not started', () => {
@@ -651,7 +652,7 @@ describe('MessageRouter', () => {
   });
 
   describe('handleReconnectRequest', () => {
-    it('should accept reconnect and send GAME_SNAPSHOT for valid reconnect session', () => {
+    it('should request host snapshot and forward GAME_SNAPSHOT for valid reconnect session', () => {
       const hostWs = { readyState: 1, send: jest.fn() };
       const playerWs = { readyState: 1, send: jest.fn() };
 
@@ -672,8 +673,7 @@ describe('MessageRouter', () => {
         playerId: 'host-1',
         data: {
           actionType: 'PLAY_CARD',
-          actionData: { cardId: 'red-7' },
-          gameState: { turn: 1 }
+          actionData: { cardId: 'red-7' }
         }
       });
 
@@ -694,13 +694,71 @@ describe('MessageRouter', () => {
 
       const reconnectMessages = reconnectWs.send.mock.calls.map(c => JSON.parse(c[0]));
       expect(reconnectMessages.some(m => m.type === 'RECONNECT_ACCEPTED')).toBe(true);
-      expect(reconnectMessages.some(m => m.type === 'GAME_SNAPSHOT')).toBe(true);
       expect(reconnectMessages.some(m => m.type === 'RETURN_TO_ROOM_STATUS')).toBe(true);
-      const snapshot = reconnectMessages.find(m => m.type === 'GAME_SNAPSHOT');
-      expect(snapshot?.data?.gameSettings).toEqual(expect.objectContaining({ mode: 'fast', rounds: 5 }));
 
       const hostMessages = hostWs.send.mock.calls.map(c => JSON.parse(c[0]));
+      const snapshotRequest = hostMessages.find(m => m.type === 'SNAPSHOT_REQUEST');
+      expect(snapshotRequest).toBeDefined();
+      expect(snapshotRequest.data.targetPlayerId).toBe('player-2');
       expect(hostMessages.some(m => m.type === 'PLAYER_RECONNECTED')).toBe(true);
+
+      router.route(hostConnId, {
+        type: 'SNAPSHOT_RESPONSE',
+        timestamp: Date.now(),
+        playerId: 'host-1',
+        data: {
+          roomId: 'room-1',
+          targetPlayerId: 'player-2',
+          requestId: snapshotRequest.data.requestId,
+          gameState: { turn: 1 },
+          gameSettings: { mode: 'fast', rounds: 5 }
+        }
+      });
+
+      const reconnectMessagesAfterSnapshot = reconnectWs.send.mock.calls.map(c => JSON.parse(c[0]));
+      const snapshot = reconnectMessagesAfterSnapshot.find(m => m.type === 'GAME_SNAPSHOT');
+      expect(snapshot).toBeDefined();
+      expect(snapshot.data.gameSettings).toEqual(expect.objectContaining({ mode: 'fast', rounds: 5 }));
+      expect(snapshot.data.gameState).toEqual({ turn: 1 });
+    });
+
+    it('should reject non-host reconnect while host is disconnected (no snapshot provider)', () => {
+      const hostWs = { readyState: 1, send: jest.fn() };
+      const playerWs = { readyState: 1, send: jest.fn() };
+
+      const hostConnId = connectionManager.addConnection(hostWs);
+      connectionManager.bindPlayer(hostConnId, 'host-1');
+      connectionManager.setSessionId(hostConnId, 'sess-host');
+      roomManager.joinRoom('room-1', 'host-1', 'Host', 'uno');
+
+      const playerConnId = connectionManager.addConnection(playerWs);
+      connectionManager.bindPlayer(playerConnId, 'player-2');
+      connectionManager.setSessionId(playerConnId, 'sess-1');
+      roomManager.joinRoom('room-1', 'player-2', 'Bob');
+      roomManager.startGame('room-1');
+
+      router.handleDisconnect(playerConnId);
+      connectionManager.removeConnection(playerConnId);
+
+      router.handleDisconnect(hostConnId);
+      connectionManager.removeConnection(hostConnId);
+
+      const reconnectWs = { readyState: 1, send: jest.fn() };
+      const reconnectConnId = connectionManager.addConnection(reconnectWs);
+
+      router.route(reconnectConnId, {
+        type: 'RECONNECT_REQUEST',
+        timestamp: Date.now(),
+        playerId: 'player-2',
+        data: {
+          roomId: 'room-1',
+          sessionId: 'sess-1'
+        }
+      });
+
+      const msg = JSON.parse(reconnectWs.send.mock.calls[0][0]);
+      expect(msg.type).toBe('RECONNECT_REJECTED');
+      expect(msg.data.reasonCode).toBe('HOST_DISCONNECTED');
     });
 
     it('should reject reconnect with mismatched sessionId', () => {

@@ -749,6 +749,26 @@ describe('NetworkClient', () => {
       });
     });
 
+    describe('sendSnapshotResponse', () => {
+      it('should send SNAPSHOT_RESPONSE message', () => {
+        client.sendSnapshotResponse('room123', 'player-2', {
+          requestId: 'snap-req-1',
+          gameState: { turn: 5 },
+          gameSettings: { mode: 'fast' }
+        });
+
+        const sent = JSON.parse(mockWs.lastSent);
+        expect(sent.type).toBe('SNAPSHOT_RESPONSE');
+        expect(sent.data).toEqual({
+          roomId: 'room123',
+          targetPlayerId: 'player-2',
+          requestId: 'snap-req-1',
+          gameState: { turn: 5 },
+          gameSettings: { mode: 'fast' }
+        });
+      });
+    });
+
     describe('returnToRoom', () => {
       it('should send RETURN_TO_ROOM message', () => {
         client.returnToRoom();

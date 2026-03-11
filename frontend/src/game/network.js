@@ -221,7 +221,7 @@ export class NetworkClient extends EventEmitter {
    * Send a game action
    * @param {string} actionType - Action type
    * @param {Object} actionData - Action data
-   * @param {Object} [extraData={}] - Extra fields (e.g., playerId, gameState)
+   * @param {Object} [extraData={}] - Extra fields (e.g., playerId)
    */
   sendGameAction(actionType, actionData, extraData = {}) {
     this.send('GAME_ACTION', { actionType, actionData, ...extraData });
@@ -243,6 +243,23 @@ export class NetworkClient extends EventEmitter {
    */
   requestReconnect(roomId, sessionId) {
     this.send('RECONNECT_REQUEST', { roomId, sessionId });
+  }
+
+  /**
+   * Respond to a snapshot request from server host authority.
+   * @param {string} roomId - Room ID
+   * @param {string} targetPlayerId - Reconnecting player ID
+   * @param {Object} payload - Snapshot payload
+   * @param {string} [payload.requestId] - Snapshot request ID
+   * @param {Object} payload.gameState - Visibility-safe game state
+   * @param {Object} [payload.gameSettings] - Effective game settings
+   */
+  sendSnapshotResponse(roomId, targetPlayerId, payload = {}) {
+    this.send('SNAPSHOT_RESPONSE', {
+      roomId,
+      targetPlayerId,
+      ...payload
+    });
   }
 
   /**

@@ -875,9 +875,7 @@ class App {
 
     // In online mode, send to server
     if (this.network?.isConnected()) {
-      this.network.sendGameAction(action.actionType, action.actionData, {
-        gameState: this.currentGame.getState()
-      });
+      this.network.sendGameAction(action.actionType, action.actionData);
     }
 
     // Simulate AI moves for offline mode and host-side online mode with AI
@@ -951,8 +949,7 @@ class App {
     // In online mode, broadcast to other players
     if (this.currentGame?.mode === 'online' && this.network?.isConnected()) {
       this.network.sendGameAction(actionType, actionData, {
-        playerId, // Include AI player ID
-        gameState: this.currentGame.getState()
+        playerId // Include AI player ID
       });
     }
   }

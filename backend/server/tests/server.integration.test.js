@@ -112,6 +112,38 @@ describe('GameServer Integration', () => {
     });
   }
 
+  /**
+   * Auto-respond to SNAPSHOT_REQUEST messages from server.
+   * @param {WebSocket} ws
+   * @param {{ playerId: string, getSnapshot: Function }} options
+   * @returns {Function} teardown listener
+   */
+  function attachSnapshotResponder(ws, { playerId, getSnapshot }) {
+    const handler = (rawData) => {
+      const incoming = JSON.parse(rawData.toString());
+      if (incoming?.type !== 'SNAPSHOT_REQUEST') {
+        return;
+      }
+
+      const snapshot = getSnapshot?.(incoming) || {};
+      ws.send(JSON.stringify({
+        type: 'SNAPSHOT_RESPONSE',
+        timestamp: Date.now(),
+        playerId,
+        data: {
+          roomId: incoming?.data?.roomId,
+          targetPlayerId: incoming?.data?.targetPlayerId,
+          requestId: incoming?.data?.requestId,
+          gameState: snapshot.gameState || null,
+          gameSettings: snapshot.gameSettings || {}
+        }
+      }));
+    };
+
+    ws.on('message', handler);
+    return () => ws.off('message', handler);
+  }
+
   describe('Connection', () => {
     it('should accept WebSocket connections', async () => {
       const client = await createClient();
@@ -645,6 +677,18 @@ describe('GameServer Integration', () => {
         ],
         marker: 'initial'
       };
+      let latestSnapshotState = initialState;
+      const detachSnapshotResponder = attachSnapshotResponder(host, {
+        playerId: 'host-1',
+        getSnapshot: () => ({
+          gameState: latestSnapshotState,
+          gameSettings: {
+            ruleSet: 'house',
+            _gameType: 'uno',
+            _maxPlayers: 2
+          }
+        })
+      });
 
       const startResponse = await sendAndReceive(host, {
         type: 'START_GAME',
@@ -660,6 +704,7 @@ describe('GameServer Integration', () => {
         ...initialState,
         marker: 'after-action'
       };
+      latestSnapshotState = updatedState;
 
       await sendAndReceive(host, {
         type: 'GAME_ACTION',
@@ -706,6 +751,7 @@ describe('GameServer Integration', () => {
       expect(playerReconnected.type).toBe('PLAYER_RECONNECTED');
       expect(playerReconnected.playerId).toBe('player-2');
 
+      detachSnapshotResponder();
       host.close();
       reconnectClient.close();
     });
@@ -748,6 +794,19 @@ describe('GameServer Integration', () => {
         data: { gameConfig: { initialState: { players: [] } } }
       }, 'GAME_STARTED');
       await waitForMessage(player, 'GAME_STARTED');
+      const detachSnapshotResponder = attachSnapshotResponder(host, {
+        playerId: 'host-1',
+        getSnapshot: () => ({
+          gameState: {
+            players: [
+              { id: 'host-1', nickname: 'Host', isHost: true },
+              { id: 'player-2', nickname: 'Player2', isHost: false }
+            ],
+            phase: 'return_to_room'
+          },
+          gameSettings: {}
+        })
+      });
 
       const playerHostReturnPromise = waitForMessage(player, 'RETURN_TO_ROOM_STATUS');
       const hostReturnStatus = await sendAndReceive(host, {
@@ -820,6 +879,7 @@ describe('GameServer Integration', () => {
       }, 'GAME_STARTED');
       expect(nextRound.type).toBe('GAME_STARTED');
 
+      detachSnapshotResponder();
       host.close();
       reconnectClient.close();
     });
@@ -876,6 +936,13 @@ describe('GameServer Integration', () => {
       const acceptedPromise = waitForMessage(reconnectHost, 'RECONNECT_ACCEPTED');
       const snapshotPromise = waitForMessage(reconnectHost, 'GAME_SNAPSHOT');
       const playerReconnectedPromise = waitForMessage(player, 'PLAYER_RECONNECTED');
+      const detachSnapshotResponder = attachSnapshotResponder(reconnectHost, {
+        playerId: 'host-1',
+        getSnapshot: () => ({
+          gameState: { turn: 1, marker: 'test' },
+          gameSettings: {}
+        })
+      });
 
       reconnectHost.send(JSON.stringify({
         type: 'RECONNECT_REQUEST',
@@ -906,6 +973,7 @@ describe('GameServer Integration', () => {
       expect(update.type).toBe('GAME_STATE_UPDATE');
       expect(update.data.lastAction.playerId).toBe('player-2');
 
+      detachSnapshotResponder();
       reconnectHost.close();
       player.close();
     });
@@ -1047,17 +1115,18 @@ describe('GameServer Integration', () => {
       }, 'ERROR');
       expect(errorResponse.data.code).toBe('HOST_DISCONNECTED');
 
-      // Snapshot should NOT have advanced to turn 2
-      const room = server.roomManager.getRoom(roomId);
-      expect(room.gameSnapshot.gameState).toEqual(
-        expect.objectContaining({ turn: 1, lastCard: 'card-3' })
-      );
-
       // Host reconnects — gets the turn-1 snapshot (not turn-2)
       const reconnectHost = await createClient();
       const acceptedPromise = waitForMessage(reconnectHost, 'RECONNECT_ACCEPTED');
       const snapshotPromise = waitForMessage(reconnectHost, 'GAME_SNAPSHOT');
       const playerReconnectedPromise = waitForMessage(player, 'PLAYER_RECONNECTED');
+      const detachSnapshotResponder = attachSnapshotResponder(reconnectHost, {
+        playerId: 'host-1',
+        getSnapshot: () => ({
+          gameState: { turn: 1, lastCard: 'card-3' },
+          gameSettings: {}
+        })
+      });
 
       reconnectHost.send(JSON.stringify({
         type: 'RECONNECT_REQUEST',
@@ -1089,6 +1158,7 @@ describe('GameServer Integration', () => {
 
       expect(update.data.lastAction.actionData.cardId).toBe('card-4');
 
+      detachSnapshotResponder();
       reconnectHost.close();
       player.close();
     });
@@ -1120,6 +1190,13 @@ describe('GameServer Integration', () => {
         data: { gameConfig: { initialState: { turn: 0 } } }
       }, 'GAME_STARTED');
       await waitForMessage(player, 'GAME_STARTED');
+      const detachSnapshotResponder = attachSnapshotResponder(host, {
+        playerId: 'host-1',
+        getSnapshot: () => ({
+          gameState: { turn: 0 },
+          gameSettings: {}
+        })
+      });
 
       // Player disconnects
       const disconnectPromise = waitForMessage(host, 'PLAYER_DISCONNECTED');
@@ -1146,6 +1223,7 @@ describe('GameServer Integration', () => {
       expect(rtrStatus.type).toBe('RETURN_TO_ROOM_STATUS');
       // The frontend guards this with isRunning check (Bug 6 fix)
 
+      detachSnapshotResponder();
       host.close();
       reconnectPlayer.close();
     });
@@ -1177,6 +1255,14 @@ describe('GameServer Integration', () => {
         data: { gameConfig: { initialState: { turn: 0 } } }
       }, 'GAME_STARTED');
       await waitForMessage(player, 'GAME_STARTED');
+      let latestSnapshotState = { turn: 0 };
+      const detachSnapshotResponder = attachSnapshotResponder(host, {
+        playerId: 'host-1',
+        getSnapshot: () => ({
+          gameState: latestSnapshotState,
+          gameSettings: {}
+        })
+      });
 
       // -- First disconnect/reconnect cycle --
       let disconnectPromise = waitForMessage(host, 'PLAYER_DISCONNECTED');
@@ -1185,6 +1271,7 @@ describe('GameServer Integration', () => {
 
       player = await createClient();
       let acceptedPromise = waitForMessage(player, 'RECONNECT_ACCEPTED');
+      let snapshotPromise = waitForMessage(player, 'GAME_SNAPSHOT');
       let reconnectedPromise = waitForMessage(host, 'PLAYER_RECONNECTED');
 
       player.send(JSON.stringify({
@@ -1195,6 +1282,7 @@ describe('GameServer Integration', () => {
       }));
 
       await acceptedPromise;
+      await snapshotPromise;
       await reconnectedPromise;
 
       // Verify game works after first reconnect
@@ -1211,6 +1299,7 @@ describe('GameServer Integration', () => {
       }));
       const action1 = await action1Promise;
       expect(action1.data.lastAction.actionData.cardId).toBe('c1');
+      latestSnapshotState = { turn: 1 };
 
       // -- Second disconnect/reconnect cycle --
       disconnectPromise = waitForMessage(host, 'PLAYER_DISCONNECTED');
@@ -1219,6 +1308,7 @@ describe('GameServer Integration', () => {
 
       player = await createClient();
       acceptedPromise = waitForMessage(player, 'RECONNECT_ACCEPTED');
+      snapshotPromise = waitForMessage(player, 'GAME_SNAPSHOT');
       reconnectedPromise = waitForMessage(host, 'PLAYER_RECONNECTED');
 
       player.send(JSON.stringify({
@@ -1229,16 +1319,11 @@ describe('GameServer Integration', () => {
       }));
 
       await acceptedPromise;
+      const snapshot = await snapshotPromise;
       await reconnectedPromise;
 
       // Verify snapshot reflects state from first reconnect cycle
-      const snapshotPromise = waitForMessage(player, 'GAME_SNAPSHOT');
-      // Snapshot was already sent during reconnect — re-request won't resend,
-      // but we can verify via the room state
-      const room = server.roomManager.getRoom(roomId);
-      expect(room.gameSnapshot.gameState).toEqual(
-        expect.objectContaining({ turn: 1 })
-      );
+      expect(snapshot.data.gameState).toEqual(expect.objectContaining({ turn: 1 }));
 
       // Verify game still works
       const action2Promise = waitForMessage(host, 'GAME_STATE_UPDATE');
@@ -1255,6 +1340,7 @@ describe('GameServer Integration', () => {
       const action2 = await action2Promise;
       expect(action2.data.lastAction.actionType).toBe('DRAW_CARD');
 
+      detachSnapshotResponder();
       host.close();
       player.close();
     });
