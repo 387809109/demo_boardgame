@@ -4,6 +4,8 @@
 
 - [TRPC_REFACTOR_PLAN.md](./TRPC_REFACTOR_PLAN.md) - tRPC 迁移主计划（API-first）
 - [ANALYTICS_MVP_PLAN.md](./ANALYTICS_MVP_PLAN.md) - MVP 分析埋点范围与低成本落地计划
+- [RENDER_MONITORING_BASELINE.md](./RENDER_MONITORING_BASELINE.md) - Render API 基线指标面板配置（T-AN006）
+- [AN010_PROD_VALIDATION_RUNBOOK.md](./AN010_PROD_VALIDATION_RUNBOOK.md) - Vercel 生产埋点可见性与字段合规验收流程（T-AN010）
 - [AI_CHAT_PRD.md](./AI_CHAT_PRD.md) - AI 规则问答产品方案
 - [AI_RAG_PLAN.md](./AI_RAG_PLAN.md) - RAG-lite 规则注入设计
 

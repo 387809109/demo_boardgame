@@ -285,8 +285,8 @@
 | T-A030~T-A031 | 部署配置（Render 配置与部署验证） | ✅ |
 | T-A040~T-A046 | 单元测试（21 tests） | ✅ |
 | T-AC001~T-AC006 | AI 规则问答 Step 1（29 tests） | ✅ |
-| T-AC009~T-AC013 | AI 规则问答 Step 2 (RAG-lite, 49 tests) | 🔶 代码完成，待手动测试 |
-| T-AN001~T-AN011 | Analytics MVP（Vercel + Render） | 🔶 前端埋点完成，平台指标/告警与生产验证待完成 |
+| T-AC009~T-AC014 | AI 规则问答 Step 2 (RAG-lite, 49 tests) | ✅ 代码 + 手动端到端测试完成 |
+| T-AN001~T-AN011 | Analytics MVP（Vercel + Render） | 🔶 前端埋点完成；AN2 平台监控项调整为未来可选（需付费能力） |
 | T-A050~T-A058 | 卡牌数据填充 | ⬜ |
 | T-A060~T-A066 | AI/MCP 接口 | ⬜ |
 
@@ -318,12 +318,14 @@
 
 ### 待办
 
-- T-AC014：AI 规则问答 Step 2 — 手动端到端测试（启动 API + 前端，验证规则注入效果）
-- T-AN006~T-AN008：Render/Supabase 平台指标基线与告警配置
-- T-AN010：Vercel 生产环境埋点事件可见性验证
+- T-AN010：Vercel 生产环境埋点事件可见性验证（进行中，待生产实测）
 - T-AN011：Analytics 周度复盘模板与固定节奏
 - T-A050~T-A058：卡牌数据填充 (按游戏分别实现)
 - T-A060~T-A066：AI/MCP 接口实现
+
+### 未来可选（需付费能力）
+
+- T-AN006~T-AN008：Render/Supabase 平台指标、告警与巡检（暂不升级付费实例）
 
 ---
 
@@ -413,7 +415,7 @@
 
 ### 高优先级
 
-1. **RAG-lite 手动测试** - 启动 API + 前端，验证规则注入效果 (T-AC014)
+1. ~~**RAG-lite 手动测试** - 启动 API + 前端，验证规则注入效果 (T-AC014)~~ ✅ 已完成
 2. ~~**AuthService 单元测试** - 认证服务单元测试 (T-C013)~~ ✅ 已完成
 3. ~~**集成测试** - 端到端测试 (T-F112)~~ ✅ 已完成（`frontend/src/app/app.integration.test.js`，27 条）
 
@@ -469,6 +471,21 @@
   - 已完成 iPhone SE (375px) 到 iPad (768px) 的手动端到端可用性验收
   - 任务状态由“已开发待验收”更新为“已验收完成”
 
+- ✅ T-AC014 AI 规则问答 Step 2 手动端到端测试完成
+  - 验证通过：`gameId=werewolf` 注入生效、同 `sessionId` 上下文延续、中途切换 `gameId=uno` 生效
+  - 会话历史校验通过：`GET /api/v1/chat/:sessionId` 返回 `messageCount=6`
+  - 任务状态由“代码完成待手测”更新为“已完成”
+
+- ⏸ T-AN006~T-AN008 调整为未来可选任务
+  - 原因：当前不升级 Render 付费实例，暂不执行平台监控与告警配置
+  - 保留草案：`docs/prd/api/RENDER_MONITORING_BASELINE.md`（后续启用时复用）
+
+- 🔶 T-AN010 生产环境埋点验证启动
+  - 新增字段合规护栏：`frontend/src/utils/analytics-events.js`（事件名/字段白名单）
+  - `trackEvent` 接入白名单清洗：`frontend/src/utils/analytics.js`
+  - 新增测试：`frontend/src/utils/analytics-events.test.js`
+  - 新增验收流程：`docs/prd/api/AN010_PROD_VALIDATION_RUNBOOK.md`（待 Vercel 生产实测后关闭任务）
+
 ### 2026-03-08
 
 - ✅ T-F123 移动端响应式布局适配代码完成并通过验收
@@ -497,7 +514,7 @@
   - 覆盖: constructor, initialize (含幂等), register, login, logout, updateProfile, onAuthStateChange, isLoggedIn, getCurrentUser, _loadUserProfile fallback
   - 前端测试: 767 通过 (15 suites)
 
-- 🔶 AI 规则问答 Step 2 (RAG-lite) 代码完成 (T-AC009~T-AC013)，待手动测试
+- ✅ AI 规则问答 Step 2 (RAG-lite) 代码完成 (T-AC009~T-AC013)，后续手动测试已在 2026-03-11 完成 (T-AC014)
   - 新增 `api/services/rules-loader.js` — 规则文档加载、Markdown 分块、关键词提取、评分检索
   - 修改 `api/services/chat-service.js` — sendMessage 支持 gameId，system prompt 注入规则上下文
   - 修改 `api/routes/v1/chat.js` — POST 支持 gameId 参数 + GET `/games` 端点
