@@ -16,6 +16,7 @@ export class GameLobby {
   /**
    * @param {Object} options
    * @param {Function} options.onSelectGame - Called when game is selected
+   * @param {Function} [options.onPreloadGame] - Called when game card is hovered for preload
    * @param {Function} options.onJoinRoom - Called when joining online room
    * @param {Function} options.onSettings - Called when settings is clicked
    * @param {boolean} [options.cloudAvailable] - Whether cloud backend is configured
@@ -369,6 +370,8 @@ export class GameLobby {
 
       // Hover effect
       card.addEventListener('mouseenter', () => {
+        const gameId = card.dataset.gameId;
+        this.options.onPreloadGame?.(gameId);
         card.style.transform = 'translateY(-4px)';
         card.style.boxShadow = 'var(--shadow-lg)';
       });
@@ -429,6 +432,8 @@ export class GameLobby {
 
       // Hover effect
       card.addEventListener('mouseenter', () => {
+        const gameId = card.dataset.gameId;
+        this.options.onPreloadGame?.(gameId);
         card.style.transform = 'translateY(-4px)';
         card.style.boxShadow = 'var(--shadow-lg)';
       });

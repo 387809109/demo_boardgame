@@ -34,14 +34,48 @@ import { isCloudAvailable, getSupabaseClient } from './cloud/supabase-client.js'
 import { AuthService } from './cloud/auth.js';
 import { CloudNetworkClient } from './cloud/cloud-network.js';
 
-import UnoGame from './games/uno/index.js';
-import { UnoUI } from './games/uno/ui.js';
 import unoConfig from './games/uno/config.json';
-import { canPlayCard, COLORS, CARD_TYPES } from './games/uno/rules.js';
-
-import WerewolfGame from './games/werewolf/index.js';
 import werewolfConfig from './games/werewolf/config.json';
-import { WerewolfUI } from './games/werewolf/ui.js';
+
+const GAME_REGISTRY = {
+  uno: {
+    config: unoConfig
+  },
+  werewolf: {
+    config: werewolfConfig
+  }
+};
+
+const GAME_LOADERS = {
+  uno: async () => {
+    const [gameModule, uiModule, ruleModule] = await Promise.all([
+      import('./games/uno/index.js'),
+      import('./games/uno/ui.js'),
+      import('./games/uno/rules.js')
+    ]);
+
+    return {
+      GameClass: gameModule.default,
+      GameUI: uiModule.UnoUI,
+      rules: {
+        canPlayCard: ruleModule.canPlayCard,
+        COLORS: ruleModule.COLORS,
+        CARD_TYPES: ruleModule.CARD_TYPES
+      }
+    };
+  },
+  werewolf: async () => {
+    const [gameModule, uiModule] = await Promise.all([
+      import('./games/werewolf/index.js'),
+      import('./games/werewolf/ui.js')
+    ]);
+
+    return {
+      GameClass: gameModule.default,
+      GameUI: uiModule.WerewolfUI
+    };
+  }
+};
 
 const RECONNECT_CONTEXT_KEY = 'reconnectContext';
 const RECONNECT_RESPONSE_TIMEOUT_MS = 8000;
@@ -52,6 +86,7 @@ const DEFAULT_LOCAL_SERVER_URL = 'ws://localhost:7777';
 const COMMIT_HASH = String(
   import.meta.env.VITE_COMMIT_HASH || import.meta.env.VITE_GIT_COMMIT || ''
 ).trim();
+const IDLE_PRELOAD_DELAY_MS = 500;
 
 /**
  * Application class
@@ -125,16 +160,34 @@ class App {
     /** @type {Object|null} */
     this._joinRoomPrefill = null;
 
-  /** @type {number|null} */
-  this._gameStartAt = null;
+    /** @type {number|null} */
+    this._gameStartAt = null;
 
-  /** @type {{ roomId: string, nickname: string }|null} */
-  this._pendingJoinAnalytics = null;
+    /** @type {{ roomId: string, nickname: string }|null} */
+    this._pendingJoinAnalytics = null;
 
-  /** @type {HTMLElement|null} */
-  this._commitBadge = null;
+    /** @type {HTMLElement|null} */
+    this._commitBadge = null;
 
-  this._init();
+    /** @type {Map<string, Promise<Object>>} */
+    this._gameLoadPromises = new Map();
+
+    /** @type {Map<string, Object>} */
+    this._gameBundles = new Map();
+
+    /** @type {Map<string, Function>} */
+    this._gameUIConstructors = new Map();
+
+    /** @type {{ canPlayCard: Function, COLORS: Array<string>, CARD_TYPES: Array<string> }|null} */
+    this._unoRules = null;
+
+    /** @type {number|null} */
+    this._lobbyPreloadTimer = null;
+
+    /** @type {string|null} */
+    this._activeGameType = null;
+
+    this._init();
 }
 
   /**
@@ -142,9 +195,7 @@ class App {
    * @private
    */
   _init() {
-    // Register games
-    registerGame('uno', UnoGame, unoConfig);
-    registerGame('werewolf', WerewolfGame, werewolfConfig);
+    this._registerGamePlaceholders();
 
     // Generate or load player ID (used for local mode)
     this.playerId = loadSessionData('playerId') || this._generatePlayerId();
@@ -166,6 +217,99 @@ class App {
     this._renderCommitBadge();
     // Show lobby
     this.showLobby();
+  }
+
+  /**
+   * Register game placeholders so lobby can render immediately
+   * while keeping heavy modules lazily loaded.
+   * @private
+   */
+  _registerGamePlaceholders() {
+    Object.entries(GAME_REGISTRY).forEach(([gameType, value]) => {
+      registerGame(
+        gameType,
+        class {
+          constructor() {
+            throw new Error(`游戏 ${gameType} 尚未加载完成，请重试`);
+          }
+        },
+        value.config
+      );
+    });
+  }
+
+  /**
+   * Ensure game module bundle is loaded.
+   * @private
+   * @param {string} gameType
+   * @returns {Promise<{GameClass:Function,GameUI:Function,rules?:Object}>}
+   */
+  _ensureGameBundleLoaded(gameType) {
+    const cached = this._gameBundles.get(gameType);
+    if (cached) {
+      return Promise.resolve(cached);
+    }
+
+    const existing = this._gameLoadPromises.get(gameType);
+    if (existing) {
+      return existing;
+    }
+
+    const loader = GAME_LOADERS[gameType];
+    if (!loader) {
+      return Promise.reject(new Error(`游戏 ${gameType} 不支持懒加载`));
+    }
+
+    const loadPromise = (async () => {
+      const bundle = await loader();
+      if (typeof bundle?.GameClass !== 'function') {
+        throw new Error(`游戏 ${gameType} 加载失败：缺少游戏构造器`);
+      }
+      if (bundle?.rules) {
+        this._unoRules = bundle.rules;
+      }
+      if (bundle?.GameUI) {
+        this._gameUIConstructors.set(gameType, bundle.GameUI);
+      }
+      registerGame(gameType, bundle.GameClass, GAME_REGISTRY[gameType]?.config || {});
+      this._gameBundles.set(gameType, bundle);
+      return bundle;
+    })();
+
+    this._gameLoadPromises.set(gameType, loadPromise);
+    loadPromise.finally(() => {
+      this._gameLoadPromises.delete(gameType);
+    });
+
+    return loadPromise;
+  }
+
+  /**
+   * Preload game bundle when it might be needed soon.
+   * @private
+   * @param {string} gameType
+   */
+  _preloadGame(gameType) {
+    this._ensureGameBundleLoaded(gameType).catch(() => {});
+  }
+
+  /**
+   * Schedule idle preload for default game (currently UNO) after lobby is ready.
+   * @private
+   */
+  _scheduleLobbyPreload() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (this._lobbyPreloadTimer) {
+      window.clearTimeout(this._lobbyPreloadTimer);
+    }
+
+    this._lobbyPreloadTimer = window.setTimeout(() => {
+      this._lobbyPreloadTimer = null;
+      this._preloadGame('uno');
+    }, IDLE_PRELOAD_DELAY_MS);
   }
 
   /**
@@ -354,6 +498,7 @@ class App {
 
     this.currentView = new GameLobby({
       onSelectGame: (gameId, mode) => this._handleGameSelect(gameId, mode),
+      onPreloadGame: (gameId) => this._preloadGame(gameId),
       onJoinRoom: () => this._showJoinRoomDialog(),
       onSettings: () => this._showSettings(),
       cloudAvailable: isCloudAvailable(),
@@ -365,6 +510,7 @@ class App {
     });
 
     this.currentView.mount(this.root);
+    this._scheduleLobbyPreload();
   }
 
   /**
@@ -448,6 +594,7 @@ class App {
       game_id: gameId,
       mode
     });
+    this._preloadGame(gameId);
 
     // Get game config for settings
     const gameConfig = this._getGameConfig(gameId);
@@ -480,8 +627,8 @@ class App {
    * @private
    */
   _getGameConfig(gameId) {
-    const configs = { uno: unoConfig, werewolf: werewolfConfig };
-    return configs[gameId] || { id: gameId, name: gameId, minPlayers: 2, maxPlayers: 4 };
+    const config = GAME_REGISTRY[gameId]?.config;
+    return config || { id: gameId, name: gameId, minPlayers: 2, maxPlayers: 4 };
   }
 
   /**
@@ -513,11 +660,53 @@ class App {
    * @private
    */
   _startGame(gameType, players, mode, options = {}, initialState = null) {
+    this._preloadGame(gameType);
+
+    const startPayload = {
+      gameType,
+      players,
+      mode,
+      options,
+      initialState
+    };
+
+    const showLoadingIndicator = !this._gameBundles.has(gameType);
+    if (showLoadingIndicator) {
+      showLoading('正在加载游戏资源...');
+    }
+
+    this._ensureGameBundleLoaded(gameType)
+      .then(() => {
+        this._startGameNow(startPayload);
+      })
+      .catch((error) => {
+        console.error(error);
+        showNotification(`游戏 ${gameType} 加载失败`, 'error');
+      })
+      .finally(() => {
+        if (showLoadingIndicator) {
+          hideLoading();
+        }
+      });
+  }
+
+  /**
+   * Start game after module bundle is ready
+   * @private
+   */
+  _startGameNow({
+    gameType,
+    players,
+    mode,
+    options = {},
+    initialState = null
+  }) {
     this._clearView();
     if (!this._isReconnecting) {
       this._lastGameResult = null;
     }
     this._gameStartAt = Date.now();
+    this._activeGameType = gameType;
     trackEvent('game_started', {
       game_id: gameType,
       mode,
@@ -590,11 +779,9 @@ class App {
 
     // Set up game-specific UI (store instance for reuse on state updates)
     let gameUI = null;
-    if (gameType === 'uno') {
-      gameUI = new UnoUI();
-      this.currentView.setGameUI(gameUI);
-    } else if (gameType === 'werewolf') {
-      gameUI = new WerewolfUI();
+    const gameUIFactory = this._gameUIConstructors.get(gameType);
+    if (gameUIFactory) {
+      gameUI = new gameUIFactory();
       this.currentView.setGameUI(gameUI);
     }
 
@@ -704,12 +891,25 @@ class App {
    * Check if player should auto-draw (no playable cards)
    * @private
    */
+  _getUnoRules() {
+    return this._activeGameType === 'uno' ? this._unoRules : null;
+  }
+
+  /**
+   * Check if player should auto-draw (no playable cards)
+   * @private
+   */
   _checkAutoDraw(state) {
     // Don't auto-draw if there are pending draws (player must click to draw those)
     if (state.drawPending > 0) return;
+    const rules = this._getUnoRules();
+    if (!rules?.canPlayCard) {
+      return;
+    }
 
     // Don't auto-draw if player just drew (they might be able to play or skip)
     if (state.lastAction?.type === 'drew' && state.lastAction?.playerId === this.playerId) return;
+    const { canPlayCard } = rules;
 
     // Check if player has any playable cards
     const myHand = state.myHand || [];
@@ -767,6 +967,11 @@ class App {
 
     const state = game.getState();
     const currentPlayer = state.currentPlayer;
+    const isUnoGame = this._activeGameType === 'uno' || game?.config?.gameType === 'uno';
+    const rules = isUnoGame ? this._getUnoRules() : null;
+    if (isUnoGame && !rules?.canPlayCard) {
+      return;
+    }
 
     // Skip if it's a human player's turn (not AI)
     const isAI = this._isAIPlayer(currentPlayer);
@@ -794,16 +999,16 @@ class App {
           const topCard = state.discardPile[state.discardPile.length - 1];
           let stackCard = null;
 
-          if (topCard.type === CARD_TYPES.DRAW_TWO) {
-            stackCard = aiHand.find(c => c.type === CARD_TYPES.DRAW_TWO);
-          } else if (topCard.type === CARD_TYPES.WILD_DRAW_FOUR) {
-            stackCard = aiHand.find(c => c.type === CARD_TYPES.WILD_DRAW_FOUR);
+          if (topCard.type === rules.CARD_TYPES.DRAW_TWO) {
+            stackCard = aiHand.find(c => c.type === rules.CARD_TYPES.DRAW_TWO);
+          } else if (topCard.type === rules.CARD_TYPES.WILD_DRAW_FOUR) {
+            stackCard = aiHand.find(c => c.type === rules.CARD_TYPES.WILD_DRAW_FOUR);
           }
 
           if (stackCard) {
             // AI stacks the card
             const chosenColor = stackCard.color === null
-              ? COLORS[Math.floor(Math.random() * COLORS.length)]
+              ? rules.COLORS[Math.floor(Math.random() * rules.COLORS.length)]
               : null;
 
             this._executeAIMove('PLAY_CARD', { cardId: stackCard.id, chosenColor }, currentPlayer);
@@ -821,13 +1026,13 @@ class App {
       // Find a playable card
       const topCard = state.discardPile[state.discardPile.length - 1];
       const playableCards = aiHand.filter(card =>
-        canPlayCard(card, topCard, state.currentColor)
+        rules.canPlayCard(card, topCard, state.currentColor)
       );
 
       if (playableCards.length > 0) {
         const card = playableCards[Math.floor(Math.random() * playableCards.length)];
         const chosenColor = card.color === null
-          ? COLORS[Math.floor(Math.random() * COLORS.length)]
+          ? rules.COLORS[Math.floor(Math.random() * rules.COLORS.length)]
           : null;
 
         this._executeAIMove('PLAY_CARD', { cardId: card.id, chosenColor }, currentPlayer);
