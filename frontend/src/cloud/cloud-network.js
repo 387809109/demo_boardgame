@@ -7,6 +7,15 @@
  */
 
 import { EventEmitter } from '../utils/event-emitter.js';
+import {
+  createBatchEnvelope,
+  compressText,
+  resolveBatchPayload,
+  NETWORK_BATCH_INTERVAL_MS,
+  NETWORK_BATCH_MAX_MESSAGES,
+  NETWORK_BATCH_MESSAGE_TYPE,
+  DEFAULT_BATCH_TYPES
+} from '../utils/network-optimizer.js';
 
 /** Grace period before a disconnected player is considered gone (ms) */
 const CLOUD_RECONNECT_GRACE_MS = 60000;
@@ -22,7 +31,7 @@ export class CloudNetworkClient extends EventEmitter {
   /**
    * @param {import('@supabase/supabase-js').SupabaseClient} supabaseClient
    */
-  constructor(supabaseClient) {
+  constructor(supabaseClient, options = {}) {
     super();
 
     /** @type {import('@supabase/supabase-js').SupabaseClient} */
@@ -66,6 +75,30 @@ export class CloudNetworkClient extends EventEmitter {
 
     /** @type {string|null} */
     this._originalHostId = null;
+
+    /** @type {number|null} */
+    this._batchFlushTimer = null;
+
+    /** @type {Array<Object>} */
+    this._batchQueue = [];
+
+    /** @type {boolean} */
+    this._optimizeBatching = options.enableBatching === true;
+
+    /** @type {Set<string>} */
+    this._batchMessageTypes = new Set(
+      options.batchMessageTypes || Array.from(DEFAULT_BATCH_TYPES)
+    );
+
+    /** @type {number} */
+    this._batchIntervalMs = Number.isFinite(options.batchIntervalMs) && options.batchIntervalMs > 0
+      ? options.batchIntervalMs
+      : NETWORK_BATCH_INTERVAL_MS;
+
+    /** @type {number} */
+    this._batchMaxMessages = Number.isFinite(options.batchMaxMessages) && options.batchMaxMessages > 0
+      ? options.batchMaxMessages
+      : NETWORK_BATCH_MAX_MESSAGES;
   }
 
   /**
@@ -142,6 +175,7 @@ export class CloudNetworkClient extends EventEmitter {
     for (const entry of this._disconnectedPlayers.values()) {
       clearTimeout(entry.timer);
     }
+    this._clearBatchQueue();
     this._disconnectedPlayers.clear();
     this._gameActive = false;
 
@@ -165,7 +199,7 @@ export class CloudNetworkClient extends EventEmitter {
       return;
     }
 
-    this._channel.send({
+    const payload = {
       type: 'broadcast',
       event: type,
       payload: {
@@ -174,7 +208,151 @@ export class CloudNetworkClient extends EventEmitter {
         playerId: this.playerId,
         data
       }
-    });
+    };
+
+    if (this._shouldBatchMessage(type)) {
+      this._enqueueBatchMessage(payload);
+      return;
+    }
+
+    this._channel.send(payload);
+  }
+
+  /**
+   * Determine whether a message type should be batched.
+   * @param {string} type
+   * @returns {boolean}
+   * @private
+   */
+  _shouldBatchMessage(type) {
+    return !!(
+      this._optimizeBatching
+      && this._batchMessageTypes.has(type)
+      && typeof type === 'string'
+    );
+  }
+
+  /**
+   * Add batched broadcast payload to queue and schedule flush.
+   * @param {Object} payload
+   * @private
+   */
+  _enqueueBatchMessage(payload) {
+    this._batchQueue.push(payload);
+
+    if (this._batchQueue.length >= this._batchMaxMessages) {
+      void this._flushBatch();
+      return;
+    }
+
+    if (!this._batchFlushTimer) {
+      this._batchFlushTimer = setTimeout(() => {
+        void this._flushBatch();
+      }, this._batchIntervalMs);
+    }
+  }
+
+  /**
+   * Flush queued batch with optional compression.
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _flushBatch() {
+    if (!this._channel || !this._batchQueue.length) {
+      this._clearBatchTimer();
+      this._batchQueue = [];
+      return;
+    }
+
+    const messages = this._batchQueue.splice(0, this._batchQueue.length);
+    const normalized = messages.map(({ payload }) => payload).filter(Boolean);
+    const envelope = createBatchEnvelope(normalized);
+    let outgoing = envelope;
+
+    try {
+      const rawEnvelope = JSON.stringify(envelope);
+      const compressed = await compressText(rawEnvelope);
+      if (compressed) {
+        outgoing = {
+          ...envelope,
+          data: {
+            messageCount: envelope.data.messageCount,
+            compressed: true,
+            encoding: compressed.encoding,
+            payload: compressed.payload,
+            originalLength: compressed.originalLength
+          }
+        };
+      }
+
+      try {
+        this._channel.send({
+          type: 'broadcast',
+          event: NETWORK_BATCH_MESSAGE_TYPE,
+          payload: outgoing
+        });
+      } catch (err) {
+        console.error('Failed to flush batch:', err);
+        this._channel.send({
+          type: 'broadcast',
+          event: NETWORK_BATCH_MESSAGE_TYPE,
+          payload: envelope
+        });
+      }
+    } catch (err) {
+      console.error('Failed to flush batch:', err);
+      try {
+        this._channel.send({
+          type: 'broadcast',
+          event: NETWORK_BATCH_MESSAGE_TYPE,
+          payload: envelope
+        });
+      } catch (fallbackErr) {
+        console.error('Failed to flush batch fallback:', fallbackErr);
+      }
+    } finally {
+      this._clearBatchTimer();
+    }
+  }
+
+  /**
+   * Clear batch flush timer and queued payloads.
+   * @private
+   */
+  _clearBatchQueue() {
+    this._clearBatchTimer();
+    this._batchQueue = [];
+  }
+
+  /**
+   * Clear batch timer.
+   * @private
+   */
+  _clearBatchTimer() {
+    if (this._batchFlushTimer) {
+      clearTimeout(this._batchFlushTimer);
+      this._batchFlushTimer = null;
+    }
+  }
+
+  /**
+   * Handle network batch payload from server.
+   * @param {Object} payload
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _handleBatchedMessage(payload) {
+    const messages = await resolveBatchPayload(payload);
+    if (!Array.isArray(messages)) {
+      return;
+    }
+
+    for (const message of messages) {
+      if (!message || typeof message !== 'object') {
+        continue;
+      }
+      this._handleBroadcast(message.type, message);
+    }
   }
 
   /**
@@ -284,6 +462,7 @@ export class CloudNetworkClient extends EventEmitter {
       this._supabase.removeChannel(this._channel);
       this._channel = null;
     }
+    this._clearBatchQueue();
 
     this._roomId = roomId;
 
@@ -356,6 +535,7 @@ export class CloudNetworkClient extends EventEmitter {
       'START_GAME', 'GAME_ACTION', 'GAME_STATE_UPDATE',
       'CHAT_MESSAGE', 'AI_PLAYER_UPDATE', 'GAME_SETTINGS_UPDATE',
       'GAME_ENDED',
+      NETWORK_BATCH_MESSAGE_TYPE,
       'RECONNECT_REQUEST', 'RECONNECT_ACCEPTED', 'RECONNECT_REJECTED',
       'RETURN_TO_ROOM_STATUS',
       'GAME_SNAPSHOT', 'PLAYER_DISCONNECTED', 'PLAYER_RECONNECTED'
@@ -376,6 +556,11 @@ export class CloudNetworkClient extends EventEmitter {
    */
   _handleBroadcast(event, payload) {
     if (!payload) return;
+
+    if (event === NETWORK_BATCH_MESSAGE_TYPE) {
+      void this._handleBatchedMessage(payload);
+      return;
+    }
 
     const { type, data, playerId } = payload;
 

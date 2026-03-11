@@ -212,9 +212,9 @@ export function registerAppOnlineRoomMethods(App, deps) {
           this._refreshSessionId();
         }
         if (this.mode === 'cloud') {
-          this.network = new CloudNetworkClient(getSupabaseClient());
+          this.network = new CloudNetworkClient(getSupabaseClient(), { enableBatching: true });
         } else {
-          this.network = new NetworkClient(serverUrl);
+          this.network = new NetworkClient(serverUrl, { enableBatching: true });
         }
         this.network.playerId = this.playerId;
 
@@ -268,9 +268,9 @@ export function registerAppOnlineRoomMethods(App, deps) {
           this._refreshSessionId();
         }
         if (this.mode === 'cloud') {
-          this.network = new CloudNetworkClient(getSupabaseClient());
+          this.network = new CloudNetworkClient(getSupabaseClient(), { enableBatching: true });
         } else {
-          this.network = new NetworkClient(serverUrl);
+          this.network = new NetworkClient(serverUrl, { enableBatching: true });
         }
         this.network.playerId = this.playerId;
 
@@ -639,6 +639,26 @@ export function registerAppOnlineRoomMethods(App, deps) {
             this._hostDisconnectedPaused = true;
           }
         }
+      });
+
+      net.onMessage('SNAPSHOT_REQUEST', (data) => {
+        // Local server asks host to provide a visibility-safe snapshot for reconnecting player.
+        if (this.mode !== 'local' || !this.currentGame || !this._isHost()) return;
+        if (!data?.roomId || data.roomId !== this.currentRoom?.id || !data?.targetPlayerId) return;
+
+        const gameState = typeof this.currentGame.getVisibleState === 'function'
+          ? this.currentGame.getVisibleState(data.targetPlayerId)
+          : this.currentGame.getState();
+        if (!gameState || typeof gameState !== 'object') return;
+
+        const gameSettings = this.currentRoom?.gameSettings
+          || this._currentGameSettings
+          || {};
+        this.network.sendSnapshotResponse(data.roomId, data.targetPlayerId, {
+          requestId: data.requestId,
+          gameState,
+          gameSettings
+        });
       });
 
       net.onMessage('RECONNECT_REQUEST', (data) => {

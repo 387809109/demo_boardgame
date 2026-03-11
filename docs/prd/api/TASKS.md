@@ -17,8 +17,8 @@
 | Phase A6: 卡牌数据 | ⬜ 待开发 | 各游戏卡牌数据填充 |
 | Phase A7: AI/MCP 接口 | ⬜ 待开发 | AI 分析、走法建议、MCP 工具 |
 | Phase AC1~AC3: AI 对话 Step 1 | ✅ 完成 | AI 规则问答核心 (50 个测试通过) |
-| Phase AC4: AI 对话 Step 2 | 🔶 代码完成 | 规则知识库增强 (RAG-lite)，49 个新测试通过，待手动测试 |
-| Phase AN: Analytics MVP | 🔶 进行中 | Vercel 前端埋点已落地，Render/Supabase 平台指标和告警待配置 |
+| Phase AC4: AI 对话 Step 2 | ✅ 完成 | 规则知识库增强 (RAG-lite)，49 个新测试通过，手动端到端测试已完成 |
+| Phase AN: Analytics MVP | 🔶 进行中 | Vercel 前端埋点已落地；AN2 与 T-AN010 调整为未来可选（需付费能力） |
 
 ---
 
@@ -194,7 +194,7 @@
 - [x] **T-AC007** 更新 TASKS.md 和 PROGRESS.md
 - [x] **T-AC008** 更新 README.md 端点文档
 
-### Step 2: 规则知识库增强 🔶 代码完成（待手动测试）
+### Step 2: 规则知识库增强 ✅ 完成（含手动端到端测试）
 
 > 设计方案: `docs/prd/api/AI_RAG_PLAN.md`
 
@@ -211,7 +211,8 @@
   - `/games` 在 `/:sessionId` 之前注册避免参数冲突
 - [x] **T-AC012** rules-loader 单元测试 (37 tests)
 - [x] **T-AC013** 规则注入集成测试 (8 tests) + 路由测试扩展 (4 tests)
-- [ ] **T-AC014** 手动端到端测试（启动 API + 前端，验证规则注入效果）
+- [x] **T-AC014** 手动端到端测试（启动 API + 前端，验证规则注入效果） ✅
+  - 验收通过：`gameId` 注入生效、会话内上下文延续、中途切换 `gameId` 生效、历史读取正常
 
 ---
 
@@ -234,16 +235,21 @@
 - [x] **T-AN005** 接入功能使用事件
   - `chat_panel_opened`, `chat_message_sent`, `query_panel_opened`
 
-### AN2: 平台指标基线（Render + Supabase）
+### AN2: 平台指标基线（Render + Supabase）⬜ 未来可选（需付费能力）
 
-- [ ] **T-AN006** 配置 Render API 基线指标面板（请求数、P95 延迟、错误率）
-- [ ] **T-AN007** 配置 Render 告警阈值（错误率、延迟、服务不可用）
-- [ ] **T-AN008** 建立 Supabase Realtime/Auth 健康检查清单与巡检流程
+- [ ] **T-AN006** 配置 Render API 基线指标面板（请求数、P95 延迟、错误率）`[未来可选]`
+  - 说明：当前不升级付费实例，暂缓执行；参考草案 `docs/prd/api/RENDER_MONITORING_BASELINE.md`
+- [ ] **T-AN007** 配置 Render 告警阈值（错误率、延迟、服务不可用）`[未来可选]`
+- [ ] **T-AN008** 建立 Supabase Realtime/Auth 健康检查清单与巡检流程 `[未来可选]`
 
 ### AN3: 验证与发布门禁
 
 - [x] **T-AN009** 前端埋点回归验证（`npm --prefix frontend run build` + `npm --prefix frontend run test`）
-- [ ] **T-AN010** 在 Vercel 生产环境验证自定义事件可见性与字段合规
+- [ ] **T-AN010** 在 Vercel 生产环境验证自定义事件可见性与字段合规 `[未来可选]`
+  - 说明：当前不升级付费能力，暂缓生产侧验证
+  - 已完成仓库侧准备：事件字段白名单护栏 `frontend/src/utils/analytics-events.js`
+  - 已完成测试：`frontend/src/utils/analytics-events.test.js`
+  - 验收手册：`docs/prd/api/AN010_PROD_VALIDATION_RUNBOOK.md`
 - [ ] **T-AN011** 建立每周 Analytics Review 模板（5 个 MVP 问题对照）
 
 ---

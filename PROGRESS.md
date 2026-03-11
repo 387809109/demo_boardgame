@@ -1,6 +1,6 @@
 # 项目进度报告
 
-> 最后更新: 2026-03-10
+> 最后更新: 2026-03-11
 
 ---
 
@@ -100,12 +100,12 @@
 | 任务 ID | 描述 | 状态 |
 |---------|------|------|
 | T-F100 | 渲染性能优化 | ✅ |
-| T-F101 | 网络性能优化 | ⬜ |
-| T-F102 | 资源加载优化 | ⬜ |
+| T-F101 | 网络性能优化 | ✅ |
+| T-F102 | 资源加载优化 | ✅ |
 | T-F110 | 核心模块单元测试 (165 tests) | ✅ |
 | T-F111 | 工具函数测试 (114 tests) | ✅ |
-| T-F112 | 集成测试 | ⬜ |
-| T-F123 | 移动端响应式布局适配 | 🔶 已开发（待验收） |
+| T-F112 | 集成测试 | ✅ |
+| T-F123 | 移动端响应式布局适配 | ✅（已验收） |
 | T-F124 | 游戏数据查询面板 (API 集成) | ✅ |
 | T-F125 | 联机断线重连（客户端） | ✅（本地 + 云端） |
 | T-F126 | 主动退出后短时可恢复对局（低优先） | ⬜ |
@@ -175,13 +175,13 @@
 | T-B092 | 全局异常捕获 | ✅ |
 | T-B093 | 优雅关闭 | ✅ |
 
-### Phase 5: 广播优化 ⬜ 未开始
+### Phase 5: 广播优化 ✅ 完成
 
 | 任务 ID | 描述 | 状态 |
 |---------|------|------|
-| T-B100 | 广播器 | ⬜ |
-| T-B101 | 排除发送者广播 | ⬜ |
-| T-B102 | 消息队列 | ⬜ |
+| T-B100 | 广播器 | ✅ |
+| T-B101 | 排除发送者广播 | ✅ |
+| T-B102 | 消息队列 | ✅ |
 
 ### Phase 6: 监控与日志 ⬜ 未开始
 
@@ -200,7 +200,7 @@
 | T-B115 | 断线重连测试 | ✅ |
 | T-B116 | 房主断线重连（T-C044 前置） | ✅ |
 | T-B117 | 广播 PLAYER_DISCONNECTED 通知（T-C044 前置） | ✅ |
-| T-B118 | 按需快照替代逐 action 全量传输 | ⬜ |
+| T-B118 | 按需快照替代逐 action 全量传输 | ✅ |
 | T-B119 | 定期清理过期重连会话 | ✅ |
 | T-B120 | 使用 crypto.randomUUID 生成 sessionId | ⬜ |
 
@@ -285,8 +285,8 @@
 | T-A030~T-A031 | 部署配置（Render 配置与部署验证） | ✅ |
 | T-A040~T-A046 | 单元测试（21 tests） | ✅ |
 | T-AC001~T-AC006 | AI 规则问答 Step 1（29 tests） | ✅ |
-| T-AC009~T-AC013 | AI 规则问答 Step 2 (RAG-lite, 49 tests) | 🔶 代码完成，待手动测试 |
-| T-AN001~T-AN011 | Analytics MVP（Vercel + Render） | 🔶 前端埋点完成，平台指标/告警与生产验证待完成 |
+| T-AC009~T-AC014 | AI 规则问答 Step 2 (RAG-lite, 49 tests) | ✅ 代码 + 手动端到端测试完成 |
+| T-AN001~T-AN011 | Analytics MVP（Vercel + Render） | 🔶 前端埋点完成；AN2 与 T-AN010 调整为未来可选（需付费能力） |
 | T-A050~T-A058 | 卡牌数据填充 | ⬜ |
 | T-A060~T-A066 | AI/MCP 接口 | ⬜ |
 
@@ -318,18 +318,20 @@
 
 ### 待办
 
-- T-AC014：AI 规则问答 Step 2 — 手动端到端测试（启动 API + 前端，验证规则注入效果）
-- T-AN006~T-AN008：Render/Supabase 平台指标基线与告警配置
-- T-AN010：Vercel 生产环境埋点事件可见性验证
 - T-AN011：Analytics 周度复盘模板与固定节奏
 - T-A050~T-A058：卡牌数据填充 (按游戏分别实现)
 - T-A060~T-A066：AI/MCP 接口实现
+
+### 未来可选（需付费能力）
+
+- T-AN006~T-AN008：Render/Supabase 平台指标、告警与巡检（暂不升级付费实例）
+- T-AN010：Vercel 生产环境埋点可见性验证（暂不升级付费能力）
 
 ---
 
 ## 测试覆盖率
 
-### 前端测试统计 (768 tests passing)
+### 前端测试统计 (795 tests passing)
 
 | 测试套件 | 测试数 | 状态 |
 |----------|--------|------|
@@ -348,7 +350,7 @@
 | werewolf/ui.test.js | 11 | ✅ |
 | player-avatar.test.js | 4 | ✅ |
 | auth.test.js | 27 | ✅ |
-| **总计** | **768** | ✅ |
+| **总计** | **795** | ✅ |
 
 ### 后端测试统计 (153 tests passing)
 
@@ -413,24 +415,22 @@
 
 ### 高优先级
 
-1. **RAG-lite 手动测试** - 启动 API + 前端，验证规则注入效果 (T-AC014)
+1. ~~**RAG-lite 手动测试** - 启动 API + 前端，验证规则注入效果 (T-AC014)~~ ✅ 已完成
 2. ~~**AuthService 单元测试** - 认证服务单元测试 (T-C013)~~ ✅ 已完成
-3. **集成测试** - 端到端测试 (T-F112)
+3. ~~**集成测试** - 端到端测试 (T-F112)~~ ✅ 已完成（`frontend/src/app/app.integration.test.js`，27 条）
 
 ### 中优先级
 
-5. **按需快照替代逐 action 全量传输** - 减少带宽消耗和隐藏信息泄露 (T-B118)
+5. ~~**按需快照替代逐 action 全量传输** - 减少带宽消耗和隐藏信息泄露 (T-B118)~~ ✅ 已完成
 6. **狼人杀 P2 角色推进** - 守护天使/狱卒/小偷等 (T-F078)
-7. **移动端适配验收与回归** - 多设备手动验收并修复剩余问题 (T-F123)
-8. **后端广播优化** - 广播器实现 (T-B100-T-B102)
-9. **监控与日志** - 统计信息和健康检查 (T-B110-T-B113)
+7. ~~**移动端适配验收与回归** - 多设备手动验收并修复剩余问题 (T-F123)~~ ✅ 已完成
+8. **监控与日志** - 统计信息和健康检查 (T-B110-T-B113)
 
 ### 低优先级
 
 12. **使用 crypto.randomUUID 生成 sessionId** - 增强会话安全性 (T-B120)
 13. **狼人杀 P2-P3 角色** - 高级及扩展角色 (T-F078, T-F079)
-14. **网络性能优化** - 消息压缩、批量发送 (T-F101)
-15. **主动退出后短时可恢复对局** - 退出后保留短窗口恢复能力（与真正退房语义区分）
+14. **主动退出后短时可恢复对局** - 退出后保留短窗口恢复能力（与真正退房语义区分）
 
 ### 可选功能 (Optional)
 
@@ -443,6 +443,47 @@
 
 ## 最近完成的任务
 
+### 2026-03-11
+
+- ✅ T-B100~T-B102 后端广播优化完成
+  - 新增 `backend/server/broadcaster.js`，统一房间/单玩家/全局广播能力
+  - 支持按玩家排除广播（exclude sender）与队列化分批发送
+  - `MessageRouter` 广播路径接入 Broadcaster（兼容现有协议行为）
+  - 新增测试：`backend/server/tests/broadcaster.test.js`
+
+- ✅ T-F101 网络性能优化完成
+  - 本地 WebSocket 与云端 Realtime 客户端新增批量发送（`NETWORK_BATCH`）节流机制
+  - 支持可选压缩传输（`gzip/deflate`）及批量解包，保持协议向后兼容
+  - 后端消息路由与校验新增 `NETWORK_BATCH` 支持并补充单元测试
+  - 新增/更新测试：`frontend/src/game/network.test.js`、`frontend/src/cloud/cloud-network.test.js`、`backend/server/tests/message-router.test.js`
+
+- ✅ T-F112 集成测试完成
+  - 新增 `frontend/src/app/app.integration.test.js`，覆盖 27 条用例
+  - 覆盖场景：房间创建/加入、玩家同步、游戏开始、动作回放、聊天同步、AI 管控、断线重连与快照恢复、房间销毁、错误处理
+
+- ✅ T-F102 资源加载优化完成
+  - `frontend/src/main.js` 改为游戏模块按需动态加载（UNO / 狼人杀）
+  - 新增游戏模块懒加载 + 资源预加载（进入大厅后优先预热 UNO）
+  - `frontend/src/layout/game-lobby.js` 增加卡片 hover 预加载钩子
+  - `npm run test`：全量通过（795 tests）
+
+- ✅ T-F123 移动端响应式布局适配验收完成
+  - 已完成 iPhone SE (375px) 到 iPad (768px) 的手动端到端可用性验收
+  - 任务状态由“已开发待验收”更新为“已验收完成”
+
+- ✅ T-AC014 AI 规则问答 Step 2 手动端到端测试完成
+  - 验证通过：`gameId=werewolf` 注入生效、同 `sessionId` 上下文延续、中途切换 `gameId=uno` 生效
+  - 会话历史校验通过：`GET /api/v1/chat/:sessionId` 返回 `messageCount=6`
+  - 任务状态由“代码完成待手测”更新为“已完成”
+
+- ⏸ T-AN006~T-AN008 调整为未来可选任务
+  - 原因：当前不升级 Render 付费实例，暂不执行平台监控与告警配置
+  - 保留草案：`docs/prd/api/RENDER_MONITORING_BASELINE.md`（后续启用时复用）
+
+- ⏸ T-AN010 调整为未来可选任务
+  - 原因：当前不升级付费能力，暂不执行 Vercel 生产侧可见性验证
+  - 已保留仓库侧准备：字段护栏、测试与 runbook
+
 ### 2026-03-10
 
 - ✅ HIS 规则一致性修复批次（海战/围城/冬季/外交联动）完成并进入待验收
@@ -454,12 +495,12 @@
 
 ### 2026-03-08
 
-- 🔶 T-F123 移动端响应式布局适配代码完成，待验收
+- ✅ T-F123 移动端响应式布局适配代码完成并通过验收
   - 修改 `frontend/src/layout/game-board.js`：新增移动端侧栏抽屉、遮罩层、窗口尺寸监听与 ESC 关闭
   - 修改 `frontend/src/layout/waiting-room.js`：补齐响应式 class，用于窄屏单列堆叠
   - 修改 `frontend/src/theme/default.css`：新增 `@media (max-width: 768px)` 规则，覆盖 GameBoard/WaitingRoom/触摸交互
   - 验证通过：`npm --prefix frontend run test -- --run`（768 tests），`npm --prefix frontend run build`
-  - 待验收：iPhone SE (375px) 到 iPad (768px) 的手动端到端可用性检查
+  - 验收完成：iPhone SE (375px) 到 iPad (768px) 的手动端到端可用性检查
 
 ### 2026-03-01
 
@@ -480,7 +521,7 @@
   - 覆盖: constructor, initialize (含幂等), register, login, logout, updateProfile, onAuthStateChange, isLoggedIn, getCurrentUser, _loadUserProfile fallback
   - 前端测试: 767 通过 (15 suites)
 
-- 🔶 AI 规则问答 Step 2 (RAG-lite) 代码完成 (T-AC009~T-AC013)，待手动测试
+- ✅ AI 规则问答 Step 2 (RAG-lite) 代码完成 (T-AC009~T-AC013)，后续手动测试已在 2026-03-11 完成 (T-AC014)
   - 新增 `api/services/rules-loader.js` — 规则文档加载、Markdown 分块、关键词提取、评分检索
   - 修改 `api/services/chat-service.js` — sendMessage 支持 gameId，system prompt 注入规则上下文
   - 修改 `api/routes/v1/chat.js` — POST 支持 gameId 参数 + GET `/games` 端点

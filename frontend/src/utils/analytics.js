@@ -4,6 +4,10 @@
  */
 
 import { inject, track } from '@vercel/analytics';
+import {
+  isKnownAnalyticsEvent,
+  sanitizeEventProperties
+} from './analytics-events.js';
 
 const ANALYTICS_FLAG = String(import.meta.env.VITE_ANALYTICS_ENABLED || '').toLowerCase();
 const ENV_ANALYTICS_ENABLED = ANALYTICS_FLAG === 'true'
@@ -94,6 +98,11 @@ export function trackEvent(name, properties = {}) {
     return;
   }
 
+  if (!isKnownAnalyticsEvent(name)) {
+    logAnalytics('trackEvent skipped (unknown event)', { name });
+    return;
+  }
+
   if (!isAnalyticsEnabled()) {
     logAnalytics('trackEvent skipped (disabled)', {
       name,
@@ -111,12 +120,20 @@ export function trackEvent(name, properties = {}) {
     return;
   }
 
+  const { sanitized, dropped } = sanitizeEventProperties(name, properties);
+  if (dropped.length > 0) {
+    logAnalytics('trackEvent properties sanitized', {
+      name,
+      dropped
+    });
+  }
+
   try {
     logAnalytics('tracking event', {
       name,
-      properties: sanitizeProperties(properties)
+      properties: sanitized
     });
-    track(name, sanitizeProperties(properties));
+    track(name, sanitized);
   } catch (err) {
     if (import.meta.env.DEV) {
       logAnalytics('tracking failed', {
@@ -126,37 +143,6 @@ export function trackEvent(name, properties = {}) {
       console.warn('Analytics track failed:', err);
     }
   }
-}
-
-/**
- * Keep only top-level primitive properties supported by Vercel Analytics.
- * @param {Record<string, unknown>} input
- * @returns {Record<string, string|number|boolean|null|undefined>}
- */
-function sanitizeProperties(input) {
-  if (!input || typeof input !== 'object') {
-    return {};
-  }
-
-  const output = {};
-  for (const [key, value] of Object.entries(input)) {
-    if (isAllowedValue(value)) {
-      output[key] = value;
-    }
-  }
-  return output;
-}
-
-/**
- * @param {unknown} value
- * @returns {boolean}
- */
-function isAllowedValue(value) {
-  return value === null
-    || value === undefined
-    || typeof value === 'string'
-    || typeof value === 'number'
-    || typeof value === 'boolean';
 }
 
 export default {

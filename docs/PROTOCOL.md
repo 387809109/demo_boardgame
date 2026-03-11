@@ -102,6 +102,8 @@ wss.on('connection', (ws, req) => {
        |<-- 101 -----------------------|                              |
        |--- RECONNECT_REQUEST -------->|                              |
        |<-- RECONNECT_ACCEPTED --------|                              |
+       |                              |--- SNAPSHOT_REQUEST --------->|（房主）
+       |                              |<-- SNAPSHOT_RESPONSE ---------|（房主）
        |<-- GAME_SNAPSHOT -------------|                              |
        |                              |--- PLAYER_RECONNECTED ------->|
        |====== 本地状态恢复并继续对局 ======|                              |
@@ -111,6 +113,7 @@ wss.on('connection', (ws, req) => {
 - 服务器应维护可重连会话窗口（建议 30-120 秒，按房间配置）。
 - 客户端应持久化 `roomId`、`playerId`、`sessionId`（建议 `sessionStorage`）。
 - 超过会话窗口或身份校验失败时，返回 `RECONNECT_REJECTED`，客户端回大厅。
+- `GAME_ACTION` / `GAME_STATE_UPDATE` 不应携带完整 `gameState`（避免隐藏信息泄露）；快照仅在重连时按需下发。
 
 ### 云端模式连接说明（Supabase Realtime）
 
@@ -417,17 +420,10 @@ wss.on('connection', (ws, req) => {
   "timestamp": 1705901100100,
   "playerId": "server",
   "data": {
-    "currentPlayer": "player-2",
     "lastAction": {
       "playerId": "player-1",
       "actionType": "PLAY_CARD",
       "actionData": { "cardId": "red-7" }
-    },
-    "gameState": {
-      // 完整的游戏状态，由前端规则引擎处理
-      "turnNumber": 5,
-      "direction": "clockwise",
-      "gameSpecificData": {}
     }
   }
 }
@@ -618,7 +614,8 @@ wss.on('connection', (ws, req) => {
 
 **方向**: 服务器（或房主权威端）→ 重连客户端
 
-**说明**: 发送恢复所需的最小完整状态。客户端收到后覆盖本地状态并刷新 UI。
+**说明**: 发送恢复所需的最小完整状态。客户端收到后覆盖本地状态并刷新 UI。  
+该消息由房主端收到 `SNAPSHOT_REQUEST` 后回传 `SNAPSHOT_RESPONSE` 生成。
 
 **消息格式**:
 ```json
@@ -639,6 +636,52 @@ wss.on('connection', (ws, req) => {
       "gameSpecificData": {}
     },
     "lastActionId": "act-106"
+  }
+}
+```
+
+---
+
+#### 5.4.1 SNAPSHOT_REQUEST - 快照请求
+
+**方向**: 服务器 → 房主客户端
+
+**说明**: 仅在重连校验通过后发送，要求房主为 `targetPlayerId` 生成可见状态。
+
+**消息格式**:
+```json
+{
+  "type": "SNAPSHOT_REQUEST",
+  "timestamp": 1705902600080,
+  "playerId": "server",
+  "data": {
+    "roomId": "room-abc-123",
+    "targetPlayerId": "player-uuid-123",
+    "requestId": "snap-1705902600080-ab12cd"
+  }
+}
+```
+
+---
+
+#### 5.4.2 SNAPSHOT_RESPONSE - 快照响应
+
+**方向**: 房主客户端 → 服务器
+
+**说明**: 房主返回针对目标玩家的可见状态；服务器校验后转发为 `GAME_SNAPSHOT`。
+
+**消息格式**:
+```json
+{
+  "type": "SNAPSHOT_RESPONSE",
+  "timestamp": 1705902600090,
+  "playerId": "player-host-1",
+  "data": {
+    "roomId": "room-abc-123",
+    "targetPlayerId": "player-uuid-123",
+    "requestId": "snap-1705902600080-ab12cd",
+    "gameSettings": {},
+    "gameState": {}
   }
 }
 ```
@@ -871,7 +914,7 @@ client.on('PLAYER_JOINED', (data) => {
 
 client.on('GAME_STATE_UPDATE', (data) => {
   console.log('游戏状态更新:', data);
-  updateGameUI(data.gameState);
+  applyRemoteAction(data.lastAction);
 });
 
 // 加入房间

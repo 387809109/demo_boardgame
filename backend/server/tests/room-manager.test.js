@@ -401,22 +401,22 @@ describe('RoomManager', () => {
       expect(result.code).toBe('RECONNECT_SESSION_EXPIRED');
     });
 
-    it('should update and return game snapshot', () => {
+    it('should create and consume pending snapshot request', () => {
       manager.joinRoom('room-1', 'host-1', 'Host', 'uno');
       manager.startGame('room-1');
 
-      manager.updateGameSnapshot('room-1', {
-        gameState: { turn: 3 },
-        lastAction: { actionType: 'PLAY_CARD' },
-        lastActionId: 'act-3'
-      });
+      const created = manager.createSnapshotRequest('room-1', 'player-2', 'host-1');
+      expect(created).toBeTruthy();
+      expect(created.requestId).toMatch(/^snap-/);
 
-      const snapshot = manager.getGameSnapshot('room-1');
-      expect(snapshot.roomId).toBe('room-1');
-      expect(snapshot.gameType).toBe('uno');
-      expect(snapshot.gameState).toEqual({ turn: 3 });
-      expect(snapshot.lastAction.actionType).toBe('PLAY_CARD');
-      expect(snapshot.lastActionId).toBe('act-3');
+      const consumed = manager.consumeSnapshotRequest('room-1', 'player-2', created.requestId);
+      expect(consumed).toEqual(expect.objectContaining({
+        requestId: created.requestId,
+        requesterPlayerId: 'host-1'
+      }));
+
+      const consumedAgain = manager.consumeSnapshotRequest('room-1', 'player-2', created.requestId);
+      expect(consumedAgain).toBeNull();
     });
   });
 

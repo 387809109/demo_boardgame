@@ -262,9 +262,9 @@ export function registerAppReconnectMethods(App, deps) {
       };
 
       if (isCloud) {
-        this.network = new CloudNetworkClient(getSupabaseClient());
+        this.network = new CloudNetworkClient(getSupabaseClient(), { enableBatching: true });
       } else {
-        this.network = new NetworkClient(ctx.serverUrl);
+        this.network = new NetworkClient(ctx.serverUrl, { enableBatching: true });
       }
       this.network.playerId = this.playerId;
       this._setupNetworkHandlers();

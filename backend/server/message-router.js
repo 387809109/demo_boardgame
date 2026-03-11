@@ -8,6 +8,11 @@
 import { validateMessage, validateRoomId, validateNickname } from './utils/validator.js';
 import { config } from './config.js';
 import { debug, info, warn, error } from './utils/logger.js';
+import { inflateSync, gunzipSync } from 'zlib';
+import { Broadcaster } from './broadcaster.js';
+
+const NETWORK_BATCH_MESSAGE_TYPE = 'NETWORK_BATCH';
+const NETWORK_BATCH_MAX_MESSAGES = 64;
 
 export class MessageRouter {
   /**
@@ -17,6 +22,85 @@ export class MessageRouter {
   constructor(roomManager, connectionManager) {
     this.roomManager = roomManager;
     this.connectionManager = connectionManager;
+    this.broadcaster = new Broadcaster(connectionManager, roomManager);
+  }
+
+  /**
+   * Decode and normalize batch messages from client
+   * @param {Object} message
+   * @param {string} connId
+   * @returns {Array<Object>}
+   * @private
+   */
+  _resolveBatchMessages(message) {
+    const payload = message?.data;
+    if (!payload || typeof payload !== 'object') {
+      return [];
+    }
+
+    let messages = payload.messages;
+    if (!Array.isArray(messages) && payload.compressed) {
+      messages = this._decompressBatchPayload(payload);
+    }
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return [];
+    }
+    if (messages.length > NETWORK_BATCH_MAX_MESSAGES) {
+      return [];
+    }
+
+    const parentPlayerId = message.playerId || 'unknown';
+    const normalized = [];
+    for (const item of messages) {
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
+      if (item.type === NETWORK_BATCH_MESSAGE_TYPE) {
+        continue;
+      }
+
+      normalized.push({
+        ...item,
+        playerId: item.playerId || parentPlayerId,
+        timestamp: item.timestamp || Date.now()
+      });
+    }
+
+    return normalized;
+  }
+
+  /**
+   * Decompress compressed batch payload.
+   * @param {Object} payload
+   * @returns {Array<Object>|null}
+   * @private
+   */
+  _decompressBatchPayload(payload) {
+    try {
+      const encoding = payload.encoding || 'gzip';
+      if (encoding !== 'gzip' && encoding !== 'deflate') {
+        return null;
+      }
+      const compressedPayload = payload.payload;
+      if (!compressedPayload || typeof compressedPayload !== 'string') {
+        return null;
+      }
+
+      const buffer = Buffer.from(compressedPayload, 'base64');
+      const decoded = encoding === 'gzip'
+        ? gunzipSync(buffer)
+        : inflateSync(buffer);
+      const decodedText = decoded.toString();
+      const parsed = JSON.parse(decodedText);
+      if (Array.isArray(parsed?.data?.messages)) {
+        return parsed.data.messages;
+      }
+      return Array.isArray(parsed?.messages) ? parsed.messages : null;
+    } catch (err) {
+      error('Failed to decompress NETWORK_BATCH payload', { error: err.message });
+      return null;
+    }
   }
 
   /**
@@ -25,6 +109,28 @@ export class MessageRouter {
    * @param {object} message - Parsed message object
    */
   route(connId, message) {
+    if (!message || typeof message !== 'object') {
+      this.sendError(connId, 'unknown', 'INVALID_MESSAGE_FORMAT', 'Message must be an object', 'error');
+      return;
+    }
+
+    if (message.type === NETWORK_BATCH_MESSAGE_TYPE) {
+      const queued = this._resolveBatchMessages(message);
+      if (!queued.length) {
+        this.sendError(
+          connId,
+          message.playerId || 'unknown',
+          'INVALID_MESSAGE_FORMAT',
+          'Invalid network batch payload',
+          'error'
+        );
+        return;
+      }
+
+      queued.forEach((queuedMessage) => this.route(connId, queuedMessage));
+      return;
+    }
+
     // Validate message format
     const validation = validateMessage(message);
     if (!validation.valid) {
@@ -69,6 +175,9 @@ export class MessageRouter {
         break;
       case 'RECONNECT_REQUEST':
         this.handleReconnectRequest(connId, playerId, data);
+        break;
+      case 'SNAPSHOT_RESPONSE':
+        this.handleSnapshotResponse(connId, playerId, data);
         break;
       case 'PING':
         this.handlePing(connId, playerId);
@@ -210,11 +319,6 @@ export class MessageRouter {
       }
     });
 
-    this.roomManager.updateGameSnapshot(roomId, {
-      gameState: startPayload.initialState || null,
-      lastAction: null,
-      lastActionId: null
-    });
   }
 
   /**
@@ -261,20 +365,8 @@ export class MessageRouter {
           playerId: actionPlayerId,
           actionType: data?.actionType,
           actionData: data?.actionData
-        },
-        // Pass through any game state from the sender
-        gameState: data?.gameState
+        }
       }
-    });
-
-    this.roomManager.updateGameSnapshot(roomId, {
-      gameState: data?.gameState ?? null,
-      lastAction: {
-        playerId: actionPlayerId,
-        actionType: data?.actionType,
-        actionData: data?.actionData
-      },
-      lastActionId: Date.now().toString()
     });
   }
 
@@ -314,6 +406,15 @@ export class MessageRouter {
       return;
     }
 
+    // Non-host reconnect requires an online host to provide on-demand snapshot.
+    if (room.host !== playerId) {
+      const hostSocket = this.connectionManager.getConnection(room.host);
+      if (!hostSocket || hostSocket.readyState !== 1) {
+        this._sendReconnectRejected(connId, playerId, 'HOST_DISCONNECTED', 'Host is disconnected, snapshot unavailable');
+        return;
+      }
+    }
+
     const reconnectResult = this.roomManager.reconnectPlayer(roomId, playerId, sessionId);
     if (!reconnectResult.success) {
       this._sendReconnectRejected(
@@ -335,13 +436,17 @@ export class MessageRouter {
       }
     });
 
-    const snapshot = this.roomManager.getGameSnapshot(roomId);
-    if (snapshot) {
-      this._sendToConnection(connId, {
-        type: 'GAME_SNAPSHOT',
+    const snapshotRequest = this.roomManager.createSnapshotRequest(roomId, playerId, room.host);
+    if (snapshotRequest) {
+      this.sendToPlayer(room.host, {
+        type: 'SNAPSHOT_REQUEST',
         timestamp: Date.now(),
         playerId: 'server',
-        data: snapshot
+        data: {
+          roomId,
+          targetPlayerId: playerId,
+          requestId: snapshotRequest.requestId
+        }
       });
     }
 
@@ -369,6 +474,75 @@ export class MessageRouter {
         data: returnStatus
       });
     }
+  }
+
+  /**
+   * Handle SNAPSHOT_RESPONSE from host and forward to reconnect target.
+   * @param {string} connId - Connection ID
+   * @param {string} playerId - Sender player ID
+   * @param {object} data - Message data
+   */
+  handleSnapshotResponse(connId, playerId, data) {
+    const { roomId, targetPlayerId, requestId, gameState, gameSettings } = data || {};
+
+    const roomValidation = validateRoomId(roomId);
+    if (!roomValidation.valid) {
+      this.sendError(connId, playerId, 'INVALID_MESSAGE_FORMAT', roomValidation.error, 'error');
+      return;
+    }
+
+    if (!targetPlayerId || typeof targetPlayerId !== 'string') {
+      this.sendError(connId, playerId, 'INVALID_MESSAGE_FORMAT', 'targetPlayerId is required', 'error');
+      return;
+    }
+
+    if (!gameState || typeof gameState !== 'object') {
+      this.sendError(connId, playerId, 'INVALID_MESSAGE_FORMAT', 'gameState is required', 'error');
+      return;
+    }
+
+    const senderRoomId = this.roomManager.findPlayerRoom(playerId);
+    if (senderRoomId !== roomId) {
+      this.sendError(connId, playerId, 'PERMISSION_DENIED', 'Snapshot sender is not in target room', 'error');
+      return;
+    }
+
+    if (!this.roomManager.isHost(roomId, playerId)) {
+      this.sendError(connId, playerId, 'PERMISSION_DENIED', 'Only host can send snapshot response', 'error');
+      return;
+    }
+
+    const pendingRequest = this.roomManager.consumeSnapshotRequest(roomId, targetPlayerId, requestId || null);
+    if (!pendingRequest) {
+      this.sendError(connId, playerId, 'INVALID_ACTION', 'No pending snapshot request for target player', 'warning');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(roomId);
+    if (!room) {
+      this.sendError(connId, playerId, 'GAME_NOT_FOUND', 'Room not found', 'warning');
+      return;
+    }
+
+    const outboundSettings = gameSettings && typeof gameSettings === 'object'
+      ? gameSettings
+      : this.roomManager.getGameSettings(roomId);
+    this.sendToPlayer(targetPlayerId, {
+      type: 'GAME_SNAPSHOT',
+      timestamp: Date.now(),
+      playerId: 'server',
+      data: {
+        roomId,
+        gameType: room.gameType,
+        players: room.players.map(p => ({
+          id: p.id,
+          nickname: p.nickname,
+          isHost: p.isHost
+        })),
+        gameSettings: outboundSettings,
+        gameState
+      }
+    });
   }
 
   /**
@@ -702,23 +876,7 @@ export class MessageRouter {
    * @param {string} [excludePlayerId] - Player to exclude
    */
   broadcast(roomId, message, excludePlayerId = null) {
-    const players = this.roomManager.getPlayers(roomId);
-    const messageStr = JSON.stringify(message);
-
-    for (const player of players) {
-      if (player.id === excludePlayerId) {
-        continue;
-      }
-
-      const ws = this.connectionManager.getConnection(player.id);
-      if (ws && ws.readyState === 1) { // WebSocket.OPEN
-        try {
-          ws.send(messageStr);
-        } catch (err) {
-          error('Failed to send message to player', { playerId: player.id, error: err.message });
-        }
-      }
-    }
+    this.broadcaster.broadcastToRoom(roomId, message, excludePlayerId);
   }
 
   /**
@@ -727,14 +885,7 @@ export class MessageRouter {
    * @param {object} message - Message to send
    */
   sendToPlayer(playerId, message) {
-    const ws = this.connectionManager.getConnection(playerId);
-    if (ws && ws.readyState === 1) {
-      try {
-        ws.send(JSON.stringify(message));
-      } catch (err) {
-        error('Failed to send message to player', { playerId, error: err.message });
-      }
-    }
+    this.broadcaster.broadcastToPlayer(playerId, message);
   }
 
   /**
