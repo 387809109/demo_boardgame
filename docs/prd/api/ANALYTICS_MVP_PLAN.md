@@ -27,7 +27,7 @@ Completed in repository:
 Pending outside repository code:
 - Enable Web Analytics in Vercel Dashboard for frontend project
 - Set production env `VITE_ANALYTICS_ENABLED=true` and redeploy
-- Validate production custom events visibility in Vercel Analytics
+- Optional future: validate production custom events visibility in Vercel Analytics (after paid upgrade)
 - Use `AN010_PROD_VALIDATION_RUNBOOK.md` for final production sign-off
 - Optional future: configure Render/Supabase monitoring baseline and alert thresholds (after paid upgrade)
 

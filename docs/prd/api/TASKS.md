@@ -18,7 +18,7 @@
 | Phase A7: AI/MCP 接口 | ⬜ 待开发 | AI 分析、走法建议、MCP 工具 |
 | Phase AC1~AC3: AI 对话 Step 1 | ✅ 完成 | AI 规则问答核心 (50 个测试通过) |
 | Phase AC4: AI 对话 Step 2 | ✅ 完成 | 规则知识库增强 (RAG-lite)，49 个新测试通过，手动端到端测试已完成 |
-| Phase AN: Analytics MVP | 🔶 进行中 | Vercel 前端埋点已落地；AN2 平台监控项调整为未来可选（需付费能力） |
+| Phase AN: Analytics MVP | 🔶 进行中 | Vercel 前端埋点已落地；AN2 与 T-AN010 调整为未来可选（需付费能力） |
 
 ---
 
@@ -245,7 +245,8 @@
 ### AN3: 验证与发布门禁
 
 - [x] **T-AN009** 前端埋点回归验证（`npm --prefix frontend run build` + `npm --prefix frontend run test`）
-- [ ] **T-AN010** 在 Vercel 生产环境验证自定义事件可见性与字段合规（进行中：待生产实测）
+- [ ] **T-AN010** 在 Vercel 生产环境验证自定义事件可见性与字段合规 `[未来可选]`
+  - 说明：当前不升级付费能力，暂缓生产侧验证
   - 已完成仓库侧准备：事件字段白名单护栏 `frontend/src/utils/analytics-events.js`
   - 已完成测试：`frontend/src/utils/analytics-events.test.js`
   - 验收手册：`docs/prd/api/AN010_PROD_VALIDATION_RUNBOOK.md`

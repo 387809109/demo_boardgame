@@ -1,7 +1,7 @@
 # T-AN010 Production Validation Runbook
 
 > Task: T-AN010  
-> Status: In Progress (repo-side preparation complete)  
+> Status: Future Optional (repo-side preparation complete)  
 > Date: 2026-03-11  
 > Scope: Validate Vercel production analytics event visibility and field compliance.
 
@@ -94,4 +94,3 @@ T-AN010 can be marked done only when all are true:
 2. Property keys match schema.
 3. No forbidden fields observed.
 4. Evidence captured in task notes.
-
