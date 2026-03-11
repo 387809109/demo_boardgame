@@ -451,7 +451,7 @@
   - utils/storage.js (39 tests)
   - utils/validators.js (75 tests)
 
-- [ ] **T-F112** 编写集成测试
+- [x] **T-F112** 编写集成测试 (27 tests) ✅
   - 游戏流程测试
   - 网络通信测试
 
