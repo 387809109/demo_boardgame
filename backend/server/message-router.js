@@ -9,6 +9,7 @@ import { validateMessage, validateRoomId, validateNickname } from './utils/valid
 import { config } from './config.js';
 import { debug, info, warn, error } from './utils/logger.js';
 import { inflateSync, gunzipSync } from 'zlib';
+import { Broadcaster } from './broadcaster.js';
 
 const NETWORK_BATCH_MESSAGE_TYPE = 'NETWORK_BATCH';
 const NETWORK_BATCH_MAX_MESSAGES = 64;
@@ -21,6 +22,7 @@ export class MessageRouter {
   constructor(roomManager, connectionManager) {
     this.roomManager = roomManager;
     this.connectionManager = connectionManager;
+    this.broadcaster = new Broadcaster(connectionManager, roomManager);
   }
 
   /**
@@ -806,23 +808,7 @@ export class MessageRouter {
    * @param {string} [excludePlayerId] - Player to exclude
    */
   broadcast(roomId, message, excludePlayerId = null) {
-    const players = this.roomManager.getPlayers(roomId);
-    const messageStr = JSON.stringify(message);
-
-    for (const player of players) {
-      if (player.id === excludePlayerId) {
-        continue;
-      }
-
-      const ws = this.connectionManager.getConnection(player.id);
-      if (ws && ws.readyState === 1) { // WebSocket.OPEN
-        try {
-          ws.send(messageStr);
-        } catch (err) {
-          error('Failed to send message to player', { playerId: player.id, error: err.message });
-        }
-      }
-    }
+    this.broadcaster.broadcastToRoom(roomId, message, excludePlayerId);
   }
 
   /**
@@ -831,14 +817,7 @@ export class MessageRouter {
    * @param {object} message - Message to send
    */
   sendToPlayer(playerId, message) {
-    const ws = this.connectionManager.getConnection(playerId);
-    if (ws && ws.readyState === 1) {
-      try {
-        ws.send(JSON.stringify(message));
-      } catch (err) {
-        error('Failed to send message to player', { playerId, error: err.message });
-      }
-    }
+    this.broadcaster.broadcastToPlayer(playerId, message);
   }
 
   /**

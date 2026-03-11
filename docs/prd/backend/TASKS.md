@@ -420,7 +420,7 @@
 
 ### 5.1 广播器
 
-- [ ] **T-B100** 创建广播器 `broadcaster.js`
+- [x] **T-B100** 创建广播器 `broadcaster.js`
   ```javascript
   class Broadcaster {
     constructor(connectionManager)
@@ -430,14 +430,14 @@
   }
   ```
 
-- [ ] **T-B101** 实现排除发送者广播
+- [x] **T-B101** 实现排除发送者广播
   - 避免操作者收到自己的操作
 
 ---
 
 ### 5.2 消息队列 (可选)
 
-- [ ] **T-B102** 实现消息队列
+- [x] **T-B102** 实现消息队列
   - 防止消息堆积
   - 批量发送优化
 
