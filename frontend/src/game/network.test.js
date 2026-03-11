@@ -311,6 +311,90 @@ describe('NetworkClient', () => {
     });
   });
 
+  describe('batching optimization', () => {
+    it('should batch GAME_ACTION messages when batching is enabled', async () => {
+      vi.useFakeTimers();
+      client = new NetworkClient('ws://localhost:7777', {
+        enableBatching: true,
+        batchIntervalMs: 20
+      });
+
+      const connectPromise = client.connect();
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      client.sendGameAction('playCard', { cardId: '1' });
+      client.sendGameAction('drawCard', { amount: 1 });
+
+      expect(mockWs.lastSent).toBeNull();
+
+      vi.advanceTimersByTime(25);
+      await Promise.resolve();
+
+      const sent = JSON.parse(mockWs.lastSent);
+      expect(sent.type).toBe('NETWORK_BATCH');
+      expect(sent.data.messageCount).toBe(2);
+      expect(sent.data.messages).toHaveLength(2);
+      expect(sent.data.messages[0].type).toBe('GAME_ACTION');
+      expect(sent.data.messages[1].type).toBe('GAME_ACTION');
+    });
+
+    it('should flush batch early when max batch size is reached', async () => {
+      vi.useFakeTimers();
+      client = new NetworkClient('ws://localhost:7777', {
+        enableBatching: true,
+        batchIntervalMs: 1000,
+        batchMaxMessages: 2
+      });
+
+      const connectPromise = client.connect();
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      client.sendChat('hello');
+      client.sendChat('world');
+      await Promise.resolve();
+
+      const sent = JSON.parse(mockWs.lastSent);
+      expect(sent.type).toBe('NETWORK_BATCH');
+      expect(sent.data.messageCount).toBe(2);
+      expect(sent.data.messages[0].type).toBe('CHAT_MESSAGE');
+      expect(sent.data.messages[1].type).toBe('CHAT_MESSAGE');
+    });
+
+    it('should dispatch incoming NETWORK_BATCH payload', async () => {
+      const handler = vi.fn();
+      client.onMessage('PLAYER_JOINED', handler);
+
+      const connectPromise = client.connect();
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      mockWs.simulateMessage({
+        type: 'NETWORK_BATCH',
+        playerId: 'server',
+        timestamp: Date.now(),
+        data: {
+          messageCount: 1,
+          messages: [
+            {
+              type: 'PLAYER_JOINED',
+              timestamp: Date.now(),
+              playerId: 'server',
+              data: { playerCount: 2 }
+            }
+          ]
+        }
+      });
+      await Promise.resolve();
+
+      expect(handler).toHaveBeenCalledWith(
+        { playerCount: 2 },
+        expect.objectContaining({ type: 'PLAYER_JOINED' })
+      );
+    });
+  });
+
   describe('onMessage', () => {
     it('should register message handler', () => {
       const handler = vi.fn();

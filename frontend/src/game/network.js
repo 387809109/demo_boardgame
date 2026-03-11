@@ -4,6 +4,15 @@
  */
 
 import { EventEmitter } from '../utils/event-emitter.js';
+import {
+  createBatchEnvelope,
+  compressText,
+  resolveBatchPayload,
+  NETWORK_BATCH_INTERVAL_MS,
+  NETWORK_BATCH_MAX_MESSAGES,
+  NETWORK_BATCH_MESSAGE_TYPE,
+  DEFAULT_BATCH_TYPES
+} from '../utils/network-optimizer.js';
 
 const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 const HEARTBEAT_TIMEOUT = 10000;  // 10 seconds to wait for pong
@@ -16,7 +25,7 @@ export class NetworkClient extends EventEmitter {
   /**
    * @param {string} serverUrl - WebSocket server URL (e.g., ws://192.168.1.100:7777)
    */
-  constructor(serverUrl) {
+  constructor(serverUrl, options = {}) {
     super();
 
     /** @type {string} */
@@ -45,6 +54,30 @@ export class NetworkClient extends EventEmitter {
 
     /** @type {number} */
     this._lastPingTime = 0;
+
+    /** @type {number|null} */
+    this._batchFlushTimer = null;
+
+    /** @type {Array<Object>} */
+    this._batchQueue = [];
+
+    /** @type {boolean} */
+    this._optimizeBatching = options.enableBatching === true;
+
+    /** @type {Set<string>} */
+    this._batchMessageTypes = new Set(
+      options.batchMessageTypes || Array.from(DEFAULT_BATCH_TYPES)
+    );
+
+    /** @type {number} */
+    this._batchIntervalMs = Number.isFinite(options.batchIntervalMs) && options.batchIntervalMs > 0
+      ? options.batchIntervalMs
+      : NETWORK_BATCH_INTERVAL_MS;
+
+    /** @type {number} */
+    this._batchMaxMessages = Number.isFinite(options.batchMaxMessages) && options.batchMaxMessages > 0
+      ? options.batchMaxMessages
+      : NETWORK_BATCH_MAX_MESSAGES;
   }
 
   /**
@@ -78,6 +111,7 @@ export class NetworkClient extends EventEmitter {
         this.ws.onclose = (event) => {
           console.log('Disconnected from server', event.code, event.reason);
           this.connected = false;
+          this._clearBatchQueue();
           this._stopHeartbeat();
           this.emit('disconnected', { code: event.code, reason: event.reason });
         };
@@ -111,12 +145,12 @@ export class NetworkClient extends EventEmitter {
       data
     };
 
-    try {
-      this.ws.send(JSON.stringify(message));
-    } catch (err) {
-      console.error('Failed to send message:', err);
-      this.emit('error', err);
+    if (this._shouldBatchMessage(type)) {
+      this._enqueueBatchMessage(message);
+      return;
     }
+
+    this._sendRawMessage(message);
   }
 
   /**
@@ -142,6 +176,7 @@ export class NetworkClient extends EventEmitter {
    */
   disconnect() {
     this._stopHeartbeat();
+    this._clearBatchQueue();
 
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect');
@@ -233,6 +268,142 @@ export class NetworkClient extends EventEmitter {
 
     const { type, data } = message;
 
+    if (type === NETWORK_BATCH_MESSAGE_TYPE) {
+      void this._handleBatchedMessage(data);
+      return;
+    }
+
+    // Handle PONG specially for latency calculation
+    if (type === 'PONG') {
+      this._handlePong(message);
+      return;
+    }
+
+    this._dispatchMessage(message);
+  }
+
+  /**
+   * Decode and dispatch NETWORK_BATCH messages
+   * @param {Object} data
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _handleBatchedMessage(data) {
+    const messages = await resolveBatchPayload(data);
+    if (!Array.isArray(messages)) {
+      return;
+    }
+
+    for (const message of messages) {
+      if (!message || typeof message !== 'object') {
+        continue;
+      }
+
+      this._dispatchMessage(message);
+    }
+  }
+
+  /**
+   * Determine whether a message type should be batched.
+   * @param {string} type
+   * @returns {boolean}
+   * @private
+   */
+  _shouldBatchMessage(type) {
+    return !!(
+      this._optimizeBatching
+      && this._batchMessageTypes.has(type)
+      && typeof type === 'string'
+    );
+  }
+
+  /**
+   * Add message to batch queue and schedule flush.
+   * @param {Object} message
+   * @private
+   */
+  _enqueueBatchMessage(message) {
+    this._batchQueue.push(message);
+
+    if (this._batchQueue.length >= this._batchMaxMessages) {
+      void this._flushBatch();
+      return;
+    }
+
+    if (!this._batchFlushTimer) {
+      this._batchFlushTimer = setTimeout(() => {
+        void this._flushBatch();
+      }, this._batchIntervalMs);
+    }
+  }
+
+  /**
+   * Flush queued batch messages with optional compression.
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _flushBatch() {
+    if (!this._batchQueue.length) {
+      this._clearBatchTimer();
+      return;
+    }
+
+    const messages = this._batchQueue.splice(0, this._batchQueue.length);
+    const envelope = createBatchEnvelope(messages);
+    let payload = envelope;
+
+    try {
+      const rawEnvelope = JSON.stringify(envelope);
+      const compressed = await compressText(rawEnvelope);
+      if (compressed) {
+        payload = {
+          ...envelope,
+          data: {
+            messageCount: envelope.data.messageCount,
+            compressed: true,
+            encoding: compressed.encoding,
+            payload: compressed.payload,
+            originalLength: compressed.originalLength
+          }
+        };
+      }
+      this._sendRawMessage(payload);
+    } catch (err) {
+      console.error('Failed to flush batch:', err);
+      this._sendRawMessage(envelope);
+    } finally {
+      this._clearBatchTimer();
+    }
+  }
+
+  /**
+   * Send one message through websocket.
+   * @param {Object} message
+   * @private
+   */
+  _sendRawMessage(message) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.error('Cannot send message: not connected');
+      this.emit('error', new Error('Not connected to server'));
+      return;
+    }
+
+    try {
+      this.ws.send(JSON.stringify(message));
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      this.emit('error', err);
+    }
+  }
+
+  /**
+   * Dispatch message to handlers and general events.
+   * @param {Object} message
+   * @private
+   */
+  _dispatchMessage(message) {
+    const { type, data } = message;
+
     // Handle PONG specially for latency calculation
     if (type === 'PONG') {
       this._handlePong(message);
@@ -244,7 +415,6 @@ export class NetworkClient extends EventEmitter {
       this._handleError(message);
     }
 
-    // Call registered handlers
     const handlers = this.messageHandlers.get(type);
     if (handlers) {
       handlers.forEach(handler => {
@@ -256,9 +426,28 @@ export class NetworkClient extends EventEmitter {
       });
     }
 
-    // Emit event for general listeners
     this.emit('message', message);
     this.emit(`message:${type}`, data, message);
+  }
+
+  /**
+   * Clear batch timers and queued messages.
+   * @private
+   */
+  _clearBatchQueue() {
+    this._clearBatchTimer();
+    this._batchQueue = [];
+  }
+
+  /**
+   * Clear current batch timer.
+   * @private
+   */
+  _clearBatchTimer() {
+    if (this._batchFlushTimer) {
+      clearTimeout(this._batchFlushTimer);
+      this._batchFlushTimer = null;
+    }
   }
 
   /**

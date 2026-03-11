@@ -328,6 +328,72 @@ describe('CloudNetworkClient', () => {
     });
   });
 
+  describe('batching optimization', () => {
+    it('should send NETWORK_BATCH for queued GAME_ACTION messages', async () => {
+      client = new CloudNetworkClient(supabase, {
+        enableBatching: true,
+        batchIntervalMs: 20
+      });
+      client.playerId = 'player-1';
+      client.joinRoom('room-1', 'Alice', 'uno');
+      const ch = latestChannel(channels);
+
+      client.sendGameAction('play', { card: 1 });
+      client.sendGameAction('draw', { count: 1 });
+
+      expect(ch.send).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(25);
+      await Promise.resolve();
+
+      expect(ch.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'NETWORK_BATCH',
+          payload: expect.objectContaining({
+            type: 'NETWORK_BATCH',
+            data: expect.objectContaining({ messageCount: 2 })
+          })
+        })
+      );
+    });
+
+    it('should dispatch NETWORK_BATCH broadcasts into regular handlers', async () => {
+      client.playerId = 'player-1';
+      client.joinRoom('room-1', 'Alice', 'uno');
+      const ch = latestChannel(channels);
+
+      const handler = vi.fn();
+      client.onMessage('GAME_STATE_UPDATE', handler);
+
+      ch._simulateBroadcast('NETWORK_BATCH', {
+        type: 'NETWORK_BATCH',
+        playerId: 'server',
+        timestamp: Date.now(),
+        data: {
+          messageCount: 1,
+          messages: [
+            {
+              type: 'GAME_ACTION',
+              playerId: 'player-2',
+              timestamp: Date.now(),
+              data: { actionType: 'play', actionData: { card: 5 } }
+            }
+          ]
+        }
+      });
+      await Promise.resolve();
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lastAction: expect.objectContaining({
+            playerId: 'player-2',
+            actionType: 'play'
+          })
+        }),
+        expect.any(Object)
+      );
+    });
+  });
+
   // ── requestReconnect ───────────────────────────────────
 
   describe('requestReconnect', () => {

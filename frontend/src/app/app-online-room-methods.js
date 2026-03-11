@@ -212,9 +212,9 @@ export function registerAppOnlineRoomMethods(App, deps) {
           this._refreshSessionId();
         }
         if (this.mode === 'cloud') {
-          this.network = new CloudNetworkClient(getSupabaseClient());
+          this.network = new CloudNetworkClient(getSupabaseClient(), { enableBatching: true });
         } else {
-          this.network = new NetworkClient(serverUrl);
+          this.network = new NetworkClient(serverUrl, { enableBatching: true });
         }
         this.network.playerId = this.playerId;
 
@@ -268,9 +268,9 @@ export function registerAppOnlineRoomMethods(App, deps) {
           this._refreshSessionId();
         }
         if (this.mode === 'cloud') {
-          this.network = new CloudNetworkClient(getSupabaseClient());
+          this.network = new CloudNetworkClient(getSupabaseClient(), { enableBatching: true });
         } else {
-          this.network = new NetworkClient(serverUrl);
+          this.network = new NetworkClient(serverUrl, { enableBatching: true });
         }
         this.network.playerId = this.playerId;
 

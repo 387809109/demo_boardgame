@@ -35,7 +35,7 @@ describe('Validators', () => {
     });
 
     it('should accept all client message types', () => {
-      const types = ['JOIN', 'LEAVE', 'START_GAME', 'GAME_ACTION', 'CHAT_MESSAGE', 'PING'];
+      const types = ['JOIN', 'LEAVE', 'START_GAME', 'GAME_ACTION', 'CHAT_MESSAGE', 'PING', 'NETWORK_BATCH'];
       types.forEach(type => {
         const result = validateMessage({ ...validMessage, type });
         expect(result.valid).toBe(true);

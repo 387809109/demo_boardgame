@@ -6,7 +6,7 @@
 /**
  * Valid message types from client
  */
-const CLIENT_MESSAGE_TYPES = ['JOIN', 'LEAVE', 'START_GAME', 'GAME_ACTION', 'CHAT_MESSAGE', 'PING'];
+const CLIENT_MESSAGE_TYPES = ['JOIN', 'LEAVE', 'START_GAME', 'GAME_ACTION', 'CHAT_MESSAGE', 'PING', 'NETWORK_BATCH'];
 
 /**
  * Valid message types from server

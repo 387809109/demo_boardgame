@@ -100,7 +100,7 @@
 | 任务 ID | 描述 | 状态 |
 |---------|------|------|
 | T-F100 | 渲染性能优化 | ✅ |
-| T-F101 | 网络性能优化 | ⬜ |
+| T-F101 | 网络性能优化 | ✅ |
 | T-F102 | 资源加载优化 | ✅ |
 | T-F110 | 核心模块单元测试 (165 tests) | ✅ |
 | T-F111 | 工具函数测试 (114 tests) | ✅ |
@@ -429,8 +429,7 @@
 
 12. **使用 crypto.randomUUID 生成 sessionId** - 增强会话安全性 (T-B120)
 13. **狼人杀 P2-P3 角色** - 高级及扩展角色 (T-F078, T-F079)
-14. **网络性能优化** - 消息压缩、批量发送 (T-F101)
-15. **主动退出后短时可恢复对局** - 退出后保留短窗口恢复能力（与真正退房语义区分）
+14. **主动退出后短时可恢复对局** - 退出后保留短窗口恢复能力（与真正退房语义区分）
 
 ### 可选功能 (Optional)
 
@@ -444,6 +443,12 @@
 ## 最近完成的任务
 
 ### 2026-03-11
+
+- ✅ T-F101 网络性能优化完成
+  - 本地 WebSocket 与云端 Realtime 客户端新增批量发送（`NETWORK_BATCH`）节流机制
+  - 支持可选压缩传输（`gzip/deflate`）及批量解包，保持协议向后兼容
+  - 后端消息路由与校验新增 `NETWORK_BATCH` 支持并补充单元测试
+  - 新增/更新测试：`frontend/src/game/network.test.js`、`frontend/src/cloud/cloud-network.test.js`、`backend/server/tests/message-router.test.js`
 
 - ✅ T-F112 集成测试完成
   - 新增 `frontend/src/app/app.integration.test.js`，覆盖 27 条用例

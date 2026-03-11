@@ -8,6 +8,10 @@
 import { validateMessage, validateRoomId, validateNickname } from './utils/validator.js';
 import { config } from './config.js';
 import { debug, info, warn, error } from './utils/logger.js';
+import { inflateSync, gunzipSync } from 'zlib';
+
+const NETWORK_BATCH_MESSAGE_TYPE = 'NETWORK_BATCH';
+const NETWORK_BATCH_MAX_MESSAGES = 64;
 
 export class MessageRouter {
   /**
@@ -20,11 +24,111 @@ export class MessageRouter {
   }
 
   /**
+   * Decode and normalize batch messages from client
+   * @param {Object} message
+   * @param {string} connId
+   * @returns {Array<Object>}
+   * @private
+   */
+  _resolveBatchMessages(message) {
+    const payload = message?.data;
+    if (!payload || typeof payload !== 'object') {
+      return [];
+    }
+
+    let messages = payload.messages;
+    if (!Array.isArray(messages) && payload.compressed) {
+      messages = this._decompressBatchPayload(payload);
+    }
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return [];
+    }
+    if (messages.length > NETWORK_BATCH_MAX_MESSAGES) {
+      return [];
+    }
+
+    const parentPlayerId = message.playerId || 'unknown';
+    const normalized = [];
+    for (const item of messages) {
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
+      if (item.type === NETWORK_BATCH_MESSAGE_TYPE) {
+        continue;
+      }
+
+      normalized.push({
+        ...item,
+        playerId: item.playerId || parentPlayerId,
+        timestamp: item.timestamp || Date.now()
+      });
+    }
+
+    return normalized;
+  }
+
+  /**
+   * Decompress compressed batch payload.
+   * @param {Object} payload
+   * @returns {Array<Object>|null}
+   * @private
+   */
+  _decompressBatchPayload(payload) {
+    try {
+      const encoding = payload.encoding || 'gzip';
+      if (encoding !== 'gzip' && encoding !== 'deflate') {
+        return null;
+      }
+      const compressedPayload = payload.payload;
+      if (!compressedPayload || typeof compressedPayload !== 'string') {
+        return null;
+      }
+
+      const buffer = Buffer.from(compressedPayload, 'base64');
+      const decoded = encoding === 'gzip'
+        ? gunzipSync(buffer)
+        : inflateSync(buffer);
+      const decodedText = decoded.toString();
+      const parsed = JSON.parse(decodedText);
+      if (Array.isArray(parsed?.data?.messages)) {
+        return parsed.data.messages;
+      }
+      return Array.isArray(parsed?.messages) ? parsed.messages : null;
+    } catch (err) {
+      error('Failed to decompress NETWORK_BATCH payload', { error: err.message });
+      return null;
+    }
+  }
+
+  /**
    * Route incoming message to appropriate handler
    * @param {string} connId - Connection ID
    * @param {object} message - Parsed message object
    */
   route(connId, message) {
+    if (!message || typeof message !== 'object') {
+      this.sendError(connId, 'unknown', 'INVALID_MESSAGE_FORMAT', 'Message must be an object', 'error');
+      return;
+    }
+
+    if (message.type === NETWORK_BATCH_MESSAGE_TYPE) {
+      const queued = this._resolveBatchMessages(message);
+      if (!queued.length) {
+        this.sendError(
+          connId,
+          message.playerId || 'unknown',
+          'INVALID_MESSAGE_FORMAT',
+          'Invalid network batch payload',
+          'error'
+        );
+        return;
+      }
+
+      queued.forEach((queuedMessage) => this.route(connId, queuedMessage));
+      return;
+    }
+
     // Validate message format
     const validation = validateMessage(message);
     if (!validation.valid) {

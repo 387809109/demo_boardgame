@@ -8,6 +8,7 @@ import { MessageRouter } from '../message-router.js';
 import { RoomManager } from '../room-manager.js';
 import { ConnectionManager } from '../connection-manager.js';
 import { config } from '../config.js';
+import { gzipSync } from 'zlib';
 
 describe('MessageRouter', () => {
   let router;
@@ -77,6 +78,82 @@ describe('MessageRouter', () => {
         type: 'UNKNOWN',
         timestamp: Date.now(),
         playerId: 'player-1'
+      });
+
+      expect(sentMessages.length).toBe(1);
+      expect(sentMessages[0].type).toBe('ERROR');
+      expect(sentMessages[0].data.code).toBe('INVALID_MESSAGE_FORMAT');
+    });
+
+    it('should unpack NETWORK_BATCH and route nested messages', () => {
+      const connId = connectionManager.addConnection(mockWs);
+
+      router.route(connId, {
+        type: 'NETWORK_BATCH',
+        timestamp: Date.now(),
+        playerId: 'player-1',
+        data: {
+          messageCount: 1,
+          messages: [
+            {
+              type: 'PING',
+              timestamp: Date.now(),
+              playerId: 'player-1',
+              data: {}
+            }
+          ]
+        }
+      });
+
+      expect(sentMessages.length).toBe(1);
+      expect(sentMessages[0].type).toBe('PONG');
+      expect(sentMessages[0].playerId).toBe('player-1');
+    });
+
+    it('should unpack compressed NETWORK_BATCH payload', () => {
+      const connId = connectionManager.addConnection(mockWs);
+      const compressedPayload = gzipSync(Buffer.from(JSON.stringify({
+        data: {
+          messages: [
+            {
+              type: 'PING',
+              timestamp: Date.now(),
+              playerId: 'player-1',
+              data: {}
+            }
+          ]
+        }
+      }))).toString('base64');
+
+      router.route(connId, {
+        type: 'NETWORK_BATCH',
+        timestamp: Date.now(),
+        playerId: 'player-1',
+        data: {
+          messageCount: 1,
+          compressed: true,
+          encoding: 'gzip',
+          payload: compressedPayload
+        }
+      });
+
+      expect(sentMessages.length).toBe(1);
+      expect(sentMessages[0].type).toBe('PONG');
+      expect(sentMessages[0].playerId).toBe('player-1');
+    });
+
+    it('should reject invalid NETWORK_BATCH payload', () => {
+      const connId = connectionManager.addConnection(mockWs);
+
+      router.route(connId, {
+        type: 'NETWORK_BATCH',
+        timestamp: Date.now(),
+        playerId: 'player-1',
+        data: {
+          compressed: true,
+          encoding: 'gzip',
+          payload: 'invalid-data'
+        }
       });
 
       expect(sentMessages.length).toBe(1);
