@@ -1,0 +1,24 @@
+{
+  "name": "boardgame-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for board game platform - game rules and external API tools",
+  "type": "module",
+  "bin": {
+    "boardgame-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "start:http": "node server-http.js"
+  },
+  "keywords": [
+    "mcp",
+    "board-game",
+    "model-context-protocol"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "express": "^5.2.1",
+    "zod": "^3.25.1"
+  }
+}
