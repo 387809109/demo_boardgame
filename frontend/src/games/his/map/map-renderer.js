@@ -50,7 +50,7 @@ const POWER_COLORS = {
   hungary: '#8d6e63',
   scotland: '#0d47a1',
   venice: '#00838f',
-  genoa: '#d84315',
+  genoa: '#e65100',
 };
 
 // ── SVG Namespace ──────────────────────────────────────────────────
@@ -376,13 +376,21 @@ export class MapRenderer {
 
   _renderLanguageZones(group) {
     const LANG_COLORS = {
-      german: 'rgba(180, 160, 120, 0.18)',
-      french: 'rgba(100, 140, 200, 0.14)',
-      english: 'rgba(200, 100, 100, 0.14)',
-      italian: 'rgba(120, 180, 120, 0.16)',
-      spanish: 'rgba(200, 170, 80, 0.14)',
+      german: 'rgba(180, 160, 120, 0.28)',
+      french: 'rgba(100, 140, 200, 0.24)',
+      english: 'rgba(200, 100, 100, 0.24)',
+      italian: 'rgba(120, 180, 120, 0.26)',
+      spanish: 'rgba(200, 170, 80, 0.24)',
     };
-    const LANG_R = 25; // radius of background blob per space
+    const LANG_SOLID = {
+      german: '#b4a078', french: '#6490c8', english: '#c86464',
+      italian: '#78b478', spanish: '#c8aa50',
+    };
+    const LANG_LABELS = {
+      german: '德语区', french: '法语区', english: '英语区',
+      italian: '意大利语区', spanish: '西班牙语区',
+    };
+    const LANG_R = 30; // radius of background blob per space
 
     for (const space of LAND_SPACES) {
       if (!space.languageZone || !LANG_COLORS[space.languageZone]) continue;
@@ -398,6 +406,36 @@ export class MapRenderer {
       });
       group.appendChild(blob);
     }
+
+    // Language zone legend (bottom-left of map)
+    const legendX = 340;
+    const legendY = VIEW_H - 100;
+    const legendBg = svgEl('rect', {
+      x: legendX - 6, y: legendY - 14,
+      width: 130, height: 82, rx: 4,
+      fill: 'rgba(255,255,255,0.85)',
+      stroke: '#cbd5e1', 'stroke-width': 0.5,
+      'pointer-events': 'none',
+    });
+    group.appendChild(legendBg);
+
+    const zones = ['german', 'french', 'english', 'italian', 'spanish'];
+    zones.forEach((zone, i) => {
+      const y = legendY + i * 14;
+      const swatch = svgEl('rect', {
+        x: legendX, y: y - 6, width: 12, height: 10, rx: 2,
+        fill: LANG_SOLID[zone], opacity: 0.7,
+        'pointer-events': 'none',
+      });
+      const label = svgEl('text', {
+        x: legendX + 17, y: y + 3,
+        'font-size': '9', fill: '#475569',
+        'pointer-events': 'none',
+      });
+      label.textContent = LANG_LABELS[zone];
+      group.appendChild(swatch);
+      group.appendChild(label);
+    });
   }
 
   // ── Land Edges ─────────────────────────────────────────────────

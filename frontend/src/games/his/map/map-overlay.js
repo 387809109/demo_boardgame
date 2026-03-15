@@ -26,7 +26,7 @@ const POWER_COLORS = {
   hungary: '#8d6e63',
   scotland: '#0d47a1',
   venice: '#00838f',
-  genoa: '#d84315',
+  genoa: '#e65100',
 };
 
 function svgEl(tag, attrs = {}) {

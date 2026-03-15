@@ -478,7 +478,12 @@ export class ActionPanel {
   }
 
   _emit(action) {
-    if (this._onAction) this._onAction(action);
+    // Normalize to engine format: { actionType, actionData }
+    const move = {
+      actionType: action.type,
+      actionData: action.data || {}
+    };
+    if (this._onAction) this._onAction(move);
   }
 
   /** Start a selection flow for the given action type */

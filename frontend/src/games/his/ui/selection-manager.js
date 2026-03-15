@@ -103,10 +103,10 @@ const SELECTION_FLOWS = {
 
   // Luther 95 / sub-interactions
   SELECT_LUTHER95_TARGET: [
-    { type: 'space', key: 'space', prompt: '选择改革目标空间' }
+    { type: 'space', key: 'targetSpace', prompt: '选择改革目标空间' }
   ],
   RESOLVE_REFORMATION_ATTEMPT: [
-    { type: 'space', key: 'space', prompt: '选择宗教改革目标空间' }
+    { type: 'space', key: 'targetSpace', prompt: '选择宗教改革目标空间' }
   ],
   RESOLVE_RETREAT: [
     { type: 'space', key: 'destination', prompt: '选择撤退目的地' }
@@ -369,7 +369,7 @@ export class SelectionManager {
 
     // No selection needed — emit immediately
     if (!steps || steps.length === 0) {
-      onComplete({ type: actionType, data: {} });
+      onComplete({ actionType, actionData: {} });
       return;
     }
 
@@ -472,10 +472,10 @@ export class SelectionManager {
     this._currentStep++;
 
     if (this._currentStep >= this._steps.length) {
-      // All steps collected — emit the complete action
+      // All steps collected — emit the complete action (engine format)
       const action = {
-        type: this._actionType,
-        data: { ...this._collectedData }
+        actionType: this._actionType,
+        actionData: { ...this._collectedData }
       };
       const onComplete = this._onComplete;
       this.cancel(); // reset state

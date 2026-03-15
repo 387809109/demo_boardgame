@@ -371,7 +371,7 @@ export class HisUI {
       this._playerPower,
       (action) => {
         // Direct actions (PASS, PLAY_CARD_CP, etc.)
-        if (action.type === 'PLAY_CARD_CP' || action.type === 'PLAY_CARD_EVENT') {
+        if (action.actionType === 'PLAY_CARD_CP' || action.actionType === 'PLAY_CARD_EVENT') {
           this._selectedCard = null;
         }
         if (onAction) onAction(action);
