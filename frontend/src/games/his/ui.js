@@ -270,6 +270,7 @@ export class HisUI {
     const handEl = this._handPanel.render((action) => {
       if (action.type === 'SELECT_CARD') {
         this._selectedCard = action.data?.card?.number ?? null;
+        return; // UI-only, don't propagate to game engine
       }
       if (action.type === 'PREVIEW_CARD' && action.data?.card) {
         this._eventDisplay.showCard(
@@ -566,13 +567,6 @@ export class HisUI {
       this._spaceDetail.hide();
     } else {
       this._spaceDetail.show(name, this.state);
-    }
-
-    if (this.onAction) {
-      this.onAction({
-        type: 'SELECT_SPACE',
-        data: { space: name, spaceType: type }
-      });
     }
   }
 
