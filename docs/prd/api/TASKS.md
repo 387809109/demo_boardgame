@@ -15,7 +15,7 @@
 | Phase A4: 部署配置 | ✅ 完成 | render.yaml、环境变量 |
 | Phase A5: 测试 | ✅ 完成 | 21 个单元测试通过 |
 | Phase A6: 卡牌数据 | ⬜ 待开发 | 各游戏卡牌数据填充 |
-| Phase A7: AI/MCP 接口 | ⬜ 待开发 | AI 分析、走法建议、MCP 工具 |
+| Phase A7: AI/MCP 接口 | 🔶 部分完成 | MCP Server (stdio+HTTP) 已完成；AI 分析接口待开发 |
 | Phase AC1~AC3: AI 对话 Step 1 | ✅ 完成 | AI 规则问答核心 (50 个测试通过) |
 | Phase AC4: AI 对话 Step 2 | ✅ 完成 | 规则知识库增强 (RAG-lite)，49 个新测试通过，手动端到端测试已完成 |
 | Phase AN: Analytics MVP | 🔶 进行中 | Vercel 前端埋点已落地；AN2 与 T-AN010 调整为未来可选（需付费能力） |
@@ -135,7 +135,7 @@
 
 ---
 
-## Phase A7: AI/MCP 接口 ⬜ 待开发
+## Phase A7: AI/MCP 接口 🔶 部分完成
 
 ### AI 分析接口
 
@@ -156,26 +156,37 @@
   - 提示词模板管理
   - 响应解析和验证
 
-### MCP 工具接口
+### MCP 工具接口 (Stdio Server)
 
-- [ ] **T-A063** 创建 MCP 服务 `services/mcp-service.js`
-  - listTools() - 列出可用工具
-  - executeTool(toolName, params) - 执行工具
-  - validateParams(toolName, params) - 参数校验
+> 实现方案已从 REST 端点改为 **stdio 独立进程 MCP server**（`mcp/` 目录），
+> 可被 Claude Desktop / Claude Code / Cursor 等 MCP 客户端直接调用。
 
-- [ ] **T-A064** 创建 MCP 路由 `routes/v1/mcp.js`
-  ```
-  GET  /api/v1/mcp/tools
-  POST /api/v1/mcp/tools/:toolName
-  ```
+- [x] **T-A063** 创建 MCP server 入口 `mcp/index.js` + 适配 `mcp/lib/rules-loader.js`
+  - 使用 `@modelcontextprotocol/sdk` + `StdioServerTransport`
+  - 从 `api/services/rules-loader.js` 适配（去 logger 依赖）
 
-- [ ] **T-A065** 定义 MCP 工具集
-  - `get_game_rules` - 获取游戏规则
-  - `get_card_info` - 获取卡牌信息
-  - `analyze_game_state` - 分析游戏状态
-  - `suggest_move` - 建议走法
+- [x] **T-A064** ~~创建 MCP 路由~~ → 已改为 stdio 传输，无需 HTTP 路由
+  - 配置方式: `claude mcp add boardgame -- node mcp/index.js`
 
-- [ ] **T-A066** MCP 工具测试
+- [x] **T-A065** 定义 MCP 工具集 (Phase 1)
+  - `get_game_rules` - 获取游戏规则（list_games / get_rules / search_rules）
+  - `query_pokemon` - PokeAPI 外部 API 访问测试工具
+  - 待开发: `get_card_info`, `analyze_game_state`, `suggest_move`
+
+- [x] **T-A066** MCP server 启动 + 工具调用手动测试通过
+
+### MCP Remote 模式
+
+- [x] **T-A067** 实现 MCP Remote 传输层（Streamable HTTP）
+  - `mcp/server-http.js` — 独立 Express HTTP 服务（端口 3100）
+  - 使用 `StreamableHTTPServerTransport`，支持有状态 session 管理
+  - 复用 stdio 版本的全部工具定义
+  - 启动: `cd mcp && npm run start:http`
+  - 连接: `claude mcp add boardgame-remote --transport http http://localhost:3100/mcp`
+
+- [ ] **T-A068** Remote MCP 认证与安全
+  - 复用 Supabase JWT 认证
+  - 线上部署所需
 
 ---
 

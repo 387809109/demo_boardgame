@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **桌游集成客户端** - A web-based board game platform supporting single-player and LAN multiplayer modes. Built with vanilla JavaScript (frontend) and Node.js WebSocket server (backend).
 
-**Current Status**: Frontend implemented with UNO complete and Werewolf P0/P1 complete (P2/P3 pending), single-player AI, and online multiplayer support. Mobile responsive adaptation (T-F123) is complete and accepted. Local backend is complete (with minor reconnect improvements pending). Cloud backend (Supabase) is complete (including reconnect support). REST API service (Render) is deployed, with card-data seeding and AI/MCP endpoints pending.
+**Current Status**: Frontend implemented with UNO complete and Werewolf P0/P1 complete (P2/P3 pending), single-player AI, and online multiplayer support. Mobile responsive adaptation (T-F123) is complete and accepted. Local backend is complete (with minor reconnect improvements pending). Cloud backend (Supabase) is complete (including reconnect support). REST API service (Render) is deployed, with card-data seeding and AI analysis endpoints pending. MCP Server (stdio + HTTP transports) is implemented.
 
 ## Architecture
 

@@ -1,6 +1,6 @@
 # 项目进度报告
 
-> 最后更新: 2026-03-11
+> 最后更新: 2026-03-15
 
 ---
 
@@ -11,7 +11,7 @@
 | **前端** | 89% | 🔶 部分完成 |
 | **后端 (本地)** | 88% | 🔶 基本完成 (重连改进待实现) |
 | **后端 (云端)** | 96% | ✅ 基本完成 (含断线重连+单元测试) |
-| **API 服务 (Render)** | 100% | ✅ 完成 |
+| **API 服务 (Render)** | 100% | ✅ 完成 (MCP Server 已实现) |
 | **整体** | 90% | 🔶 开发中 |
 
 ---
@@ -288,7 +288,8 @@
 | T-AC009~T-AC014 | AI 规则问答 Step 2 (RAG-lite, 49 tests) | ✅ 代码 + 手动端到端测试完成 |
 | T-AN001~T-AN011 | Analytics MVP（Vercel + Render） | 🔶 前端埋点完成；AN2 与 T-AN010 调整为未来可选（需付费能力） |
 | T-A050~T-A058 | 卡牌数据填充 | ⬜ |
-| T-A060~T-A066 | AI/MCP 接口 | ⬜ |
+| T-A060~T-A062 | AI 分析接口（局面分析、走法建议、走法评估） | ⬜ |
+| T-A063~T-A067 | MCP Server（stdio + HTTP 传输，规则查询/PokeAPI 工具） | ✅ |
 
 ### API 端点
 
@@ -320,7 +321,8 @@
 
 - T-AN011：Analytics 周度复盘模板与固定节奏
 - T-A050~T-A058：卡牌数据填充 (按游戏分别实现)
-- T-A060~T-A066：AI/MCP 接口实现
+- T-A060~T-A062：AI 分析接口（局面分析、走法建议、走法评估）
+- T-A068：MCP Remote 认证与安全
 
 ### 未来可选（需付费能力）
 
@@ -442,6 +444,15 @@
 ---
 
 ## 最近完成的任务
+
+### 2026-03-15
+
+- ✅ T-A063~T-A067 MCP Server 实现完成（stdio + HTTP 传输）
+  - 新增 `mcp/` 目录，使用 `@modelcontextprotocol/sdk` 实现 stdio 和 Streamable HTTP 双传输
+  - 工具集: `get_game_rules` (list_games / get_rules / search_rules)、`query_pokemon` (PokeAPI 外部 API 测试)
+  - stdio 模式: `claude mcp add boardgame -- node mcp/index.js`
+  - HTTP 模式: `cd mcp && npm run start:http`，端口 3100
+  - 更新进度文档，同步 PROGRESS.md / TASKS.md / CLAUDE.md 中 AI/MCP 状态
 
 ### 2026-03-11
 
