@@ -117,6 +117,41 @@ api/
 
 > *AI 对话功能需配置 `OPENAI_API_KEY`，未配置时该端点返回 503
 
+## 限流策略 (Rate Limiting)
+
+所有端点均受限流保护，实现位于 `middleware/rate-limiter.js`（基于 `express-rate-limit`）。
+
+### 全局限流
+
+| 范围 | 限制 | 窗口 | 说明 |
+|------|------|------|------|
+| 全局（所有端点） | 100 次 | 15 分钟 | 按 IP 地址计数，硬编码于 `config.rateLimit` |
+
+### AI 对话独立限流
+
+AI 对话端点有独立的限流配置，**不与全局限流共享计数器**：
+
+| 端点 | 限制 | 窗口 | 可配置 |
+|------|------|------|--------|
+| `POST /api/v1/chat` | 20 次/分钟 | 60 秒 | `CHAT_RATE_LIMIT` 环境变量 |
+| `GET /api/v1/chat/*` | 60 次/分钟 | 60 秒 | 硬编码 |
+| `DELETE /api/v1/chat/:sessionId` | — | — | 仅走全局限流 |
+
+### 限流响应
+
+超限时返回 HTTP 429，响应体：
+
+```json
+{
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Too many requests, please try again later"
+  }
+}
+```
+
+响应头包含标准 `RateLimit-*` 头字段（`RateLimit-Limit`、`RateLimit-Remaining`、`RateLimit-Reset`）。
+
 ## 数据库表
 
 详见 `cloud/migrations/002_create_card_data.sql`

@@ -15,7 +15,7 @@
 | Phase A4: 部署配置 | ✅ 完成 | render.yaml、环境变量 |
 | Phase A5: 测试 | ✅ 完成 | 21 个单元测试通过 |
 | Phase A6: 卡牌数据 | ⬜ 待开发 | 各游戏卡牌数据填充 |
-| Phase A7: AI/MCP 接口 | ⬜ 待开发 | AI 分析、走法建议、MCP 工具 |
+| Phase A7: AI/MCP 接口 | 🔶 部分完成 | MCP Server (stdio+HTTP) 已完成；AI 分析接口待开发 |
 | Phase AC1~AC3: AI 对话 Step 1 | ✅ 完成 | AI 规则问答核心 (50 个测试通过) |
 | Phase AC4: AI 对话 Step 2 | ✅ 完成 | 规则知识库增强 (RAG-lite)，49 个新测试通过，手动端到端测试已完成 |
 | Phase AN: Analytics MVP | 🔶 进行中 | Vercel 前端埋点已落地；AN2 与 T-AN010 调整为未来可选（需付费能力） |
@@ -135,7 +135,7 @@
 
 ---
 
-## Phase A7: AI/MCP 接口 ⬜ 待开发
+## Phase A7: AI/MCP 接口 🔶 部分完成
 
 ### AI 分析接口
 
