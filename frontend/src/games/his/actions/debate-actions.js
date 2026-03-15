@@ -64,12 +64,12 @@ export function callDebate(state, power, actionData, helpers) {
   const attackerSide = power === 'papacy' ? 'papal' : 'protestant';
   const defenderSide = power === 'papacy' ? 'protestant' : 'papal';
 
-  // Select highest-value available debater for each side
+  // Attacker chooses their debater; defender is drawn randomly (§18.5)
   const attackerDebaters = getAvailableDebaters(state, attackerSide, zone);
   const defenderDebaters = getAvailableDebaters(state, defenderSide, zone);
 
   const attacker = selectBestDebater(attackerDebaters);
-  const defender = selectBestDebater(defenderDebaters);
+  const defender = selectRandomDebater(defenderDebaters);
 
   // Mark both as committed
   markCommitted(state, attackerSide, attacker.id);
@@ -197,8 +197,10 @@ function resolveDebateOutcome(state, debate, helpers) {
       helpers.logEvent(state, 'debate_tie', { round: 1 });
       return { status: 'tie', round: 1, nextRound: 2 };
     } else {
-      // Round 2 tie: attacker wins
-      return finishDebate(state, debate, 'attacker', helpers);
+      // §18.5: Round 2 tie — debate ends with no result
+      helpers.logEvent(state, 'debate_tie', { round: 2 });
+      state.pendingDebate = null;
+      return { status: 'no_result', round: 2 };
     }
   }
 }
@@ -214,24 +216,27 @@ function finishDebate(state, debate, winner, helpers) {
   const loserSide = winner === 'attacker' ? debate.defenderSide : debate.attackerSide;
   const loserId = winner === 'attacker' ? debate.defenderId : debate.attackerId;
 
-  // Determine spaces to flip (hitDiff, minimum 1 if winner)
-  const spacesToFlip = Math.max(hitDiff, 1);
+  // Spaces to flip = hitDiff (no minimum — exact difference)
+  const spacesToFlip = hitDiff;
 
   // Set up pending reformation/counter-reformation for the winner
   const isProtestantWin = winnerSide === 'protestant';
-  state.pendingReformation = {
-    type: isProtestantWin ? 'reformation' : 'counter_reformation',
-    zone,
-    attemptsLeft: spacesToFlip,
-    initiator: debate.initiator,
-    source: 'debate',
-    autoFlip: true // debate flips don't require dice — just pick spaces
-  };
+  if (spacesToFlip > 0) {
+    state.pendingReformation = {
+      type: isProtestantWin ? 'reformation' : 'counter_reformation',
+      zone,
+      attemptsLeft: spacesToFlip,
+      initiator: debate.initiator,
+      source: 'debate',
+      autoFlip: true // debate flips don't require dice — just pick spaces
+    };
+  }
 
-  // Handle loser: disgrace (removed from game if diff >= 2) or burn
+  // §18.5: Loser removed if hitDiff > loser's debate value
+  const loserDef = getDebaterDef(loserId);
+  const loserValue = loserDef ? loserDef.value : 0;
   let loserFate = 'disgraced';
-  if (hitDiff >= 2) {
-    // Loser is burned/disgraced — removed from game
+  if (hitDiff > loserValue) {
     loserFate = isProtestantWin ? 'burned' : 'disgraced';
     removeDebater(state, loserSide, loserId);
   }
@@ -326,7 +331,7 @@ export function resolveDebateFlip(state, power, actionData, helpers) {
 // ── Helpers ──────────────────────────────────────────────────────
 
 /**
- * Select the highest-value debater from a list.
+ * Select the highest-value debater from a list (attacker chooses).
  */
 function selectBestDebater(debaterStates) {
   let best = null;
@@ -339,6 +344,15 @@ function selectBestDebater(debaterStates) {
     }
   }
   return best;
+}
+
+/**
+ * Select a random debater from a list (§18.5: defender drawn randomly).
+ */
+function selectRandomDebater(debaterStates) {
+  if (debaterStates.length === 0) return null;
+  const idx = Math.floor(Math.random() * debaterStates.length);
+  return debaterStates[idx];
 }
 
 /**

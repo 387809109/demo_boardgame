@@ -279,7 +279,7 @@ describe('validateSpringDeployment', () => {
     expect(r.valid).toBe(true);
   });
 
-  it('hapsburg can deploy from Vienna or Brussels', () => {
+  it('hapsburg can deploy from Vienna or Valladolid', () => {
     const { state } = setup();
     state.activePower = 'hapsburg';
 
@@ -289,7 +289,7 @@ describe('validateSpringDeployment', () => {
     });
 
     const r2 = validateSpringDeployment(state, 'hapsburg', {
-      from: 'Brussels', to: 'Liege',
+      from: 'Valladolid', to: 'Barcelona',
       units: { regulars: 1 }
     });
 

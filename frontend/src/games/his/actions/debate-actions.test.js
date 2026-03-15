@@ -84,15 +84,16 @@ describe('callDebate', () => {
     expect(state.pendingDebate.phase).toBe('roll');
   });
 
-  it('selects highest-value debaters', () => {
+  it('selects highest-value attacker, random defender', () => {
     const state = cpState();
     const helpers = createMockHelpers();
     callDebate(state, 'protestant', { zone: 'german' }, helpers);
 
     // Protestant highest in german zone turn 1: luther (value 4)
     expect(state.pendingDebate.attackerId).toBe('luther');
-    // Papal highest turn 1: eck (value 3)
-    expect(state.pendingDebate.defenderId).toBe('eck');
+    // Defender is randomly selected from available papal debaters
+    const papalIds = state.debaters.papal.map(d => d.id);
+    expect(papalIds).toContain(state.pendingDebate.defenderId);
   });
 
   it('marks debaters as committed', () => {
@@ -100,10 +101,12 @@ describe('callDebate', () => {
     const helpers = createMockHelpers();
     callDebate(state, 'protestant', { zone: 'german' }, helpers);
 
-    const luther = state.debaters.protestant.find(d => d.id === 'luther');
-    const eck = state.debaters.papal.find(d => d.id === 'eck');
-    expect(luther.committed).toBe(true);
-    expect(eck.committed).toBe(true);
+    const attacker = state.debaters.protestant.find(
+      d => d.id === state.pendingDebate.attackerId);
+    const defender = state.debaters.papal.find(
+      d => d.id === state.pendingDebate.defenderId);
+    expect(attacker.committed).toBe(true);
+    expect(defender.committed).toBe(true);
   });
 
   it('deducts CP', () => {
@@ -167,10 +170,13 @@ describe('resolveDebateStep — roll phase', () => {
 
   it('defender gets debater value + uncommitted bonus dice in round 1', () => {
     const { state, helpers } = setupDebate();
-    const result = resolveDebateStep(state, 'protestant', {}, helpers);
+    // Defender is randomly selected; get their actual value
+    const { getDebaterDef } = require('../state/state-helpers.js');
+    const defenderDef = getDebaterDef(state.pendingDebate.defenderId);
+    const expectedDice = defenderDef.value + DEBATE.defenderUncommittedBonus;
 
-    // Eck (3) + uncommitted bonus (2) = 5 dice
-    expect(result.defenderRolls).toHaveLength(3 + DEBATE.defenderUncommittedBonus);
+    const result = resolveDebateStep(state, 'protestant', {}, helpers);
+    expect(result.defenderRolls).toHaveLength(expectedDice);
   });
 });
 
@@ -254,24 +260,27 @@ describe('resolveDebateStep — resolve phase', () => {
     expect(state.pendingReformation.autoFlip).toBe(true);
   });
 
-  it('removes loser debater when hit diff >= 2', () => {
+  it('removes loser debater when hit diff > loser value (§18.5)', () => {
     const state = cpState();
     const helpers = createMockHelpers();
     callDebate(state, 'protestant', { zone: 'german' }, helpers);
 
-    const defenderId = state.pendingDebate.defenderId; // eck
+    const defenderId = state.pendingDebate.defenderId;
+    // Find defender's value to ensure hitDiff exceeds it
+    const { getDebaterDef } = require('../state/state-helpers.js');
+    const defValue = getDebaterDef(defenderId)?.value || 0;
+
     state.pendingDebate.phase = 'resolve';
-    state.pendingDebate.attackerHits = 4;
-    state.pendingDebate.defenderHits = 1;
+    state.pendingDebate.attackerHits = defValue + 2; // guarantees hitDiff > value
+    state.pendingDebate.defenderHits = 0;
 
     resolveDebateStep(state, 'protestant', {}, helpers);
 
-    // Eck should be removed
-    const eck = state.debaters.papal.find(d => d.id === defenderId);
-    expect(eck).toBeUndefined();
+    const defender = state.debaters.papal.find(d => d.id === defenderId);
+    expect(defender).toBeUndefined();
   });
 
-  it('does not remove loser when hit diff < 2', () => {
+  it('does not remove loser when hit diff <= loser value', () => {
     const state = cpState();
     const helpers = createMockHelpers();
     callDebate(state, 'protestant', { zone: 'german' }, helpers);

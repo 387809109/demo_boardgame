@@ -190,6 +190,7 @@ export class MapRenderer {
     const portLinesGroup = svgEl('g', { class: 'his-map-port-lines' });
     const spacesGroup = svgEl('g', { class: 'his-map-spaces' });
     this._labelsGroup = svgEl('g', { class: 'his-map-labels' });
+    this._indicatorGroup = svgEl('g', { class: 'his-map-indicators' });
     this._overlayGroup = svgEl('g', { class: 'his-map-overlay' });
 
     // Render New World panel (leftmost area)
@@ -221,6 +222,7 @@ export class MapRenderer {
     this._svg.appendChild(portLinesGroup);
     this._svg.appendChild(spacesGroup);
     this._svg.appendChild(this._labelsGroup);
+    this._svg.appendChild(this._indicatorGroup);
     this._svg.appendChild(this._overlayGroup);
 
     return this._svg;
@@ -254,9 +256,81 @@ export class MapRenderer {
       }
     }
 
+    // Update siege/unrest indicators
+    this._updateIndicators(state);
+
     // Update New World
     if (state.newWorld) {
       this._updateNewWorld(state.newWorld);
+    }
+  }
+
+  /**
+   * Render siege and unrest indicators on affected spaces.
+   */
+  _updateIndicators(state) {
+    if (!this._indicatorGroup) return;
+    this._indicatorGroup.innerHTML = '';
+
+    for (const [name, sp] of Object.entries(state.spaces)) {
+      const coord = SPACE_COORDINATES[name];
+      if (!coord) continue;
+
+      const cx = this._toViewX(coord.x);
+      const cy = this._toViewY(coord.y);
+
+      // Siege indicator: crossed swords icon below space
+      if (sp.besieged) {
+        const siegeG = svgEl('g', { 'pointer-events': 'none' });
+        // Red ring around space
+        const ring = svgEl('circle', {
+          cx, cy,
+          r: (sp.isKey ? KEY_SPACE_R : SPACE_R) + 3,
+          fill: 'none',
+          stroke: '#c62828',
+          'stroke-width': '1.5',
+          'stroke-dasharray': '3,2',
+          opacity: '0.8'
+        });
+        siegeG.appendChild(ring);
+
+        // Small "S" badge
+        const badge = svgEl('circle', {
+          cx: cx + (sp.isKey ? KEY_SPACE_R : SPACE_R) + 1,
+          cy: cy - (sp.isKey ? KEY_SPACE_R : SPACE_R) - 1,
+          r: '4', fill: '#c62828'
+        });
+        siegeG.appendChild(badge);
+        const txt = svgEl('text', {
+          x: cx + (sp.isKey ? KEY_SPACE_R : SPACE_R) + 1,
+          y: cy - (sp.isKey ? KEY_SPACE_R : SPACE_R) - 1,
+          'text-anchor': 'middle', 'dominant-baseline': 'central',
+          'font-size': '5', fill: '#fff', 'font-weight': 'bold'
+        });
+        txt.textContent = 'S';
+        siegeG.appendChild(txt);
+
+        this._indicatorGroup.appendChild(siegeG);
+      }
+
+      // Unrest indicator: orange exclamation
+      if (sp.unrest) {
+        const unrestG = svgEl('g', { 'pointer-events': 'none' });
+        const r = sp.isKey ? KEY_SPACE_R : SPACE_R;
+        const badge = svgEl('circle', {
+          cx: cx - r - 1, cy: cy - r - 1,
+          r: '4', fill: '#e65100'
+        });
+        unrestG.appendChild(badge);
+        const txt = svgEl('text', {
+          x: cx - r - 1, y: cy - r - 1,
+          'text-anchor': 'middle', 'dominant-baseline': 'central',
+          'font-size': '6', fill: '#fff', 'font-weight': 'bold'
+        });
+        txt.textContent = '!';
+        unrestG.appendChild(txt);
+        this._indicatorGroup.appendChild(unrestG);
+      }
     }
   }
 

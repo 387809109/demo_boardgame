@@ -8,7 +8,7 @@ import config from './config.json';
 import { MAJOR_POWERS, VICTORY } from './constants.js';
 import { buildInitialState } from './state/state-init.js';
 import { getVisibleState } from './state/state-visible.js';
-import { getPowerForPlayer, canPass } from './state/state-helpers.js';
+import { getPowerForPlayer, canPass, isFortified } from './state/state-helpers.js';
 import {
   PHASES, transitionPhase, advancePhase, advanceImpulse
 } from './phases/phase-manager.js';
@@ -711,7 +711,8 @@ export class HISGame extends GameEngine {
     state.pendingInterception = null;
 
     const result = resolveInterception(
-      state, interceptorPower, interceptorSpace, targetSpace, helpers
+      state, interceptorPower, interceptorSpace, targetSpace, helpers,
+      { movingPower: interception.movingPower, fromSpace: interception.fromSpace }
     );
 
     // If interception succeeded, trigger battle
@@ -760,7 +761,7 @@ export class HISGame extends GameEngine {
     // Defender stays in the space (withdrawn into fort)
     // Attacker initiates siege
     const sp = state.spaces[space];
-    if (sp.isFortress && sp.controller !== winnerPower) {
+    if (isFortified(sp) && sp.controller !== winnerPower) {
       sp.besieged = true;
       sp.besiegedBy = winnerPower;
       sp.siegeEstablishedImpulse = state.turnNumber;

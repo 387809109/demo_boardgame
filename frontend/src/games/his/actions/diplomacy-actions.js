@@ -240,8 +240,9 @@ export function validateSueForPeace(state, power, actionData) {
     return { valid: false, error: `Not at war with ${target}` };
   }
 
-  // Final-turn peace segment is skipped
-  if (state.turn >= 9) {
+  // Final-turn peace segment is skipped (tournament: turn 6, standard: turn 9)
+  const finalTurn = state.finalTurn || 9;
+  if (state.turn >= finalTurn) {
     return { valid: false, error: 'Cannot sue for peace in final turn' };
   }
 
@@ -319,6 +320,11 @@ export function validateNegotiate(state, power, actionData) {
       }
       if (areAtWar(state, power, target)) {
         return { valid: false, error: 'Cannot ally while at war' };
+      }
+      // Papacy and Ottoman can never ally
+      if ((power === 'papacy' && target === 'ottoman') ||
+          (power === 'ottoman' && target === 'papacy')) {
+        return { valid: false, error: 'Papacy and Ottoman can never form an alliance' };
       }
       return { valid: true };
 
@@ -485,12 +491,12 @@ export function validateRansom(state, power, actionData) {
 
 /**
  * Execute ransoming a captured leader.
- * Captor gains 1 VP, leader returned to owner.
+ * §9.4: Captor draws 1 random card from ransoming power's hand.
  * @param {Object} state
  * @param {string} power - Power paying ransom
  * @param {Object} actionData - { captor, leaderId }
  * @param {Object} helpers
- * @returns {{ ransomed: boolean, vp: number }}
+ * @returns {{ ransomed: boolean, cardDrawn: boolean }}
  */
 export function executeRansom(state, power, actionData, helpers) {
   const { captor, leaderId } = actionData;
@@ -500,15 +506,21 @@ export function executeRansom(state, power, actionData, helpers) {
   const idx = captured.indexOf(leaderId);
   if (idx !== -1) captured.splice(idx, 1);
 
-  // Captor gains 1 VP
-  const ransomVp = 1;
-  if (state.vp[captor] !== undefined) {
-    state.vp[captor] += ransomVp;
+  // §9.4: Captor draws 1 random card from ransoming power's hand
+  let cardDrawn = false;
+  const ransomHand = state.hands?.[power] || [];
+  if (ransomHand.length > 0) {
+    const pickIdx = Math.floor(Math.random() * ransomHand.length);
+    const card = ransomHand.splice(pickIdx, 1)[0];
+    if (state.hands[captor]) {
+      state.hands[captor].push(card);
+    }
+    cardDrawn = true;
   }
 
   helpers.logEvent(state, 'ransom_leader', {
-    power, captor, leaderId, vp: ransomVp
+    power, captor, leaderId, cardDrawn
   });
 
-  return { ransomed: true, vp: ransomVp };
+  return { ransomed: true, cardDrawn };
 }

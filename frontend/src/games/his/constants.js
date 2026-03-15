@@ -523,7 +523,7 @@ export const NEGOTIATION_LIMITS = {
 
 export const CAPITALS = {
   ottoman: ['Istanbul'],
-  hapsburg: ['Vienna', 'Brussels'],
+  hapsburg: ['Vienna', 'Valladolid'],
   england: ['London'],
   france: ['Paris'],
   papacy: ['Rome'],

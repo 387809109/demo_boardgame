@@ -138,9 +138,9 @@ describe('resolveInterception', () => {
     expect(typeof result.success).toBe('boolean');
   });
 
-  it('succeeds probabilistically (run 50 times)', () => {
+  it('succeeds probabilistically (run 100 times)', () => {
     let successes = 0;
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 100; i++) {
       const state = createTestState();
       const helpers = createMockHelpers();
       addUnits(state, 'Varna', 'hapsburg', 2);
@@ -150,20 +150,16 @@ describe('resolveInterception', () => {
       );
       if (result.success) successes++;
     }
-    // With threshold 5, ~33% chance. In 50 tries should get at least 1
+    // 2d6 ≥ 9 (no leader): ~28% chance. In 100 tries should get at least 1
     expect(successes).toBeGreaterThan(0);
     // And should NOT succeed every time
-    expect(successes).toBeLessThan(50);
+    expect(successes).toBeLessThan(100);
   });
 
   it('moves interceptor on success', () => {
-    const state = createTestState();
-    const helpers = createMockHelpers();
-    addUnits(state, 'Varna', 'hapsburg', 2);
-
     // Run until success
     let moved = false;
-    for (let i = 0; i < 50 && !moved; i++) {
+    for (let i = 0; i < 100 && !moved; i++) {
       const s = createTestState();
       const h = createMockHelpers();
       addUnits(s, 'Varna', 'hapsburg', 2);
@@ -188,15 +184,15 @@ describe('resolveInterception', () => {
     expect(moved).toBe(true);
   });
 
-  it('leader bonus lowers threshold', () => {
+  it('uses threshold 9 (2d6 + leader battle rating)', () => {
     const state = createTestState();
     const helpers = createMockHelpers();
-    // charles_v has battle: 2, so threshold = 5 - 2 = 3
     addUnits(state, 'Varna', 'hapsburg', 2, ['charles_v']);
 
     const result = resolveInterception(
       state, 'hapsburg', 'Varna', 'Edirne', helpers
     );
-    expect(result.threshold).toBe(3); // 5 - 2
+    // Threshold is always 9 (leader bonus added to roll, not subtracted from threshold)
+    expect(result.threshold).toBe(9);
   });
 });

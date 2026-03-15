@@ -9,7 +9,7 @@ import { spendCp } from './cp-manager.js';
 import {
   getAdjacentSpaces, getConnectionType,
   getUnitsInSpace, hasEnemyUnits,
-  getFormationCap, countLandUnits, isHomeSpace
+  getFormationCap, countLandUnits, isHomeSpace, isFortified
 } from '../state/state-helpers.js';
 import { canAttack, getAlliesOf } from '../state/war-helpers.js';
 import { SEA_EDGES, SEA_ZONES, PORTS_BY_SEA_ZONE } from '../data/map-data.js';
@@ -357,6 +357,11 @@ function validateBuild(state, power, actionData, unitType) {
     return { valid: false, error: 'Must build in a home space' };
   }
 
+  // Must currently control the space
+  if (sp.controller !== power) {
+    return { valid: false, error: 'Must control the space to build units' };
+  }
+
   // No enemy units
   if (hasEnemyUnits(state, space, power)) {
     return { valid: false, error: 'Cannot build in enemy-occupied space' };
@@ -536,7 +541,7 @@ export function validateControlUnfortified(state, power, actionData) {
   if (!space) return { valid: false, error: 'Missing space' };
   const sp = state.spaces[space];
   if (!sp) return { valid: false, error: `Space "${space}" not found` };
-  if (sp.isFortress) return { valid: false, error: 'Space is fortified' };
+  if (isFortified(sp)) return { valid: false, error: 'Space is fortified' };
 
   const friendlyPowers = getFriendlyPowers(state, power);
   const removingUnrest = Boolean(sp.unrest);

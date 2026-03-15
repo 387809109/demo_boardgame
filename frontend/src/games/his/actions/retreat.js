@@ -8,9 +8,13 @@
 
 import {
   getAllAdjacentSpaces, getUnitsInSpace, hasEnemyUnits,
-  countLandUnits
+  countLandUnits, isFortified
 } from '../state/state-helpers.js';
+import { areAllied } from '../state/war-helpers.js';
 import { LAND_SPACES } from '../data/map-data.js';
+
+/** Max units that can withdraw into a fortification */
+const WITHDRAWAL_CAP = 4;
 
 // ── Find Legal Retreats ─────────────────────────────────────────
 
@@ -38,10 +42,12 @@ export function findLegalRetreats(state, space, power) {
     if (hasEnemyUnits(state, adjName, power)) continue;
 
     // No retreating into enemy-controlled space
-    // (unless friendly units already there)
+    // (allowed if controlled by self, ally, or has own units present)
     if (sp.controller !== power && sp.controller !== null) {
-      const friendly = getUnitsInSpace(state, adjName, power);
-      if (!friendly) continue;
+      if (!areAllied(state, sp.controller, power)) {
+        const friendly = getUnitsInSpace(state, adjName, power);
+        if (!friendly) continue;
+      }
     }
 
     results.push(adjName);
@@ -61,10 +67,18 @@ export function findLegalRetreats(state, space, power) {
  */
 export function canWithdrawIntoFortification(state, space, power) {
   const sp = state.spaces[space];
-  if (!sp || !sp.isFortress) return false;
+  if (!sp || !isFortified(sp)) return false;
 
-  // Must be controlled by the withdrawing power (or friendly)
-  if (sp.controller !== power) return false;
+  // Must be controlled by the withdrawing power or an allied power
+  if (sp.controller !== power && !areAllied(state, sp.controller, power)) {
+    return false;
+  }
+
+  // Max 4 units can occupy a fortification
+  const existingUnits = sp.units.reduce(
+    (sum, u) => sum + countLandUnits(u), 0
+  );
+  if (existingUnits >= WITHDRAWAL_CAP) return false;
 
   return true;
 }

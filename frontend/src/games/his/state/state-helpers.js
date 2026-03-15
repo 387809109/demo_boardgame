@@ -186,6 +186,15 @@ export function isCardInPlay(state, cardNumber) {
   return false;
 }
 
+/**
+ * Check if a space is fortified (fortress OR key space per §15).
+ * @param {Object} sp - Space state object
+ * @returns {boolean}
+ */
+export function isFortified(sp) {
+  return Boolean(sp && (sp.isFortress || sp.isKey));
+}
+
 // ── Phase 2: Map & Adjacency Helpers ──────────────────────────────
 
 /**

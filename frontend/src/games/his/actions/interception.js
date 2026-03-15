@@ -8,7 +8,7 @@
 
 import { IMPULSE_ORDER, COMBAT } from '../constants.js';
 import {
-  getAllAdjacentSpaces, getUnitsInSpace
+  getAdjacentSpaces, getUnitsInSpace
 } from '../state/state-helpers.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
 import { rollDice } from './religious-actions.js';
@@ -25,7 +25,8 @@ import { canAttack } from '../state/war-helpers.js';
  * @returns {Array<{ power: string, space: string }>} Potential interceptors sorted by impulse order
  */
 export function checkInterceptions(state, fromSpace, toSpace, movingPower) {
-  const adjacent = getAllAdjacentSpaces(toSpace);
+  // Interception cannot cross passes (§13.2)
+  const adjacent = getAdjacentSpaces(toSpace).connections;
   const interceptors = [];
 
   for (const adjName of adjacent) {
@@ -68,17 +69,17 @@ export function checkInterceptions(state, fromSpace, toSpace, movingPower) {
  * @param {string} interceptorSpace - Where the interceptor is
  * @param {string} targetSpace - The space being intercepted into
  * @param {Object} helpers
+ * @param {Object} [opts] - Optional context
+ * @param {string} [opts.movingPower] - The power being intercepted
+ * @param {string} [opts.fromSpace] - Where the moving formation came from
  * @returns {{ success: boolean, roll: number, threshold: number }}
  */
 export function resolveInterception(state, interceptorPower, interceptorSpace,
-  targetSpace, helpers) {
+  targetSpace, helpers, opts = {}) {
   const stack = getUnitsInSpace(state, interceptorSpace, interceptorPower);
-  if (!stack) return { success: false, roll: 0, threshold: COMBAT.interceptionThreshold };
+  if (!stack) return { success: false, roll: 0, threshold: 9 };
 
-  // Base threshold: 5+
-  let threshold = COMBAT.interceptionThreshold;
-
-  // Leader modifier: highest battle rating reduces threshold
+  // §13.2: Roll 2d6 + highest leader battle rating ≥ 9
   let leaderBonus = 0;
   for (const lid of stack.leaders) {
     const leader = LEADER_BY_ID[lid];
@@ -86,10 +87,23 @@ export function resolveInterception(state, interceptorPower, interceptorSpace,
       leaderBonus = leader.battle;
     }
   }
-  threshold -= leaderBonus;
 
-  const [roll] = rollDice(1);
+  const dice = rollDice(2);
+  let roll = dice[0] + dice[1] + leaderBonus;
 
+  // Ottoman cavalry modifier: +1 if interceptor has Ottoman cavalry
+  if (interceptorPower === 'ottoman' && stack.cavalry > 0) {
+    roll += 1;
+  }
+  // -1 if moving force is Ottoman with cavalry
+  if (opts.movingPower === 'ottoman' && opts.fromSpace) {
+    const movingStack = getUnitsInSpace(state, opts.fromSpace, opts.movingPower);
+    if (movingStack && movingStack.cavalry > 0) {
+      roll -= 1;
+    }
+  }
+
+  const threshold = 9;
   const success = roll >= threshold;
 
   if (success) {

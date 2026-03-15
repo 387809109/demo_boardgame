@@ -390,24 +390,29 @@ describe('validateControlUnfortified', () => {
 
   it('rejects if already controlled', () => {
     const state = cpState();
-    const r = validateControlUnfortified(state, 'ottoman', { space: 'Edirne' });
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Nicopolis' });
     expect(r.valid).toBe(false);
     expect(r.error).toContain('Already controlled');
   });
 
   it('accepts controlling occupied unfortified space with LOC', () => {
     const state = cpState();
-    state.spaces['Edirne'].controller = 'france';
-    const r = validateControlUnfortified(state, 'ottoman', { space: 'Edirne' });
+    state.spaces['Nicopolis'].controller = 'france';
+    // Place ottoman units so power occupies the space
+    state.spaces['Nicopolis'].units.push({
+      owner: 'ottoman', regulars: 1, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    });
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Nicopolis' });
     expect(r.valid).toBe(true);
   });
 
   it('rejects when no line of communication', () => {
     const state = cpState();
-    state.spaces['Edirne'].controller = 'france';
+    state.spaces['Nicopolis'].controller = 'france';
     state.spaces['Istanbul'].controller = 'hapsburg';
     state.spaces['Scutari'].controller = 'hapsburg';
-    const r = validateControlUnfortified(state, 'ottoman', { space: 'Edirne' });
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Nicopolis' });
     expect(r.valid).toBe(false);
     expect(r.error).toContain('line of communication');
   });
@@ -460,27 +465,28 @@ describe('validateControlUnfortified', () => {
 
   it('rejects control if non-allied land units are in target space', () => {
     const state = cpState();
-    state.spaces['Edirne'].controller = 'france';
-    state.spaces['Edirne'].units.push({
+    state.spaces['Nicopolis'].controller = 'france';
+    state.spaces['Nicopolis'].units.push({
       owner: 'france', regulars: 1, mercenaries: 0,
       cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
     });
-    const r = validateControlUnfortified(state, 'ottoman', { space: 'Edirne' });
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Nicopolis' });
     expect(r.valid).toBe(false);
     expect(r.error).toContain('non-allied land units');
   });
 
   it('allows unrest removal without LOC when occupying unrest space', () => {
     const state = cpState();
-    state.spaces['Paris'].unrest = true;
-    state.spaces['Paris'].units.push({
+    // Use Dijon (non-key, non-fortress French space)
+    state.spaces['Dijon'].unrest = true;
+    state.spaces['Dijon'].units.push({
       owner: 'ottoman', regulars: 1, mercenaries: 0,
       cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
     });
     state.spaces['Istanbul'].controller = 'hapsburg';
     state.spaces['Scutari'].controller = 'hapsburg';
 
-    const r = validateControlUnfortified(state, 'ottoman', { space: 'Paris' });
+    const r = validateControlUnfortified(state, 'ottoman', { space: 'Dijon' });
     expect(r.valid).toBe(true);
   });
 

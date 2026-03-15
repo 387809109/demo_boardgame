@@ -8,7 +8,7 @@
 
 import { COMBAT } from '../constants.js';
 import {
-  getUnitsInSpace, countLandUnits
+  getUnitsInSpace, countLandUnits, isFortified
 } from '../state/state-helpers.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
 import { rollDice } from './religious-actions.js';
@@ -265,7 +265,7 @@ function handlePostBattle(state, space, battleResult, helpers) {
  */
 function checkSiegeInitiation(state, space, winnerPower, helpers) {
   const sp = state.spaces[space];
-  if (!sp.isFortress) return;
+  if (!isFortified(sp)) return;
 
   // Check if there are defender units inside (withdrew into fort)
   const defenderUnits = sp.units.filter(u => u.owner !== winnerPower);

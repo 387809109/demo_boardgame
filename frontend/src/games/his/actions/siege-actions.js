@@ -142,12 +142,32 @@ export function executeAssault(state, power, actionData, helpers) {
     // Defenders present: 1 die per 2 units, rounded up
     attackerDice = Math.ceil(attackerLandNoCAv / 2);
   }
+
+  // §15.3: Add highest leader battle rating as extra dice for attacker
+  let attackerLeaderBonus = 0;
+  for (const lid of attackerStack.leaders) {
+    const leader = LEADER_BY_ID[lid];
+    if (leader && leader.battle > attackerLeaderBonus) {
+      attackerLeaderBonus = leader.battle;
+    }
+  }
+  attackerDice += attackerLeaderBonus;
   attackerDice = Math.max(attackerDice, 1);
 
   // Defender dice (cavalry ignored) + 1 bonus
   let defenderDice = 0;
   if (defenderStack) {
     defenderDice = defenderStack.regulars + defenderStack.mercenaries;
+
+    // Add highest defender leader battle rating
+    let defenderLeaderBonus = 0;
+    for (const lid of defenderStack.leaders) {
+      const leader = LEADER_BY_ID[lid];
+      if (leader && leader.battle > defenderLeaderBonus) {
+        defenderLeaderBonus = leader.battle;
+      }
+    }
+    defenderDice += defenderLeaderBonus;
   }
   defenderDice += COMBAT.defenderBonusDice;
   defenderDice = Math.max(defenderDice, 1);

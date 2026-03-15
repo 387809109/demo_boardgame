@@ -436,20 +436,26 @@ describe('validateRansom', () => {
 });
 
 describe('executeRansom', () => {
-  it('removes leader from captured list and gives VP to captor', () => {
+  it('removes leader from captured list and captor draws a card (§9.4)', () => {
     const state = makeState();
     const helpers = createMockHelpers();
     state.capturedLeaders.ottoman = ['charles_v'];
-    const vpBefore = state.vp.ottoman;
+    // Give hapsburg (ransoming power) a card to draw from
+    state.hands = state.hands || {};
+    state.hands.hapsburg = [42];
+    state.hands.ottoman = state.hands.ottoman || [];
+    const ottHandBefore = state.hands.ottoman.length;
 
     const result = executeRansom(state, 'hapsburg', {
       captor: 'ottoman', leaderId: 'charles_v'
     }, helpers);
 
     expect(result.ransomed).toBe(true);
-    expect(result.vp).toBe(1);
+    expect(result.cardDrawn).toBe(true);
     expect(state.capturedLeaders.ottoman).not.toContain('charles_v');
-    expect(state.vp.ottoman).toBe(vpBefore + 1);
+    // Captor draws 1 card from ransoming power's hand
+    expect(state.hands.ottoman.length).toBe(ottHandBefore + 1);
+    expect(state.hands.hapsburg).toHaveLength(0);
   });
 
   it('logs ransom event', () => {

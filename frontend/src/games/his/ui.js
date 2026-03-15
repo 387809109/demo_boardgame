@@ -8,6 +8,8 @@
  * - Status bar (ui/status-bar.js)
  * - Hand panel (ui/hand-panel.js)
  * - Power panel (ui/power-panel.js)
+ * - Action panel (ui/action-panel.js)
+ * - Selection manager (ui/selection-manager.js)
  *
  * Follows the same interface as UnoUI / WerewolfUI:
  *   render(state, playerId, onAction) -> HTMLElement
@@ -25,7 +27,25 @@ import { PowerPanel } from './ui/power-panel.js';
 import { DiplomacyPanel } from './ui/diplomacy-panel.js';
 import { PowerDetailPanel } from './ui/power-detail-panel.js';
 import { ReligiousStrugglePanel } from './ui/religious-struggle-panel.js';
+import { ActionPanel } from './ui/action-panel.js';
+import { SelectionManager } from './ui/selection-manager.js';
 import { CARD_BY_NUMBER } from './data/cards.js';
+import { MAJOR_POWERS } from './constants.js';
+
+// ── Power Colors & Labels ────────────────────────────────────────
+
+const POWER_COLORS = {
+  ottoman: '#2e7d32', hapsburg: '#f9a825', england: '#c62828',
+  france: '#1565c0', papacy: '#7b1fa2', protestant: '#1a1a1a'
+};
+const POWER_LABELS = {
+  ottoman: '奥斯曼', hapsburg: '哈布斯堡', england: '英格兰',
+  france: '法兰西', papacy: '教廷', protestant: '新教'
+};
+const ZONE_LABELS = {
+  german: '德语区', french: '法语区', english: '英语区',
+  italian: '意大利语区', spanish: '西班牙语区'
+};
 
 export class HisUI {
   constructor() {
@@ -46,37 +66,34 @@ export class HisUI {
     this._diplomacyPanel = new DiplomacyPanel();
     this._powerDetailPanel = new PowerDetailPanel();
     this._religiousStrugglePanel = new ReligiousStrugglePanel();
+    this._actionPanel = new ActionPanel();
+    this._selectionManager = new SelectionManager();
 
-    // Selected space for info display
+    // UI state
     this._selectedSpace = null;
+    this._selectedCard = null;
     this._tooltipEl = null;
+    this._promptBarEl = null;
+    this._pickerOverlayEl = null;
+    this._mapContainer = null;
 
     // Mount in game-ui-container (not ring center)
     this.mountInRingCenter = false;
   }
 
-  /**
-   * Set reference to GameBoard for timer control
-   * @param {Object} gameBoard
-   */
   setGameBoard(gameBoard) {
     this._gameBoard = gameBoard;
   }
 
-  /**
-   * Render the full game UI
-   * @param {Object} state
-   * @param {string} playerId
-   * @param {Function} onAction
-   * @returns {HTMLElement}
-   */
+  // ── Main Render ──────────────────────────────────────────────
+
   render(state, playerId, onAction) {
     this.state = state;
     this.playerId = playerId;
     this.onAction = onAction;
     this._playerPower = this._resolvePlayerPower(state, playerId);
 
-    // Root container — full width, vertical layout
+    // Root container
     this._container = document.createElement('div');
     this._container.className = 'his-game-ui';
     this._container.style.cssText = `
@@ -102,10 +119,10 @@ export class HisUI {
       min-height: 0;
     `;
 
-    // 2a. Map container (flex: 1)
-    const mapContainer = document.createElement('div');
-    mapContainer.className = 'his-map-container';
-    mapContainer.style.cssText = `
+    // 2a. Map container
+    this._mapContainer = document.createElement('div');
+    this._mapContainer.className = 'his-map-container';
+    this._mapContainer.style.cssText = `
       flex: 1;
       min-height: 400px;
       max-height: 70vh;
@@ -116,7 +133,7 @@ export class HisUI {
     `;
 
     const svgEl = this._mapRenderer.render();
-    mapContainer.appendChild(svgEl);
+    this._mapContainer.appendChild(svgEl);
 
     // Set up overlay
     this._mapOverlay = new MapOverlay(this._mapRenderer.getOverlayGroup());
@@ -125,7 +142,7 @@ export class HisUI {
     // Set up interaction (pan/zoom)
     this._mapInteraction = new MapInteraction(svgEl);
 
-    // Map click handler
+    // Map click handler — routes through selection manager
     this._mapRenderer.setOnSpaceClick((name, type) => {
       this._onSpaceClicked(name, type);
     });
@@ -133,7 +150,7 @@ export class HisUI {
     // Hover tooltip
     this._mapRenderer.setOnSpaceHover((name, enter) => {
       if (enter) {
-        this._showTooltip(name, mapContainer);
+        this._showTooltip(name, this._mapContainer);
       } else {
         this._hideTooltip();
       }
@@ -141,12 +158,20 @@ export class HisUI {
 
     // Zoom controls
     const zoomControls = this._renderZoomControls();
-    mapContainer.appendChild(zoomControls);
+    this._mapContainer.appendChild(zoomControls);
+
+    // Selection prompt bar (hidden by default)
+    this._promptBarEl = this._createPromptBar();
+    this._mapContainer.appendChild(this._promptBarEl);
+
+    // Picker overlay (hidden by default)
+    this._pickerOverlayEl = this._createPickerOverlay();
+    this._mapContainer.appendChild(this._pickerOverlayEl);
 
     // Update space appearance from state
     this._mapRenderer.updateFromState(state);
 
-    mainArea.appendChild(mapContainer);
+    mainArea.appendChild(this._mapContainer);
 
     // 2b. Sidebar with tabs
     const sidebar = document.createElement('div');
@@ -166,7 +191,7 @@ export class HisUI {
       flex: 1; min-height: 0; overflow-y: auto;
     `;
 
-    // Render all panels (hidden by default)
+    // Render all panels
     const powerEl = this._powerPanel.render();
     const diploEl = this._diplomacyPanel.render();
     const detailEl = this._powerDetailPanel.render();
@@ -210,6 +235,9 @@ export class HisUI {
 
     // 3. Hand panel
     const handEl = this._handPanel.render((action) => {
+      if (action.type === 'SELECT_CARD') {
+        this._selectedCard = action.data?.card?.number ?? null;
+      }
       if (this.onAction) this.onAction(action);
     });
     const hand = this._resolveHandCards(state);
@@ -221,15 +249,12 @@ export class HisUI {
     return this._container;
   }
 
-  /**
-   * Update UI from new state
-   * @param {Object} state
-   */
+  // ── State Update ─────────────────────────────────────────────
+
   updateState(state) {
     this.state = state;
     this._playerPower = this._resolvePlayerPower(state, this.playerId);
 
-    // Update sub-components
     this._statusBar.update(state);
     this._mapRenderer.updateFromState(state);
     if (this._mapOverlay) this._mapOverlay.update(state);
@@ -243,6 +268,12 @@ export class HisUI {
     const canPlay = state.activePower === this._playerPower
       && state.phase === 'action';
     this._handPanel.update(hand, this._playerPower, canPlay);
+
+    // If a selection flow was active but state changed, cancel it
+    if (this._selectionManager.active) {
+      this._selectionManager.cancel();
+      this._updateSelectionUI();
+    }
   }
 
   _switchTab(key) {
@@ -251,7 +282,6 @@ export class HisUI {
     const panel = this._sidebarPanels[key];
     if (panel) this._sidebarContent.appendChild(panel);
 
-    // Update tab styles
     if (this._sidebarTabs) {
       const tabs = this._sidebarTabs.children;
       const keys = ['power', 'diplomacy', 'detail', 'religious'];
@@ -263,44 +293,463 @@ export class HisUI {
     }
   }
 
-  /**
-   * Render action buttons
-   * @returns {HTMLElement}
-   */
+  // ── Render Actions ───────────────────────────────────────────
+
   renderActions(state, playerId, onAction) {
-    const bar = document.createElement('div');
-    bar.style.cssText = `
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      padding: 4px 0;
-    `;
+    this.state = state;
+    this.onAction = onAction;
+    this._playerPower = this._resolvePlayerPower(state, playerId);
 
-    const isActive = state.activePower === this._playerPower;
+    const stateWithUI = { ...state, _uiSelectedCard: this._selectedCard };
 
-    if (isActive && state.phase === 'action') {
-      // Pass button
-      const passBtn = this._actionBtn('跳过 (PASS)', () => {
-        if (onAction) onAction({ type: 'PASS' });
-      });
-      bar.appendChild(passBtn);
-    }
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
 
-    // Reset map view
+    // Action panel — passes startSelection callback
+    const panelEl = this._actionPanel.render(
+      stateWithUI,
+      this._playerPower,
+      (action) => {
+        // Direct actions (PASS, PLAY_CARD_CP, etc.)
+        if (action.type === 'PLAY_CARD_CP' || action.type === 'PLAY_CARD_EVENT') {
+          this._selectedCard = null;
+        }
+        if (onAction) onAction(action);
+      },
+      (actionType) => {
+        // Start a selection flow
+        this._startSelectionFlow(actionType);
+      }
+    );
+    wrapper.appendChild(panelEl);
+
+    // Reset map button
     const resetBtn = this._actionBtn('重置地图', () => {
       if (this._mapInteraction) this._mapInteraction.resetView();
     }, true);
-    bar.appendChild(resetBtn);
+    resetBtn.style.alignSelf = 'flex-start';
+    wrapper.appendChild(resetBtn);
 
+    return wrapper;
+  }
+
+  // ── Selection Flow Integration ─────────────────────────────
+
+  _startSelectionFlow(actionType) {
+    this._selectionManager.startFlow(
+      actionType,
+      this.state,
+      this._playerPower,
+      // onComplete — emit the final action to the game engine
+      (action) => {
+        this._updateSelectionUI();
+        if (this.onAction) this.onAction(action);
+      },
+      // onUpdate — refresh the prompt bar and highlights
+      () => {
+        this._updateSelectionUI();
+      }
+    );
+    this._updateSelectionUI();
+  }
+
+  _updateSelectionUI() {
+    const sm = this._selectionManager;
+
+    if (!sm.active) {
+      // Clear highlights and hide prompt
+      this._mapRenderer.clearHighlights();
+      this._hidePromptBar();
+      this._hidePickerOverlay();
+      return;
+    }
+
+    // Show prompt bar
+    this._showPromptBar(sm.prompt, sm.actionType);
+
+    // Highlight valid targets on map for 'space' steps
+    if (sm.stepType === 'space' && sm.validTargets) {
+      this._mapRenderer.highlightSpaces(sm.validTargets, '#ffeb3b');
+    } else {
+      this._mapRenderer.clearHighlights();
+    }
+
+    // Show picker overlay for 'zone' or 'power' steps
+    if (sm.stepType === 'zone') {
+      this._showZonePicker(sm.validTargets);
+    } else if (sm.stepType === 'power') {
+      this._showPowerPicker(sm.validTargets);
+    } else if (sm.stepType === 'units') {
+      this._showUnitSelector();
+    } else {
+      this._hidePickerOverlay();
+    }
+  }
+
+  // ── Space Click Handler ──────────────────────────────────────
+
+  _onSpaceClicked(name, type) {
+    // If selection manager is active, route click there first
+    if (this._selectionManager.active) {
+      const consumed = this._selectionManager.onSpaceClicked(
+        name, this.state, this._playerPower
+      );
+      if (consumed) return;
+    }
+
+    // Default: show space info
+    this._selectedSpace = name;
+    this._mapRenderer.selectSpace(name);
+    if (this.onAction) {
+      this.onAction({
+        type: 'SELECT_SPACE',
+        data: { space: name, spaceType: type }
+      });
+    }
+  }
+
+  // ── Prompt Bar ───────────────────────────────────────────────
+
+  _createPromptBar() {
+    const bar = document.createElement('div');
+    bar.className = 'his-prompt-bar';
+    bar.style.cssText = `
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      background: rgba(92, 107, 192, 0.95);
+      color: #fff;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 15;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    `;
     return bar;
+  }
+
+  _showPromptBar(text, actionType) {
+    if (!this._promptBarEl) return;
+    this._promptBarEl.innerHTML = '';
+    this._promptBarEl.style.display = 'flex';
+
+    const label = document.createElement('span');
+    label.textContent = text || '选择目标...';
+    this._promptBarEl.appendChild(label);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '取消';
+    cancelBtn.style.cssText = `
+      padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.5);
+      background: transparent; color: #fff; cursor: pointer;
+      font-size: 11px; font-weight: 600;
+    `;
+    cancelBtn.addEventListener('click', () => {
+      this._selectionManager.cancel();
+      this._updateSelectionUI();
+    });
+    this._promptBarEl.appendChild(cancelBtn);
+  }
+
+  _hidePromptBar() {
+    if (this._promptBarEl) {
+      this._promptBarEl.style.display = 'none';
+    }
+  }
+
+  // ── Picker Overlay (Zone / Power / Units) ────────────────────
+
+  _createPickerOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'his-picker-overlay';
+    overlay.style.cssText = `
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255,255,255,0.97);
+      border: 2px solid #5c6bc0;
+      border-radius: 10px;
+      padding: 16px;
+      z-index: 20;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      min-width: 200px;
+      max-width: 320px;
+    `;
+    return overlay;
+  }
+
+  _showZonePicker(validZones) {
+    if (!this._pickerOverlayEl) return;
+    this._pickerOverlayEl.innerHTML = '';
+    this._pickerOverlayEl.style.display = 'block';
+
+    const title = document.createElement('div');
+    title.textContent = '选择语言区';
+    title.style.cssText = `
+      font-weight: 700; font-size: 14px; margin-bottom: 10px;
+      text-align: center; color: #1e293b;
+    `;
+    this._pickerOverlayEl.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+
+    const zones = validZones || ['german', 'french', 'english', 'italian', 'spanish'];
+    const zoneColors = {
+      german: '#b4a078', french: '#6490c8', english: '#c86464',
+      italian: '#78b478', spanish: '#c8aa50'
+    };
+
+    for (const zone of zones) {
+      const btn = document.createElement('button');
+      btn.style.cssText = `
+        padding: 8px 16px; border-radius: 6px; cursor: pointer;
+        font-size: 13px; font-weight: 600;
+        border: 2px solid ${zoneColors[zone] || '#94a3b8'};
+        background: ${zoneColors[zone] || '#e2e8f0'}22;
+        color: #1e293b;
+        transition: background 0.15s;
+      `;
+      btn.textContent = ZONE_LABELS[zone] || zone;
+      btn.addEventListener('mouseenter', () => {
+        btn.style.background = (zoneColors[zone] || '#e2e8f0') + '44';
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.background = (zoneColors[zone] || '#e2e8f0') + '22';
+      });
+      btn.addEventListener('click', () => {
+        this._selectionManager.onZoneSelected(zone, this.state, this._playerPower);
+      });
+      grid.appendChild(btn);
+    }
+
+    this._pickerOverlayEl.appendChild(grid);
+  }
+
+  _showPowerPicker(validPowers) {
+    if (!this._pickerOverlayEl) return;
+    this._pickerOverlayEl.innerHTML = '';
+    this._pickerOverlayEl.style.display = 'block';
+
+    const title = document.createElement('div');
+    title.textContent = '选择目标势力';
+    title.style.cssText = `
+      font-weight: 700; font-size: 14px; margin-bottom: 10px;
+      text-align: center; color: #1e293b;
+    `;
+    this._pickerOverlayEl.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;justify-content:center;';
+
+    const powers = validPowers || MAJOR_POWERS.filter(p => p !== this._playerPower);
+
+    for (const power of powers) {
+      const btn = document.createElement('button');
+      const color = POWER_COLORS[power] || '#666';
+      btn.style.cssText = `
+        padding: 8px 14px; border-radius: 6px; cursor: pointer;
+        font-size: 12px; font-weight: 700;
+        border: 2px solid ${color};
+        background: ${color}18;
+        color: ${color};
+        transition: background 0.15s;
+      `;
+      btn.textContent = POWER_LABELS[power] || power;
+      btn.addEventListener('mouseenter', () => {
+        btn.style.background = color + '33';
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.background = color + '18';
+      });
+      btn.addEventListener('click', () => {
+        this._selectionManager.onPowerSelected(power, this.state, this._playerPower);
+      });
+      grid.appendChild(btn);
+    }
+
+    this._pickerOverlayEl.appendChild(grid);
+  }
+
+  _showUnitSelector() {
+    if (!this._pickerOverlayEl) return;
+    this._pickerOverlayEl.innerHTML = '';
+    this._pickerOverlayEl.style.display = 'block';
+
+    const sm = this._selectionManager;
+    const collected = sm.collectedData;
+    const fromSpace = collected.from;
+
+    // Get available units in the source space
+    let available = { regulars: 0, mercenaries: 0, cavalry: 0, leaders: [] };
+    if (fromSpace && this.state?.spaces?.[fromSpace]) {
+      const sp = this.state.spaces[fromSpace];
+      const stack = sp.units?.find(u => u.owner === this._playerPower);
+      if (stack) {
+        available = {
+          regulars: stack.regulars || 0,
+          mercenaries: stack.mercenaries || 0,
+          cavalry: stack.cavalry || 0,
+          leaders: [...(stack.leaders || [])]
+        };
+      }
+    }
+
+    const title = document.createElement('div');
+    title.textContent = '选择部队';
+    title.style.cssText = `
+      font-weight: 700; font-size: 14px; margin-bottom: 10px;
+      text-align: center; color: #1e293b;
+    `;
+    this._pickerOverlayEl.appendChild(title);
+
+    // Unit type spinners
+    const unitTypes = [
+      { key: 'regulars', label: '正规军', max: available.regulars },
+      { key: 'mercenaries', label: '雇佣兵', max: available.mercenaries },
+      { key: 'cavalry', label: '骑兵', max: available.cavalry }
+    ];
+
+    const values = { regulars: 0, mercenaries: 0, cavalry: 0, leaders: [] };
+    const spinnerEls = {};
+
+    for (const ut of unitTypes) {
+      if (ut.max <= 0) continue;
+      const row = document.createElement('div');
+      row.style.cssText = `
+        display: flex; align-items: center; justify-content: space-between;
+        margin: 4px 0; gap: 8px;
+      `;
+
+      const label = document.createElement('span');
+      label.textContent = ut.label;
+      label.style.cssText = 'font-size:12px;font-weight:600;min-width:60px;';
+
+      const controls = document.createElement('div');
+      controls.style.cssText = 'display:flex;align-items:center;gap:4px;';
+
+      const minusBtn = document.createElement('button');
+      minusBtn.textContent = '-';
+      minusBtn.style.cssText = this._spinnerBtnStyle();
+      const countEl = document.createElement('span');
+      countEl.textContent = '0';
+      countEl.style.cssText = 'font-size:13px;font-weight:700;min-width:24px;text-align:center;';
+      const plusBtn = document.createElement('button');
+      plusBtn.textContent = '+';
+      plusBtn.style.cssText = this._spinnerBtnStyle();
+
+      const allBtn = document.createElement('button');
+      allBtn.textContent = '全部';
+      allBtn.style.cssText = `
+        font-size:10px;padding:2px 6px;border-radius:3px;
+        border:1px solid #cbd5e1;background:#f8fafc;cursor:pointer;
+      `;
+
+      spinnerEls[ut.key] = countEl;
+
+      minusBtn.addEventListener('click', () => {
+        if (values[ut.key] > 0) {
+          values[ut.key]--;
+          countEl.textContent = values[ut.key];
+        }
+      });
+      plusBtn.addEventListener('click', () => {
+        if (values[ut.key] < ut.max) {
+          values[ut.key]++;
+          countEl.textContent = values[ut.key];
+        }
+      });
+      allBtn.addEventListener('click', () => {
+        values[ut.key] = ut.max;
+        countEl.textContent = values[ut.key];
+      });
+
+      controls.appendChild(minusBtn);
+      controls.appendChild(countEl);
+      controls.appendChild(plusBtn);
+      controls.appendChild(allBtn);
+
+      row.appendChild(label);
+      row.appendChild(controls);
+      this._pickerOverlayEl.appendChild(row);
+    }
+
+    // Leader checkboxes
+    if (available.leaders.length > 0) {
+      const leaderHeader = document.createElement('div');
+      leaderHeader.textContent = '将领';
+      leaderHeader.style.cssText = 'font-size:12px;font-weight:600;margin-top:8px;';
+      this._pickerOverlayEl.appendChild(leaderHeader);
+
+      for (const lid of available.leaders) {
+        const row = document.createElement('label');
+        row.style.cssText = `
+          display:flex;align-items:center;gap:6px;margin:3px 0;
+          font-size:12px;cursor:pointer;
+        `;
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = true;
+        values.leaders.push(lid);
+
+        cb.addEventListener('change', () => {
+          if (cb.checked) {
+            if (!values.leaders.includes(lid)) values.leaders.push(lid);
+          } else {
+            values.leaders = values.leaders.filter(l => l !== lid);
+          }
+        });
+
+        row.appendChild(cb);
+        row.appendChild(document.createTextNode(lid));
+        this._pickerOverlayEl.appendChild(row);
+      }
+    }
+
+    // Confirm button
+    const confirmRow = document.createElement('div');
+    confirmRow.style.cssText = 'margin-top:12px;text-align:center;';
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = '确认';
+    confirmBtn.style.cssText = `
+      padding:8px 24px;border-radius:6px;border:none;
+      background:#5c6bc0;color:#fff;cursor:pointer;
+      font-size:13px;font-weight:700;
+    `;
+    confirmBtn.addEventListener('click', () => {
+      const total = values.regulars + values.mercenaries + values.cavalry
+        + values.leaders.length;
+      if (total === 0) return; // nothing selected
+
+      this._selectionManager.onUnitsSelected(
+        { ...values },
+        this.state,
+        this._playerPower
+      );
+    });
+    confirmRow.appendChild(confirmBtn);
+    this._pickerOverlayEl.appendChild(confirmRow);
+  }
+
+  _hidePickerOverlay() {
+    if (this._pickerOverlayEl) {
+      this._pickerOverlayEl.style.display = 'none';
+    }
+  }
+
+  _spinnerBtnStyle() {
+    return `
+      width:24px;height:24px;border-radius:4px;border:1px solid #cbd5e1;
+      background:#fff;cursor:pointer;font-size:14px;font-weight:700;
+      display:flex;align-items:center;justify-content:center;padding:0;
+    `;
   }
 
   // ── Private Helpers ──────────────────────────────────────────
 
-  /**
-   * Convert hand card numbers to card objects for display.
-   * state.hands[power] stores card numbers; hand-panel expects objects.
-   */
   _resolveHandCards(state) {
     const raw = state.hands?.[this._playerPower];
     if (!raw || !Array.isArray(raw)) return [];
@@ -324,17 +773,6 @@ export class HisUI {
     if (!state || !state.players) return 'ottoman';
     const player = state.players.find(p => p.id === playerId);
     return player?.power || 'ottoman';
-  }
-
-  _onSpaceClicked(name, type) {
-    this._selectedSpace = name;
-    this._mapRenderer.selectSpace(name);
-    if (this.onAction) {
-      this.onAction({
-        type: 'SELECT_SPACE',
-        data: { space: name, spaceType: type }
-      });
-    }
   }
 
   _showTooltip(spaceName, container) {
@@ -368,7 +806,6 @@ export class HisUI {
     if (sp.isPort) html += `⚓ 港口<br>`;
     if (sp.isElectorate) html += `👑 选帝侯<br>`;
 
-    // Units
     if (sp.units && sp.units.length > 0) {
       for (const u of sp.units) {
         const parts = [];
@@ -411,7 +848,6 @@ export class HisUI {
 
     const zoomIn = this._zoomBtn('+', () => {
       if (this._mapInteraction) {
-        // Simulate zoom in at center
         const svg = this._mapRenderer._svg;
         const rect = svg.getBoundingClientRect();
         this._mapInteraction._zoom(0.8, rect.left + rect.width / 2,
