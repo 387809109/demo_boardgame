@@ -807,8 +807,8 @@ class App {
         : state;
       this.currentView.updateState(visible);
 
-      // Update game UI state (avoid full re-render to preserve zoom/pan)
-      if (gameUI && gameUI.updateState) {
+      // Update game UI: incremental path (preserves map zoom/pan) vs full re-render
+      if (gameUI && gameUI.supportsIncrementalUpdate) {
         gameUI.updateState(visible);
         // Re-render action bar (lightweight, no map state to lose)
         const actionBar = this.currentView.getActionBar?.();

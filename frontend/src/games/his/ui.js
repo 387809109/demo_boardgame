@@ -92,6 +92,8 @@ export class HisUI {
 
     // Mount in game-ui-container (not ring center)
     this.mountInRingCenter = false;
+    // Opt-in to incremental update path (preserves map zoom/pan state)
+    this.supportsIncrementalUpdate = true;
   }
 
   setGameBoard(gameBoard) {
