@@ -29,6 +29,12 @@ import { PowerDetailPanel } from './ui/power-detail-panel.js';
 import { ReligiousStrugglePanel } from './ui/religious-struggle-panel.js';
 import { ActionPanel } from './ui/action-panel.js';
 import { SelectionManager } from './ui/selection-manager.js';
+import { EventDisplay } from './ui/event-display.js';
+import { CombatDisplay } from './ui/combat-display.js';
+import { ReligiousDisplay } from './ui/religious-display.js';
+import { NewWorldDisplay } from './ui/new-world-display.js';
+import { GameLog } from './ui/game-log.js';
+import { SpaceDetail } from './ui/space-detail.js';
 import { CARD_BY_NUMBER } from './data/cards.js';
 import { MAJOR_POWERS } from './constants.js';
 
@@ -68,6 +74,12 @@ export class HisUI {
     this._religiousStrugglePanel = new ReligiousStrugglePanel();
     this._actionPanel = new ActionPanel();
     this._selectionManager = new SelectionManager();
+    this._eventDisplay = new EventDisplay();
+    this._combatDisplay = new CombatDisplay();
+    this._religiousDisplay = new ReligiousDisplay();
+    this._newWorldDisplay = new NewWorldDisplay();
+    this._gameLog = new GameLog();
+    this._spaceDetail = new SpaceDetail();
 
     // UI state
     this._selectedSpace = null;
@@ -76,6 +88,7 @@ export class HisUI {
     this._promptBarEl = null;
     this._pickerOverlayEl = null;
     this._mapContainer = null;
+    this._lastEventLogLength = 0;
 
     // Mount in game-ui-container (not ring center)
     this.mountInRingCenter = false;
@@ -168,6 +181,14 @@ export class HisUI {
     this._pickerOverlayEl = this._createPickerOverlay();
     this._mapContainer.appendChild(this._pickerOverlayEl);
 
+    // Event display banner (inside map container)
+    const eventBanner = this._eventDisplay.createBanner();
+    this._mapContainer.appendChild(eventBanner);
+
+    // Space detail panel (inside map container)
+    const spaceDetailPanel = this._spaceDetail.createPanel();
+    this._mapContainer.appendChild(spaceDetailPanel);
+
     // Update space appearance from state
     this._mapRenderer.updateFromState(state);
 
@@ -196,16 +217,18 @@ export class HisUI {
     const diploEl = this._diplomacyPanel.render();
     const detailEl = this._powerDetailPanel.render();
     const rsEl = this._religiousStrugglePanel.render();
+    const logEl = this._gameLog.render();
 
     this._sidebarPanels = {
       power: powerEl, diplomacy: diploEl,
-      detail: detailEl, religious: rsEl,
+      detail: detailEl, religious: rsEl, log: logEl,
     };
     const tabDefs = [
       { key: 'power', label: '势力' },
       { key: 'diplomacy', label: '外交' },
       { key: 'detail', label: '详情' },
       { key: 'religious', label: '宗教' },
+      { key: 'log', label: '日志' },
     ];
     this._activeTab = 'power';
     for (const def of tabDefs) {
@@ -228,6 +251,14 @@ export class HisUI {
     this._diplomacyPanel.update(state);
     this._powerDetailPanel.update(state, this._playerPower);
     this._religiousStrugglePanel.update(state);
+
+    // Game log: clicking a card event entry opens the event modal
+    this._gameLog.setOnCardClick((cardNumber, power) => {
+      const eventLog = this.state?.eventLog || [];
+      const effects = this._collectEventEffects(eventLog, cardNumber);
+      this._eventDisplay.showCard(cardNumber, power, effects);
+    });
+
     this._switchTab('power');
 
     mainArea.appendChild(sidebar);
@@ -238,6 +269,13 @@ export class HisUI {
       if (action.type === 'SELECT_CARD') {
         this._selectedCard = action.data?.card?.number ?? null;
       }
+      if (action.type === 'PREVIEW_CARD' && action.data?.card) {
+        this._eventDisplay.showCard(
+          action.data.card.number,
+          this._playerPower, []
+        );
+        return; // Don't propagate to game engine
+      }
       if (this.onAction) this.onAction(action);
     });
     const hand = this._resolveHandCards(state);
@@ -245,6 +283,16 @@ export class HisUI {
       && state.phase === 'action';
     this._handPanel.update(hand, this._playerPower, canPlay);
     this._container.appendChild(handEl);
+
+    // 4. Overlays (fixed position, hidden)
+    this._container.appendChild(this._eventDisplay.createOverlay());
+    this._container.appendChild(this._combatDisplay.createOverlay());
+    this._container.appendChild(this._religiousDisplay.createOverlay());
+    this._container.appendChild(this._newWorldDisplay.createOverlay());
+
+    // 5. Initialize game log and event tracking
+    this._gameLog.update(state.eventLog || []);
+    this._lastEventLogLength = (state.eventLog || []).length;
 
     return this._container;
   }
@@ -269,6 +317,18 @@ export class HisUI {
       && state.phase === 'action';
     this._handPanel.update(hand, this._playerPower, canPlay);
 
+    // Update space detail if visible
+    if (this._spaceDetail.visible && this._spaceDetail.currentSpace) {
+      this._spaceDetail.show(this._spaceDetail.currentSpace, state);
+    }
+
+    // Update game log
+    const eventLog = state.eventLog || [];
+    this._gameLog.update(eventLog);
+
+    // Detect new card events and show banner/modal
+    this._detectNewEvents(eventLog);
+
     // If a selection flow was active but state changed, cancel it
     if (this._selectionManager.active) {
       this._selectionManager.cancel();
@@ -284,7 +344,7 @@ export class HisUI {
 
     if (this._sidebarTabs) {
       const tabs = this._sidebarTabs.children;
-      const keys = ['power', 'diplomacy', 'detail', 'religious'];
+      const keys = ['power', 'diplomacy', 'detail', 'religious', 'log'];
       for (let i = 0; i < tabs.length; i++) {
         const isActive = keys[i] === key;
         tabs[i].style.borderBottomColor = isActive ? '#5c6bc0' : 'transparent';
@@ -386,6 +446,104 @@ export class HisUI {
     }
   }
 
+  // ── Event Detection ────────────────────────────────────────
+
+  _detectNewEvents(eventLog) {
+    if (eventLog.length <= this._lastEventLogLength) {
+      this._lastEventLogLength = eventLog.length;
+      return;
+    }
+
+    // Find new entries since last check
+    const newEntries = eventLog.slice(this._lastEventLogLength);
+    this._lastEventLogLength = eventLog.length;
+
+    // Process new entries for display
+    for (const entry of newEntries) {
+      if (entry.type === 'play_card_event' && entry.data) {
+        const { cardNumber, power } = entry.data;
+        const eventIdx = eventLog.indexOf(entry);
+        const effects = [];
+        for (let i = eventIdx + 1; i < eventLog.length; i++) {
+          const e = eventLog[i];
+          if (e.type === 'play_card_event' || e.type === 'play_card' ||
+              e.type === 'action_phase_end' || e.type === 'pass') break;
+          effects.push(e);
+        }
+        this._eventDisplay.showBanner(cardNumber, power, effects);
+      }
+
+      // Combat results
+      if (entry.type === 'field_battle' && entry.data) {
+        this._combatDisplay.showFieldBattle(entry.data);
+      } else if (entry.type === 'assault' && entry.data) {
+        this._combatDisplay.showAssault(entry.data);
+      } else if (entry.type === 'naval_combat' && entry.data) {
+        this._combatDisplay.showNavalCombat(entry.data);
+      } else if (entry.type === 'interception_attempt' && entry.data) {
+        this._combatDisplay.showInterception(entry.data);
+      }
+
+      // Debate results
+      if (entry.type === 'debate_result' && entry.data) {
+        this._religiousDisplay.showDebateResult(entry.data);
+      }
+
+      // Reformation results
+      if ((entry.type === 'reformation_success' ||
+           entry.type === 'reformation_failure') && entry.data) {
+        this._religiousDisplay.showReformation(entry.data, false);
+      }
+      if ((entry.type === 'counter_reformation_success' ||
+           entry.type === 'counter_reformation_failure') && entry.data) {
+        this._religiousDisplay.showReformation(entry.data, true);
+      }
+
+      // Luther 95 reformation results
+      if ((entry.type === 'luther_reform_success' ||
+           entry.type === 'luther_reform_failure') && entry.data) {
+        this._religiousDisplay.showReformation(entry.data, false);
+      }
+
+      // New World results
+      if ((entry.type === 'discovery_made' || entry.type === 'no_discovery' ||
+           entry.type === 'explorer_lost') && entry.data) {
+        this._newWorldDisplay.showExploration({ ...entry.data, type: entry.type });
+      }
+      if ((entry.type === 'circumnavigation_success' ||
+           entry.type === 'circumnavigation_failed') && entry.data) {
+        this._newWorldDisplay.showCircumnavigation({ ...entry.data, type: entry.type });
+      }
+      if ((entry.type === 'conquest_made' ||
+           entry.type === 'conquest_failed') && entry.data) {
+        this._newWorldDisplay.showConquest({ ...entry.data, type: entry.type });
+      }
+    }
+  }
+
+  /**
+   * Collect log entries that are effects of a specific card event.
+   */
+  _collectEventEffects(eventLog, cardNumber) {
+    const effects = [];
+    let found = false;
+    for (let i = eventLog.length - 1; i >= 0; i--) {
+      if (eventLog[i].type === 'play_card_event' &&
+          eventLog[i].data?.cardNumber === cardNumber) {
+        // Collect entries after this one
+        for (let j = i + 1; j < eventLog.length; j++) {
+          const e = eventLog[j];
+          if (e.type === 'play_card_event' || e.type === 'play_card' ||
+              e.type === 'action_phase_end' || e.type === 'pass') break;
+          effects.push(e);
+        }
+        found = true;
+        break;
+      }
+    }
+    return effects;
+  }
+
   // ── Space Click Handler ──────────────────────────────────────
 
   _onSpaceClicked(name, type) {
@@ -397,9 +555,17 @@ export class HisUI {
       if (consumed) return;
     }
 
-    // Default: show space info
+    // Default: show space detail panel
     this._selectedSpace = name;
     this._mapRenderer.selectSpace(name);
+
+    // Toggle detail panel: clicking same space hides it
+    if (this._spaceDetail.visible && this._spaceDetail.currentSpace === name) {
+      this._spaceDetail.hide();
+    } else {
+      this._spaceDetail.show(name, this.state);
+    }
+
     if (this.onAction) {
       this.onAction({
         type: 'SELECT_SPACE',

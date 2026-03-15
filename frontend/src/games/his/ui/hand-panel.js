@@ -175,6 +175,17 @@ export class HandPanel {
       });
     }
 
+    // Right-click: preview card detail
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (this._onAction) {
+        this._onAction({
+          type: 'PREVIEW_CARD',
+          data: { card }
+        });
+      }
+    });
+
     return el;
   }
 
