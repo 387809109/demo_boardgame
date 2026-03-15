@@ -341,4 +341,116 @@ describe('HISGame', () => {
       expect(typeof visible.hands.hapsburg).toBe('number');
     });
   });
+
+  // ── Edge Cases ──────────────────────────────────────────────────
+
+  describe('edge cases', () => {
+    it('rejects PLAY_CARD_CP during Luther 95 phase', () => {
+      const game = startGame();
+      // Game starts in luther_95 phase
+      expect(game.getState().phase).toBe('luther_95');
+      const result = game.executeMove({
+        actionType: ACTION_TYPES.PLAY_CARD_CP,
+        actionData: { cardNumber: 1 },
+        playerId: 'p1'
+      });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Luther 95');
+    });
+
+    it('rejects MOVE_FORMATION during Luther 95 phase', () => {
+      const game = startGame();
+      const result = game.executeMove({
+        actionType: ACTION_TYPES.MOVE_FORMATION,
+        actionData: { from: 'Istanbul', to: 'Edirne', units: {} },
+        playerId: 'p1'
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects PASS during Luther 95 phase', () => {
+      const game = startGame();
+      const result = game.executeMove({
+        actionType: ACTION_TYPES.PASS,
+        playerId: 'p1'
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects undefined actionType', () => {
+      const game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.ACTION;
+      state.activePower = 'ottoman';
+      state.pendingLuther95 = null;
+      const result = game.executeMove({
+        actionType: undefined,
+        playerId: 'p1'
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('consecutivePasses resets after card play then accumulates again', () => {
+      const game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.ACTION;
+      state.activePower = 'ottoman';
+      state.impulseIndex = 0;
+      state.consecutivePasses = 0;
+      state.pendingLuther95 = null;
+      for (const power of MAJOR_POWERS) {
+        state.hands[power] = [50];
+      }
+
+      // Ottoman plays card
+      state.hands.ottoman = [8, 50];
+      game.executeMove({
+        actionType: ACTION_TYPES.PLAY_CARD_CP,
+        actionData: { cardNumber: 8 },
+        playerId: 'p1'
+      });
+      game.executeMove({
+        actionType: ACTION_TYPES.END_IMPULSE,
+        playerId: 'p1'
+      });
+      expect(game.getState().consecutivePasses).toBe(0);
+
+      // Next power passes
+      const s2 = game.getState();
+      const nextPower = s2.activePower;
+      const nextPid = s2.playerByPower[nextPower];
+      game.executeMove({
+        actionType: ACTION_TYPES.PASS,
+        playerId: nextPid
+      });
+      expect(game.getState().consecutivePasses).toBe(1);
+    });
+
+    it('VP tie at time limit — highest VP wins regardless of tie', () => {
+      const game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.VICTORY_DETERMINATION;
+      state.turn = 9;
+      state.vp.ottoman = 20;
+      state.vp.hapsburg = 20;
+      state.vp.england = 15;
+      state.vp.france = 15;
+      state.vp.papacy = 15;
+      state.vp.protestant = 10;
+      const result = game.checkGameEnd(state);
+      expect(result.ended).toBe(true);
+      expect(result.reason).toBe('time_limit');
+      // Winner should be one of the tied powers
+      expect(['ottoman', 'hapsburg']).toContain(result.winnerPower);
+    });
+
+    it('getVisibleState for unknown playerId hides all hands', () => {
+      const game = startGame();
+      const visible = game.getVisibleState('spectator');
+      // All hands should be numbers (counts)
+      for (const power of MAJOR_POWERS) {
+        expect(typeof visible.hands[power]).toBe('number');
+      }
+    });
+  });
 });

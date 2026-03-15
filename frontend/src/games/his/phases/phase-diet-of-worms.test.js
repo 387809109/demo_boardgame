@@ -8,6 +8,15 @@ import {
   isDietComplete, needsDietCard
 } from './phase-diet-of-worms.js';
 import { RELIGION } from '../constants.js';
+import { CARD_BY_NUMBER } from '../data/cards.js';
+
+/** Find a non-mandatory card in a power's hand (diet can't use mandatory events). */
+function findPlayableCard(state, power) {
+  return state.hands[power].find(n => {
+    const c = CARD_BY_NUMBER[n];
+    return !c || c.category !== 'MANDATORY';
+  });
+}
 
 function setupDiet() {
   const state = createStateAfterDraw();
@@ -39,17 +48,18 @@ describe('validateDietCard', () => {
 
   it('accepts valid card from hand', () => {
     const { state } = setupDiet();
-    const card = state.hands.protestant[0];
+    const card = findPlayableCard(state, 'protestant');
+    expect(card).toBeDefined();
     const r = validateDietCard(state, 'protestant', card);
     expect(r.valid).toBe(true);
   });
 
   it('rejects duplicate submission', () => {
     const { state, helpers } = setupDiet();
-    const card = state.hands.protestant[0];
+    const card = findPlayableCard(state, 'protestant');
     submitDietCard(state, 'protestant', card, helpers);
     // Try to submit again
-    const card2 = state.hands.protestant[0];
+    const card2 = findPlayableCard(state, 'protestant');
     if (card2) {
       const r = validateDietCard(state, 'protestant', card2);
       expect(r.valid).toBe(false);

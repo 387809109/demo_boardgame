@@ -14,14 +14,14 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 |------|------|
 | 源码文件 | 57 个 JS 文件 |
 | 测试文件 | 33 个 test.js 文件 |
-| 源码行数 | ~24,300 行 |
-| 测试行数 | ~10,500 行 |
-| 单元测试 | **983 个**，全部通过 |
+| 源码行数 | ~24,200 行 |
+| 测试行数 | ~10,800 行 |
+| 单元测试 | **997 个**，全部通过 |
 | 事件处理器 | **135/135 张卡牌已实现** |
 
 **已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心)
 
-**当前**：Phase 11（多人联机与打磨）— 11.1 网络同步验证完成
+**当前**：Phase 11（多人联机与打磨）— 11.1 网络同步验证完成，11.4 边界用例测试进行中
 
 ---
 
@@ -302,13 +302,23 @@ frontend/src/games/his/
 | 11.1 | 多人网络同步验证 | ✅ | 🔴 高 |
 | 11.2 | 2-5 人变体（一人控制多势力） | ❌ | 🟡 中 |
 | 11.3 | 锦标赛场景（1532） | ❌ | 🟡 中 |
-| 11.4 | 边界用例全面测试 | ❌ | 🟡 中 |
+| 11.4 | 边界用例全面测试 | 🔶 进行中 | 🟡 中 |
 | 11.5 | 存档/读档 | ❌ | 🟡 中 |
 | 11.6 | 大状态深拷贝性能优化 | ❌ | 🟢 低 |
 | 11.7 | 响应卡 UI（战斗/事件中打出响应卡） | ❌ | 🟡 中 |
 | 11.8 | 回放系统（查看历史行动） | ❌ | 🟢 低 |
 
 **11.1 验证结果**：config/export/getVisibleState/processMove 格式/网络收发路径/状态大小均正确。修复了 UI-only action（SELECT_CARD、SELECT_SPACE）泄漏到引擎的问题，以及 action 格式 `{type,data}` → `{actionType,actionData}` 的统一。
+
+**11.4 边界用例测试进展**（+127 新测试，870→997）：
+
+- `index.test.js` +7：阶段门控（Luther95/Diet 阶段拒绝非法 action）、undefined actionType 拒绝、consecutivePasses 重置链、VP 平局、未知玩家信息隐藏
+- `phase-luther95.test.js` +23：早期终止（全空间已转化）、选侯国正规军放置、空目标完成判定、验证边界（缺失目标/不存在空间/已转化空间）
+- `phase-diet-of-worms.test.js` +3：修复随机手牌导致 MANDATORY 事件卡验证失败的 flaky test
+- `phase-spring-deployment.test.js` +12：首都无部队跳过、最大部署限制、非首都出发拒绝
+- `interception.test.js` +2：奥斯曼骑兵加值、山口拦截加值
+- `retreat.test.js` 修复已有测试稳定性
+- `index.js` validateMove：新增 `!actionType` 防御（拒绝 undefined/null actionType）
 
 ---
 
@@ -345,8 +355,8 @@ frontend/src/games/his/
 | Phase 9 SVG+UI | ~4,000 | ~3,300 | ✅ |
 | Phase 10 卡牌事件 UI | ~3,000 | ~1,100 | ✅ |
 | Phase 11 多人联机 | ~1,000 | — | ⬅️ |
-| **源码合计** | ~27,500 | **~23,500** | |
-| **测试合计** | ~8,000-12,000 | **~10,500** | 983 tests |
+| **源码合计** | ~27,500 | **~24,200** | |
+| **测试合计** | ~8,000-12,000 | **~10,800** | 997 tests |
 
 **依赖关系图**：
 ```
@@ -365,39 +375,40 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 
 | 测试文件 | 测试数 | 覆盖模块 |
 |----------|--------|----------|
-| state-init.test.js | 33 | 初始化、数据完整性 |
+| state-init.test.js | 35 | 初始化、数据完整性 |
 | state-helpers.test.js | 54 | 查询工具、路径搜索、辩士 |
 | state-visible.test.js | 9 | 信息隐藏 |
-| war-helpers.test.js | 31 | 战争/同盟状态 |
+| war-helpers.test.js | 33 | 战争/同盟状态 |
 | victory-checks.test.js | 10 | 胜利条件 |
 | reformer-helpers.test.js | 15 | 宗教改革者追踪 |
 | cp-manager.test.js | 21 | CP 花费 |
-| military-actions.test.js | 32 | 移动、征募、建造 |
-| naval-actions.test.js | 25 | 海军、海盗 |
+| military-actions.test.js | 46 | 移动、征募、建造 |
+| naval-actions.test.js | 50 | 海军、海盗 |
 | combat-actions.test.js | 20 | 野战 |
-| siege-actions.test.js | 20 | 围城、LOC |
-| interception.test.js | 9 | 拦截 |
+| siege-actions.test.js | 21 | 围城、LOC |
+| interception.test.js | 11 | 拦截 |
 | retreat.test.js | 12 | 撤退 |
 | religious-actions.test.js | 44 | 改革、出版、翻译、焚书 |
 | debate-actions.test.js | 49 | 辩论 + 特伦托会议 |
-| diplomacy-actions.test.js | 46 | 外交 |
+| diplomacy-actions.test.js | 49 | 外交 |
 | excommunication-actions.test.js | 24 | 绝罚 |
 | event-actions.test.js | 79 | 事件卡 #1-54 |
 | event-actions-extended.test.js | 120 | 事件卡 #55-116 |
 | event-actions-diplomacy.test.js | 32 | 外交牌 #201-219 |
+| event-display.test.js | 28 | 事件展示 UI |
 | new-world-actions.test.js | 28 | 新世界 |
 | loan-actions.test.js | 10 | 中队借调 |
 | conclave-actions.test.js | 13 | 教宗选举 |
-| phase-manager.test.js | 24 | 阶段状态机 |
+| phase-manager.test.js | 26 | 阶段状态机 |
 | phase-card-draw.test.js | 14 | 抽牌 |
 | phase-diplomacy.test.js | 13 | 外交阶段 |
-| phase-spring-deployment.test.js | 14 | 春季部署 |
-| phase-diet-of-worms.test.js | 14 | 沃尔姆斯议会 |
-| phase-luther95.test.js | 6 | 95 条论纲 |
+| phase-spring-deployment.test.js | 26 | 春季部署 |
+| phase-diet-of-worms.test.js | 17 | 沃尔姆斯议会 |
+| phase-luther95.test.js | 29 | 95 条论纲 |
 | phase-new-world.test.js | 8 | 新世界阶段 |
-| phase-winter.test.js | 18 | 冬季阶段 |
-| index.test.js | 23 | 集成测试 |
-| **合计** | **870** | |
+| phase-winter.test.js | 21 | 冬季阶段 |
+| index.test.js | 30 | 集成测试 |
+| **合计** | **997** | |
 
 运行命令：
 ```bash

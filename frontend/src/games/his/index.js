@@ -214,6 +214,11 @@ export class HISGame extends GameEngine {
    */
   validateMove(move, state) {
     const { actionType, actionData = {}, playerId } = move;
+
+    if (!actionType) {
+      return { valid: false, error: 'Missing actionType' };
+    }
+
     const power = getPowerForPlayer(state, playerId);
 
     if (!power) {
