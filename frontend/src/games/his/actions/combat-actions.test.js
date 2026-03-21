@@ -4,7 +4,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   getHighestBattleRating, calculateBattleDice,
-  applyCasualties, resolveFieldBattle
+  applyCasualties, resolveFieldBattle,
+  initiateFieldBattle, executeFieldBattle
 } from './combat-actions.js';
 import { createTestState, createMockHelpers } from '../test-helpers.js';
 import { COMBAT } from '../constants.js';
@@ -435,5 +436,180 @@ describe('resolveFieldBattle — edge cases', () => {
       }
     }
     expect(foundLoserWithUnitsRemaining).toBe(true);
+  });
+});
+
+// ── initiateFieldBattle Tests ───────────────────────────────────
+
+describe('initiateFieldBattle', () => {
+  it('completes synchronously when neither side has combat cards', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+
+    // Ensure no combat cards in either hand
+    state.hands.ottoman = [50, 51];
+    state.hands.hapsburg = [52, 53];
+
+    setupBattle(state, 'Edirne',
+      makeStack('ottoman', 5, 0, 0, ['suleiman']),
+      makeStack('hapsburg', 3, 0, 0)
+    );
+
+    const result = initiateFieldBattle(
+      state, 'Edirne', 'ottoman', 'hapsburg', helpers
+    );
+
+    expect(result.paused).toBeUndefined();
+    expect(result).toHaveProperty('winner');
+    expect(result).toHaveProperty('attackerDice');
+    expect(result).toHaveProperty('defenderDice');
+  });
+
+  it('pauses with W2 when attacker has a combat card', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+
+    // Card #24 Arquebusiers is valid in field battle for attacker
+    state.hands.ottoman = [24, 50];
+    state.hands.hapsburg = [52, 53];
+
+    setupBattle(state, 'Edirne',
+      makeStack('ottoman', 5, 0, 0),
+      makeStack('hapsburg', 3, 0, 0)
+    );
+
+    const result = initiateFieldBattle(
+      state, 'Edirne', 'ottoman', 'hapsburg', helpers
+    );
+
+    expect(result.paused).toBe(true);
+    expect(result.window).toBe('W2');
+    expect(state.pendingResponse).toBeDefined();
+    expect(state.pendingResponse.respondingPower).toBe('ottoman');
+    expect(state.pendingResponse.validCards).toContain(24);
+  });
+
+  it('pauses with W3 when only defender has a combat card', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+
+    // Attacker has no combat cards, defender has #25 Field Artillery
+    state.hands.ottoman = [50, 51];
+    state.hands.hapsburg = [25, 53];
+
+    setupBattle(state, 'Edirne',
+      makeStack('ottoman', 5, 0, 0),
+      makeStack('hapsburg', 3, 0, 0)
+    );
+
+    const result = initiateFieldBattle(
+      state, 'Edirne', 'ottoman', 'hapsburg', helpers
+    );
+
+    expect(result.paused).toBe(true);
+    expect(result.window).toBe('W3');
+    expect(state.pendingResponse).toBeDefined();
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+    expect(state.pendingResponse.validCards).toContain(25);
+  });
+
+  it('returns error when stacks missing', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+
+    state.spaces['Edirne'].units = [
+      makeStack('ottoman', 3, 0, 0)
+    ];
+
+    const result = initiateFieldBattle(
+      state, 'Edirne', 'ottoman', 'hapsburg', helpers
+    );
+    expect(result).toHaveProperty('error');
+  });
+});
+
+// ── executeFieldBattle Tests ────────────────────────────────────
+
+describe('executeFieldBattle', () => {
+  it('produces same result shape as resolveFieldBattle', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+
+    setupBattle(state, 'Edirne',
+      makeStack('ottoman', 5, 0, 0, ['suleiman']),
+      makeStack('hapsburg', 3, 0, 0)
+    );
+
+    const result = executeFieldBattle(
+      state, 'Edirne', 'ottoman', 'hapsburg', helpers
+    );
+
+    expect(result).toHaveProperty('winner');
+    expect(result).toHaveProperty('attackerDice');
+    expect(result).toHaveProperty('defenderDice');
+    expect(result).toHaveProperty('attackerRolls');
+    expect(result).toHaveProperty('defenderRolls');
+    expect(result).toHaveProperty('attackerHits');
+    expect(result).toHaveProperty('defenderHits');
+    expect(result).toHaveProperty('capturedLeaders');
+  });
+
+  it('applies pendingCombatBonus when present', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+
+    setupBattle(state, 'Edirne',
+      makeStack('ottoman', 3, 0, 0),
+      makeStack('hapsburg', 3, 0, 0)
+    );
+
+    // Set up a combat bonus (attacker gets 2 extra dice)
+    state.pendingCombatBonus = { attackerBonusDice: 2 };
+
+    const result = executeFieldBattle(
+      state, 'Edirne', 'ottoman', 'hapsburg', helpers
+    );
+
+    // Base: 3 units -> 3 dice + 2 bonus = 5
+    expect(result.attackerDice).toBe(5);
+    // Bonus should be cleared
+    expect(state.pendingCombatBonus).toBeNull();
+  });
+
+  it('applies defender combat bonus when present', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+
+    setupBattle(state, 'Edirne',
+      makeStack('ottoman', 3, 0, 0),
+      makeStack('hapsburg', 3, 0, 0)
+    );
+
+    state.pendingCombatBonus = { defenderBonusDice: 3 };
+
+    const result = executeFieldBattle(
+      state, 'Edirne', 'ottoman', 'hapsburg', helpers
+    );
+
+    // Defender: 3 units + 1 defender bonus + 3 combat bonus = 7
+    expect(result.defenderDice).toBe(7);
+    expect(state.pendingCombatBonus).toBeNull();
+  });
+
+  it('logs field_battle event', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+
+    setupBattle(state, 'Edirne',
+      makeStack('ottoman', 3, 0, 0),
+      makeStack('hapsburg', 3, 0, 0)
+    );
+
+    executeFieldBattle(
+      state, 'Edirne', 'ottoman', 'hapsburg', helpers
+    );
+
+    const battleEvent = state.eventLog.find(e => e.type === 'field_battle');
+    expect(battleEvent).toBeDefined();
   });
 });

@@ -49,7 +49,9 @@ import {
 } from './actions/debate-actions.js';
 
 // Combat actions
-import { resolveFieldBattle } from './actions/combat-actions.js';
+import {
+  resolveFieldBattle, initiateFieldBattle, executeFieldBattle
+} from './actions/combat-actions.js';
 import {
   validateAssault, executeAssault
 } from './actions/siege-actions.js';
@@ -96,6 +98,12 @@ import { submitDietCard } from './phases/phase-diet-of-worms.js';
 
 // Event cards
 import { executeEvent, validateEvent } from './actions/event-actions.js';
+
+// Response card actions
+import {
+  handlePlayResponseCard, handleDeclineResponse, getNextCombatWindow,
+  createCombatCardWindow
+} from './actions/response-actions.js';
 
 // Victory checks
 import { checkImmediateVictory } from './state/victory-checks.js';
@@ -313,6 +321,28 @@ export class HISGame extends GameEngine {
 
     // Action phase moves require it to be this power's impulse
     if (state.phase === PHASES.ACTION) {
+      // Response card actions can be played by non-active power
+      if (actionType === ACTION_TYPES.PLAY_RESPONSE_CARD ||
+          actionType === ACTION_TYPES.DECLINE_RESPONSE) {
+        if (!state.pendingResponse) {
+          return { valid: false, error: 'No pending response window' };
+        }
+        if (state.pendingResponse.respondingPower !== power) {
+          return { valid: false, error: 'Not your response window' };
+        }
+        if (actionType === ACTION_TYPES.PLAY_RESPONSE_CARD) {
+          const cardNumber = actionData?.cardNumber;
+          if (!cardNumber ||
+              !state.pendingResponse.validCards.includes(cardNumber)) {
+            return { valid: false, error: 'Invalid response card' };
+          }
+          if (!state.hands[power]?.includes(cardNumber)) {
+            return { valid: false, error: 'Card not in hand' };
+          }
+        }
+        return { valid: true };
+      }
+
       if (state.activePower !== power) {
         return { valid: false, error: 'Not your impulse' };
       }
@@ -532,6 +562,16 @@ export class HISGame extends GameEngine {
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
+      case ACTION_TYPES.PLAY_RESPONSE_CARD:
+        this._handlePlayResponseCard(newState, power, actionData, helpers);
+        this._checkVictory(newState, helpers);
+        break;
+
+      case ACTION_TYPES.DECLINE_RESPONSE:
+        this._handleDeclineResponse(newState, power, helpers);
+        this._checkVictory(newState, helpers);
+        break;
+
       default:
         // CP sub-actions
         if (isCpAction(actionType)) {
@@ -699,9 +739,84 @@ export class HISGame extends GameEngine {
     if (!battle || battle.type !== 'field_battle') return;
 
     const { space, attackerPower, defenderPower } = battle;
-    state.pendingBattle = null;
 
-    resolveFieldBattle(state, space, attackerPower, defenderPower, helpers);
+    // Don't clear pendingBattle yet — initiateFieldBattle may pause
+    const result = initiateFieldBattle(
+      state, space, attackerPower, defenderPower, helpers
+    );
+
+    // If battle paused for response window, keep pendingBattle
+    if (result.paused) {
+      state.pendingBattle.battleType = 'field';
+      state.pendingBattle.lastWindow = result.window;
+      state.pendingBattle.responses = {};
+      return;
+    }
+
+    // Battle completed synchronously (no response windows)
+    state.pendingBattle = null;
+  }
+
+  /**
+   * Handle playing a combat response card.
+   * @private
+   */
+  _handlePlayResponseCard(state, power, actionData, helpers) {
+    const result = handlePlayResponseCard(
+      state, power, actionData, helpers
+    );
+    if (!result.success) return;
+    this._advanceAfterResponse(state, result, helpers);
+  }
+
+  /**
+   * Handle declining a combat response.
+   * @private
+   */
+  _handleDeclineResponse(state, power, helpers) {
+    const result = handleDeclineResponse(state, power, helpers);
+    if (!result.success) return;
+    this._advanceAfterResponse(state, result, helpers);
+  }
+
+  /**
+   * After a response card is played or declined, check if another
+   * window should open or if the battle should execute.
+   * @private
+   */
+  _advanceAfterResponse(state, result, helpers) {
+    const { window: currentWindow, responses } = result;
+    const battle = state.pendingBattle;
+
+    if (!battle) return;
+
+    const { space, attackerPower, defenderPower } = battle;
+    const battleType = battle.battleType || 'field';
+
+    const nextWindow = getNextCombatWindow(
+      currentWindow, state, space, attackerPower, defenderPower,
+      battleType, { responses }
+    );
+
+    if (nextWindow) {
+      const created = createCombatCardWindow(
+        state, nextWindow, space, attackerPower, defenderPower,
+        battleType, { responses }
+      );
+      if (created) {
+        battle.lastWindow = nextWindow;
+        // Store responses on pendingBattle for tracking
+        battle.responses = responses;
+        return;
+      }
+    }
+
+    // No more windows — execute the battle
+    state.pendingBattle = null;
+    executeFieldBattle(
+      state, space, attackerPower, defenderPower, helpers,
+      { responses }
+    );
   }
 
   /**

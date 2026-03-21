@@ -61,7 +61,8 @@ export function hasPendingInteraction(state) {
   return state.pendingReformation !== null ||
     state.pendingDebate !== null ||
     state.pendingBattle !== null ||
-    state.pendingInterception !== null;
+    state.pendingInterception !== null ||
+    state.pendingResponse !== null;
 }
 
 /**

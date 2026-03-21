@@ -453,4 +453,486 @@ describe('HISGame', () => {
       }
     });
   });
+
+  // ── Response Card System (S2) ───────────────────────────────────
+
+  describe('Response Card Validation', () => {
+    let game;
+
+    function makeActionState() {
+      game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.ACTION;
+      state.activePower = 'ottoman';
+      state.impulseIndex = 0;
+      state.consecutivePasses = 0;
+      state.pendingLuther95 = null;
+      return state;
+    }
+
+    it('rejects PLAY_RESPONSE_CARD when no pendingResponse', () => {
+      const state = makeActionState();
+      state.pendingResponse = null;
+
+      const result = game.validateMove({
+        actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+        actionData: { cardNumber: 24 },
+        playerId: 'p1'
+      }, state);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('No pending response window');
+    });
+
+    it('rejects DECLINE_RESPONSE when no pendingResponse', () => {
+      const state = makeActionState();
+      state.pendingResponse = null;
+
+      const result = game.validateMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE,
+        actionData: {},
+        playerId: 'p1'
+      }, state);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('No pending response window');
+    });
+
+    it('rejects PLAY_RESPONSE_CARD when wrong power', () => {
+      const state = makeActionState();
+      // pendingResponse expects hapsburg (p2), but p1 is ottoman
+      state.pendingResponse = {
+        window: 'W3',
+        respondingPower: 'hapsburg',
+        validCards: [24],
+        context: {
+          type: 'field',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        },
+        responses: {},
+        battleState: {}
+      };
+
+      const result = game.validateMove({
+        actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+        actionData: { cardNumber: 24 },
+        playerId: 'p1'  // ottoman, not hapsburg
+      }, state);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('Not your response window');
+    });
+
+    it('rejects DECLINE_RESPONSE when wrong power', () => {
+      const state = makeActionState();
+      state.pendingResponse = {
+        window: 'W3',
+        respondingPower: 'hapsburg',
+        validCards: [24],
+        context: {
+          type: 'field',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        },
+        responses: {},
+        battleState: {}
+      };
+
+      const result = game.validateMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE,
+        actionData: {},
+        playerId: 'p1'  // ottoman
+      }, state);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('Not your response window');
+    });
+
+    it('rejects PLAY_RESPONSE_CARD with invalid card number', () => {
+      const state = makeActionState();
+      state.pendingResponse = {
+        window: 'W2',
+        respondingPower: 'ottoman',
+        validCards: [24, 25],
+        context: {
+          type: 'field',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        },
+        responses: {},
+        battleState: {}
+      };
+      state.hands.ottoman = [24, 25, 50];
+
+      const result = game.validateMove({
+        actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+        actionData: { cardNumber: 30 },  // not in validCards
+        playerId: 'p1'
+      }, state);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('Invalid response card');
+    });
+
+    it('rejects PLAY_RESPONSE_CARD when card not in hand', () => {
+      const state = makeActionState();
+      state.pendingResponse = {
+        window: 'W2',
+        respondingPower: 'ottoman',
+        validCards: [24, 25],
+        context: {
+          type: 'field',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        },
+        responses: {},
+        battleState: {}
+      };
+      // Card 24 is valid but not in hand
+      state.hands.ottoman = [50, 51];
+
+      const result = game.validateMove({
+        actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+        actionData: { cardNumber: 24 },
+        playerId: 'p1'
+      }, state);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('Card not in hand');
+    });
+
+    it('allows non-active power to play PLAY_RESPONSE_CARD', () => {
+      const state = makeActionState();
+      // Active power is ottoman, but hapsburg (p2) has response window
+      state.pendingResponse = {
+        window: 'W3',
+        respondingPower: 'hapsburg',
+        validCards: [24],
+        context: {
+          type: 'field',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        },
+        responses: {},
+        battleState: {}
+      };
+      state.hands.hapsburg = [24, 50];
+
+      const result = game.validateMove({
+        actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+        actionData: { cardNumber: 24 },
+        playerId: 'p2'  // hapsburg — not active power (ottoman)
+      }, state);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('allows non-active power to play DECLINE_RESPONSE', () => {
+      const state = makeActionState();
+      state.pendingResponse = {
+        window: 'W3',
+        respondingPower: 'hapsburg',
+        validCards: [24],
+        context: {
+          type: 'field',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        },
+        responses: {},
+        battleState: {}
+      };
+
+      const result = game.validateMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE,
+        actionData: {},
+        playerId: 'p2'
+      }, state);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('accepts valid PLAY_RESPONSE_CARD', () => {
+      const state = makeActionState();
+      state.pendingResponse = {
+        window: 'W2',
+        respondingPower: 'ottoman',
+        validCards: [24, 25],
+        context: {
+          type: 'field',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        },
+        responses: {},
+        battleState: {}
+      };
+      state.hands.ottoman = [24, 50];
+
+      const result = game.validateMove({
+        actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+        actionData: { cardNumber: 24 },
+        playerId: 'p1'
+      }, state);
+
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe('Response Card Battle Flow', () => {
+    let game;
+
+    function makeStack(power, regs, mercs = 0, cav = 0, leaders = []) {
+      return {
+        owner: power, regulars: regs, mercenaries: mercs,
+        cavalry: cav, squadrons: 0, corsairs: 0, leaders
+      };
+    }
+
+    function makeBattleState() {
+      game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.ACTION;
+      state.activePower = 'ottoman';
+      state.impulseIndex = 0;
+      state.consecutivePasses = 0;
+      state.pendingLuther95 = null;
+      state.cpRemaining = 5;
+      state.activeCard = 50;
+      state.activeCardNumber = 50;
+      return state;
+    }
+
+    it('RESOLVE_BATTLE triggers W2 when attacker has combat card', () => {
+      const state = makeBattleState();
+
+      // Set up battle
+      state.spaces['Edirne'].units = [
+        makeStack('ottoman', 5, 0, 0, ['suleiman']),
+        makeStack('hapsburg', 3, 0, 0)
+      ];
+      state.pendingBattle = {
+        type: 'field_battle',
+        space: 'Edirne',
+        attackerPower: 'ottoman',
+        defenderPower: 'hapsburg'
+      };
+
+      // Give attacker a combat card
+      state.hands.ottoman = [24, 50];
+      state.hands.hapsburg = [52, 53];
+
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.RESOLVE_BATTLE,
+        actionData: {},
+        playerId: 'p1'
+      }, state);
+
+      // Battle should have paused — pendingBattle still present
+      expect(newState.pendingBattle).not.toBeNull();
+      expect(newState.pendingBattle.battleType).toBe('field');
+      // Response window should be set for ottoman (attacker)
+      expect(newState.pendingResponse).toBeDefined();
+      expect(newState.pendingResponse.respondingPower).toBe('ottoman');
+      expect(newState.pendingResponse.window).toBe('W2');
+    });
+
+    it('full flow: attacker plays card, defender declines, battle executes',
+      () => {
+        const state = makeBattleState();
+
+        state.spaces['Edirne'].units = [
+          makeStack('ottoman', 5, 0, 0),
+          makeStack('hapsburg', 3, 0, 0)
+        ];
+        state.pendingBattle = {
+          type: 'field_battle',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        };
+
+        // Attacker has #24, defender has #25
+        state.hands.ottoman = [24, 50];
+        state.hands.hapsburg = [25, 53];
+
+        // Step 1: RESOLVE_BATTLE -> opens W2
+        let newState = game.processMove({
+          actionType: ACTION_TYPES.RESOLVE_BATTLE,
+          actionData: {},
+          playerId: 'p1'
+        }, state);
+
+        expect(newState.pendingResponse).toBeDefined();
+        expect(newState.pendingResponse.window).toBe('W2');
+        expect(newState.pendingResponse.respondingPower).toBe('ottoman');
+
+        // Step 2: Attacker plays card #24
+        newState = game.processMove({
+          actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+          actionData: { cardNumber: 24 },
+          playerId: 'p1'
+        }, newState);
+
+        // Card removed from hand
+        expect(newState.hands.ottoman).not.toContain(24);
+
+        // Should now have W3 for defender (defender has #25)
+        expect(newState.pendingResponse).toBeDefined();
+        expect(newState.pendingResponse.window).toBe('W3');
+        expect(newState.pendingResponse.respondingPower).toBe('hapsburg');
+
+        // Step 3: Defender declines
+        newState = game.processMove({
+          actionType: ACTION_TYPES.DECLINE_RESPONSE,
+          actionData: {},
+          playerId: 'p2'
+        }, newState);
+
+        // Battle should have executed — no more pendingResponse
+        expect(newState.pendingResponse).toBeNull();
+        // pendingBattle should be cleared (or set to retreat_choice)
+        // A field_battle type should no longer be present
+        if (newState.pendingBattle) {
+          expect(newState.pendingBattle.type).not.toBe('field_battle');
+        }
+
+        // Battle event should have been logged
+        const battleEvent = newState.eventLog.find(
+          e => e.type === 'field_battle'
+        );
+        expect(battleEvent).toBeDefined();
+      });
+
+    it('full flow: both skip -> battle executes immediately', () => {
+      const state = makeBattleState();
+
+      state.spaces['Edirne'].units = [
+        makeStack('ottoman', 5, 0, 0),
+        makeStack('hapsburg', 3, 0, 0)
+      ];
+      state.pendingBattle = {
+        type: 'field_battle',
+        space: 'Edirne',
+        attackerPower: 'ottoman',
+        defenderPower: 'hapsburg'
+      };
+
+      // No combat cards for either side
+      state.hands.ottoman = [50, 51];
+      state.hands.hapsburg = [52, 53];
+
+      // RESOLVE_BATTLE should complete synchronously
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.RESOLVE_BATTLE,
+        actionData: {},
+        playerId: 'p1'
+      }, state);
+
+      // No pending response — battle executed directly
+      expect(newState.pendingResponse).toBeNull();
+      // pendingBattle cleared or set to retreat
+      if (newState.pendingBattle) {
+        expect(newState.pendingBattle.type).not.toBe('field_battle');
+      }
+
+      // Battle event logged
+      const battleEvent = newState.eventLog.find(
+        e => e.type === 'field_battle'
+      );
+      expect(battleEvent).toBeDefined();
+    });
+
+    it('RESOLVE_BATTLE skips W2 to W3 when only defender has cards',
+      () => {
+        const state = makeBattleState();
+
+        state.spaces['Edirne'].units = [
+          makeStack('ottoman', 5, 0, 0),
+          makeStack('hapsburg', 3, 0, 0)
+        ];
+        state.pendingBattle = {
+          type: 'field_battle',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        };
+
+        // Only defender has a combat card
+        state.hands.ottoman = [50, 51];
+        state.hands.hapsburg = [25, 53];
+
+        const newState = game.processMove({
+          actionType: ACTION_TYPES.RESOLVE_BATTLE,
+          actionData: {},
+          playerId: 'p1'
+        }, state);
+
+        // Should jump straight to W3
+        expect(newState.pendingResponse).toBeDefined();
+        expect(newState.pendingResponse.window).toBe('W3');
+        expect(newState.pendingResponse.respondingPower).toBe('hapsburg');
+      });
+
+    it('attacker declines W2, defender declines W3, battle executes',
+      () => {
+        const state = makeBattleState();
+
+        state.spaces['Edirne'].units = [
+          makeStack('ottoman', 5, 0, 0),
+          makeStack('hapsburg', 3, 0, 0)
+        ];
+        state.pendingBattle = {
+          type: 'field_battle',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        };
+
+        // Both have combat cards
+        state.hands.ottoman = [24, 50];
+        state.hands.hapsburg = [25, 53];
+
+        // RESOLVE_BATTLE -> W2
+        let newState = game.processMove({
+          actionType: ACTION_TYPES.RESOLVE_BATTLE,
+          actionData: {},
+          playerId: 'p1'
+        }, state);
+
+        expect(newState.pendingResponse.window).toBe('W2');
+
+        // Attacker declines
+        newState = game.processMove({
+          actionType: ACTION_TYPES.DECLINE_RESPONSE,
+          actionData: {},
+          playerId: 'p1'
+        }, newState);
+
+        // Should open W3 for defender
+        expect(newState.pendingResponse).toBeDefined();
+        expect(newState.pendingResponse.window).toBe('W3');
+        expect(newState.pendingResponse.respondingPower).toBe('hapsburg');
+
+        // Defender declines
+        newState = game.processMove({
+          actionType: ACTION_TYPES.DECLINE_RESPONSE,
+          actionData: {},
+          playerId: 'p2'
+        }, newState);
+
+        // Battle executed
+        expect(newState.pendingResponse).toBeNull();
+        const battleEvent = newState.eventLog.find(
+          e => e.type === 'field_battle'
+        );
+        expect(battleEvent).toBeDefined();
+      });
+  });
 });

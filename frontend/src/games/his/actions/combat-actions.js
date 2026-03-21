@@ -3,7 +3,16 @@
  *
  * 12-step combat procedure from Section 14 of the rulebook.
  * Dice pool: 1 per land unit + highest leader battle rating.
- * Defender gets +1 bonus die. Hit threshold ≥ 5.
+ * Defender gets +1 bonus die. Hit threshold >= 5.
+ *
+ * Battle flow (with response card windows):
+ *   initiateFieldBattle  -> (W2 attacker window?) -> (W3 defender window?)
+ *                        -> executeFieldBattle -> handlePostBattle
+ *
+ * resolveFieldBattle() is kept as a backward-compatible synchronous wrapper:
+ * when called directly (e.g., from tests), if no response windows are needed
+ * it completes in one call. If windows would be needed but the caller is
+ * going through the wrapper, it skips them and executes immediately.
  */
 
 import { COMBAT } from '../constants.js';
@@ -16,6 +25,10 @@ import {
   findLegalRetreats, canWithdrawIntoFortification,
   executeRetreat, eliminateFormation
 } from './retreat.js';
+import {
+  canAnyPowerRespondCombat, createCombatCardWindow,
+  getNextCombatWindow
+} from './response-actions.js';
 
 // ── Dice Calculation ────────────────────────────────────────────
 
@@ -83,18 +96,23 @@ export function applyCasualties(stack, hits) {
   return total;
 }
 
-// ── Field Battle ────────────────────────────────────────────────
+// ── Initiate Field Battle (Step A) ──────────────────────────────
 
 /**
- * Resolve a field battle between two powers at a space.
+ * Begin a field battle: validate stacks, calculate dice, then check
+ * if any combat-card response windows (W2/W3) should open.
+ *
+ * Returns { paused: true, window } when a response window opens, or
+ * delegates to executeFieldBattle() and returns its result directly.
+ *
  * @param {Object} state
  * @param {string} space
  * @param {string} attackerPower
  * @param {string} defenderPower
  * @param {Object} helpers
- * @returns {Object} Battle result
+ * @returns {Object} Battle result or { paused: true, window }
  */
-export function resolveFieldBattle(state, space, attackerPower,
+export function initiateFieldBattle(state, space, attackerPower,
   defenderPower, helpers) {
   const attackerStack = getUnitsInSpace(state, space, attackerPower);
   const defenderStack = getUnitsInSpace(state, space, defenderPower);
@@ -103,24 +121,150 @@ export function resolveFieldBattle(state, space, attackerPower,
     return { error: 'Both sides must have units in the space' };
   }
 
-  // Step 1: Response window for Landsknechts/Swiss (stub for Phase 6)
-
   // Steps 2-3: Calculate dice
   const attackerCalc = calculateBattleDice(attackerStack, false);
   const defenderCalc = calculateBattleDice(defenderStack, true);
 
-  // Steps 4-5: Combat card play windows (stub for Phase 6)
+  // Store dice calculations for later execution
+  const battleState = {
+    attackerCalc,
+    defenderCalc,
+    responses: {}
+  };
+
+  // Steps 4-5: Check combat card windows
+  const { attackerCanRespond, defenderCanRespond } =
+    canAnyPowerRespondCombat(state, 'field', attackerPower, defenderPower);
+
+  if (attackerCanRespond) {
+    // Open W2 (attacker combat card window)
+    const created = createCombatCardWindow(
+      state, 'W2', space, attackerPower, defenderPower,
+      'field', battleState
+    );
+    if (created) {
+      return { paused: true, window: 'W2' };
+    }
+  }
+
+  if (defenderCanRespond) {
+    // Skip to W3 (defender combat card window)
+    const created = createCombatCardWindow(
+      state, 'W3', space, attackerPower, defenderPower,
+      'field', battleState
+    );
+    if (created) {
+      return { paused: true, window: 'W3' };
+    }
+  }
+
+  // Neither can respond — execute immediately
+  return executeFieldBattle(
+    state, space, attackerPower, defenderPower, helpers, battleState
+  );
+}
+
+// ── Resume Field Battle (Step B) ────────────────────────────────
+
+/**
+ * Called after a response card is played or declined.
+ * Checks if another response window should open; if not, executes
+ * the battle with accumulated responses.
+ *
+ * @param {Object} state
+ * @param {Object} helpers
+ * @returns {Object} Battle result or { paused: true }
+ */
+export function resumeFieldBattle(state, helpers) {
+  const battle = state.pendingBattle;
+  if (!battle) {
+    return { error: 'No pending battle to resume' };
+  }
+
+  const { space, attackerPower, defenderPower } = battle;
+  const battleType = battle.battleType || 'field';
+
+  // Get responses accumulated during windows
+  const responses = battle.responses || {};
+
+  const nextWindow = getNextCombatWindow(
+    battle.lastWindow, state, space, attackerPower, defenderPower,
+    battleType, { responses }
+  );
+
+  if (nextWindow) {
+    const created = createCombatCardWindow(
+      state, nextWindow, space, attackerPower, defenderPower,
+      battleType, { responses }
+    );
+    if (created) {
+      battle.lastWindow = nextWindow;
+      return { paused: true, window: nextWindow };
+    }
+  }
+
+  // No more windows — execute the battle
+  state.pendingBattle = null;
+  return executeFieldBattle(
+    state, space, attackerPower, defenderPower, helpers, { responses }
+  );
+}
+
+// ── Execute Field Battle (Step C) ───────────────────────────────
+
+/**
+ * Execute the dice-rolling and resolution portion of a field battle.
+ * This is the core of the old resolveFieldBattle() (steps 6-12),
+ * now with combat card bonus support.
+ *
+ * @param {Object} state
+ * @param {string} space
+ * @param {string} attackerPower
+ * @param {string} defenderPower
+ * @param {Object} helpers
+ * @param {Object} [battleState] - Accumulated state from response windows
+ * @returns {Object} Battle result
+ */
+export function executeFieldBattle(state, space, attackerPower,
+  defenderPower, helpers, battleState = {}) {
+  const attackerStack = getUnitsInSpace(state, space, attackerPower);
+  const defenderStack = getUnitsInSpace(state, space, defenderPower);
+
+  if (!attackerStack || !defenderStack) {
+    return { error: 'Both sides must have units in the space' };
+  }
+
+  // Use pre-calculated dice or recalculate
+  const attackerCalc = battleState.attackerCalc
+    || calculateBattleDice(attackerStack, false);
+  const defenderCalc = battleState.defenderCalc
+    || calculateBattleDice(defenderStack, true);
+
+  // Apply combat card bonus dice from responses
+  let attackerDice = attackerCalc.dice;
+  let defenderDice = defenderCalc.dice;
+
+  if (state.pendingCombatBonus) {
+    const bonus = state.pendingCombatBonus;
+    if (bonus.attackerBonusDice) {
+      attackerDice += bonus.attackerBonusDice;
+    }
+    if (bonus.defenderBonusDice) {
+      defenderDice += bonus.defenderBonusDice;
+    }
+    state.pendingCombatBonus = null;
+  }
 
   // Step 6: Roll dice, count hits
-  const attackerRolls = rollDice(attackerCalc.dice);
-  const defenderRolls = rollDice(defenderCalc.dice);
+  const attackerRolls = rollDice(attackerDice);
+  const defenderRolls = rollDice(defenderDice);
 
   const attackerHits = attackerRolls.filter(
     d => d >= COMBAT.hitThreshold).length;
   const defenderHits = defenderRolls.filter(
     d => d >= COMBAT.hitThreshold).length;
 
-  // Step 7: Janissaries response window (stub for Phase 6)
+  // Step 7: Janissaries response window (stub for future)
 
   // Step 8: Determine winner (tie = defender wins)
   let winner, loser, winnerPower, loserPower;
@@ -129,7 +273,7 @@ export function resolveFieldBattle(state, space, attackerPower,
     winnerPower = attackerPower;
     loserPower = defenderPower;
   } else {
-    // Tie or defender has more hits → defender wins
+    // Tie or defender has more hits -> defender wins
     winner = 'defender';
     winnerPower = defenderPower;
     loserPower = attackerPower;
@@ -144,13 +288,13 @@ export function resolveFieldBattle(state, space, attackerPower,
 
   // Both eliminated: side with more dice retains 1 unit
   if (attackerRemaining === 0 && defenderRemaining === 0) {
-    if (attackerCalc.dice > defenderCalc.dice) {
+    if (attackerDice > defenderDice) {
       attackerStack.regulars = 1;
       winner = 'attacker';
       winnerPower = attackerPower;
       loserPower = defenderPower;
     } else {
-      // Equal or defender more → defender retains
+      // Equal or defender more -> defender retains
       defenderStack.regulars = 1;
       winner = 'defender';
       winnerPower = defenderPower;
@@ -183,8 +327,8 @@ export function resolveFieldBattle(state, space, attackerPower,
     winner,
     winnerPower,
     loserPower,
-    attackerDice: attackerCalc.dice,
-    defenderDice: defenderCalc.dice,
+    attackerDice,
+    defenderDice,
     attackerRolls,
     defenderRolls,
     attackerHits,
@@ -202,6 +346,28 @@ export function resolveFieldBattle(state, space, attackerPower,
   handlePostBattle(state, space, result, helpers);
 
   return result;
+}
+
+// ── Backward-Compatible Wrapper ─────────────────────────────────
+
+/**
+ * Resolve a field battle between two powers at a space.
+ * Backward-compatible: when called directly (from existing tests),
+ * skips response windows and completes synchronously.
+ *
+ * @param {Object} state
+ * @param {string} space
+ * @param {string} attackerPower
+ * @param {string} defenderPower
+ * @param {Object} helpers
+ * @returns {Object} Battle result
+ */
+export function resolveFieldBattle(state, space, attackerPower,
+  defenderPower, helpers) {
+  // Go straight to execute — skip response windows for direct callers
+  return executeFieldBattle(
+    state, space, attackerPower, defenderPower, helpers
+  );
 }
 
 // ── Post-Battle ─────────────────────────────────────────────────
@@ -238,7 +404,7 @@ function handlePostBattle(state, space, battleResult, helpers) {
   } else {
     const retreatOptions = findLegalRetreats(state, space, loserPower);
     if (retreatOptions.length === 0) {
-      // No legal retreat → eliminate
+      // No legal retreat -> eliminate
       eliminateFormation(state, space, loserPower, winnerPower, helpers);
       checkSiegeInitiation(state, space, winnerPower, helpers);
     } else if (retreatOptions.length === 1) {

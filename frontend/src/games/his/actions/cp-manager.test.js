@@ -81,10 +81,19 @@ describe('hasPendingInteraction', () => {
     expect(hasPendingInteraction({ pendingReformation: null, pendingDebate: {} })).toBe(true);
   });
 
+  it('true with pendingResponse', () => {
+    expect(hasPendingInteraction({
+      pendingReformation: null, pendingDebate: null,
+      pendingBattle: null, pendingInterception: null,
+      pendingResponse: { window: 'W2' }
+    })).toBe(true);
+  });
+
   it('false when all null', () => {
     expect(hasPendingInteraction({
       pendingReformation: null, pendingDebate: null,
-      pendingBattle: null, pendingInterception: null
+      pendingBattle: null, pendingInterception: null,
+      pendingResponse: null
     })).toBe(false);
   });
 });

@@ -166,6 +166,7 @@ export function buildInitialState(players, options = {}) {
     // Combat (Phase 3)
     pendingBattle: null,
     pendingInterception: null,
+    pendingResponse: null,
     capturedLeaders: {},
     piracyUsed: {},
     loanedSquadrons: [],

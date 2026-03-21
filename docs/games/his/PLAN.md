@@ -12,16 +12,16 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 
 | 指标 | 数值 |
 |------|------|
-| 源码文件 | 57 个 JS 文件 |
-| 测试文件 | 33 个 test.js 文件 |
-| 源码行数 | ~24,200 行 |
-| 测试行数 | ~12,900 行 |
-| 单元测试 | **1,141 个**，全部通过 |
+| 源码文件 | 58 个 JS 文件 |
+| 测试文件 | 34 个 test.js 文件 |
+| 源码行数 | ~24,800 行 |
+| 测试行数 | ~14,300 行 |
+| 单元测试 | **1,211 个**，全部通过 |
 | 事件处理器 | **135/135 张卡牌已实现** |
 
 **已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心)
 
-**当前**：Phase 11（多人联机与打磨）— 11.1 ✅，11.4 边界用例测试进行中（997→1141）
+**当前**：Phase 11（多人联机与打磨）— 11.1 ✅，11.4 🔶，11.7 S1+S2 完成（响应卡基础+战斗卡窗口）
 
 ---
 
@@ -66,7 +66,8 @@ frontend/src/games/his/
 │   ├── event-actions-diplomacy.js  420  # 外交牌事件处理器（#201-219）
 │   ├── new-world-actions.js             # 探索、征服、殖民
 │   ├── loan-actions.js                  # 中队借调（盟友间）
-│   └── conclave-actions.js              # 教宗选举
+│   ├── conclave-actions.js              # 教宗选举
+│   └── response-actions.js              # 响应卡系统（W2/W3 战斗卡窗口）
 │
 ├── map/
 │   ├── map-renderer.js            270  # SVG 地图渲染（134 空间 + 15 海域）
@@ -305,7 +306,7 @@ frontend/src/games/his/
 | 11.4 | 边界用例全面测试 | 🔶 进行中 | 🟡 中 |
 | 11.5 | 存档/读档 | ❌ | 🟡 中 |
 | 11.6 | 大状态深拷贝性能优化 | ❌ | 🟢 低 |
-| 11.7 | 响应卡 UI（战斗/事件中打出响应卡） | ❌ | 🟡 中 |
+| 11.7 | 响应卡系统（引擎+UI） | 🔶 进行中 | 🟡 中 |
 | 11.8 | 回放系统（查看历史行动） | ❌ | 🟢 低 |
 
 **11.1 验证结果**：config/export/getVisibleState/processMove 格式/网络收发路径/状态大小均正确。修复了 UI-only action（SELECT_CARD、SELECT_SPACE）泄漏到引擎的问题，以及 action 格式 `{type,data}` → `{actionType,actionData}` 的统一。
@@ -333,6 +334,40 @@ frontend/src/games/his/
 - `loan-actions.test.js` +6：零中队、精确边界、多借调追踪
 - `interception.test.js` +6：奥斯曼骑兵加值、纯海军排除、山口排除、去重
 - `phase-new-world.test.js` +6：空探险家池、发现回退链、非哈布斯堡征服
+
+**11.7 响应卡系统设计**：
+
+> 现状：战斗结算是同步单函数（`resolveFieldBattle`），无法暂停等待玩家输入。
+> 方案：拆解为 `pendingResponse` 多步状态机，每个响应窗口暂停等待玩家打出响应卡或拒绝。
+
+7 个响应窗口：
+
+| 窗口 | 时机 | 谁可打出 | 卡牌 |
+|------|------|----------|------|
+| W1 | 进入敌方空间后、骰子计算前 | 任何玩家 | #33 雇佣兵、#36 瑞士佣兵 |
+| W2 | 投骰前（野战/突击/海战） | 攻方 | #24-30 战斗卡 |
+| W3 | 攻方战斗卡决定后 | 守方 | #24-30 战斗卡 |
+| W4 | 双方投骰后、宣布胜者前 | 仅奥斯曼 | #1 禁卫军（战斗模式） |
+| W5 | 突击投骰后 | 任何玩家 | #35 攻城炮 |
+| W6 | 海战投骰后 | 任何玩家 | #34 划桨手 |
+| W7 | 任何玩家脉冲中 | 其他玩家 | #31 恶劣天气、#32 痛风、#37 瓦尔特堡、#38 哈雷彗星 |
+
+实现步骤：
+
+| 步骤 | 内容 | 涉及文件 | 状态 |
+|------|------|----------|------|
+| S1 | 基础设施：action types + state + response-actions.js | action-types, state-init, cp-manager, response-actions(新) | ✅ |
+| S2 | 战斗卡窗口 W2/W3 + combat 拆解 | combat-actions, index.js | ✅ |
+| S3 | 佣兵窗口 W1 | response-actions, combat-actions | ❌ |
+| S4 | 投骰后窗口 W4/W5/W6 | combat-actions, siege-actions, naval-actions | ❌ |
+| S5 | 脉冲中断 W7 | index.js, response-actions | ❌ |
+| S6 | UI 集成：action-panel + hand-panel 响应模式 | action-panel, hand-panel, ui.js | ❌ |
+
+关键设计：
+- `state.pendingResponse = { window, context, respondingPowers, currentResponderIndex, validCards, responses, battleState }`
+- 新 action types: `PLAY_RESPONSE_CARD`, `DECLINE_RESPONSE`
+- `index.js` validateMove 放开非活跃玩家在响应窗口的 action 验证
+- 无玩家持有合法卡时自动跳过窗口（`canAnyPowerRespond` 前置检查）
 
 ---
 
@@ -369,8 +404,8 @@ frontend/src/games/his/
 | Phase 9 SVG+UI | ~4,000 | ~3,300 | ✅ |
 | Phase 10 卡牌事件 UI | ~3,000 | ~1,100 | ✅ |
 | Phase 11 多人联机 | ~1,000 | — | ⬅️ |
-| **源码合计** | ~27,500 | **~24,200** | |
-| **测试合计** | ~8,000-12,000 | **~12,900** | 1,141 tests |
+| **源码合计** | ~27,500 | **~24,800** | |
+| **测试合计** | ~8,000-12,000 | **~14,300** | 1,211 tests |
 
 **依赖关系图**：
 ```
@@ -395,10 +430,10 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 | war-helpers.test.js | 33 | 战争/同盟状态 |
 | victory-checks.test.js | 40 | 胜利条件、阈值边界 |
 | reformer-helpers.test.js | 15 | 宗教改革者追踪 |
-| cp-manager.test.js | 21 | CP 花费 |
+| cp-manager.test.js | 22 | CP 花费、pendingResponse |
 | military-actions.test.js | 46 | 移动、征募、建造 |
 | naval-actions.test.js | 50 | 海军、海盗 |
-| combat-actions.test.js | 32 | 野战、领袖类型、伤亡级联 |
+| combat-actions.test.js | 40 | 野战、领袖类型、伤亡级联、战斗卡窗口 |
 | siege-actions.test.js | 35 | 围城、半骰进位、LOC |
 | interception.test.js | 17 | 拦截、骑兵修正、山口排除 |
 | retreat.test.js | 25 | 撤退、堡垒容量、领袖移动 |
@@ -421,8 +456,9 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 | phase-luther95.test.js | 29 | 95 条论纲 |
 | phase-new-world.test.js | 14 | 新世界阶段、发现回退 |
 | phase-winter.test.js | 21 | 冬季阶段 |
-| index.test.js | 30 | 集成测试 |
-| **合计** | **1,141** | |
+| index.test.js | 44 | 集成测试、响应卡流程 |
+| response-actions.test.js | 47 | 响应卡系统（W2/W3） |
+| **合计** | **1,211** | |
 
 运行命令：
 ```bash
