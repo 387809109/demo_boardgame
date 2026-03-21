@@ -9,6 +9,7 @@
  */
 
 import { ACTION_COSTS } from '../constants.js';
+import { CARD_BY_NUMBER } from '../data/cards.js';
 
 // ── Action Definitions ──────────────────────────────────────────
 
@@ -63,6 +64,35 @@ const POWER_COLORS = {
   protestant: '#2c3e50'
 };
 
+const RESPONSE_WINDOW_LABELS = {
+  W1: '佣兵响应',
+  W2: '攻方战斗卡',
+  W3: '守方战斗卡',
+  W4: '禁卫军',
+  W5: '攻城炮',
+  W6: '划桨手',
+  W7: '脉冲中断'
+};
+
+const RESPONSE_WINDOW_HINTS = {
+  W1: '选择是否打出佣兵卡',
+  W2: '选择是否打出战斗卡',
+  W3: '选择是否打出战斗卡',
+  W4: '奥斯曼可重投',
+  W5: '增加突击骰',
+  W6: '增加海战骰',
+  W7: '响应对手行动'
+};
+
+const POWER_NAMES = {
+  ottoman: '奥斯曼',
+  hapsburg: '哈布斯堡',
+  england: '英格兰',
+  france: '法兰西',
+  papacy: '教廷',
+  protestant: '新教'
+};
+
 export class ActionPanel {
   constructor() {
     this._el = null;
@@ -100,6 +130,12 @@ export class ActionPanel {
   update(state, playerPower) {
     if (!this._el) return;
     this._el.innerHTML = '';
+
+    // Response window takes priority — can be for non-active player
+    if (state.pendingResponse) {
+      this._renderResponsePanel(state, playerPower);
+      return;
+    }
 
     const isActive = state.activePower === playerPower;
     if (!isActive) {
@@ -443,6 +479,91 @@ export class ActionPanel {
         this._select('RESOLVE_RETREAT');
       }, 'secondary'));
     }
+  }
+
+  _renderResponsePanel(state, playerPower) {
+    const resp = state.pendingResponse;
+    const windowId = resp.window || '?';
+    const label = RESPONSE_WINDOW_LABELS[windowId] || windowId;
+    const hint = RESPONSE_WINDOW_HINTS[windowId] || '';
+    const respPower = resp.respondingPower;
+    const respPowerName = POWER_NAMES[respPower] || respPower;
+    const isMyResponse = respPower === playerPower;
+
+    // Window header
+    this._el.appendChild(this._sectionHeader(
+      `${label} — ${hint}`
+    ));
+
+    // Context info (battle space, attacker vs defender)
+    const ctx = resp.context;
+    if (ctx) {
+      const parts = [];
+      if (ctx.space) parts.push(`地点: ${ctx.space}`);
+      if (ctx.attackerPower && ctx.defenderPower) {
+        const atkName = POWER_NAMES[ctx.attackerPower] || ctx.attackerPower;
+        const defName = POWER_NAMES[ctx.defenderPower] || ctx.defenderPower;
+        parts.push(`${atkName} vs ${defName}`);
+      }
+      if (parts.length > 0) {
+        this._el.appendChild(this._infoText(parts.join(' | ')));
+      }
+    }
+
+    // Responding power indicator
+    const powerIndicator = document.createElement('div');
+    powerIndicator.style.cssText = `
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 600; margin: 4px 0;
+      background: ${POWER_COLORS[respPower] || '#94a3b8'}22;
+      color: ${POWER_COLORS[respPower] || '#64748b'};
+      border: 1px solid ${POWER_COLORS[respPower] || '#94a3b8'};
+    `;
+    powerIndicator.textContent = `响应方: ${respPowerName}`;
+    this._el.appendChild(powerIndicator);
+
+    if (!isMyResponse) {
+      // Not this player's response turn — show waiting message
+      this._el.appendChild(this._infoText(
+        `等待 ${respPowerName} 响应...`
+      ));
+      return;
+    }
+
+    // Player's response turn — show valid cards and decline button
+    const validCards = resp.validCards || [];
+    if (validCards.length > 0) {
+      this._el.appendChild(this._groupLabel('可用响应卡'));
+      const grid = this._actionGrid();
+      for (const cardNum of validCards) {
+        const card = CARD_BY_NUMBER[cardNum];
+        const cardName = card ? card.name : `Card #${cardNum}`;
+        const btn = this._actionButton(
+          `#${cardNum} ${cardName}`,
+          () => {
+            this._emit({
+              type: 'PLAY_RESPONSE_CARD',
+              data: { cardNumber: cardNum }
+            });
+          },
+          'primary'
+        );
+        btn.style.fontSize = '11px';
+        btn.style.textAlign = 'left';
+        grid.appendChild(btn);
+      }
+      this._el.appendChild(grid);
+    } else {
+      this._el.appendChild(this._infoText('没有可用的响应卡'));
+    }
+
+    // Decline button
+    const declineRow = document.createElement('div');
+    declineRow.style.cssText = 'margin-top: 8px;';
+    declineRow.appendChild(this._actionButton('放弃响应', () => {
+      this._emit({ type: 'DECLINE_RESPONSE' });
+    }, 'secondary'));
+    this._el.appendChild(declineRow);
   }
 
   _renderInterceptionPanel(state) {

@@ -1135,6 +1135,196 @@ describe('HISGame', () => {
       expect(newState.pendingResponse.window).toBe('W2');
     });
 
+    // ── W7 Impulse Interrupt Window Integration Tests ─────────
+
+    describe('W7 Wartburg Interrupt', () => {
+      it('PLAY_CARD_EVENT triggers W7 when Protestant has Wartburg',
+        () => {
+          const state = makeBattleState();
+          state.activePower = 'hapsburg';
+          state.lutherPlaced = true;
+          // p2 = hapsburg, p6 = protestant
+          state.hands.hapsburg = [42, 50]; // card to play as event
+          state.hands.protestant = [37, 50]; // Wartburg
+
+          const newState = game.processMove({
+            actionType: ACTION_TYPES.PLAY_CARD_EVENT,
+            actionData: { cardNumber: 42 },
+            playerId: 'p2' // hapsburg
+          }, state);
+
+          // Should have W7 response window for protestant
+          expect(newState.pendingResponse).toBeDefined();
+          expect(newState.pendingResponse.window).toBe('W7');
+          expect(newState.pendingResponse.respondingPower)
+            .toBe('protestant');
+          expect(newState.pendingResponse.validCards).toContain(37);
+          // Pending event should be stored
+          expect(newState.pendingEventPlay).toBeDefined();
+          expect(newState.pendingEventPlay.cardNumber).toBe(42);
+          expect(newState.pendingEventPlay.power).toBe('hapsburg');
+        });
+
+      it('Protestant plays Wartburg -> event cancelled, impulse advances',
+        () => {
+          const state = makeBattleState();
+          state.activePower = 'hapsburg';
+          state.impulseIndex = 1; // hapsburg is index 1
+          state.lutherPlaced = true;
+          state.hands.hapsburg = [42, 50];
+          state.hands.protestant = [37, 50];
+
+          // Step 1: Hapsburg plays event -> W7 opens
+          let newState = game.processMove({
+            actionType: ACTION_TYPES.PLAY_CARD_EVENT,
+            actionData: { cardNumber: 42 },
+            playerId: 'p2'
+          }, state);
+
+          expect(newState.pendingResponse.window).toBe('W7');
+
+          // Step 2: Protestant plays Wartburg (#37)
+          newState = game.processMove({
+            actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+            actionData: { cardNumber: 37 },
+            playerId: 'p6' // protestant
+          }, newState);
+
+          // Event should be cancelled
+          expect(newState.pendingResponse).toBeNull();
+          expect(newState.pendingEventPlay).toBeNull();
+          // Wartburg removed from hand
+          expect(newState.hands.protestant).not.toContain(37);
+          // Should have logged cancellation
+          const cancelLog = newState.eventLog.find(
+            e => e.type === 'event_cancelled_by_wartburg'
+          );
+          expect(cancelLog).toBeDefined();
+          expect(cancelLog.data.cancelledCard).toBe(42);
+          // Impulse should have advanced
+          expect(newState.activePower).not.toBe('hapsburg');
+        });
+
+      it('Protestant declines Wartburg -> event executes normally',
+        () => {
+          const state = makeBattleState();
+          state.activePower = 'hapsburg';
+          state.lutherPlaced = true;
+          state.hands.hapsburg = [42, 50];
+          state.hands.protestant = [37, 50];
+
+          // Step 1: Hapsburg plays event -> W7 opens
+          let newState = game.processMove({
+            actionType: ACTION_TYPES.PLAY_CARD_EVENT,
+            actionData: { cardNumber: 42 },
+            playerId: 'p2'
+          }, state);
+
+          expect(newState.pendingResponse.window).toBe('W7');
+
+          // Step 2: Protestant declines
+          newState = game.processMove({
+            actionType: ACTION_TYPES.DECLINE_RESPONSE,
+            actionData: {},
+            playerId: 'p6'
+          }, newState);
+
+          // Event should have executed
+          expect(newState.pendingResponse).toBeNull();
+          expect(newState.pendingEventPlay).toBeNull();
+          // Wartburg still in hand
+          expect(newState.hands.protestant).toContain(37);
+          // Should have logged the event execution
+          const eventLog = newState.eventLog.find(
+            e => e.type === 'play_card_event'
+              && e.data.cardNumber === 42
+          );
+          expect(eventLog).toBeDefined();
+        });
+
+      it('no W7 when Luther is dead', () => {
+        const state = makeBattleState();
+        state.activePower = 'hapsburg';
+        state.lutherPlaced = false; // Luther is dead
+        state.hands.hapsburg = [42, 50];
+        state.hands.protestant = [37, 50];
+
+        const newState = game.processMove({
+          actionType: ACTION_TYPES.PLAY_CARD_EVENT,
+          actionData: { cardNumber: 42 },
+          playerId: 'p2'
+        }, state);
+
+        // No W7 window — event should execute immediately
+        expect(newState.pendingResponse).toBeNull();
+        // No pending event (it executed)
+        expect(newState.pendingEventPlay).toBeFalsy();
+      });
+
+      it('no W7 when Protestant is the active power', () => {
+        const state = makeBattleState();
+        state.activePower = 'protestant';
+        state.lutherPlaced = true;
+        state.hands.protestant = [37, 42, 50];
+
+        const newState = game.processMove({
+          actionType: ACTION_TYPES.PLAY_CARD_EVENT,
+          actionData: { cardNumber: 42 },
+          playerId: 'p6' // protestant
+        }, state);
+
+        // Protestant can't interrupt their own event
+        expect(newState.pendingResponse).toBeNull();
+        expect(newState.pendingEventPlay).toBeFalsy();
+      });
+
+      it('no W7 when Protestant lacks Wartburg', () => {
+        const state = makeBattleState();
+        state.activePower = 'hapsburg';
+        state.lutherPlaced = true;
+        state.hands.hapsburg = [42, 50];
+        state.hands.protestant = [50, 51]; // No Wartburg
+
+        const newState = game.processMove({
+          actionType: ACTION_TYPES.PLAY_CARD_EVENT,
+          actionData: { cardNumber: 42 },
+          playerId: 'p2'
+        }, state);
+
+        // No W7 — event executes
+        expect(newState.pendingResponse).toBeNull();
+        expect(newState.pendingEventPlay).toBeFalsy();
+      });
+
+      it('validates that non-responding power cannot play in W7',
+        () => {
+          const state = makeBattleState();
+          state.activePower = 'hapsburg';
+          state.lutherPlaced = true;
+          state.hands.hapsburg = [42, 50];
+          state.hands.protestant = [37, 50];
+
+          // Trigger W7
+          let newState = game.processMove({
+            actionType: ACTION_TYPES.PLAY_CARD_EVENT,
+            actionData: { cardNumber: 42 },
+            playerId: 'p2'
+          }, state);
+
+          expect(newState.pendingResponse.window).toBe('W7');
+
+          // Ottoman (p1) tries to play response — should be rejected
+          const result = game.validateMove({
+            actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+            actionData: { cardNumber: 37 },
+            playerId: 'p1'
+          }, newState);
+
+          expect(result.valid).toBe(false);
+          expect(result.error).toBe('Not your response window');
+        });
+    });
+
     // ── W4 Janissaries Post-Roll Window Integration Tests ─────
 
     it('field battle pauses at W4 when Ottoman has Janissaries (#1)',

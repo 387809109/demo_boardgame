@@ -16,7 +16,11 @@ import {
   getValidPostRollCards,
   canAnyPowerRespondPostRoll,
   createPostRollWindow,
-  getNextPostRollWindow
+  getNextPostRollWindow,
+  getValidInterruptCards,
+  canAnyPowerInterrupt,
+  createInterruptWindow,
+  advanceInterruptWindow
 } from './response-actions.js';
 import { createTestState, createMockHelpers } from '../test-helpers.js';
 
@@ -1365,5 +1369,525 @@ describe('getNextPostRollWindow', () => {
 
   it('returns null after W6', () => {
     expect(getNextPostRollWindow('W6')).toBeNull();
+  });
+});
+
+// ── W7 Impulse Interrupt Card Tests ─────────────────────────────
+
+describe('getValidInterruptCards', () => {
+  it('returns #31 Foul Weather for non-active power at impulse_start', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.hands['hapsburg'] = [31, 50];
+    const result = getValidInterruptCards(state, 'hapsburg', 'impulse_start');
+    expect(result).toContain(31);
+  });
+
+  it('does not return #31 for active power', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.hands['ottoman'] = [31, 50];
+    const result = getValidInterruptCards(state, 'ottoman', 'impulse_start');
+    expect(result).not.toContain(31);
+  });
+
+  it('returns #32 Gout for non-active power at impulse_start', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.hands['france'] = [32, 50];
+    const result = getValidInterruptCards(state, 'france', 'impulse_start');
+    expect(result).toContain(32);
+  });
+
+  it('does not return #32 for active power', () => {
+    const state = createTestState();
+    state.activePower = 'france';
+    state.hands['france'] = [32, 50];
+    const result = getValidInterruptCards(state, 'france', 'impulse_start');
+    expect(result).not.toContain(32);
+  });
+
+  it('returns #37 Wartburg for Protestant at event_play when Luther alive',
+    () => {
+      const state = createTestState();
+      state.activePower = 'ottoman';
+      state.lutherPlaced = true;
+      state.hands['protestant'] = [37, 50];
+      const result = getValidInterruptCards(
+        state, 'protestant', 'event_play'
+      );
+      expect(result).toContain(37);
+    });
+
+  it('does not return #37 when Luther is not alive', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.lutherPlaced = false;
+    state.hands['protestant'] = [37, 50];
+    const result = getValidInterruptCards(
+      state, 'protestant', 'event_play'
+    );
+    expect(result).not.toContain(37);
+  });
+
+  it('does not return #37 for non-Protestant power', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.lutherPlaced = true;
+    state.hands['hapsburg'] = [37, 50];
+    const result = getValidInterruptCards(
+      state, 'hapsburg', 'event_play'
+    );
+    expect(result).not.toContain(37);
+  });
+
+  it('does not return #37 when Protestant is active power', () => {
+    const state = createTestState();
+    state.activePower = 'protestant';
+    state.lutherPlaced = true;
+    state.hands['protestant'] = [37, 50];
+    const result = getValidInterruptCards(
+      state, 'protestant', 'event_play'
+    );
+    expect(result).not.toContain(37);
+  });
+
+  it('does not return #37 for impulse_start trigger', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.lutherPlaced = true;
+    state.hands['protestant'] = [37, 50];
+    const result = getValidInterruptCards(
+      state, 'protestant', 'impulse_start'
+    );
+    expect(result).not.toContain(37);
+  });
+
+  it('returns #38 Halley\'s Comet for non-active power at impulse_start',
+    () => {
+      const state = createTestState();
+      state.activePower = 'ottoman';
+      state.hands['england'] = [38, 50];
+      const result = getValidInterruptCards(
+        state, 'england', 'impulse_start'
+      );
+      expect(result).toContain(38);
+    });
+
+  it('does not return #38 for active power', () => {
+    const state = createTestState();
+    state.activePower = 'england';
+    state.hands['england'] = [38, 50];
+    const result = getValidInterruptCards(
+      state, 'england', 'impulse_start'
+    );
+    expect(result).not.toContain(38);
+  });
+
+  it('does not return #38 for event_play trigger', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.hands['england'] = [38, 50];
+    const result = getValidInterruptCards(
+      state, 'england', 'event_play'
+    );
+    expect(result).not.toContain(38);
+  });
+
+  it('returns multiple interrupt cards from hand', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.hands['france'] = [31, 32, 38, 50];
+    const result = getValidInterruptCards(
+      state, 'france', 'impulse_start'
+    );
+    expect(result).toEqual([31, 32, 38]);
+  });
+
+  it('returns empty when hand is empty', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.hands['hapsburg'] = [];
+    const result = getValidInterruptCards(
+      state, 'hapsburg', 'impulse_start'
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty when hand is undefined', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.hands['hapsburg'] = undefined;
+    const result = getValidInterruptCards(
+      state, 'hapsburg', 'impulse_start'
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty when no interrupt cards in hand', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.hands['hapsburg'] = [50, 51, 52];
+    const result = getValidInterruptCards(
+      state, 'hapsburg', 'impulse_start'
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('returns all matching cards without triggerType filter', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.lutherPlaced = true;
+    state.hands['protestant'] = [31, 37, 38, 50];
+    // No triggerType — all cards checked
+    const result = getValidInterruptCards(state, 'protestant');
+    expect(result).toEqual([31, 37, 38]);
+  });
+});
+
+describe('canAnyPowerInterrupt', () => {
+  it('returns powers holding event_play interrupt cards', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.lutherPlaced = true;
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['protestant'] = [37, 50];
+    const result = canAnyPowerInterrupt(state, 'event_play');
+    expect(result.powers).toEqual(['protestant']);
+    expect(result.cards.get('protestant')).toContain(37);
+  });
+
+  it('returns powers holding impulse_start interrupt cards', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['hapsburg'] = [31, 50];
+    state.hands['france'] = [38, 50];
+    const result = canAnyPowerInterrupt(state, 'impulse_start');
+    expect(result.powers).toEqual(['hapsburg', 'france']);
+    expect(result.cards.get('hapsburg')).toContain(31);
+    expect(result.cards.get('france')).toContain(38);
+  });
+
+  it('excludes active power', () => {
+    const state = createTestState();
+    state.activePower = 'hapsburg';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['hapsburg'] = [31, 50]; // active power
+    const result = canAnyPowerInterrupt(state, 'impulse_start');
+    expect(result.powers).toEqual([]);
+  });
+
+  it('returns empty when no powers have interrupt cards', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    const result = canAnyPowerInterrupt(state, 'impulse_start');
+    expect(result.powers).toEqual([]);
+  });
+
+  it('returns powers in impulse order', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['papacy'] = [32, 50];
+    state.hands['hapsburg'] = [31, 50];
+    const result = canAnyPowerInterrupt(state, 'impulse_start');
+    // impulse order: ottoman, hapsburg, england, france, papacy, protestant
+    expect(result.powers).toEqual(['hapsburg', 'papacy']);
+  });
+
+  it('does not return Protestant for event_play when Luther dead', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.lutherPlaced = false;
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['protestant'] = [37, 50];
+    const result = canAnyPowerInterrupt(state, 'event_play');
+    expect(result.powers).toEqual([]);
+  });
+});
+
+describe('createInterruptWindow', () => {
+  it('creates W7 pendingResponse with correct structure', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['hapsburg'] = [31, 50];
+
+    const created = createInterruptWindow(
+      state, 'impulse_start', { cardNumber: 50, power: 'ottoman' }
+    );
+
+    expect(created).toBe(true);
+    expect(state.pendingResponse).not.toBeNull();
+    expect(state.pendingResponse.window).toBe('W7');
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+    expect(state.pendingResponse.respondingPowers).toEqual(['hapsburg']);
+    expect(state.pendingResponse.currentResponderIndex).toBe(0);
+    expect(state.pendingResponse.validCards).toContain(31);
+    expect(state.pendingResponse.context.type).toBe('impulse_start');
+  });
+
+  it('returns false when no power can interrupt', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+
+    const created = createInterruptWindow(state, 'impulse_start');
+    expect(created).toBe(false);
+  });
+
+  it('sets first power in impulse order as responder', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['france'] = [32, 50];
+    state.hands['hapsburg'] = [31, 50];
+
+    const created = createInterruptWindow(state, 'impulse_start');
+
+    expect(created).toBe(true);
+    // hapsburg before france in impulse order
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+    expect(state.pendingResponse.respondingPowers).toEqual(
+      ['hapsburg', 'france']
+    );
+  });
+
+  it('stores triggerData in battleState and context', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.lutherPlaced = true;
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['protestant'] = [37, 50];
+
+    const triggerData = { cardNumber: 42, power: 'ottoman' };
+    const created = createInterruptWindow(
+      state, 'event_play', triggerData
+    );
+
+    expect(created).toBe(true);
+    expect(state.pendingResponse.context.triggerData).toEqual(triggerData);
+    expect(state.pendingResponse.battleState).toEqual(triggerData);
+  });
+
+  it('creates window for event_play with Wartburg', () => {
+    const state = createTestState();
+    state.activePower = 'hapsburg';
+    state.lutherPlaced = true;
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['protestant'] = [37, 50];
+
+    const created = createInterruptWindow(state, 'event_play', {
+      cardNumber: 42, power: 'hapsburg'
+    });
+
+    expect(created).toBe(true);
+    expect(state.pendingResponse.respondingPower).toBe('protestant');
+    expect(state.pendingResponse.validCards).toContain(37);
+  });
+});
+
+describe('advanceInterruptWindow', () => {
+  it('advances to next responder', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['hapsburg'] = [31, 50];
+    state.hands['france'] = [32, 50];
+
+    createInterruptWindow(state, 'impulse_start');
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+
+    const next = advanceInterruptWindow(state, helpers);
+    expect(next).toBe('W7');
+    expect(state.pendingResponse.respondingPower).toBe('france');
+    expect(state.pendingResponse.validCards).toContain(32);
+  });
+
+  it('returns null when all have responded', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['hapsburg'] = [31, 50];
+
+    createInterruptWindow(state, 'impulse_start');
+
+    const next = advanceInterruptWindow(state, helpers);
+    expect(next).toBeNull();
+  });
+
+  it('iterates through multiple responders', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['hapsburg'] = [31, 50];
+    state.hands['england'] = [38, 50];
+    state.hands['papacy'] = [32, 50];
+
+    createInterruptWindow(state, 'impulse_start');
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+
+    let next = advanceInterruptWindow(state, helpers);
+    expect(next).toBe('W7');
+    expect(state.pendingResponse.respondingPower).toBe('england');
+
+    next = advanceInterruptWindow(state, helpers);
+    expect(next).toBe('W7');
+    expect(state.pendingResponse.respondingPower).toBe('papacy');
+
+    next = advanceInterruptWindow(state, helpers);
+    expect(next).toBeNull();
+  });
+
+  it('returns null when no pendingResponse', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.pendingResponse = null;
+    const next = advanceInterruptWindow(state, helpers);
+    expect(next).toBeNull();
+  });
+
+  it('returns null when window is not W7', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.pendingResponse = { window: 'W2' };
+    const next = advanceInterruptWindow(state, helpers);
+    expect(next).toBeNull();
+  });
+
+  it('skips power that lost interrupt card after window creation', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['hapsburg'] = [31, 50];
+    state.hands['france'] = [32, 50];
+    state.hands['papacy'] = [38, 50];
+
+    createInterruptWindow(state, 'impulse_start');
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+
+    // Simulate france losing their card
+    state.hands['france'] = [50];
+
+    const next = advanceInterruptWindow(state, helpers);
+    expect(next).toBe('W7');
+    // Should skip france and go to papacy
+    expect(state.pendingResponse.respondingPower).toBe('papacy');
+  });
+});
+
+// ── W7 handlePlayResponseCard / handleDeclineResponse ────────────
+
+describe('W7 response card handling', () => {
+  it('plays Wartburg (#37) in W7 window', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    state.lutherPlaced = true;
+    state.hands['protestant'] = [37, 50];
+
+    createInterruptWindow(state, 'event_play', {
+      cardNumber: 42, power: 'ottoman'
+    });
+
+    const result = handlePlayResponseCard(
+      state, 'protestant', { cardNumber: 37 }, helpers
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.cardNumber).toBe(37);
+    expect(result.window).toBe('W7');
+    expect(state.hands['protestant']).not.toContain(37);
+    // Wartburg handler sets pendingEventCancelled
+    expect(state.pendingEventCancelled).toBe(true);
+  });
+
+  it('plays Foul Weather (#31) in W7 window', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    state.hands['hapsburg'] = [31, 50];
+
+    createInterruptWindow(state, 'impulse_start');
+
+    const result = handlePlayResponseCard(
+      state, 'hapsburg', {
+        cardNumber: 31,
+        targetPower: 'ottoman'
+      }, helpers
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.cardNumber).toBe(31);
+    expect(state.hands['hapsburg']).not.toContain(31);
+    // Foul Weather handler sets pendingFoulWeather
+    expect(state.pendingFoulWeather).toBeDefined();
+  });
+
+  it('declines W7 interrupt', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    state.hands['hapsburg'] = [31, 50];
+
+    createInterruptWindow(state, 'impulse_start');
+
+    const result = handleDeclineResponse(state, 'hapsburg', helpers);
+
+    expect(result.success).toBe(true);
+    expect(result.window).toBe('W7');
+    // Card stays in hand
+    expect(state.hands['hapsburg']).toContain(31);
+  });
+
+  it('rejects wrong power for W7', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    state.hands['hapsburg'] = [31, 50];
+
+    createInterruptWindow(state, 'impulse_start');
+
+    const result = handlePlayResponseCard(
+      state, 'france', { cardNumber: 31 }, helpers
+    );
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('france');
   });
 });

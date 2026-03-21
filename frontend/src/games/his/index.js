@@ -104,7 +104,8 @@ import { executeEvent, validateEvent } from './actions/event-actions.js';
 import {
   handlePlayResponseCard, handleDeclineResponse, getNextCombatWindow,
   createCombatCardWindow, advanceMercenaryWindow,
-  getNextPostRollWindow
+  getNextPostRollWindow,
+  canAnyPowerInterrupt, createInterruptWindow, advanceInterruptWindow
 } from './actions/response-actions.js';
 
 // Victory checks
@@ -685,7 +686,38 @@ export class HISGame extends GameEngine {
       power, cardNumber, title: card?.title
     });
 
-    // Execute the event
+    // Check for W7 Wartburg interrupt before executing the event
+    const { powers } = canAnyPowerInterrupt(state, 'event_play');
+    if (powers.length > 0) {
+      // Store the pending event for deferred execution
+      state.pendingEventPlay = {
+        cardNumber,
+        power,
+        actionData
+      };
+      createInterruptWindow(state, 'event_play', {
+        cardNumber, power
+      });
+      // Save W7 tracking for multi-responder advancement
+      if (state.pendingResponse) {
+        state.pendingW7 = {
+          respondingPowers: state.pendingResponse.respondingPowers,
+          currentResponderIndex:
+            state.pendingResponse.currentResponderIndex
+        };
+      }
+      return;
+    }
+
+    // No interrupt — execute the event immediately
+    this._executeEventAndAdvance(state, power, cardNumber, actionData, helpers);
+  }
+
+  /**
+   * Execute a deferred or immediate event card and advance impulse.
+   * @private
+   */
+  _executeEventAndAdvance(state, power, cardNumber, actionData, helpers) {
     const result = executeEvent(state, power, cardNumber, actionData, helpers);
 
     // If event grants CP, enter CP spending mode
@@ -797,6 +829,13 @@ export class HISGame extends GameEngine {
    */
   _advanceAfterResponse(state, result, helpers) {
     const { window: currentWindow, responses, battleState } = result;
+
+    // W7 impulse interrupt window — not tied to a battle
+    if (currentWindow === 'W7') {
+      this._advanceAfterW7(state, result, helpers);
+      return;
+    }
+
     const battle = state.pendingBattle;
 
     if (!battle) return;
@@ -884,6 +923,78 @@ export class HISGame extends GameEngine {
     if (state.pendingBattle === battle) {
       state.pendingBattle = null;
     }
+  }
+
+  /**
+   * Advance after a W7 impulse interrupt response.
+   * Handles multi-responder iteration and deferred event execution.
+   * @private
+   */
+  _advanceAfterW7(state, result, helpers) {
+    const { responses, battleState } = result;
+
+    // Check if more W7 responders remain
+    // Reconstruct pendingResponse so advanceInterruptWindow can work
+    const triggerType = battleState?.type
+      || result.battleState?.type
+      || 'impulse_start';
+    const context = {
+      type: triggerType,
+      triggerData: battleState || {}
+    };
+
+    // Use w7 tracking on state if available
+    if (state.pendingW7) {
+      state.pendingResponse = {
+        window: 'W7',
+        context,
+        respondingPowers: state.pendingW7.respondingPowers,
+        currentResponderIndex: state.pendingW7.currentResponderIndex,
+        responses: responses || {},
+        battleState: battleState || {}
+      };
+
+      const w7Next = advanceInterruptWindow(state, helpers);
+      if (w7Next === 'W7') {
+        // Update W7 tracking
+        state.pendingW7.currentResponderIndex =
+          state.pendingResponse.currentResponderIndex;
+        return;
+      }
+      // W7 done — fall through to resolve
+      state.pendingResponse = null;
+    }
+
+    // Clean up W7 tracking
+    state.pendingW7 = null;
+
+    // Resolve the deferred action based on trigger type
+    const pendingEvent = state.pendingEventPlay;
+    if (pendingEvent) {
+      state.pendingEventPlay = null;
+
+      // If Wartburg was played (#37), the event is cancelled
+      if (state.pendingEventCancelled) {
+        state.pendingEventCancelled = null;
+        helpers.logEvent(state, 'event_cancelled_by_wartburg', {
+          cancelledCard: pendingEvent.cardNumber,
+          cancelledPower: pendingEvent.power
+        });
+        // Event cancelled — advance impulse
+        advanceImpulse(state);
+        return;
+      }
+
+      // No cancellation — execute the deferred event
+      this._executeEventAndAdvance(
+        state, pendingEvent.power, pendingEvent.cardNumber,
+        pendingEvent.actionData, helpers
+      );
+      return;
+    }
+
+    // For impulse_start interrupts (#31/#32/#38), their handlers
+    // already modified state flags. Just continue the impulse.
   }
 
   /**

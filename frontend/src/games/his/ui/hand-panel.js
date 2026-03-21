@@ -55,8 +55,11 @@ export class HandPanel {
    * @param {Object[]} cards - Array of card objects in hand
    * @param {string} playerPower - The player's power
    * @param {boolean} canPlay - Whether the player can play cards right now
+   * @param {Object|null} responseInfo - Response window info when active
+   * @param {number[]} responseInfo.validCards - Valid response card numbers
+   * @param {string} responseInfo.respondingPower - Power that should respond
    */
-  update(cards, playerPower, canPlay = false) {
+  update(cards, playerPower, canPlay = false, responseInfo = null) {
     if (!this._el) return;
     this._el.innerHTML = '';
 
@@ -75,26 +78,50 @@ export class HandPanel {
     }
 
     cards.forEach((card, index) => {
-      const cardEl = this._renderCard(card, index, playerPower, canPlay);
+      const cardEl = this._renderCard(
+        card, index, playerPower, canPlay, responseInfo
+      );
       this._el.appendChild(cardEl);
     });
   }
 
-  _renderCard(card, index, playerPower, canPlay) {
+  _renderCard(card, index, playerPower, canPlay, responseInfo = null) {
     const el = document.createElement('div');
     const isSelected = index === this._selectedIndex;
     const associatedPower = card.associatedPower || '';
     const borderColor = POWER_COLORS[associatedPower] || '#94a3b8';
+
+    // Response card highlighting
+    const isResponseMode = responseInfo &&
+      responseInfo.respondingPower === playerPower;
+    const isValidResponse = isResponseMode &&
+      Array.isArray(responseInfo.validCards) &&
+      responseInfo.validCards.includes(card.number);
+    const isDimmed = isResponseMode && !isValidResponse;
+
+    // Determine effective border color and style
+    let effectiveBorder = isSelected ? '#2196f3' : borderColor;
+    let effectiveBg = isSelected ? '#e3f2fd' : '#fff';
+    let extraStyle = '';
+
+    if (isValidResponse) {
+      effectiveBorder = '#d4a017';
+      effectiveBg = '#fffde7';
+      extraStyle = 'box-shadow: 0 0 8px 2px rgba(212,160,23,0.45);';
+    }
+
+    // In response mode, only valid response cards are clickable
+    const isClickable = isResponseMode ? isValidResponse : canPlay;
 
     el.className = 'his-card';
     el.style.cssText = `
       min-width: 100px;
       max-width: 120px;
       padding: 6px 8px;
-      border: 2px solid ${isSelected ? '#2196f3' : borderColor};
+      border: 2px solid ${effectiveBorder};
       border-radius: 6px;
-      background: ${isSelected ? '#e3f2fd' : '#fff'};
-      cursor: ${canPlay ? 'pointer' : 'default'};
+      background: ${effectiveBg};
+      cursor: ${isClickable ? 'pointer' : 'default'};
       display: flex;
       flex-direction: column;
       gap: 3px;
@@ -102,6 +129,8 @@ export class HandPanel {
       transition: transform 0.15s, box-shadow 0.15s;
       flex-shrink: 0;
       ${isSelected ? 'transform: translateY(-4px); box-shadow: 0 4px 12px rgba(33,150,243,0.3);' : ''}
+      ${isDimmed ? 'opacity: 0.4;' : ''}
+      ${extraStyle}
     `;
 
     // Card number + CP
@@ -154,25 +183,38 @@ export class HandPanel {
 
     // Hover tooltip (always active)
     el.addEventListener('mouseenter', () => {
-      if (canPlay && !isSelected) el.style.transform = 'translateY(-2px)';
+      if (isClickable && !isSelected) el.style.transform = 'translateY(-2px)';
       this._showTooltip(card, el);
     });
     el.addEventListener('mouseleave', () => {
-      if (canPlay && !isSelected) el.style.transform = '';
+      if (isClickable && !isSelected) el.style.transform = '';
       this._hideTooltip();
     });
 
     // Click handler
-    if (canPlay) {
-      el.addEventListener('click', () => {
-        this._selectedIndex = isSelected ? -1 : index;
-        if (this._onAction) {
-          this._onAction({
-            type: 'SELECT_CARD',
-            data: { index: this._selectedIndex, card }
-          });
-        }
-      });
+    if (isClickable) {
+      if (isValidResponse) {
+        // In response mode, clicking a valid card plays it as response
+        el.addEventListener('click', () => {
+          if (this._onAction) {
+            this._onAction({
+              type: 'PLAY_RESPONSE_CARD',
+              data: { cardNumber: card.number }
+            });
+          }
+        });
+      } else {
+        // Normal mode: select/deselect card
+        el.addEventListener('click', () => {
+          this._selectedIndex = isSelected ? -1 : index;
+          if (this._onAction) {
+            this._onAction({
+              type: 'SELECT_CARD',
+              data: { index: this._selectedIndex, card }
+            });
+          }
+        });
+      }
     }
 
     // Right-click: preview card detail

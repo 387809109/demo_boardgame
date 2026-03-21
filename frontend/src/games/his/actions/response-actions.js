@@ -1,7 +1,7 @@
 /**
  * Here I Stand — Response Card System
  *
- * Manages response windows during combat:
+ * Manages response windows during combat and impulse interrupts:
  *   W1 — Mercenary cards (#33 Landsknechts, #36 Swiss Mercenaries)
  *         Any player in impulse order, before dice calculation.
  *   W2 — Attacker combat card (#24-30)
@@ -9,6 +9,9 @@
  *   W4 — Janissaries (#1 in combat mode) — Ottoman re-roll, field only
  *   W5 — Siege Artillery (#35) — bonus to assault roll
  *   W6 — Professional Rowers (#34) — bonus to naval combat
+ *   W7 — Impulse interrupt cards (#31 Foul Weather, #32 Gout,
+ *         #37 The Wartburg, #38 Halley's Comet)
+ *         Non-active powers in impulse order.
  *
  * Combat cards are #24-30 and have specific battle-type restrictions:
  *   #24 Arquebusiers   — field or naval (not assault/piracy)
@@ -666,4 +669,162 @@ export function createPostRollWindow(
 export function getNextPostRollWindow(currentWindow) {
   // Post-roll windows are always the final window for their battle type
   return null;
+}
+
+// ── W7 Impulse Interrupt Card Rules ─────────────────────────────
+
+/**
+ * Per-card eligibility for impulse interrupt cards (#31, #32, #37, #38).
+ * Each entry: { canPlay: (state, power) => boolean }
+ *
+ *   #31 Foul Weather   — any non-active power
+ *   #32 Gout           — any non-active power
+ *   #37 The Wartburg   — Protestant only, Luther must be alive
+ *   #38 Halley's Comet — any non-active power
+ *
+ * triggerTypes controls when each card is eligible:
+ *   'event_play'    — only #37 (cancels another power's event play)
+ *   'impulse_start' — #31, #32, #38 (modify the active impulse)
+ */
+const IMPULSE_INTERRUPT_RULES = {
+  31: { // Foul Weather — any non-active power
+    canPlay: (state, power) => power !== state.activePower,
+    triggerTypes: new Set(['impulse_start'])
+  },
+  32: { // Gout — any non-active power
+    canPlay: (state, power) => power !== state.activePower,
+    triggerTypes: new Set(['impulse_start'])
+  },
+  37: { // The Wartburg — Protestant only, Luther alive
+    canPlay: (state, power) =>
+      power === 'protestant'
+      && power !== state.activePower
+      && state.lutherPlaced === true,
+    triggerTypes: new Set(['event_play'])
+  },
+  38: { // Halley's Comet — any non-active power
+    canPlay: (state, power) => power !== state.activePower,
+    triggerTypes: new Set(['impulse_start'])
+  }
+};
+
+/**
+ * Get valid impulse interrupt cards a power can play.
+ * @param {Object} state
+ * @param {string} power
+ * @param {string} [triggerType] - 'event_play' or 'impulse_start'
+ * @returns {number[]} Array of card numbers the power can legally play
+ */
+export function getValidInterruptCards(state, power, triggerType) {
+  const hand = state.hands[power];
+  if (!hand || hand.length === 0) return [];
+
+  const valid = [];
+  for (const cardNum of hand) {
+    const rule = IMPULSE_INTERRUPT_RULES[cardNum];
+    if (!rule) continue;
+    if (triggerType && !rule.triggerTypes.has(triggerType)) continue;
+    if (!rule.canPlay(state, power)) continue;
+    valid.push(cardNum);
+  }
+  return valid;
+}
+
+/**
+ * Check if any non-active power holds interrupt cards for the given trigger.
+ * @param {Object} state
+ * @param {string} triggerType - 'event_play' or 'impulse_start'
+ * @returns {{ powers: string[], cards: Map<string, number[]> }}
+ */
+export function canAnyPowerInterrupt(state, triggerType) {
+  const powers = [];
+  const cards = new Map();
+
+  for (const power of IMPULSE_ORDER) {
+    if (power === state.activePower) continue;
+    const validCards = getValidInterruptCards(state, power, triggerType);
+    if (validCards.length > 0) {
+      powers.push(power);
+      cards.set(power, validCards);
+    }
+  }
+  return { powers, cards };
+}
+
+/**
+ * Create a W7 impulse interrupt response window.
+ * Iterates through non-active powers in IMPULSE_ORDER.
+ * @param {Object} state
+ * @param {string} triggerType - 'event_play' or 'impulse_start'
+ * @param {Object} [triggerData] - Info about what triggered the interrupt
+ *   e.g. { cardNumber, power } for event_play
+ * @returns {boolean} true if window was created, false if no power can
+ */
+export function createInterruptWindow(state, triggerType, triggerData) {
+  const { powers, cards } = canAnyPowerInterrupt(state, triggerType);
+  if (powers.length === 0) return false;
+
+  const firstPower = powers[0];
+  const validCards = cards.get(firstPower);
+
+  state.pendingResponse = {
+    window: 'W7',
+    context: {
+      type: triggerType,
+      triggerData: triggerData || {}
+    },
+    respondingPower: firstPower,
+    respondingPowers: powers,
+    currentResponderIndex: 0,
+    validCards,
+    responses: {},
+    battleState: triggerData || {}
+  };
+
+  return true;
+}
+
+/**
+ * Advance the W7 interrupt window to the next responder.
+ * Called after the current responder plays or declines.
+ * @param {Object} state
+ * @param {Object} helpers
+ * @returns {'W7'|null} 'W7' if another power can respond, null if done
+ */
+export function advanceInterruptWindow(state, helpers) {
+  const pending = state.pendingResponse;
+  if (!pending || pending.window !== 'W7') return null;
+
+  const { respondingPowers, currentResponderIndex, context } = pending;
+  const nextIndex = currentResponderIndex + 1;
+
+  if (nextIndex >= respondingPowers.length) {
+    // All powers have responded — W7 is done
+    return null;
+  }
+
+  const triggerType = context.type;
+  const nextPower = respondingPowers[nextIndex];
+  const validCards = getValidInterruptCards(
+    state, nextPower, triggerType
+  );
+
+  // Skip powers that no longer have valid cards
+  if (validCards.length === 0) {
+    pending.currentResponderIndex = nextIndex;
+    return advanceInterruptWindow(state, helpers);
+  }
+
+  state.pendingResponse = {
+    window: 'W7',
+    context,
+    respondingPower: nextPower,
+    respondingPowers,
+    currentResponderIndex: nextIndex,
+    validCards,
+    responses: pending.responses || {},
+    battleState: pending.battleState || {}
+  };
+
+  return 'W7';
 }

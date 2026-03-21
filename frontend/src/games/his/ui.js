@@ -279,12 +279,29 @@ export class HisUI {
         );
         return; // Don't propagate to game engine
       }
+      if (action.type === 'PLAY_RESPONSE_CARD') {
+        // Normalize to engine format and forward
+        if (this.onAction) {
+          this.onAction({
+            actionType: action.type,
+            actionData: action.data || {}
+          });
+        }
+        return;
+      }
       if (this.onAction) this.onAction(action);
     });
     const hand = this._resolveHandCards(state);
-    const canPlay = state.activePower === this._playerPower
-      && state.phase === 'action';
-    this._handPanel.update(hand, this._playerPower, canPlay);
+    const responseInfo = state.pendingResponse &&
+      state.pendingResponse.respondingPower === this._playerPower
+      ? {
+        validCards: state.pendingResponse.validCards,
+        respondingPower: state.pendingResponse.respondingPower
+      }
+      : null;
+    const canPlay = (state.activePower === this._playerPower
+      && state.phase === 'action') || responseInfo !== null;
+    this._handPanel.update(hand, this._playerPower, canPlay, responseInfo);
     this._container.appendChild(handEl);
 
     // 4. Overlays (fixed position, hidden)
@@ -316,9 +333,16 @@ export class HisUI {
     this._religiousStrugglePanel.update(state);
 
     const hand = this._resolveHandCards(state);
-    const canPlay = state.activePower === this._playerPower
-      && state.phase === 'action';
-    this._handPanel.update(hand, this._playerPower, canPlay);
+    const responseInfo = state.pendingResponse &&
+      state.pendingResponse.respondingPower === this._playerPower
+      ? {
+        validCards: state.pendingResponse.validCards,
+        respondingPower: state.pendingResponse.respondingPower
+      }
+      : null;
+    const canPlay = (state.activePower === this._playerPower
+      && state.phase === 'action') || responseInfo !== null;
+    this._handPanel.update(hand, this._playerPower, canPlay, responseInfo);
 
     // Update space detail if visible
     if (this._spaceDetail.visible && this._spaceDetail.currentSpace) {

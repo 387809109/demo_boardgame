@@ -14,14 +14,14 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 |------|------|
 | 源码文件 | 58 个 JS 文件 |
 | 测试文件 | 34 个 test.js 文件 |
-| 源码行数 | ~25,300 行 |
-| 测试行数 | ~16,100 行 |
-| 单元测试 | **1,285 个**，全部通过 |
+| 源码行数 | ~26,100 行 |
+| 测试行数 | ~16,800 行 |
+| 单元测试 | **1,330 个**，全部通过 |
 | 事件处理器 | **135/135 张卡牌已实现** |
 
 **已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心)
 
-**当前**：Phase 11（多人联机与打磨）— 11.1 ✅，11.4 🔶，11.7 S1-S4 完成（响应卡引擎 W1-W6）
+**当前**：Phase 11（多人联机与打磨）— 11.1 ✅，11.4 🔶，11.7 ✅ 完成（响应卡系统 W1-W7 + UI）
 
 ---
 
@@ -67,7 +67,7 @@ frontend/src/games/his/
 │   ├── new-world-actions.js             # 探索、征服、殖民
 │   ├── loan-actions.js                  # 中队借调（盟友间）
 │   ├── conclave-actions.js              # 教宗选举
-│   └── response-actions.js              # 响应卡系统（W2/W3 战斗卡窗口）
+│   └── response-actions.js              # 响应卡系统（W1-W7 全窗口）
 │
 ├── map/
 │   ├── map-renderer.js            270  # SVG 地图渲染（134 空间 + 15 海域）
@@ -306,7 +306,7 @@ frontend/src/games/his/
 | 11.4 | 边界用例全面测试 | 🔶 进行中 | 🟡 中 |
 | 11.5 | 存档/读档 | ❌ | 🟡 中 |
 | 11.6 | 大状态深拷贝性能优化 | ❌ | 🟢 低 |
-| 11.7 | 响应卡系统（引擎+UI） | 🔶 进行中 | 🟡 中 |
+| 11.7 | 响应卡系统（引擎 W1-W7 + UI） | ✅ | 🟡 中 |
 | 11.8 | 回放系统（查看历史行动） | ❌ | 🟢 低 |
 
 **11.1 验证结果**：config/export/getVisibleState/processMove 格式/网络收发路径/状态大小均正确。修复了 UI-only action（SELECT_CARD、SELECT_SPACE）泄漏到引擎的问题，以及 action 格式 `{type,data}` → `{actionType,actionData}` 的统一。
@@ -360,8 +360,8 @@ frontend/src/games/his/
 | S2 | 战斗卡窗口 W2/W3 + combat 拆解 | combat-actions, index.js | ✅ |
 | S3 | 佣兵窗口 W1 | response-actions, combat-actions | ✅ |
 | S4 | 投骰后窗口 W4/W5/W6 | response-actions, combat-actions, index.js | ✅ |
-| S5 | 脉冲中断 W7 | index.js, response-actions | ❌ |
-| S6 | UI 集成：action-panel + hand-panel 响应模式 | action-panel, hand-panel, ui.js | ❌ |
+| S5 | 脉冲中断 W7 (#31/#32/#37/#38) | response-actions, index.js | ✅ |
+| S6 | UI 集成：action-panel + hand-panel 响应模式 | action-panel, hand-panel, ui.js | ✅ |
 
 关键设计：
 - `state.pendingResponse = { window, context, respondingPowers, currentResponderIndex, validCards, responses, battleState }`
@@ -456,9 +456,9 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 | phase-luther95.test.js | 29 | 95 条论纲 |
 | phase-new-world.test.js | 14 | 新世界阶段、发现回退 |
 | phase-winter.test.js | 21 | 冬季阶段 |
-| index.test.js | 53 | 集成测试、响应卡流程 |
-| response-actions.test.js | 101 | 响应卡系统（W1-W6） |
-| **合计** | **1,285** | |
+| index.test.js | 60 | 集成测试、响应卡流程、W7 中断 |
+| response-actions.test.js | 139 | 响应卡系统（W1-W7） |
+| **合计** | **1,330** | |
 
 运行命令：
 ```bash
