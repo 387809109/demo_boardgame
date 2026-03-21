@@ -14,14 +14,14 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 |------|------|
 | 源码文件 | 58 个 JS 文件 |
 | 测试文件 | 34 个 test.js 文件 |
-| 源码行数 | ~24,800 行 |
-| 测试行数 | ~14,300 行 |
-| 单元测试 | **1,211 个**，全部通过 |
+| 源码行数 | ~25,300 行 |
+| 测试行数 | ~16,100 行 |
+| 单元测试 | **1,285 个**，全部通过 |
 | 事件处理器 | **135/135 张卡牌已实现** |
 
 **已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心)
 
-**当前**：Phase 11（多人联机与打磨）— 11.1 ✅，11.4 🔶，11.7 S1+S2 完成（响应卡基础+战斗卡窗口）
+**当前**：Phase 11（多人联机与打磨）— 11.1 ✅，11.4 🔶，11.7 S1-S4 完成（响应卡引擎 W1-W6）
 
 ---
 
@@ -358,8 +358,8 @@ frontend/src/games/his/
 |------|------|----------|------|
 | S1 | 基础设施：action types + state + response-actions.js | action-types, state-init, cp-manager, response-actions(新) | ✅ |
 | S2 | 战斗卡窗口 W2/W3 + combat 拆解 | combat-actions, index.js | ✅ |
-| S3 | 佣兵窗口 W1 | response-actions, combat-actions | ❌ |
-| S4 | 投骰后窗口 W4/W5/W6 | combat-actions, siege-actions, naval-actions | ❌ |
+| S3 | 佣兵窗口 W1 | response-actions, combat-actions | ✅ |
+| S4 | 投骰后窗口 W4/W5/W6 | response-actions, combat-actions, index.js | ✅ |
 | S5 | 脉冲中断 W7 | index.js, response-actions | ❌ |
 | S6 | UI 集成：action-panel + hand-panel 响应模式 | action-panel, hand-panel, ui.js | ❌ |
 
@@ -404,8 +404,8 @@ frontend/src/games/his/
 | Phase 9 SVG+UI | ~4,000 | ~3,300 | ✅ |
 | Phase 10 卡牌事件 UI | ~3,000 | ~1,100 | ✅ |
 | Phase 11 多人联机 | ~1,000 | — | ⬅️ |
-| **源码合计** | ~27,500 | **~24,800** | |
-| **测试合计** | ~8,000-12,000 | **~14,300** | 1,211 tests |
+| **源码合计** | ~27,500 | **~25,300** | |
+| **测试合计** | ~8,000-12,000 | **~15,600** | 1,285 tests |
 
 **依赖关系图**：
 ```
@@ -428,13 +428,13 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 | state-helpers.test.js | 54 | 查询工具、路径搜索、辩士 |
 | state-visible.test.js | 29 | 信息隐藏、深拷贝、旁观者 |
 | war-helpers.test.js | 33 | 战争/同盟状态 |
-| victory-checks.test.js | 40 | 胜利条件、阈值边界 |
+| victory-checks.test.js | 41 | 胜利条件、阈值边界 |
 | reformer-helpers.test.js | 15 | 宗教改革者追踪 |
-| cp-manager.test.js | 22 | CP 花费、pendingResponse |
+| cp-manager.test.js | 22 | CP 花费 |
 | military-actions.test.js | 46 | 移动、征募、建造 |
 | naval-actions.test.js | 50 | 海军、海盗 |
-| combat-actions.test.js | 40 | 野战、领袖类型、伤亡级联、战斗卡窗口 |
-| siege-actions.test.js | 35 | 围城、半骰进位、LOC |
+| combat-actions.test.js | 54 | 野战、领袖类型、伤亡级联、W1-W4 窗口 |
+| siege-actions.test.js | 35 | 围城、半骰进位、LOC、W5 |
 | interception.test.js | 17 | 拦截、骑兵修正、山口排除 |
 | retreat.test.js | 25 | 撤退、堡垒容量、领袖移动 |
 | religious-actions.test.js | 44 | 改革、出版、翻译、焚书 |
@@ -456,9 +456,9 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 | phase-luther95.test.js | 29 | 95 条论纲 |
 | phase-new-world.test.js | 14 | 新世界阶段、发现回退 |
 | phase-winter.test.js | 21 | 冬季阶段 |
-| index.test.js | 44 | 集成测试、响应卡流程 |
-| response-actions.test.js | 47 | 响应卡系统（W2/W3） |
-| **合计** | **1,211** | |
+| index.test.js | 53 | 集成测试、响应卡流程 |
+| response-actions.test.js | 101 | 响应卡系统（W1-W6） |
+| **合计** | **1,285** | |
 
 运行命令：
 ```bash

@@ -50,7 +50,8 @@ import {
 
 // Combat actions
 import {
-  resolveFieldBattle, initiateFieldBattle, executeFieldBattle
+  resolveFieldBattle, initiateFieldBattle, executeFieldBattle,
+  finalizeFieldBattle
 } from './actions/combat-actions.js';
 import {
   validateAssault, executeAssault
@@ -102,7 +103,8 @@ import { executeEvent, validateEvent } from './actions/event-actions.js';
 // Response card actions
 import {
   handlePlayResponseCard, handleDeclineResponse, getNextCombatWindow,
-  createCombatCardWindow
+  createCombatCardWindow, advanceMercenaryWindow,
+  getNextPostRollWindow
 } from './actions/response-actions.js';
 
 // Victory checks
@@ -750,6 +752,15 @@ export class HISGame extends GameEngine {
       state.pendingBattle.battleType = 'field';
       state.pendingBattle.lastWindow = result.window;
       state.pendingBattle.responses = {};
+
+      // Save W1 tracking data on pendingBattle for multi-responder
+      if (result.window === 'W1' && state.pendingResponse) {
+        state.pendingBattle.w1 = {
+          respondingPowers: state.pendingResponse.respondingPowers,
+          currentResponderIndex:
+            state.pendingResponse.currentResponderIndex
+        };
+      }
       return;
     }
 
@@ -785,13 +796,57 @@ export class HISGame extends GameEngine {
    * @private
    */
   _advanceAfterResponse(state, result, helpers) {
-    const { window: currentWindow, responses } = result;
+    const { window: currentWindow, responses, battleState } = result;
     const battle = state.pendingBattle;
 
     if (!battle) return;
 
     const { space, attackerPower, defenderPower } = battle;
     const battleType = battle.battleType || 'field';
+
+    // Post-roll windows (W4/W5/W6): finalize the battle
+    if (currentWindow === 'W4' || currentWindow === 'W5'
+        || currentWindow === 'W6') {
+      state.pendingBattle = null;
+      if (currentWindow === 'W4') {
+        finalizeFieldBattle(
+          state, space, attackerPower, defenderPower, helpers,
+          battleState || {}
+        );
+      }
+      // W5/W6 finalization: future integration with siege/naval
+      return;
+    }
+
+    // W1: check if more mercenary responders remain
+    if (currentWindow === 'W1' && battle.w1) {
+      // Reconstruct pendingResponse so advanceMercenaryWindow can work
+      state.pendingResponse = {
+        window: 'W1',
+        context: {
+          type: battleType,
+          space,
+          attackerPower,
+          defenderPower
+        },
+        respondingPowers: battle.w1.respondingPowers,
+        currentResponderIndex: battle.w1.currentResponderIndex,
+        responses: responses || {},
+        battleState: battleState || {}
+      };
+
+      const w1Next = advanceMercenaryWindow(state, helpers);
+      if (w1Next === 'W1') {
+        battle.lastWindow = 'W1';
+        battle.responses = responses;
+        // Update W1 tracking on pendingBattle
+        battle.w1.currentResponderIndex =
+          state.pendingResponse.currentResponderIndex;
+        return;
+      }
+      // W1 done — fall through to check W2/W3
+      state.pendingResponse = null;
+    }
 
     const nextWindow = getNextCombatWindow(
       currentWindow, state, space, attackerPower, defenderPower,
@@ -811,12 +866,24 @@ export class HISGame extends GameEngine {
       }
     }
 
-    // No more windows — execute the battle
-    state.pendingBattle = null;
-    executeFieldBattle(
+    // No more pre-roll windows — execute the battle (may pause at W4)
+    const execResult = executeFieldBattle(
       state, space, attackerPower, defenderPower, helpers,
       { responses }
     );
+
+    if (execResult && execResult.paused) {
+      // Battle paused at W4 — keep pendingBattle alive
+      battle.lastWindow = execResult.window;
+      battle.responses = responses;
+      return;
+    }
+
+    // Battle completed — clear pendingBattle (handlePostBattle sets
+    // it to retreat_choice if needed, so only clear if still field_battle)
+    if (state.pendingBattle === battle) {
+      state.pendingBattle = null;
+    }
   }
 
   /**

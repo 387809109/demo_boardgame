@@ -8,7 +8,15 @@ import {
   createCombatCardWindow,
   handlePlayResponseCard,
   handleDeclineResponse,
-  getNextCombatWindow
+  getNextCombatWindow,
+  getValidMercenaryCards,
+  canAnyPowerRespondMercenary,
+  createMercenaryWindow,
+  advanceMercenaryWindow,
+  getValidPostRollCards,
+  canAnyPowerRespondPostRoll,
+  createPostRollWindow,
+  getNextPostRollWindow
 } from './response-actions.js';
 import { createTestState, createMockHelpers } from '../test-helpers.js';
 
@@ -769,5 +777,593 @@ describe('full combat card flow', () => {
       'W2', state, 'Paris', 'hapsburg', 'france', 'field'
     );
     expect(next).toBeNull();
+  });
+});
+
+// ── W1 Mercenary Card Tests ──────────────────────────────────────
+
+describe('getValidMercenaryCards', () => {
+  it('returns #33 Landsknechts from hand', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [33, 50];
+    const result = getValidMercenaryCards(state, 'hapsburg');
+    expect(result).toEqual([33]);
+  });
+
+  it('returns #36 Swiss Mercenaries from hand', () => {
+    const state = createTestState();
+    state.hands['france'] = [36, 50];
+    const result = getValidMercenaryCards(state, 'france');
+    expect(result).toEqual([36]);
+  });
+
+  it('returns both #33 and #36 when in hand', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [33, 36, 50];
+    const result = getValidMercenaryCards(state, 'hapsburg');
+    expect(result).toEqual([33, 36]);
+  });
+
+  it('excludes Ottoman from #36 Swiss Mercenaries', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [36, 50];
+    const result = getValidMercenaryCards(state, 'ottoman');
+    expect(result).toEqual([]);
+  });
+
+  it('allows Ottoman to play #33 Landsknechts', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [33, 50];
+    const result = getValidMercenaryCards(state, 'ottoman');
+    expect(result).toEqual([33]);
+  });
+
+  it('returns empty when hand has no mercenary cards', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [39, 40, 41];
+    const result = getValidMercenaryCards(state, 'hapsburg');
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty when hand is empty', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [];
+    const result = getValidMercenaryCards(state, 'hapsburg');
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty when hand is undefined', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = undefined;
+    const result = getValidMercenaryCards(state, 'hapsburg');
+    expect(result).toEqual([]);
+  });
+});
+
+describe('canAnyPowerRespondMercenary', () => {
+  it('returns powers in impulse order', () => {
+    const state = createTestState();
+    // Clear all hands first
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [];
+    }
+    state.hands['france'] = [33];
+    state.hands['hapsburg'] = [36];
+    const result = canAnyPowerRespondMercenary(state);
+    // impulse order: ottoman, hapsburg, england, france, papacy, protestant
+    expect(result.powers).toEqual(['hapsburg', 'france']);
+  });
+
+  it('returns empty when no one has merc cards', () => {
+    const state = createTestState();
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    const result = canAnyPowerRespondMercenary(state);
+    expect(result.powers).toEqual([]);
+  });
+
+  it('includes all powers who hold #33 or #36', () => {
+    const state = createTestState();
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [];
+    }
+    state.hands['ottoman'] = [33];
+    state.hands['england'] = [36];
+    state.hands['papacy'] = [33];
+    const result = canAnyPowerRespondMercenary(state);
+    expect(result.powers).toEqual(['ottoman', 'england', 'papacy']);
+  });
+
+  it('excludes Ottoman from #36 in powers list', () => {
+    const state = createTestState();
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [];
+    }
+    state.hands['ottoman'] = [36]; // Ottoman can't play #36
+    const result = canAnyPowerRespondMercenary(state);
+    expect(result.powers).toEqual([]);
+  });
+});
+
+describe('createMercenaryWindow', () => {
+  it('creates W1 pendingResponse with correct structure', () => {
+    const state = createTestState();
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [];
+    }
+    state.hands['hapsburg'] = [33, 50];
+
+    const created = createMercenaryWindow(
+      state, 'Paris', 'hapsburg', 'france'
+    );
+
+    expect(created).toBe(true);
+    expect(state.pendingResponse).not.toBeNull();
+    expect(state.pendingResponse.window).toBe('W1');
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+    expect(state.pendingResponse.validCards).toContain(33);
+    expect(state.pendingResponse.respondingPowers).toEqual(['hapsburg']);
+    expect(state.pendingResponse.currentResponderIndex).toBe(0);
+    expect(state.pendingResponse.context.space).toBe('Paris');
+    expect(state.pendingResponse.context.attackerPower).toBe('hapsburg');
+    expect(state.pendingResponse.context.defenderPower).toBe('france');
+  });
+
+  it('returns false when no power has merc cards', () => {
+    const state = createTestState();
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+
+    const created = createMercenaryWindow(
+      state, 'Paris', 'hapsburg', 'france'
+    );
+
+    expect(created).toBe(false);
+  });
+
+  it('sets first power in impulse order as responder', () => {
+    const state = createTestState();
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [];
+    }
+    state.hands['france'] = [33];
+    state.hands['papacy'] = [36];
+
+    const created = createMercenaryWindow(
+      state, 'Paris', 'hapsburg', 'france'
+    );
+
+    expect(created).toBe(true);
+    // france comes before papacy in impulse order
+    expect(state.pendingResponse.respondingPower).toBe('france');
+    expect(state.pendingResponse.respondingPowers).toEqual(
+      ['france', 'papacy']
+    );
+  });
+
+  it('preserves battleState', () => {
+    const state = createTestState();
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [];
+    }
+    state.hands['hapsburg'] = [33];
+
+    const battleState = {
+      attackerCalc: { dice: 5 },
+      responses: { prev: 'data' }
+    };
+
+    const created = createMercenaryWindow(
+      state, 'Paris', 'hapsburg', 'france', battleState
+    );
+
+    expect(created).toBe(true);
+    expect(state.pendingResponse.responses.prev).toBe('data');
+    expect(state.pendingResponse.battleState.attackerCalc.dice).toBe(5);
+  });
+});
+
+describe('advanceMercenaryWindow', () => {
+  it('advances to next responder', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [];
+    }
+    state.hands['hapsburg'] = [33];
+    state.hands['france'] = [36];
+
+    createMercenaryWindow(state, 'Paris', 'hapsburg', 'france');
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+
+    const next = advanceMercenaryWindow(state, helpers);
+    expect(next).toBe('W1');
+    expect(state.pendingResponse.respondingPower).toBe('france');
+    expect(state.pendingResponse.validCards).toContain(36);
+  });
+
+  it('returns null when all have responded', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [];
+    }
+    state.hands['hapsburg'] = [33];
+
+    createMercenaryWindow(state, 'Paris', 'hapsburg', 'france');
+
+    const next = advanceMercenaryWindow(state, helpers);
+    expect(next).toBeNull();
+  });
+
+  it('iterates through multiple responders', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [];
+    }
+    state.hands['ottoman'] = [33];
+    state.hands['england'] = [33];
+    state.hands['papacy'] = [36];
+
+    createMercenaryWindow(state, 'Paris', 'hapsburg', 'france');
+    expect(state.pendingResponse.respondingPower).toBe('ottoman');
+
+    let next = advanceMercenaryWindow(state, helpers);
+    expect(next).toBe('W1');
+    expect(state.pendingResponse.respondingPower).toBe('england');
+
+    next = advanceMercenaryWindow(state, helpers);
+    expect(next).toBe('W1');
+    expect(state.pendingResponse.respondingPower).toBe('papacy');
+
+    next = advanceMercenaryWindow(state, helpers);
+    expect(next).toBeNull();
+  });
+
+  it('returns null when no pendingResponse', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.pendingResponse = null;
+    const next = advanceMercenaryWindow(state, helpers);
+    expect(next).toBeNull();
+  });
+
+  it('returns null when window is not W1', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.pendingResponse = { window: 'W2' };
+    const next = advanceMercenaryWindow(state, helpers);
+    expect(next).toBeNull();
+  });
+
+  it('skips power that lost merc card after window creation', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [];
+    }
+    state.hands['hapsburg'] = [33];
+    state.hands['france'] = [36];
+    state.hands['papacy'] = [33];
+
+    createMercenaryWindow(state, 'Paris', 'hapsburg', 'france');
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+
+    // Simulate france losing their card before their turn
+    state.hands['france'] = [];
+
+    const next = advanceMercenaryWindow(state, helpers);
+    expect(next).toBe('W1');
+    // Should skip france and go to papacy
+    expect(state.pendingResponse.respondingPower).toBe('papacy');
+  });
+});
+
+// ── getNextCombatWindow with W1 ─────────────────────────────────
+
+describe('getNextCombatWindow after W1', () => {
+  it('returns W2 when attacker has combat cards', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [24]; // combat card
+    state.hands['france'] = [50];
+    const next = getNextCombatWindow(
+      'W1', state, 'Paris', 'hapsburg', 'france', 'field'
+    );
+    expect(next).toBe('W2');
+  });
+
+  it('returns W3 when only defender has combat cards', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [50];
+    state.hands['france'] = [25]; // combat card
+    const next = getNextCombatWindow(
+      'W1', state, 'Paris', 'hapsburg', 'france', 'field'
+    );
+    expect(next).toBe('W3');
+  });
+
+  it('returns null when neither has combat cards', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [50];
+    state.hands['france'] = [51];
+    const next = getNextCombatWindow(
+      'W1', state, 'Paris', 'hapsburg', 'france', 'field'
+    );
+    expect(next).toBeNull();
+  });
+});
+
+// ── Post-Roll Card Tests (W4/W5/W6) ─────────────────────────────
+
+describe('getValidPostRollCards', () => {
+  it('Ottoman with #1 returns it for field battle', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [1, 50];
+    const result = getValidPostRollCards(state, 'ottoman', 'field');
+    expect(result).toContain(1);
+  });
+
+  it('Ottoman with #1 returns empty for assault', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [1, 50];
+    const result = getValidPostRollCards(state, 'ottoman', 'assault');
+    expect(result).toEqual([]);
+  });
+
+  it('Ottoman with #1 returns empty for naval', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [1, 50];
+    const result = getValidPostRollCards(state, 'ottoman', 'naval');
+    expect(result).toEqual([]);
+  });
+
+  it('non-Ottoman with #1 returns empty for field', () => {
+    const state = createTestState();
+    state.hands['france'] = [1, 50];
+    const result = getValidPostRollCards(state, 'france', 'field');
+    expect(result).toEqual([]);
+  });
+
+  it('any power with #35 returns it for assault', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [35, 50];
+    const result = getValidPostRollCards(state, 'hapsburg', 'assault');
+    expect(result).toContain(35);
+  });
+
+  it('#35 returns empty for field', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [35, 50];
+    const result = getValidPostRollCards(state, 'hapsburg', 'field');
+    expect(result).toEqual([]);
+  });
+
+  it('#35 returns empty for naval', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [35, 50];
+    const result = getValidPostRollCards(state, 'hapsburg', 'naval');
+    expect(result).toEqual([]);
+  });
+
+  it('any power with #34 returns it for naval', () => {
+    const state = createTestState();
+    state.hands['france'] = [34, 50];
+    const result = getValidPostRollCards(state, 'france', 'naval');
+    expect(result).toContain(34);
+  });
+
+  it('#34 returns empty for field', () => {
+    const state = createTestState();
+    state.hands['france'] = [34, 50];
+    const result = getValidPostRollCards(state, 'france', 'field');
+    expect(result).toEqual([]);
+  });
+
+  it('#34 returns empty for assault', () => {
+    const state = createTestState();
+    state.hands['france'] = [34, 50];
+    const result = getValidPostRollCards(state, 'france', 'assault');
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty when hand is empty', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [];
+    const result = getValidPostRollCards(state, 'ottoman', 'field');
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty when hand has no post-roll cards', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [50, 51, 52];
+    const result = getValidPostRollCards(state, 'ottoman', 'field');
+    expect(result).toEqual([]);
+  });
+});
+
+describe('canAnyPowerRespondPostRoll', () => {
+  it('Ottoman can respond for field when holding #1', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [1];
+    state.hands['hapsburg'] = [50];
+    const result = canAnyPowerRespondPostRoll(
+      state, 'field', 'ottoman', 'hapsburg'
+    );
+    expect(result.canRespond).toBe(true);
+    expect(result.respondingPower).toBe('ottoman');
+    expect(result.windowType).toBe('W4');
+  });
+
+  it('Ottoman can respond as defender for field when holding #1', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [1];
+    state.hands['hapsburg'] = [50];
+    const result = canAnyPowerRespondPostRoll(
+      state, 'field', 'hapsburg', 'ottoman'
+    );
+    expect(result.canRespond).toBe(true);
+    expect(result.respondingPower).toBe('ottoman');
+    expect(result.windowType).toBe('W4');
+  });
+
+  it('non-Ottoman cannot respond for W4 even with #1', () => {
+    const state = createTestState();
+    state.hands['france'] = [1];
+    state.hands['hapsburg'] = [50];
+    const result = canAnyPowerRespondPostRoll(
+      state, 'field', 'france', 'hapsburg'
+    );
+    expect(result.canRespond).toBe(false);
+  });
+
+  it('no response when neither has post-roll cards', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [50];
+    state.hands['hapsburg'] = [51];
+    const result = canAnyPowerRespondPostRoll(
+      state, 'field', 'ottoman', 'hapsburg'
+    );
+    expect(result.canRespond).toBe(false);
+  });
+
+  it('attacker can respond with #35 for assault', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [35];
+    state.hands['france'] = [50];
+    const result = canAnyPowerRespondPostRoll(
+      state, 'assault', 'hapsburg', 'france'
+    );
+    expect(result.canRespond).toBe(true);
+    expect(result.respondingPower).toBe('hapsburg');
+    expect(result.windowType).toBe('W5');
+  });
+
+  it('defender can respond with #35 for assault', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [50];
+    state.hands['france'] = [35];
+    const result = canAnyPowerRespondPostRoll(
+      state, 'assault', 'hapsburg', 'france'
+    );
+    expect(result.canRespond).toBe(true);
+    expect(result.respondingPower).toBe('france');
+    expect(result.windowType).toBe('W5');
+  });
+
+  it('attacker can respond with #34 for naval', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [34];
+    state.hands['hapsburg'] = [50];
+    const result = canAnyPowerRespondPostRoll(
+      state, 'naval', 'ottoman', 'hapsburg'
+    );
+    expect(result.canRespond).toBe(true);
+    expect(result.respondingPower).toBe('ottoman');
+    expect(result.windowType).toBe('W6');
+  });
+
+  it('W4 not triggered for assault battle type', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [1];
+    state.hands['hapsburg'] = [50];
+    const result = canAnyPowerRespondPostRoll(
+      state, 'assault', 'ottoman', 'hapsburg'
+    );
+    expect(result.canRespond).toBe(false);
+  });
+});
+
+describe('createPostRollWindow', () => {
+  it('creates W4 window for Ottoman with Janissaries', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [1, 50];
+    const created = createPostRollWindow(
+      state, 'W4', 'Edirne', 'ottoman', 'hapsburg', 'field'
+    );
+    expect(created).toBe(true);
+    expect(state.pendingResponse).not.toBeNull();
+    expect(state.pendingResponse.window).toBe('W4');
+    expect(state.pendingResponse.respondingPower).toBe('ottoman');
+    expect(state.pendingResponse.validCards).toContain(1);
+  });
+
+  it('creates W5 window for attacker with Siege Artillery', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [35, 50];
+    const created = createPostRollWindow(
+      state, 'W5', 'Paris', 'hapsburg', 'france', 'assault'
+    );
+    expect(created).toBe(true);
+    expect(state.pendingResponse.window).toBe('W5');
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+    expect(state.pendingResponse.validCards).toContain(35);
+  });
+
+  it('creates W6 window for defender with Professional Rowers', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [50];
+    state.hands['hapsburg'] = [34, 51];
+    const created = createPostRollWindow(
+      state, 'W6', 'Adriatic Sea', 'ottoman', 'hapsburg', 'naval'
+    );
+    expect(created).toBe(true);
+    expect(state.pendingResponse.window).toBe('W6');
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+    expect(state.pendingResponse.validCards).toContain(34);
+  });
+
+  it('returns false when W4 requested but Ottoman lacks #1', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [50];
+    const created = createPostRollWindow(
+      state, 'W4', 'Edirne', 'ottoman', 'hapsburg', 'field'
+    );
+    expect(created).toBe(false);
+  });
+
+  it('returns false when non-Ottoman tries W4', () => {
+    const state = createTestState();
+    state.hands['france'] = [1]; // France has card but restriction
+    state.hands['hapsburg'] = [50];
+    const created = createPostRollWindow(
+      state, 'W4', 'Paris', 'france', 'hapsburg', 'field'
+    );
+    expect(created).toBe(false);
+  });
+
+  it('preserves battleState when creating window', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [1];
+    const bs = {
+      attackerRolls: [5, 3, 6],
+      defenderRolls: [2, 4, 5],
+      attackerDice: 3,
+      defenderDice: 3
+    };
+    const created = createPostRollWindow(
+      state, 'W4', 'Edirne', 'ottoman', 'hapsburg', 'field', bs
+    );
+    expect(created).toBe(true);
+    expect(state.pendingResponse.battleState.attackerRolls)
+      .toEqual([5, 3, 6]);
+    expect(state.pendingResponse.battleState.defenderRolls)
+      .toEqual([2, 4, 5]);
+  });
+});
+
+describe('getNextPostRollWindow', () => {
+  it('returns null after W4', () => {
+    expect(getNextPostRollWindow('W4')).toBeNull();
+  });
+
+  it('returns null after W5', () => {
+    expect(getNextPostRollWindow('W5')).toBeNull();
+  });
+
+  it('returns null after W6', () => {
+    expect(getNextPostRollWindow('W6')).toBeNull();
   });
 });

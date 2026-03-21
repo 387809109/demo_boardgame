@@ -934,5 +934,457 @@ describe('HISGame', () => {
         );
         expect(battleEvent).toBeDefined();
       });
+
+    // ── W1 Mercenary Window Integration Tests ──────────────────
+
+    it('RESOLVE_BATTLE triggers W1 when third party has merc card',
+      () => {
+        const state = makeBattleState();
+
+        state.spaces['Edirne'].units = [
+          makeStack('ottoman', 5, 0, 0),
+          makeStack('hapsburg', 3, 0, 0)
+        ];
+        state.pendingBattle = {
+          type: 'field_battle',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        };
+
+        // Clear all hands, give france #33 (Landsknechts)
+        for (const p of Object.keys(state.hands)) {
+          state.hands[p] = [50];
+        }
+        // p4 = france
+        state.hands.france = [33, 50];
+
+        const newState = game.processMove({
+          actionType: ACTION_TYPES.RESOLVE_BATTLE,
+          actionData: {},
+          playerId: 'p1'
+        }, state);
+
+        // Battle paused at W1
+        expect(newState.pendingBattle).not.toBeNull();
+        expect(newState.pendingBattle.lastWindow).toBe('W1');
+        expect(newState.pendingResponse).toBeDefined();
+        expect(newState.pendingResponse.window).toBe('W1');
+        expect(newState.pendingResponse.respondingPower).toBe('france');
+        expect(newState.pendingResponse.validCards).toContain(33);
+      });
+
+    it('full W1 -> W2 -> W3 flow', () => {
+      const state = makeBattleState();
+
+      state.spaces['Edirne'].units = [
+        makeStack('ottoman', 5, 0, 0),
+        makeStack('hapsburg', 3, 0, 0)
+      ];
+      state.pendingBattle = {
+        type: 'field_battle',
+        space: 'Edirne',
+        attackerPower: 'ottoman',
+        defenderPower: 'hapsburg'
+      };
+
+      // france has merc card, ottoman has combat, hapsburg has combat
+      for (const p of Object.keys(state.hands)) {
+        state.hands[p] = [50];
+      }
+      state.hands.france = [33, 50];   // merc card
+      state.hands.ottoman = [24, 50];  // combat card
+      state.hands.hapsburg = [25, 53]; // combat card
+
+      // Step 1: RESOLVE_BATTLE -> W1 (france)
+      let newState = game.processMove({
+        actionType: ACTION_TYPES.RESOLVE_BATTLE,
+        actionData: {},
+        playerId: 'p1'
+      }, state);
+
+      expect(newState.pendingResponse.window).toBe('W1');
+      expect(newState.pendingResponse.respondingPower).toBe('france');
+
+      // Step 2: France declines W1 merc card
+      newState = game.processMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE,
+        actionData: {},
+        playerId: 'p4' // france
+      }, newState);
+
+      // Should advance to W2 (attacker = ottoman)
+      expect(newState.pendingResponse).toBeDefined();
+      expect(newState.pendingResponse.window).toBe('W2');
+      expect(newState.pendingResponse.respondingPower).toBe('ottoman');
+
+      // Step 3: Ottoman plays combat card #24
+      newState = game.processMove({
+        actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+        actionData: { cardNumber: 24 },
+        playerId: 'p1'
+      }, newState);
+
+      // Should advance to W3 (defender = hapsburg)
+      expect(newState.pendingResponse).toBeDefined();
+      expect(newState.pendingResponse.window).toBe('W3');
+      expect(newState.pendingResponse.respondingPower).toBe('hapsburg');
+
+      // Step 4: Hapsburg declines
+      newState = game.processMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE,
+        actionData: {},
+        playerId: 'p2'
+      }, newState);
+
+      // Battle executed
+      expect(newState.pendingResponse).toBeNull();
+      const battleEvent = newState.eventLog.find(
+        e => e.type === 'field_battle'
+      );
+      expect(battleEvent).toBeDefined();
+    });
+
+    it('W1 with multiple responders — both decline, then battle',
+      () => {
+        const state = makeBattleState();
+
+        state.spaces['Edirne'].units = [
+          makeStack('ottoman', 5, 0, 0),
+          makeStack('hapsburg', 3, 0, 0)
+        ];
+        state.pendingBattle = {
+          type: 'field_battle',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        };
+
+        // Two powers have merc cards, no combat cards
+        for (const p of Object.keys(state.hands)) {
+          state.hands[p] = [50];
+        }
+        state.hands.england = [33, 50];  // p3
+        state.hands.papacy = [36, 50];   // p5
+
+        // Step 1: RESOLVE_BATTLE -> W1 (england first in impulse)
+        let newState = game.processMove({
+          actionType: ACTION_TYPES.RESOLVE_BATTLE,
+          actionData: {},
+          playerId: 'p1'
+        }, state);
+
+        expect(newState.pendingResponse.window).toBe('W1');
+        expect(newState.pendingResponse.respondingPower).toBe('england');
+
+        // Step 2: England declines
+        newState = game.processMove({
+          actionType: ACTION_TYPES.DECLINE_RESPONSE,
+          actionData: {},
+          playerId: 'p3' // england
+        }, newState);
+
+        // Should advance to papacy for W1
+        expect(newState.pendingResponse).toBeDefined();
+        expect(newState.pendingResponse.window).toBe('W1');
+        expect(newState.pendingResponse.respondingPower).toBe('papacy');
+
+        // Step 3: Papacy declines
+        newState = game.processMove({
+          actionType: ACTION_TYPES.DECLINE_RESPONSE,
+          actionData: {},
+          playerId: 'p5' // papacy
+        }, newState);
+
+        // No combat cards -> battle executes
+        expect(newState.pendingResponse).toBeNull();
+        const battleEvent = newState.eventLog.find(
+          e => e.type === 'field_battle'
+        );
+        expect(battleEvent).toBeDefined();
+      });
+
+    it('W1 skipped when no merc cards, goes straight to W2', () => {
+      const state = makeBattleState();
+
+      state.spaces['Edirne'].units = [
+        makeStack('ottoman', 5, 0, 0),
+        makeStack('hapsburg', 3, 0, 0)
+      ];
+      state.pendingBattle = {
+        type: 'field_battle',
+        space: 'Edirne',
+        attackerPower: 'ottoman',
+        defenderPower: 'hapsburg'
+      };
+
+      // No merc cards, attacker has combat card
+      for (const p of Object.keys(state.hands)) {
+        state.hands[p] = [50];
+      }
+      state.hands.ottoman = [24, 50]; // combat card
+
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.RESOLVE_BATTLE,
+        actionData: {},
+        playerId: 'p1'
+      }, state);
+
+      // Should go straight to W2
+      expect(newState.pendingResponse).toBeDefined();
+      expect(newState.pendingResponse.window).toBe('W2');
+    });
+
+    // ── W4 Janissaries Post-Roll Window Integration Tests ─────
+
+    it('field battle pauses at W4 when Ottoman has Janissaries (#1)',
+      () => {
+        const state = makeBattleState();
+
+        state.spaces['Edirne'].units = [
+          makeStack('ottoman', 5, 0, 0),
+          makeStack('hapsburg', 3, 0, 0)
+        ];
+        state.pendingBattle = {
+          type: 'field_battle',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        };
+
+        // Ottoman has Janissaries, no combat cards for W2/W3
+        for (const p of Object.keys(state.hands)) {
+          state.hands[p] = [50];
+        }
+        state.hands.ottoman = [1, 50]; // Janissaries
+
+        // RESOLVE_BATTLE -> should go through to execute, pause at W4
+        const newState = game.processMove({
+          actionType: ACTION_TYPES.RESOLVE_BATTLE,
+          actionData: {},
+          playerId: 'p1'
+        }, state);
+
+        // Battle paused at W4
+        expect(newState.pendingBattle).not.toBeNull();
+        expect(newState.pendingBattle.lastWindow).toBe('W4');
+        expect(newState.pendingResponse).toBeDefined();
+        expect(newState.pendingResponse.window).toBe('W4');
+        expect(newState.pendingResponse.respondingPower).toBe('ottoman');
+        expect(newState.pendingResponse.validCards).toContain(1);
+      });
+
+    it('Ottoman declines W4, battle finalizes', () => {
+      const state = makeBattleState();
+
+      state.spaces['Edirne'].units = [
+        makeStack('ottoman', 5, 0, 0),
+        makeStack('hapsburg', 3, 0, 0)
+      ];
+      state.pendingBattle = {
+        type: 'field_battle',
+        space: 'Edirne',
+        attackerPower: 'ottoman',
+        defenderPower: 'hapsburg'
+      };
+
+      for (const p of Object.keys(state.hands)) {
+        state.hands[p] = [50];
+      }
+      state.hands.ottoman = [1, 50];
+
+      // Step 1: RESOLVE_BATTLE -> W4
+      let newState = game.processMove({
+        actionType: ACTION_TYPES.RESOLVE_BATTLE,
+        actionData: {},
+        playerId: 'p1'
+      }, state);
+
+      expect(newState.pendingResponse.window).toBe('W4');
+
+      // Step 2: Ottoman declines W4
+      newState = game.processMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE,
+        actionData: {},
+        playerId: 'p1' // ottoman
+      }, newState);
+
+      // Battle executed
+      expect(newState.pendingResponse).toBeNull();
+      const battleEvent = newState.eventLog.find(
+        e => e.type === 'field_battle'
+      );
+      expect(battleEvent).toBeDefined();
+    });
+
+    it('Ottoman plays Janissaries at W4, battle finalizes with bonus',
+      () => {
+        const state = makeBattleState();
+
+        state.spaces['Edirne'].units = [
+          makeStack('ottoman', 5, 0, 0, ['suleiman']),
+          makeStack('hapsburg', 3, 0, 0)
+        ];
+        state.pendingBattle = {
+          type: 'field_battle',
+          space: 'Edirne',
+          attackerPower: 'ottoman',
+          defenderPower: 'hapsburg'
+        };
+
+        for (const p of Object.keys(state.hands)) {
+          state.hands[p] = [50];
+        }
+        state.hands.ottoman = [1, 50];
+
+        // Step 1: RESOLVE_BATTLE -> W4
+        let newState = game.processMove({
+          actionType: ACTION_TYPES.RESOLVE_BATTLE,
+          actionData: {},
+          playerId: 'p1'
+        }, state);
+
+        expect(newState.pendingResponse.window).toBe('W4');
+
+        // Step 2: Ottoman plays Janissaries
+        newState = game.processMove({
+          actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+          actionData: { cardNumber: 1, mode: 'combat' },
+          playerId: 'p1'
+        }, newState);
+
+        // Battle executed
+        expect(newState.pendingResponse).toBeNull();
+        const battleEvent = newState.eventLog.find(
+          e => e.type === 'field_battle'
+        );
+        expect(battleEvent).toBeDefined();
+        // Janissaries card removed from hand
+        expect(newState.hands.ottoman).not.toContain(1);
+      });
+
+    it('full flow: W2 -> W3 -> execute -> W4 -> finalize', () => {
+      const state = makeBattleState();
+
+      state.spaces['Edirne'].units = [
+        makeStack('ottoman', 5, 0, 0, ['suleiman']),
+        makeStack('hapsburg', 3, 0, 0)
+      ];
+      state.pendingBattle = {
+        type: 'field_battle',
+        space: 'Edirne',
+        attackerPower: 'ottoman',
+        defenderPower: 'hapsburg'
+      };
+
+      // Ottoman has combat card + Janissaries, Hapsburg has combat card
+      for (const p of Object.keys(state.hands)) {
+        state.hands[p] = [50];
+      }
+      state.hands.ottoman = [24, 1, 50]; // Arquebusiers + Janissaries
+      state.hands.hapsburg = [25, 53]; // Field Artillery
+
+      // Step 1: RESOLVE_BATTLE -> W2 (attacker = ottoman)
+      let newState = game.processMove({
+        actionType: ACTION_TYPES.RESOLVE_BATTLE,
+        actionData: {},
+        playerId: 'p1'
+      }, state);
+
+      expect(newState.pendingResponse.window).toBe('W2');
+      expect(newState.pendingResponse.respondingPower).toBe('ottoman');
+
+      // Step 2: Ottoman plays #24 Arquebusiers in W2
+      newState = game.processMove({
+        actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+        actionData: { cardNumber: 24 },
+        playerId: 'p1'
+      }, newState);
+
+      // Should advance to W3
+      expect(newState.pendingResponse).toBeDefined();
+      expect(newState.pendingResponse.window).toBe('W3');
+      expect(newState.pendingResponse.respondingPower).toBe('hapsburg');
+
+      // Step 3: Hapsburg declines W3
+      newState = game.processMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE,
+        actionData: {},
+        playerId: 'p2'
+      }, newState);
+
+      // Should execute and pause at W4 (Ottoman still has #1)
+      expect(newState.pendingResponse).toBeDefined();
+      expect(newState.pendingResponse.window).toBe('W4');
+      expect(newState.pendingResponse.respondingPower).toBe('ottoman');
+
+      // Step 4: Ottoman declines W4
+      newState = game.processMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE,
+        actionData: {},
+        playerId: 'p1'
+      }, newState);
+
+      // Battle finalized
+      expect(newState.pendingResponse).toBeNull();
+      const battleEvent = newState.eventLog.find(
+        e => e.type === 'field_battle'
+      );
+      expect(battleEvent).toBeDefined();
+    });
+
+    it('W4 not triggered when Ottoman lacks #1 after W2/W3', () => {
+      const state = makeBattleState();
+
+      state.spaces['Edirne'].units = [
+        makeStack('ottoman', 5, 0, 0),
+        makeStack('hapsburg', 3, 0, 0)
+      ];
+      state.pendingBattle = {
+        type: 'field_battle',
+        space: 'Edirne',
+        attackerPower: 'ottoman',
+        defenderPower: 'hapsburg'
+      };
+
+      // Ottoman has combat card but no #1
+      for (const p of Object.keys(state.hands)) {
+        state.hands[p] = [50];
+      }
+      state.hands.ottoman = [24, 50]; // Arquebusiers only, no Janissaries
+      state.hands.hapsburg = [25, 53];
+
+      // Step 1: W2
+      let newState = game.processMove({
+        actionType: ACTION_TYPES.RESOLVE_BATTLE,
+        actionData: {},
+        playerId: 'p1'
+      }, state);
+      expect(newState.pendingResponse.window).toBe('W2');
+
+      // Step 2: Ottoman declines W2
+      newState = game.processMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE,
+        actionData: {},
+        playerId: 'p1'
+      }, newState);
+
+      // Step 3: W3
+      expect(newState.pendingResponse.window).toBe('W3');
+
+      // Step 4: Hapsburg declines W3
+      newState = game.processMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE,
+        actionData: {},
+        playerId: 'p2'
+      }, newState);
+
+      // Battle executed (no W4 pause since Ottoman lacks #1)
+      expect(newState.pendingResponse).toBeNull();
+      const battleEvent = newState.eventLog.find(
+        e => e.type === 'field_battle'
+      );
+      expect(battleEvent).toBeDefined();
+    });
   });
 });

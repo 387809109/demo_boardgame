@@ -6,8 +6,9 @@
  * Defender gets +1 bonus die. Hit threshold >= 5.
  *
  * Battle flow (with response card windows):
- *   initiateFieldBattle  -> (W2 attacker window?) -> (W3 defender window?)
- *                        -> executeFieldBattle -> handlePostBattle
+ *   initiateFieldBattle  -> (W1 merc?) -> (W2 attacker?) -> (W3 defender?)
+ *                        -> executeFieldBattle -> (W4 Janissaries?)
+ *                        -> finalizeFieldBattle -> handlePostBattle
  *
  * resolveFieldBattle() is kept as a backward-compatible synchronous wrapper:
  * when called directly (e.g., from tests), if no response windows are needed
@@ -27,7 +28,8 @@ import {
 } from './retreat.js';
 import {
   canAnyPowerRespondCombat, createCombatCardWindow,
-  getNextCombatWindow
+  getNextCombatWindow, createMercenaryWindow,
+  canAnyPowerRespondPostRoll, createPostRollWindow
 } from './response-actions.js';
 
 // ── Dice Calculation ────────────────────────────────────────────
@@ -132,6 +134,14 @@ export function initiateFieldBattle(state, space, attackerPower,
     responses: {}
   };
 
+  // Step 3b: Check W1 mercenary window (any player, impulse order)
+  const mercWindowCreated = createMercenaryWindow(
+    state, space, attackerPower, defenderPower, battleState
+  );
+  if (mercWindowCreated) {
+    return { paused: true, window: 'W1' };
+  }
+
   // Steps 4-5: Check combat card windows
   const { attackerCanRespond, defenderCanRespond } =
     canAnyPowerRespondCombat(state, 'field', attackerPower, defenderPower);
@@ -213,9 +223,10 @@ export function resumeFieldBattle(state, helpers) {
 // ── Execute Field Battle (Step C) ───────────────────────────────
 
 /**
- * Execute the dice-rolling and resolution portion of a field battle.
- * This is the core of the old resolveFieldBattle() (steps 6-12),
- * now with combat card bonus support.
+ * Execute the dice-rolling portion of a field battle.
+ * Rolls dice, then checks if W4 (Janissaries) should open.
+ * If W4 is needed, pauses and stores rolls in battleState.
+ * Otherwise, delegates to finalizeFieldBattle().
  *
  * @param {Object} state
  * @param {string} space
@@ -223,7 +234,7 @@ export function resumeFieldBattle(state, helpers) {
  * @param {string} defenderPower
  * @param {Object} helpers
  * @param {Object} [battleState] - Accumulated state from response windows
- * @returns {Object} Battle result
+ * @returns {Object} Battle result or { paused: true, window: 'W4' }
  */
 export function executeFieldBattle(state, space, attackerPower,
   defenderPower, helpers, battleState = {}) {
@@ -255,20 +266,101 @@ export function executeFieldBattle(state, space, attackerPower,
     state.pendingCombatBonus = null;
   }
 
-  // Step 6: Roll dice, count hits
+  // Step 6: Roll dice
   const attackerRolls = rollDice(attackerDice);
   const defenderRolls = rollDice(defenderDice);
 
+  // Step 7: Check W4 (Janissaries post-roll window) — field only
+  const postRollCheck = canAnyPowerRespondPostRoll(
+    state, 'field', attackerPower, defenderPower
+  );
+
+  if (postRollCheck.canRespond) {
+    // Store dice rolls in battleState for finalization after W4
+    const updatedBattleState = {
+      ...battleState,
+      attackerRolls,
+      defenderRolls,
+      attackerDice,
+      defenderDice
+    };
+
+    const created = createPostRollWindow(
+      state, postRollCheck.windowType, space,
+      attackerPower, defenderPower, 'field', updatedBattleState
+    );
+
+    if (created) {
+      return {
+        paused: true,
+        window: postRollCheck.windowType,
+        rolls: { attackerRolls, defenderRolls }
+      };
+    }
+  }
+
+  // No W4 needed — finalize immediately
+  return finalizeFieldBattle(state, space, attackerPower, defenderPower,
+    helpers, { ...battleState, attackerRolls, defenderRolls,
+      attackerDice, defenderDice });
+}
+
+// ── Finalize Field Battle (Step D) ──────────────────────────────
+
+/**
+ * Finalize a field battle after all post-roll windows have resolved.
+ * Determines winner, applies casualties, handles post-battle effects.
+ * Called either directly from executeFieldBattle (no W4) or from
+ * _advanceAfterResponse after W4 resolves.
+ *
+ * @param {Object} state
+ * @param {string} space
+ * @param {string} attackerPower
+ * @param {string} defenderPower
+ * @param {Object} helpers
+ * @param {Object} battleState - Must contain attackerRolls, defenderRolls,
+ *                               attackerDice, defenderDice
+ * @returns {Object} Battle result
+ */
+export function finalizeFieldBattle(state, space, attackerPower,
+  defenderPower, helpers, battleState) {
+  const attackerStack = getUnitsInSpace(state, space, attackerPower);
+  const defenderStack = getUnitsInSpace(state, space, defenderPower);
+
+  if (!attackerStack || !defenderStack) {
+    return { error: 'Both sides must have units in the space' };
+  }
+
+  const {
+    attackerRolls, defenderRolls, attackerDice, defenderDice
+  } = battleState;
+
+  // Apply Janissaries bonus (if played during W4)
+  let finalAttackerDice = attackerDice;
+  if (state.janissariesBonus) {
+    finalAttackerDice += state.janissariesBonus.dice;
+    state.janissariesBonus = null;
+  }
+
+  // Count hits from the dice already rolled
   const attackerHits = attackerRolls.filter(
     d => d >= COMBAT.hitThreshold).length;
   const defenderHits = defenderRolls.filter(
     d => d >= COMBAT.hitThreshold).length;
 
-  // Step 7: Janissaries response window (stub for future)
+  // If Janissaries was played, roll extra dice and add hits
+  let janissariesExtraHits = 0;
+  if (finalAttackerDice > attackerDice) {
+    const extraDice = finalAttackerDice - attackerDice;
+    const extraRolls = rollDice(extraDice);
+    janissariesExtraHits = extraRolls.filter(
+      d => d >= COMBAT.hitThreshold).length;
+  }
+  const totalAttackerHits = attackerHits + janissariesExtraHits;
 
   // Step 8: Determine winner (tie = defender wins)
-  let winner, loser, winnerPower, loserPower;
-  if (attackerHits > defenderHits) {
+  let winner, winnerPower, loserPower;
+  if (totalAttackerHits > defenderHits) {
     winner = 'attacker';
     winnerPower = attackerPower;
     loserPower = defenderPower;
@@ -281,14 +373,16 @@ export function executeFieldBattle(state, space, attackerPower,
 
   // Step 9: Apply casualties
   const attackerCasualties = applyCasualties(attackerStack, defenderHits);
-  const defenderCasualties = applyCasualties(defenderStack, attackerHits);
+  const defenderCasualties = applyCasualties(
+    defenderStack, totalAttackerHits
+  );
 
   const attackerRemaining = countLandUnits(attackerStack);
   const defenderRemaining = countLandUnits(defenderStack);
 
   // Both eliminated: side with more dice retains 1 unit
   if (attackerRemaining === 0 && defenderRemaining === 0) {
-    if (attackerDice > defenderDice) {
+    if (finalAttackerDice > defenderDice) {
       attackerStack.regulars = 1;
       winner = 'attacker';
       winnerPower = attackerPower;
@@ -327,11 +421,11 @@ export function executeFieldBattle(state, space, attackerPower,
     winner,
     winnerPower,
     loserPower,
-    attackerDice,
+    attackerDice: finalAttackerDice,
     defenderDice,
     attackerRolls,
     defenderRolls,
-    attackerHits,
+    attackerHits: totalAttackerHits,
     defenderHits,
     attackerCasualties,
     defenderCasualties,
