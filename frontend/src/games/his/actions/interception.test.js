@@ -195,4 +195,152 @@ describe('resolveInterception', () => {
     // Threshold is always 9 (leader bonus added to roll, not subtracted from threshold)
     expect(result.threshold).toBe(9);
   });
+
+  it('Ottoman cavalry bonus +1 applied to interception roll', () => {
+    // Run many times to verify the statistical shift
+    let totalRollWithCav = 0;
+    let totalRollWithout = 0;
+    const runs = 200;
+
+    for (let i = 0; i < runs; i++) {
+      const stateWith = createTestState();
+      const hWith = createMockHelpers();
+      // Ottoman stack WITH cavalry
+      stateWith.spaces['Varna'].units.push({
+        owner: 'ottoman', regulars: 2, mercenaries: 0,
+        cavalry: 3, squadrons: 0, corsairs: 0, leaders: []
+      });
+      stateWith.wars.push({ a: 'ottoman', b: 'hapsburg' });
+      const rWith = resolveInterception(
+        stateWith, 'ottoman', 'Varna', 'Edirne', hWith
+      );
+      totalRollWithCav += rWith.roll;
+
+      const stateWithout = createTestState();
+      const hWithout = createMockHelpers();
+      // Ottoman stack WITHOUT cavalry
+      stateWithout.spaces['Varna'].units.push({
+        owner: 'ottoman', regulars: 2, mercenaries: 0,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      });
+      stateWithout.wars.push({ a: 'ottoman', b: 'hapsburg' });
+      const rWithout = resolveInterception(
+        stateWithout, 'ottoman', 'Varna', 'Edirne', hWithout
+      );
+      totalRollWithout += rWithout.roll;
+    }
+
+    // Average with cavalry should be ~1 higher
+    const avgWith = totalRollWithCav / runs;
+    const avgWithout = totalRollWithout / runs;
+    expect(avgWith).toBeGreaterThan(avgWithout);
+  });
+});
+
+describe('checkInterceptions — edge cases', () => {
+  it('stack with only squadrons does not qualify for interception', () => {
+    const state = createTestState();
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+
+    // Place hapsburg stack with only squadrons (no land units)
+    state.spaces['Varna'].units.push({
+      owner: 'hapsburg', regulars: 0, mercenaries: 0,
+      cavalry: 0, squadrons: 5, corsairs: 0, leaders: []
+    });
+
+    const interceptors = checkInterceptions(
+      state, 'Istanbul', 'Edirne', 'ottoman'
+    );
+    const hapEntry = interceptors.find(i => i.power === 'hapsburg');
+    // Squadrons-only stack should NOT be able to intercept
+    expect(hapEntry).toBeUndefined();
+  });
+
+  it('pass connections excluded from interception adjacency', () => {
+    const state = createTestState();
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+
+    // Belgrade -> Ragusa is a pass connection
+    // Place hapsburg units in Ragusa
+    addUnits(state, 'Ragusa', 'hapsburg', 3);
+
+    // Move ottoman into Belgrade from Nicopolis
+    const interceptors = checkInterceptions(
+      state, 'Nicopolis', 'Belgrade', 'ottoman'
+    );
+
+    // Ragusa should NOT appear because it's connected via pass
+    const hapRagusa = interceptors.find(
+      i => i.power === 'hapsburg' && i.space === 'Ragusa'
+    );
+    expect(hapRagusa).toBeUndefined();
+  });
+
+  it('deduplicates two stacks of same power in same adjacent space', () => {
+    const state = createTestState();
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+
+    // Place TWO hapsburg stacks in Varna (unusual but possible via alliances)
+    state.spaces['Varna'].units.push({
+      owner: 'hapsburg', regulars: 2, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    });
+    state.spaces['Varna'].units.push({
+      owner: 'hapsburg', regulars: 1, mercenaries: 1,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    });
+
+    const interceptors = checkInterceptions(
+      state, 'Istanbul', 'Edirne', 'ottoman'
+    );
+
+    // Should only have one entry for hapsburg from Varna
+    const hapEntries = interceptors.filter(
+      i => i.power === 'hapsburg' && i.space === 'Varna'
+    );
+    expect(hapEntries).toHaveLength(1);
+  });
+
+  it('returns empty for isolated destination with no adjacent enemy stacks', () => {
+    const state = createTestState();
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+
+    // Clear ALL units from spaces adjacent to Edirne
+    const edirneAdj = ['Istanbul', 'Salonika', 'Sofia', 'Varna'];
+    for (const s of edirneAdj) {
+      if (state.spaces[s]) {
+        state.spaces[s].units = [];
+      }
+    }
+
+    const interceptors = checkInterceptions(
+      state, 'Istanbul', 'Edirne', 'ottoman'
+    );
+    expect(interceptors).toHaveLength(0);
+  });
+
+  it('pass-connected space with enemy units is excluded even when other connections work', () => {
+    const state = createTestState();
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+
+    // Belgrade connects to: Agram, Mohacs, Nezh, Nicopolis, Szegedin (connections)
+    //                        Ragusa (pass)
+    // Place hapsburg in both Agram (connection) and Ragusa (pass)
+    addUnits(state, 'Agram', 'hapsburg', 2);
+    addUnits(state, 'Ragusa', 'hapsburg', 2);
+
+    const interceptors = checkInterceptions(
+      state, 'Nicopolis', 'Belgrade', 'ottoman'
+    );
+
+    // Agram should be found (connection), Ragusa should NOT (pass)
+    const hapAgram = interceptors.find(
+      i => i.power === 'hapsburg' && i.space === 'Agram'
+    );
+    const hapRagusa = interceptors.find(
+      i => i.power === 'hapsburg' && i.space === 'Ragusa'
+    );
+    expect(hapAgram).toBeDefined();
+    expect(hapRagusa).toBeUndefined();
+  });
 });

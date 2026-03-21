@@ -15,13 +15,13 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 | 源码文件 | 57 个 JS 文件 |
 | 测试文件 | 33 个 test.js 文件 |
 | 源码行数 | ~24,200 行 |
-| 测试行数 | ~10,800 行 |
-| 单元测试 | **997 个**，全部通过 |
+| 测试行数 | ~12,900 行 |
+| 单元测试 | **1,141 个**，全部通过 |
 | 事件处理器 | **135/135 张卡牌已实现** |
 
 **已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心)
 
-**当前**：Phase 11（多人联机与打磨）— 11.1 网络同步验证完成，11.4 边界用例测试进行中
+**当前**：Phase 11（多人联机与打磨）— 11.1 ✅，11.4 边界用例测试进行中（997→1141）
 
 ---
 
@@ -310,15 +310,29 @@ frontend/src/games/his/
 
 **11.1 验证结果**：config/export/getVisibleState/processMove 格式/网络收发路径/状态大小均正确。修复了 UI-only action（SELECT_CARD、SELECT_SPACE）泄漏到引擎的问题，以及 action 格式 `{type,data}` → `{actionType,actionData}` 的统一。
 
-**11.4 边界用例测试进展**（+127 新测试，870→997）：
+**11.4 边界用例测试进展**（+271 新测试，870→1141）：
 
-- `index.test.js` +7：阶段门控（Luther95/Diet 阶段拒绝非法 action）、undefined actionType 拒绝、consecutivePasses 重置链、VP 平局、未知玩家信息隐藏
-- `phase-luther95.test.js` +23：早期终止（全空间已转化）、选侯国正规军放置、空目标完成判定、验证边界（缺失目标/不存在空间/已转化空间）
-- `phase-diet-of-worms.test.js` +3：修复随机手牌导致 MANDATORY 事件卡验证失败的 flaky test
-- `phase-spring-deployment.test.js` +12：首都无部队跳过、最大部署限制、非首都出发拒绝
-- `interception.test.js` +2：奥斯曼骑兵加值、山口拦截加值
-- `retreat.test.js` 修复已有测试稳定性
-- `index.js` validateMove：新增 `!actionType` 防御（拒绝 undefined/null actionType）
+第一批（870→997）：
+
+- `index.test.js` +7：阶段门控、undefined actionType 拒绝、consecutivePasses 重置链、VP 平局
+- `phase-luther95.test.js` +23：早期终止、选侯国正规军、空目标完成判定
+- `phase-diet-of-worms.test.js` +3：修复 MANDATORY 事件卡 flaky test
+- `phase-spring-deployment.test.js` +12：首都无部队跳过、最大部署限制
+- `interception.test.js` +2、`retreat.test.js` 修复稳定性
+- `index.js` validateMove：新增 `!actionType` 防御
+
+第二批（997→1141）：
+
+- `victory-checks.test.js` +30：6 势力自动胜利阈值 ±1 边界、选侯国计数、新教 49/50/51 空间
+- `state-visible.test.js` +20：空手牌、旁观者 ID、深拷贝验证、空牌堆
+- `phase-diplomacy.test.js` +17：段序验证、完成后重入、幂等标记、重置
+- `conclave-actions.test.js` +17：邻接加值、平票、无效教宗 ID、继承链
+- `combat-actions.test.js` +12：海军领袖排除、伤亡级联、最少 1 骰
+- `siege-actions.test.js` +14：半骰进位、围城平局、LOC 循环路径
+- `retreat.test.js` +13：堡垒容量、盟友非堡垒、全领袖撤退、空撤退列表
+- `loan-actions.test.js` +6：零中队、精确边界、多借调追踪
+- `interception.test.js` +6：奥斯曼骑兵加值、纯海军排除、山口排除、去重
+- `phase-new-world.test.js` +6：空探险家池、发现回退链、非哈布斯堡征服
 
 ---
 
@@ -356,7 +370,7 @@ frontend/src/games/his/
 | Phase 10 卡牌事件 UI | ~3,000 | ~1,100 | ✅ |
 | Phase 11 多人联机 | ~1,000 | — | ⬅️ |
 | **源码合计** | ~27,500 | **~24,200** | |
-| **测试合计** | ~8,000-12,000 | **~10,800** | 997 tests |
+| **测试合计** | ~8,000-12,000 | **~12,900** | 1,141 tests |
 
 **依赖关系图**：
 ```
@@ -377,17 +391,17 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 |----------|--------|----------|
 | state-init.test.js | 35 | 初始化、数据完整性 |
 | state-helpers.test.js | 54 | 查询工具、路径搜索、辩士 |
-| state-visible.test.js | 9 | 信息隐藏 |
+| state-visible.test.js | 29 | 信息隐藏、深拷贝、旁观者 |
 | war-helpers.test.js | 33 | 战争/同盟状态 |
-| victory-checks.test.js | 10 | 胜利条件 |
+| victory-checks.test.js | 40 | 胜利条件、阈值边界 |
 | reformer-helpers.test.js | 15 | 宗教改革者追踪 |
 | cp-manager.test.js | 21 | CP 花费 |
 | military-actions.test.js | 46 | 移动、征募、建造 |
 | naval-actions.test.js | 50 | 海军、海盗 |
-| combat-actions.test.js | 20 | 野战 |
-| siege-actions.test.js | 21 | 围城、LOC |
-| interception.test.js | 11 | 拦截 |
-| retreat.test.js | 12 | 撤退 |
+| combat-actions.test.js | 32 | 野战、领袖类型、伤亡级联 |
+| siege-actions.test.js | 35 | 围城、半骰进位、LOC |
+| interception.test.js | 17 | 拦截、骑兵修正、山口排除 |
+| retreat.test.js | 25 | 撤退、堡垒容量、领袖移动 |
 | religious-actions.test.js | 44 | 改革、出版、翻译、焚书 |
 | debate-actions.test.js | 49 | 辩论 + 特伦托会议 |
 | diplomacy-actions.test.js | 49 | 外交 |
@@ -397,18 +411,18 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 | event-actions-diplomacy.test.js | 32 | 外交牌 #201-219 |
 | event-display.test.js | 28 | 事件展示 UI |
 | new-world-actions.test.js | 28 | 新世界 |
-| loan-actions.test.js | 10 | 中队借调 |
-| conclave-actions.test.js | 13 | 教宗选举 |
+| loan-actions.test.js | 16 | 中队借调、零边界、多借调 |
+| conclave-actions.test.js | 30 | 教宗选举、平票、继承链 |
 | phase-manager.test.js | 26 | 阶段状态机 |
 | phase-card-draw.test.js | 14 | 抽牌 |
-| phase-diplomacy.test.js | 13 | 外交阶段 |
+| phase-diplomacy.test.js | 30 | 外交阶段、段序、幂等 |
 | phase-spring-deployment.test.js | 26 | 春季部署 |
 | phase-diet-of-worms.test.js | 17 | 沃尔姆斯议会 |
 | phase-luther95.test.js | 29 | 95 条论纲 |
-| phase-new-world.test.js | 8 | 新世界阶段 |
+| phase-new-world.test.js | 14 | 新世界阶段、发现回退 |
 | phase-winter.test.js | 21 | 冬季阶段 |
 | index.test.js | 30 | 集成测试 |
-| **合计** | **997** | |
+| **合计** | **1,141** | |
 
 运行命令：
 ```bash

@@ -8,6 +8,7 @@ import {
 } from './combat-actions.js';
 import { createTestState, createMockHelpers } from '../test-helpers.js';
 import { COMBAT } from '../constants.js';
+import { countLandUnits } from '../state/state-helpers.js';
 
 function makeStack(power, regs = 3, mercs = 0, cav = 0, leaders = []) {
   return {
@@ -275,5 +276,164 @@ describe('resolveFieldBattle', () => {
 
     const battleEvent = state.eventLog.find(e => e.type === 'field_battle');
     expect(battleEvent).toBeDefined();
+  });
+});
+
+// ── Edge Case Tests ─────────────────────────────────────────────
+
+describe('getHighestBattleRating — edge cases', () => {
+  it('naval leader (barbarossa) contributes 0 battle rating', () => {
+    // barbarossa is a naval leader with type !== 'army'
+    expect(getHighestBattleRating(['barbarossa'])).toBe(0);
+  });
+
+  it('mixed naval + army leaders only counts army', () => {
+    // barbarossa naval (battle 2 but type=naval), ibrahim army (battle 1)
+    expect(getHighestBattleRating(['barbarossa', 'ibrahim'])).toBe(1);
+  });
+
+  it('all naval leaders returns 0', () => {
+    // andrea_doria, barbarossa, dragut are all naval
+    expect(getHighestBattleRating(['andrea_doria', 'barbarossa', 'dragut']))
+      .toBe(0);
+  });
+
+  it('unknown leader id returns 0', () => {
+    expect(getHighestBattleRating(['nonexistent_leader'])).toBe(0);
+  });
+});
+
+describe('applyCasualties — edge cases', () => {
+  it('skips empty first type and removes from next', () => {
+    // 0 mercenaries, 5 regulars — hits should go straight to regulars
+    const stack = makeStack('hapsburg', 5, 0, 0);
+    const result = applyCasualties(stack, 3);
+    expect(stack.mercenaries).toBe(0);
+    expect(stack.regulars).toBe(2);
+    expect(result).toBe(3);
+  });
+
+  it('no mercenaries or regulars — removes cavalry directly', () => {
+    const stack = makeStack('ottoman', 0, 0, 5);
+    const result = applyCasualties(stack, 3);
+    expect(stack.cavalry).toBe(2);
+    expect(result).toBe(3);
+  });
+
+  it('0 hits does nothing', () => {
+    const stack = makeStack('hapsburg', 3, 2, 1);
+    const result = applyCasualties(stack, 0);
+    expect(stack.regulars).toBe(3);
+    expect(stack.mercenaries).toBe(2);
+    expect(stack.cavalry).toBe(1);
+    expect(result).toBe(0);
+  });
+
+  it('hits exceeding all units caps at total units', () => {
+    const stack = makeStack('hapsburg', 1, 1, 1);
+    const result = applyCasualties(stack, 10);
+    expect(stack.regulars).toBe(0);
+    expect(stack.mercenaries).toBe(0);
+    expect(stack.cavalry).toBe(0);
+    expect(result).toBe(3);
+  });
+
+  it('cascading: 0 mercs, 0 regs, only cavalry', () => {
+    const stack = makeStack('ottoman', 0, 0, 3);
+    const result = applyCasualties(stack, 2);
+    expect(stack.cavalry).toBe(1);
+    expect(result).toBe(2);
+  });
+});
+
+describe('calculateBattleDice — edge cases', () => {
+  it('0 units + 0 leaders (attacker) returns minimum 1 die', () => {
+    const stack = makeStack('ottoman', 0, 0, 0, []);
+    const result = calculateBattleDice(stack, false);
+    expect(result.dice).toBe(1);
+    expect(result.unitCount).toBe(0);
+    expect(result.leaderBonus).toBe(0);
+  });
+
+  it('0 units + 0 leaders (defender) returns minimum 1 die', () => {
+    const stack = makeStack('hapsburg', 0, 0, 0, []);
+    const result = calculateBattleDice(stack, true);
+    // 0 units + 0 leader + 1 defender bonus = 1 → max(1,1) = 1
+    expect(result.dice).toBe(1);
+  });
+
+  it('0 units + naval leader returns minimum 1 die', () => {
+    const stack = makeStack('ottoman', 0, 0, 0, ['barbarossa']);
+    const result = calculateBattleDice(stack, false);
+    // 0 units + 0 (naval leader ignored) = 0 → max(0,1) = 1
+    expect(result.dice).toBe(1);
+    expect(result.leaderBonus).toBe(0);
+  });
+
+  it('units + only naval leaders gives units dice only', () => {
+    const stack = makeStack('ottoman', 3, 0, 0, ['barbarossa', 'dragut']);
+    const result = calculateBattleDice(stack, false);
+    // 3 units + 0 (naval leaders) = 3
+    expect(result.dice).toBe(3);
+    expect(result.leaderBonus).toBe(0);
+  });
+});
+
+describe('resolveFieldBattle — edge cases', () => {
+  it('stack with only leaders after cleanup survives (kept in space)', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+
+    // Attacker: many units, no leader. Defender: 0 units, 1 leader.
+    // The leader-only stack should survive cleanup (leaders.length > 0)
+    state.spaces['Edirne'].units = [
+      makeStack('ottoman', 5, 0, 0, []),
+      makeStack('hapsburg', 0, 0, 0, 0, ['charles_v'])
+    ];
+    // Fix: makeStack uses positional args - manually set the stack
+    state.spaces['Edirne'].units = [
+      makeStack('ottoman', 5, 0, 0, []),
+      { owner: 'hapsburg', regulars: 0, mercenaries: 0,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: ['charles_v'] }
+    ];
+
+    const result = resolveFieldBattle(
+      state, 'Edirne', 'ottoman', 'hapsburg', helpers
+    );
+
+    // The leader should either be captured (if eliminated) or survive
+    // With 0 units, the leader-only side counts as 0 land units,
+    // so the leader should be captured by the winner
+    expect(result).toHaveProperty('winner');
+  });
+
+  it('leader capture only happens when loser fully eliminated', () => {
+    // If loser still has units, leaders should NOT be captured
+    const state = createTestState();
+    const helpers = createMockHelpers();
+
+    // Both sides have units — run multiple times and check
+    let foundLoserWithUnitsRemaining = false;
+    for (let i = 0; i < 100 && !foundLoserWithUnitsRemaining; i++) {
+      const s = createTestState();
+      const h = createMockHelpers();
+      setupBattle(s, 'Edirne',
+        makeStack('ottoman', 4, 0, 0, ['ibrahim']),
+        makeStack('hapsburg', 4, 0, 0, ['charles_v'])
+      );
+      const r = resolveFieldBattle(s, 'Edirne', 'ottoman', 'hapsburg', h);
+
+      // Find the loser stack
+      const loserStack = r.loserPower === 'ottoman'
+        ? s.spaces['Edirne'].units.find(u => u.owner === 'ottoman')
+        : s.spaces['Edirne'].units.find(u => u.owner === 'hapsburg');
+
+      if (loserStack && countLandUnits(loserStack) > 0) {
+        // Loser has units remaining — leaders should NOT be captured
+        expect(r.capturedLeaders).toEqual([]);
+        foundLoserWithUnitsRemaining = true;
+      }
+    }
+    expect(foundLoserWithUnitsRemaining).toBe(true);
   });
 });

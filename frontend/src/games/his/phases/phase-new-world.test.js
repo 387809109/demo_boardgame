@@ -181,4 +181,150 @@ describe('resolveNewWorld', () => {
     // English conquest has modifier 0
     expect(events[0].data.conquistador).toBeNull();
   });
+
+  it('skips exploration when no explorers available (pool empty)', () => {
+    // Kill all hapsburg explorers
+    const allHapExplorers = [
+      'cabot_hap', 'desoto', 'de_vaca', 'leon', 'magellan', 'narvaez', 'orellana'
+    ];
+    const state = stateWithNewWorld({
+      underwayExplorations: [{ power: 'hapsburg' }],
+      deadExplorers: allHapExplorers
+    });
+    const helpers = createMockHelpers();
+    resolveNewWorld(state, helpers);
+
+    // No exploration event should be logged (explorer_lost, discovery_made,
+    // no_discovery, circumnavigation_*) because the voyage is skipped
+    const explorationEvents = state.eventLog.filter(e =>
+      ['explorer_lost', 'discovery_made', 'no_discovery',
+        'circumnavigation_success', 'circumnavigation_failed'].includes(e.type)
+    );
+    expect(explorationEvents).toHaveLength(0);
+  });
+
+  it('deep penetration falls back to Amazon when Pacific already claimed', () => {
+    // Run many times with Magellan (+4) for deep penetration chance
+    let amazonFound = false;
+    for (let i = 0; i < 100 && !amazonFound; i++) {
+      const state = stateWithNewWorld({
+        underwayExplorations: [{ power: 'hapsburg' }],
+        claimedDiscoveries: ['pacific_strait', 'circumnavigation'],
+        deadExplorers: ['cabot_hap', 'desoto', 'de_vaca', 'leon', 'narvaez', 'orellana']
+        // Only magellan remains (exploration: 4)
+      });
+      const helpers = createMockHelpers();
+      resolveNewWorld(state, helpers);
+
+      const disc = state.eventLog.find(
+        e => e.type === 'discovery_made' && e.data.discovery === 'amazon'
+      );
+      if (disc) amazonFound = true;
+    }
+    // Magellan +4 means 2d6+4, min 6, max 16.
+    // Deep penetration (10+) triggers Amazon fallback since Pacific claimed
+    expect(amazonFound).toBe(true);
+  });
+
+  it('logs all_claimed when all discoveries are taken', () => {
+    const allClaimed = [
+      'st_lawrence', 'great_lakes', 'mississippi',
+      'pacific_strait', 'circumnavigation', 'amazon'
+    ];
+    // Run until we get a discovery-range roll (7-9)
+    let allClaimedLogged = false;
+    for (let i = 0; i < 100 && !allClaimedLogged; i++) {
+      const state = stateWithNewWorld({
+        underwayExplorations: [{ power: 'hapsburg' }],
+        claimedDiscoveries: [...allClaimed],
+        deadExplorers: ['cabot_hap', 'desoto', 'de_vaca', 'leon', 'narvaez', 'orellana']
+      });
+      const helpers = createMockHelpers();
+      resolveNewWorld(state, helpers);
+
+      const noDisc = state.eventLog.find(
+        e => e.type === 'no_discovery' && e.data.reason === 'all_claimed'
+      );
+      if (noDisc) {
+        allClaimedLogged = true;
+      }
+    }
+    expect(allClaimedLogged).toBe(true);
+  });
+
+  it('conquest modifier is 0 for non-Hapsburg powers', () => {
+    // England and France conquests have modifier 0 (no conquistador)
+    for (const power of ['england', 'france']) {
+      const state = stateWithNewWorld({
+        underwayConquests: [{ power }]
+      });
+      const helpers = createMockHelpers();
+      resolveNewWorld(state, helpers);
+
+      const events = state.eventLog.filter(e =>
+        e.type === 'conquest_made' || e.type === 'conquest_failed'
+      );
+      expect(events.length).toBeGreaterThan(0);
+      // conquistador should be null for non-Hapsburg
+      expect(events[0].data.conquistador).toBeNull();
+    }
+  });
+
+  it('non-Hapsburg conquest does not use conquistador even on success', () => {
+    // Run until England gets a successful conquest
+    let found = false;
+    for (let i = 0; i < 100 && !found; i++) {
+      const state = stateWithNewWorld({
+        underwayConquests: [{ power: 'england' }]
+      });
+      const helpers = createMockHelpers();
+      resolveNewWorld(state, helpers);
+
+      const conquest = state.eventLog.find(e => e.type === 'conquest_made');
+      if (conquest) {
+        // No conquistador should be placed
+        expect(conquest.data.conquistador).toBeNull();
+        expect(state.newWorld.placedConquistadors).toHaveLength(0);
+        found = true;
+      }
+    }
+    // 2d6 + 0 >= 9: P(sum >= 9) on 2d6 = 10/36 ≈ 28%
+    expect(found).toBe(true);
+  });
+
+  it('multiple explorations resolved in priority order (highest explorer first)', () => {
+    // Send england and france explorations; verify ordering by checking events
+    let verified = false;
+    for (let i = 0; i < 50 && !verified; i++) {
+      const state = stateWithNewWorld({
+        underwayExplorations: [
+          { power: 'france' },
+          { power: 'england' }
+        ],
+        // Kill all but Cartier (france, exploration:3) and Willoughby (england, exploration:0)
+        deadExplorers: [
+          'cabot_fra', 'roberval', 'verrazano',
+          'cabot_eng', 'chancellor', 'rut'
+        ]
+      });
+      const helpers = createMockHelpers();
+      resolveNewWorld(state, helpers);
+
+      // Look for exploration events — France's Cartier (3) should resolve before
+      // England's Willoughby (0) due to higher exploration value
+      const explorationEvents = state.eventLog.filter(e =>
+        ['explorer_lost', 'discovery_made', 'no_discovery',
+          'circumnavigation_success', 'circumnavigation_failed'].includes(e.type)
+      );
+
+      if (explorationEvents.length >= 2) {
+        // First event should be France (Cartier, value 3)
+        expect(explorationEvents[0].data.power).toBe('france');
+        // Second event should be England (Willoughby, value 0)
+        expect(explorationEvents[1].data.power).toBe('england');
+        verified = true;
+      }
+    }
+    expect(verified).toBe(true);
+  });
 });
