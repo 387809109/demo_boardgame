@@ -61,6 +61,7 @@ export class HisUI {
     this._container = null;
     this._gameBoard = null;
     this._playerPower = null;
+    this._playerPowers = [];
 
     // Sub-components
     this._mapRenderer = new MapRenderer();
@@ -106,7 +107,9 @@ export class HisUI {
     this.state = state;
     this.playerId = playerId;
     this.onAction = onAction;
-    this._playerPower = this._resolvePlayerPower(state, playerId);
+    this._playerPowers = this._resolvePlayerPowers(state, playerId);
+    this._playerPower = this._playerPowers.includes(state.activePower)
+      ? state.activePower : this._playerPowers[0];
 
     // Root container
     this._container = document.createElement('div');
@@ -321,26 +324,33 @@ export class HisUI {
 
   updateState(state) {
     this.state = state;
-    this._playerPower = this._resolvePlayerPower(state, this.playerId);
+    this._playerPowers = this._resolvePlayerPowers(state, this.playerId);
+    this._playerPower = this._playerPowers.includes(state.activePower)
+      ? state.activePower : this._playerPowers[0];
 
     this._statusBar.update(state);
     this._mapRenderer.updateFromState(state);
     if (this._mapOverlay) this._mapOverlay.update(state);
 
-    this._powerPanel.update(state, this._playerPower);
+    this._powerPanel.update(state, this._playerPower, this._playerPowers);
     this._diplomacyPanel.update(state);
     this._powerDetailPanel.update(state, this._playerPower);
     this._religiousStrugglePanel.update(state);
 
     const hand = this._resolveHandCards(state);
-    const responseInfo = state.pendingResponse &&
-      state.pendingResponse.respondingPower === this._playerPower
+    const respPower = state.pendingResponse?.respondingPower;
+    const responseInfo = respPower &&
+      this._playerPowers.includes(respPower)
       ? {
         validCards: state.pendingResponse.validCards,
-        respondingPower: state.pendingResponse.respondingPower
+        respondingPower: respPower
       }
       : null;
-    const canPlay = (state.activePower === this._playerPower
+    // Auto-switch to responding power's hand if needed
+    if (responseInfo && this._playerPower !== respPower) {
+      this._playerPower = respPower;
+    }
+    const canPlay = (this._playerPowers.includes(state.activePower)
       && state.phase === 'action') || responseInfo !== null;
     this._handPanel.update(hand, this._playerPower, canPlay, responseInfo);
 
@@ -385,7 +395,9 @@ export class HisUI {
   renderActions(state, playerId, onAction) {
     this.state = state;
     this.onAction = onAction;
-    this._playerPower = this._resolvePlayerPower(state, playerId);
+    this._playerPowers = this._resolvePlayerPowers(state, playerId);
+    this._playerPower = this._playerPowers.includes(state.activePower)
+      ? state.activePower : this._playerPowers[0];
 
     const stateWithUI = { ...state, _uiSelectedCard: this._selectedCard };
 
@@ -955,10 +967,11 @@ export class HisUI {
     });
   }
 
-  _resolvePlayerPower(state, playerId) {
-    if (!state || !state.players) return 'ottoman';
+  _resolvePlayerPowers(state, playerId) {
+    if (!state || !state.players) return ['ottoman'];
     const player = state.players.find(p => p.id === playerId);
-    return player?.power || 'ottoman';
+    if (player?.powers && player.powers.length > 0) return player.powers;
+    return player?.power ? [player.power] : ['ottoman'];
   }
 
   _showTooltip(spaceName, container) {

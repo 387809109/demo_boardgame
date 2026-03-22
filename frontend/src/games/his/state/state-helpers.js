@@ -37,6 +37,31 @@ export function getPlayerForPower(state, power) {
 }
 
 /**
+ * Get ALL powers assigned to a player.
+ * @param {Object} state
+ * @param {string} playerId
+ * @returns {string[]} Array of power names (empty if not found)
+ */
+export function getPowersForPlayer(state, playerId) {
+  if (state.powersForPlayer?.[playerId]) {
+    return state.powersForPlayer[playerId];
+  }
+  const primary = state.powerByPlayer[playerId];
+  return primary ? [primary] : [];
+}
+
+/**
+ * Check if a player controls a specific power.
+ * @param {Object} state
+ * @param {string} playerId
+ * @param {string} power
+ * @returns {boolean}
+ */
+export function playerControlsPower(state, playerId, power) {
+  return getPowersForPlayer(state, playerId).includes(power);
+}
+
+/**
  * Count key spaces controlled by a power.
  * @param {Object} state
  * @param {string} power

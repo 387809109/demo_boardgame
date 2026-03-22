@@ -8,7 +8,10 @@ import config from './config.json';
 import { MAJOR_POWERS, VICTORY } from './constants.js';
 import { buildInitialState } from './state/state-init.js';
 import { getVisibleState } from './state/state-visible.js';
-import { getPowerForPlayer, canPass, isFortified } from './state/state-helpers.js';
+import {
+  getPowerForPlayer, getPowersForPlayer, playerControlsPower,
+  canPass, isFortified
+} from './state/state-helpers.js';
 import {
   PHASES, transitionPhase, advancePhase, advanceImpulse
 } from './phases/phase-manager.js';
@@ -218,6 +221,52 @@ export class HISGame extends GameEngine {
   }
 
   /**
+   * Resolve the acting power for a move based on phase context.
+   * @private
+   * @param {Object} state
+   * @param {string} playerId
+   * @param {string} actionType
+   * @param {Object} actionData
+   * @returns {string|null} The power this action is for
+   */
+  _resolveActingPower(state, playerId, actionType, actionData) {
+    // Response cards: acting power is the responding power
+    if (actionType === ACTION_TYPES.PLAY_RESPONSE_CARD ||
+        actionType === ACTION_TYPES.DECLINE_RESPONSE) {
+      return state.pendingResponse?.respondingPower || null;
+    }
+
+    // Impulse-based phases: acting power is activePower
+    if (state.phase === PHASES.ACTION ||
+        state.phase === PHASES.SPRING_DEPLOYMENT) {
+      return state.activePower;
+    }
+
+    // Luther 95: always protestant
+    if (state.phase === PHASES.LUTHER_95) {
+      return 'protestant';
+    }
+
+    // Simultaneous phases: use forPower from actionData, or primary power
+    if (actionData?.forPower) {
+      return actionData.forPower;
+    }
+
+    // Fallback: find first controlled power that can act in this context
+    const powers = getPowersForPlayer(state, playerId);
+    if (state.phase === PHASES.DIET_OF_WORMS) {
+      const validDiet = ['protestant', 'hapsburg', 'papacy'];
+      const match = powers.find(p =>
+        validDiet.includes(p) &&
+        state.pendingDietOfWorms?.cards[p] == null
+      );
+      return match || powers[0];
+    }
+
+    return powers[0] || getPowerForPlayer(state, playerId);
+  }
+
+  /**
    * Validate a move before processing.
    * @param {Object} move - { actionType, actionData, playerId }
    * @param {Object} state
@@ -230,9 +279,9 @@ export class HISGame extends GameEngine {
       return { valid: false, error: 'Missing actionType' };
     }
 
-    const power = getPowerForPlayer(state, playerId);
+    const playerPowers = getPowersForPlayer(state, playerId);
 
-    if (!power) {
+    if (playerPowers.length === 0) {
       return { valid: false, error: 'Player not assigned to a power' };
     }
 
@@ -241,8 +290,16 @@ export class HISGame extends GameEngine {
       return { valid: true };
     }
 
+    // Resolve acting power based on phase context
+    const power = this._resolveActingPower(
+      state, playerId, actionType, actionData
+    );
+
     // Diplomacy phase actions
     if (state.phase === PHASES.DIPLOMACY) {
+      if (!power || !playerControlsPower(state, playerId, power)) {
+        return { valid: false, error: 'You do not control this power' };
+      }
       if (!canActInSegment(state, power)) {
         return { valid: false, error: 'Cannot act in this diplomacy segment' };
       }
@@ -276,11 +333,13 @@ export class HISGame extends GameEngine {
 
     // Luther's 95 Theses phase actions
     if (state.phase === PHASES.LUTHER_95) {
+      if (!playerControlsPower(state, playerId, 'protestant')) {
+        return { valid: false, error: 'Only Protestant player can act' };
+      }
       if (actionType === ACTION_TYPES.SELECT_LUTHER95_TARGET) {
-        return validateLuther95Target(state, power, actionData);
+        return validateLuther95Target(state, 'protestant', actionData);
       }
       if (actionType === ACTION_TYPES.PHASE_ADVANCE) {
-        // Allow advancing only when phase is complete
         if (!isLuther95Complete(state)) {
           return { valid: false, error: 'Luther 95 Theses phase not complete' };
         }
@@ -293,8 +352,11 @@ export class HISGame extends GameEngine {
     if (state.phase === PHASES.DIET_OF_WORMS) {
       if (actionType === ACTION_TYPES.SUBMIT_DIET_CARD) {
         const validPowers = ['protestant', 'hapsburg', 'papacy'];
-        if (!validPowers.includes(power)) {
+        if (!power || !validPowers.includes(power)) {
           return { valid: false, error: 'Only Protestant, Hapsburg, and Papacy participate' };
+        }
+        if (!playerControlsPower(state, playerId, power)) {
+          return { valid: false, error: 'You do not control this power' };
         }
         if (state.pendingDietOfWorms?.cards[power] != null) {
           return { valid: false, error: 'Already submitted a card' };
@@ -310,11 +372,12 @@ export class HISGame extends GameEngine {
 
     // Spring deployment phase actions
     if (state.phase === PHASES.SPRING_DEPLOYMENT) {
-      if (state.activePower !== power) {
+      if (!playerControlsPower(state, playerId, state.activePower)) {
         return { valid: false, error: 'Not your spring deployment impulse' };
       }
+      const sdPower = state.activePower;
       if (actionType === ACTION_TYPES.SPRING_DEPLOY) {
-        return validateSpringDeployment(state, power, actionData);
+        return validateSpringDeployment(state, sdPower, actionData);
       }
       if (actionType === ACTION_TYPES.PASS) {
         return { valid: true };
@@ -330,7 +393,8 @@ export class HISGame extends GameEngine {
         if (!state.pendingResponse) {
           return { valid: false, error: 'No pending response window' };
         }
-        if (state.pendingResponse.respondingPower !== power) {
+        const respPower = state.pendingResponse.respondingPower;
+        if (!playerControlsPower(state, playerId, respPower)) {
           return { valid: false, error: 'Not your response window' };
         }
         if (actionType === ACTION_TYPES.PLAY_RESPONSE_CARD) {
@@ -339,23 +403,25 @@ export class HISGame extends GameEngine {
               !state.pendingResponse.validCards.includes(cardNumber)) {
             return { valid: false, error: 'Invalid response card' };
           }
-          if (!state.hands[power]?.includes(cardNumber)) {
+          if (!state.hands[respPower]?.includes(cardNumber)) {
             return { valid: false, error: 'Card not in hand' };
           }
         }
         return { valid: true };
       }
 
-      if (state.activePower !== power) {
+      if (!playerControlsPower(state, playerId, state.activePower)) {
         return { valid: false, error: 'Not your impulse' };
       }
+
+      const actPower = state.activePower;
 
       // Sub-interactions (reformation, debate, battle, interception)
       if (actionType === ACTION_TYPES.RESOLVE_REFORMATION_ATTEMPT) {
         if (state.pendingReformation?.autoFlip) {
-          return validateDebateFlip(state, power, actionData);
+          return validateDebateFlip(state, actPower, actionData);
         }
-        return validateReformationAttempt(state, power, actionData);
+        return validateReformationAttempt(state, actPower, actionData);
       }
       if (actionType === ACTION_TYPES.RESOLVE_DEBATE_STEP) {
         return validateDebateStep(state);
@@ -402,7 +468,7 @@ export class HISGame extends GameEngine {
         }
         const handler = CP_ACTION_HANDLERS[actionType];
         if (handler) {
-          return handler.validate(state, power, actionData);
+          return handler.validate(state, actPower, actionData);
         }
         return { valid: false, error: `Unknown CP action: ${actionType}` };
       }
@@ -423,7 +489,7 @@ export class HISGame extends GameEngine {
         if (isInCpMode(state)) {
           return { valid: false, error: 'Cannot pass while in CP mode' };
         }
-        const passCheck = canPass(state, power);
+        const passCheck = canPass(state, actPower);
         if (!passCheck.allowed) {
           return { valid: false, error: passCheck.reason };
         }
@@ -436,12 +502,12 @@ export class HISGame extends GameEngine {
           return { valid: false, error: 'Already in CP mode' };
         }
         const cardNumber = actionData?.cardNumber;
-        if (!cardNumber || !state.hands[power].includes(cardNumber)) {
+        if (!cardNumber || !state.hands[actPower].includes(cardNumber)) {
           return { valid: false, error: 'Card not in hand' };
         }
         // Validate event-specific constraints
         if (actionType === ACTION_TYPES.PLAY_CARD_EVENT) {
-          const eventCheck = validateEvent(state, power, cardNumber, actionData);
+          const eventCheck = validateEvent(state, actPower, cardNumber, actionData);
           if (!eventCheck.valid) return eventCheck;
         }
       }
@@ -460,7 +526,9 @@ export class HISGame extends GameEngine {
     const newState = JSON.parse(JSON.stringify(state));
     const helpers = this._getPhaseHelpers();
     const { actionType, actionData = {}, playerId } = move;
-    const power = getPowerForPlayer(newState, playerId);
+    const power = this._resolveActingPower(
+      newState, playerId, actionType, actionData
+    );
 
     // Diplomacy phase actions
     if (newState.phase === PHASES.DIPLOMACY) {
@@ -502,26 +570,31 @@ export class HISGame extends GameEngine {
 
     // Spring deployment phase actions
     if (newState.phase === PHASES.SPRING_DEPLOYMENT) {
-      this._handleSpringDeploymentAction(newState, power, actionType, actionData, helpers);
+      this._handleSpringDeploymentAction(
+        newState, newState.activePower, actionType, actionData, helpers
+      );
       newState.turnNumber++;
       return newState;
     }
 
+    // Action phase — use activePower for impulse-based actions
+    const actPower = newState.activePower;
+
     switch (actionType) {
       case ACTION_TYPES.PASS:
-        this._handlePass(newState, power, helpers);
+        this._handlePass(newState, actPower, helpers);
         break;
 
       case ACTION_TYPES.PLAY_CARD_CP:
-        this._handlePlayCardCp(newState, power, actionData, helpers);
+        this._handlePlayCardCp(newState, actPower, actionData, helpers);
         break;
 
       case ACTION_TYPES.PLAY_CARD_EVENT:
-        this._handlePlayCardEvent(newState, power, actionData, helpers);
+        this._handlePlayCardEvent(newState, actPower, actionData, helpers);
         break;
 
       case ACTION_TYPES.END_IMPULSE:
-        this._handleEndImpulse(newState, power, helpers);
+        this._handleEndImpulse(newState, actPower, helpers);
         break;
 
       case ACTION_TYPES.PHASE_ADVANCE:
@@ -530,50 +603,54 @@ export class HISGame extends GameEngine {
 
       case ACTION_TYPES.RESOLVE_REFORMATION_ATTEMPT:
         if (newState.pendingReformation?.autoFlip) {
-          resolveDebateFlip(newState, power, actionData, helpers);
+          resolveDebateFlip(newState, actPower, actionData, helpers);
         } else {
-          resolveReformationAttempt(newState, power, actionData, helpers);
+          resolveReformationAttempt(newState, actPower, actionData, helpers);
         }
         this._checkVictory(newState, helpers);
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
       case ACTION_TYPES.RESOLVE_DEBATE_STEP:
-        resolveDebateStep(newState, power, actionData, helpers);
+        resolveDebateStep(newState, actPower, actionData, helpers);
         this._checkVictory(newState, helpers);
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
       case ACTION_TYPES.RESOLVE_BATTLE:
-        this._handleResolveBattle(newState, power, helpers);
+        this._handleResolveBattle(newState, actPower, helpers);
         this._checkVictory(newState, helpers);
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
       case ACTION_TYPES.RESOLVE_INTERCEPTION:
-        this._handleResolveInterception(newState, power, actionData, helpers);
+        this._handleResolveInterception(newState, actPower, actionData, helpers);
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
       case ACTION_TYPES.RESOLVE_RETREAT:
-        this._handleResolveRetreat(newState, power, actionData, helpers);
+        this._handleResolveRetreat(newState, actPower, actionData, helpers);
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
       case ACTION_TYPES.WITHDRAW_INTO_FORTIFICATION:
-        this._handleWithdraw(newState, power, helpers);
+        this._handleWithdraw(newState, actPower, helpers);
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
-      case ACTION_TYPES.PLAY_RESPONSE_CARD:
-        this._handlePlayResponseCard(newState, power, actionData, helpers);
+      case ACTION_TYPES.PLAY_RESPONSE_CARD: {
+        const respPower = newState.pendingResponse?.respondingPower || actPower;
+        this._handlePlayResponseCard(newState, respPower, actionData, helpers);
         this._checkVictory(newState, helpers);
         break;
+      }
 
-      case ACTION_TYPES.DECLINE_RESPONSE:
-        this._handleDeclineResponse(newState, power, helpers);
+      case ACTION_TYPES.DECLINE_RESPONSE: {
+        const respPower = newState.pendingResponse?.respondingPower || actPower;
+        this._handleDeclineResponse(newState, respPower, helpers);
         this._checkVictory(newState, helpers);
         break;
+      }
 
       default:
         // CP sub-actions

@@ -4,7 +4,9 @@
  * Constructs the full game state from scenario data + player list.
  */
 
-import { MAJOR_POWERS, IMPULSE_ORDER, RELIGION } from '../constants.js';
+import {
+  MAJOR_POWERS, IMPULSE_ORDER, RELIGION, DEFAULT_POWER_ASSIGNMENTS
+} from '../constants.js';
 import { LAND_SPACES, SEA_ZONES } from '../data/map-data.js';
 import { CARDS } from '../data/cards.js';
 import { SCENARIO_1517 } from '../data/setup-1517.js';
@@ -38,14 +40,24 @@ const INITIAL_RULERS = {
 export function buildInitialState(players, options = {}) {
   const scenario = SCENARIO_1517;
 
-  // Map players to powers by impulse order
+  // Map players to powers (supports 3-6 players)
+  const assignment = options.powerAssignment
+    || DEFAULT_POWER_ASSIGNMENTS[players.length]
+    || DEFAULT_POWER_ASSIGNMENTS[6];
   const powerByPlayer = {};
   const playerByPower = {};
+  const powersForPlayer = {};
   const playerList = players.map((p, i) => {
-    const power = IMPULSE_ORDER[i];
-    powerByPlayer[p.id] = power;
-    playerByPower[power] = p.id;
-    return { id: p.id, nickname: p.nickname, isHost: p.isHost || false, power };
+    const powers = assignment[i] || [];
+    powerByPlayer[p.id] = powers[0];
+    powersForPlayer[p.id] = powers;
+    for (const pw of powers) {
+      playerByPower[pw] = p.id;
+    }
+    return {
+      id: p.id, nickname: p.nickname, isHost: p.isHost || false,
+      power: powers[0], powers
+    };
   });
 
   // Build space states from map data + scenario
@@ -95,6 +107,7 @@ export function buildInitialState(players, options = {}) {
     players: playerList,
     powerByPlayer,
     playerByPower,
+    powersForPlayer,
     activePower: null,
 
     // Map

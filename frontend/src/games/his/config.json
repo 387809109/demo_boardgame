@@ -2,7 +2,7 @@
   "id": "his",
   "name": "Here I Stand",
   "description": "文艺复兴时代六大势力争夺欧洲霸权的战略桌游，涵盖军事、外交、宗教改革与新世界探索",
-  "minPlayers": 2,
+  "minPlayers": 3,
   "maxPlayers": 6,
   "difficulty": "hard",
   "estimatedTime": 360,

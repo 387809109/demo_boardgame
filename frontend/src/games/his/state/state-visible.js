@@ -17,11 +17,14 @@ import { MAJOR_POWERS } from '../constants.js';
  */
 export function getVisibleState(state, playerId) {
   const clone = JSON.parse(JSON.stringify(state));
-  const myPower = clone.powerByPlayer[playerId];
+  const myPowers = new Set(
+    clone.powersForPlayer?.[playerId]
+    || (clone.powerByPlayer[playerId] ? [clone.powerByPlayer[playerId]] : [])
+  );
 
   // Replace other powers' hands with card counts
   for (const power of MAJOR_POWERS) {
-    if (power !== myPower) {
+    if (!myPowers.has(power)) {
       clone.hands[power] = clone.hands[power].length;
     }
   }

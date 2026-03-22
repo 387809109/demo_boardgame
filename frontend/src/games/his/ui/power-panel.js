@@ -51,11 +51,13 @@ export class PowerPanel {
 
   /**
    * @param {Object} state - Game state
-   * @param {string} playerPower - The power this player controls
+   * @param {string} playerPower - The currently active/viewing power
+   * @param {string[]} [playerPowers] - All powers this player controls
    */
-  update(state, playerPower) {
+  update(state, playerPower, playerPowers) {
     if (!this._el || !state) return;
     this._el.innerHTML = '';
+    const allPowers = playerPowers || [playerPower];
 
     // Power header
     const color = POWER_COLORS[playerPower] || '#666';
@@ -80,7 +82,33 @@ export class PowerPanel {
     label.textContent = POWER_LABELS[playerPower] || playerPower;
     header.appendChild(dot);
     header.appendChild(label);
+    // Show active indicator for multi-power players
+    if (allPowers.length > 1 && state.activePower === playerPower) {
+      const active = document.createElement('span');
+      active.style.cssText = 'font-size:10px;color:#2e7d32;font-weight:600;margin-left:auto;';
+      active.textContent = '▶ 行动中';
+      header.appendChild(active);
+    }
     this._el.appendChild(header);
+
+    // Multi-power tabs
+    if (allPowers.length > 1) {
+      const tabs = document.createElement('div');
+      tabs.style.cssText = 'display:flex;gap:4px;margin-bottom:4px;';
+      for (const pw of allPowers) {
+        const tab = document.createElement('span');
+        const isViewing = pw === playerPower;
+        tab.style.cssText = `
+          font-size:10px;padding:2px 6px;border-radius:3px;
+          background:${isViewing ? (POWER_COLORS[pw] || '#666') : '#e2e8f0'};
+          color:${isViewing ? '#fff' : '#64748b'};
+          font-weight:${isViewing ? '600' : '400'};
+        `;
+        tab.textContent = POWER_LABELS[pw] || pw;
+        tabs.appendChild(tab);
+      }
+      this._el.appendChild(tabs);
+    }
 
     // VP
     const vp = state.vp ? (state.vp[playerPower] || 0) : 0;

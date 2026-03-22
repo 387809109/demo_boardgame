@@ -355,7 +355,7 @@ describe('HISGame', () => {
         playerId: 'p1'
       });
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Luther 95');
+      expect(result.error).toContain('Protestant');
     });
 
     it('rejects MOVE_FORMATION during Luther 95 phase', () => {

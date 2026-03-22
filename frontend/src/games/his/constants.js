@@ -21,6 +21,18 @@ export const IMPULSE_ORDER = [
   'ottoman', 'hapsburg', 'england', 'france', 'papacy', 'protestant'
 ];
 
+/**
+ * Default power assignments for 3-6 player games.
+ * Each entry maps player count → array of power groups (one group per player).
+ * Based on official HIS 500th Anniversary recommended combinations.
+ */
+export const DEFAULT_POWER_ASSIGNMENTS = {
+  6: [['ottoman'], ['hapsburg'], ['england'], ['france'], ['papacy'], ['protestant']],
+  5: [['ottoman'], ['hapsburg'], ['england'], ['france'], ['papacy', 'protestant']],
+  4: [['ottoman'], ['hapsburg'], ['england', 'protestant'], ['france', 'papacy']],
+  3: [['ottoman'], ['hapsburg', 'england'], ['france', 'papacy', 'protestant']]
+};
+
 // ── Enums ──────────────────────────────────────────────────────────
 
 export const RELIGION = {
