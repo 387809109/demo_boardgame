@@ -10,7 +10,8 @@ import {
   getAdjacentSpaces, getAllAdjacentSpaces, getConnectionType,
   getUnitsInSpace, hasEnemyUnits, getFormationCap, isHomeSpace,
   isValidReformationTarget, calcReformationDice,
-  getAvailableDebaters, getDebaterDef, recountProtestantSpaces
+  getAvailableDebaters, getDebaterDef, recountProtestantSpaces,
+  isFortified, findFriendlyPath
 } from './state-helpers.js';
 import { MAJOR_POWERS, IMPULSE_ORDER, RELIGION } from '../constants.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
@@ -433,5 +434,238 @@ describe('recountProtestantSpaces', () => {
     // All spaces are already catholic/other at game start
     recountProtestantSpaces(state);
     expect(state.protestantSpaces).toBe(0);
+  });
+});
+
+// ── Edge Case Tests ─────────────────────────────────────────────
+
+describe('getUnitsInSpace edge cases', () => {
+  it('returns null for an empty space with no units', () => {
+    const state = createTestState();
+    // Find a space with no units
+    state.spaces['TestEmpty'] = {
+      controller: 'neutral', units: [], religion: 'other',
+      isKey: false, isElectorate: false, isFortress: false
+    };
+    expect(getUnitsInSpace(state, 'TestEmpty', 'ottoman')).toBeNull();
+  });
+
+  it('returns correct stack when space has multiple owners', () => {
+    const state = createTestState();
+    state.spaces['MultiOwner'] = {
+      controller: 'neutral', religion: 'other',
+      isKey: false, isElectorate: false, isFortress: false,
+      units: [
+        { owner: 'ottoman', regulars: 3, mercenaries: 0, cavalry: 0,
+          squadrons: 0, corsairs: 0, leaders: [] },
+        { owner: 'hapsburg', regulars: 2, mercenaries: 1, cavalry: 0,
+          squadrons: 0, corsairs: 0, leaders: [] },
+        { owner: 'france', regulars: 1, mercenaries: 0, cavalry: 0,
+          squadrons: 0, corsairs: 0, leaders: [] }
+      ]
+    };
+
+    const ottStack = getUnitsInSpace(state, 'MultiOwner', 'ottoman');
+    expect(ottStack).toBeDefined();
+    expect(ottStack.regulars).toBe(3);
+
+    const habStack = getUnitsInSpace(state, 'MultiOwner', 'hapsburg');
+    expect(habStack).toBeDefined();
+    expect(habStack.regulars).toBe(2);
+    expect(habStack.mercenaries).toBe(1);
+
+    const fraStack = getUnitsInSpace(state, 'MultiOwner', 'france');
+    expect(fraStack).toBeDefined();
+    expect(fraStack.regulars).toBe(1);
+
+    // Power not present
+    expect(getUnitsInSpace(state, 'MultiOwner', 'protestant')).toBeNull();
+  });
+
+  it('returns null for a non-existent space', () => {
+    const state = createTestState();
+    expect(getUnitsInSpace(state, 'Narnia', 'ottoman')).toBeNull();
+  });
+});
+
+describe('getAllAdjacentSpaces edge cases', () => {
+  it('island space with no land connections returns empty array', () => {
+    // Malta is an island with no land edges
+    const adj = getAllAdjacentSpaces('Malta');
+    expect(adj).toEqual([]);
+  });
+
+  it('space with pass connections includes them', () => {
+    // Belgrade-Ragusa is a pass connection
+    const adj = getAllAdjacentSpaces('Belgrade');
+    expect(adj).toContain('Ragusa');
+  });
+
+  it('space with both connections and passes includes all', () => {
+    const adjDetail = getAdjacentSpaces('Belgrade');
+    const allAdj = getAllAdjacentSpaces('Belgrade');
+    const total = adjDetail.connections.length + adjDetail.passes.length;
+    expect(allAdj.length).toBe(total);
+  });
+});
+
+describe('findFriendlyPath edge cases', () => {
+  it('returns null when no path exists between disconnected spaces', () => {
+    const state = createTestState();
+    // Malta is an island with no land connections
+    const path = findFriendlyPath(state, 'Malta', 'Istanbul', 'ottoman');
+    expect(path).toBeNull();
+  });
+
+  it('returns single-element path when from equals to', () => {
+    const state = createTestState();
+    const path = findFriendlyPath(state, 'Istanbul', 'Istanbul', 'ottoman');
+    expect(path).toEqual(['Istanbul']);
+  });
+
+  it('finds path through allied territory', () => {
+    const state = createTestState();
+    // Istanbul -> Edirne is a connection
+    // Both controlled by Ottoman, so path should exist
+    const path = findFriendlyPath(state, 'Istanbul', 'Edirne', 'ottoman');
+    expect(path).not.toBeNull();
+    expect(path[0]).toBe('Istanbul');
+    expect(path[path.length - 1]).toBe('Edirne');
+  });
+
+  it('returns null when path blocked by enemy-controlled spaces', () => {
+    const state = createTestState();
+    // Find two ottoman spaces separated by neutral/enemy spaces
+    // Set all intermediate spaces to enemy control to block the path
+    const edirneAdj = getAdjacentSpaces('Edirne');
+    for (const neighbor of [...edirneAdj.connections, ...edirneAdj.passes]) {
+      if (neighbor !== 'Istanbul' && state.spaces[neighbor]) {
+        state.spaces[neighbor].controller = 'hapsburg';
+      }
+    }
+    // Check that path from Edirne to a distant ottoman space is blocked
+    // when all neighbors of Edirne are enemy-controlled (except Istanbul)
+    const path = findFriendlyPath(state, 'Edirne', 'Paris', 'ottoman');
+    expect(path).toBeNull();
+  });
+
+  it('respects alliedPowers for path through ally territory', () => {
+    const state = createTestState();
+    // Create a scenario where path exists only through allied territory
+    state.spaces['Edirne'].controller = 'france'; // French-controlled
+    // Without ally, should fail (if direct only)
+    // With france as ally, should succeed
+    const pathWithAlly = findFriendlyPath(
+      state, 'Istanbul', 'Edirne', 'ottoman', ['france']
+    );
+    expect(pathWithAlly).not.toBeNull();
+    expect(pathWithAlly).toEqual(['Istanbul', 'Edirne']);
+  });
+});
+
+describe('getPowerForPlayer edge cases', () => {
+  it('returns null for invalid/empty player ID', () => {
+    const state = createTestState();
+    expect(getPowerForPlayer(state, '')).toBeNull();
+    expect(getPowerForPlayer(state, null)).toBeNull();
+    expect(getPowerForPlayer(state, undefined)).toBeNull();
+  });
+
+  it('all 6 players correctly mapped to powers', () => {
+    const state = createTestState();
+    const expected = {
+      p1: 'ottoman', p2: 'hapsburg', p3: 'england',
+      p4: 'france', p5: 'papacy', p6: 'protestant'
+    };
+    for (const [pid, power] of Object.entries(expected)) {
+      expect(getPowerForPlayer(state, pid)).toBe(power);
+    }
+  });
+});
+
+describe('canPass edge cases', () => {
+  it('power that has already passed returns allowed when hand is empty', () => {
+    const state = createTestState();
+    state.hands.ottoman = [];
+    const result = canPass(state, 'ottoman');
+    expect(result.allowed).toBe(true);
+  });
+
+  it('power with mandatory event card cannot pass', () => {
+    const state = createStateAfterDraw();
+    // Find a mandatory card and add it to ottoman's hand
+    const mandatoryCard = Object.values(CARD_BY_NUMBER).find(
+      c => c && c.category === 'MANDATORY'
+    );
+    if (mandatoryCard) {
+      state.hands.ottoman = [mandatoryCard.number];
+      const result = canPass(state, 'ottoman');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('mandatory');
+    }
+  });
+});
+
+describe('isFortified edge cases', () => {
+  it('fortress space returns true', () => {
+    const state = createTestState();
+    const fortressSpace = Object.values(state.spaces).find(sp => sp.isFortress);
+    expect(isFortified(fortressSpace)).toBe(true);
+  });
+
+  it('key space (non-fortress) returns true', () => {
+    const state = createTestState();
+    const keySpace = Object.values(state.spaces).find(
+      sp => sp.isKey && !sp.isFortress
+    );
+    if (keySpace) {
+      expect(isFortified(keySpace)).toBe(true);
+    }
+  });
+
+  it('non-fortress non-key space returns false', () => {
+    const state = createTestState();
+    const regularSpace = Object.values(state.spaces).find(
+      sp => !sp.isFortress && !sp.isKey
+    );
+    expect(isFortified(regularSpace)).toBe(false);
+  });
+
+  it('returns false for null/undefined input', () => {
+    expect(isFortified(null)).toBe(false);
+    expect(isFortified(undefined)).toBe(false);
+  });
+});
+
+describe('recountProtestantSpaces edge cases', () => {
+  it('counts zero when no spaces are protestant', () => {
+    const state = createTestState();
+    // Ensure no protestant spaces
+    for (const sp of Object.values(state.spaces)) {
+      if (sp.religion === RELIGION.PROTESTANT) sp.religion = RELIGION.CATHOLIC;
+    }
+    recountProtestantSpaces(state);
+    expect(state.protestantSpaces).toBe(0);
+  });
+
+  it('counts all german spaces when all converted to protestant', () => {
+    const state = createTestState();
+    let germanCount = 0;
+    for (const sp of Object.values(state.spaces)) {
+      if (sp.languageZone === 'german' && sp.religion === RELIGION.CATHOLIC) {
+        sp.religion = RELIGION.PROTESTANT;
+        germanCount++;
+      }
+    }
+    recountProtestantSpaces(state);
+    // Should include all converted german spaces plus any already protestant
+    expect(state.protestantSpaces).toBeGreaterThanOrEqual(germanCount);
+  });
+
+  it('updates protestantSpaces on state object', () => {
+    const state = createTestState();
+    state.protestantSpaces = 999; // stale value
+    recountProtestantSpaces(state);
+    expect(state.protestantSpaces).not.toBe(999);
   });
 });

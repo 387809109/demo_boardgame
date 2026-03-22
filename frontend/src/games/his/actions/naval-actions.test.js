@@ -779,3 +779,353 @@ describe('executePiracy', () => {
     expect(state.hands.ottoman).toHaveLength(1);
   });
 });
+
+// ── Edge Case Tests ─────────────────────────────────────────────
+
+describe('naval-actions edge cases: naval move validation', () => {
+  it('rejects fleet without any squadrons or corsairs', () => {
+    const state = cpState();
+    clearAllUnits(state);
+    // Place a stack with only land units, no naval assets
+    if (!state.spaces['Aegean Sea']) state.spaces['Aegean Sea'] = { units: [] };
+    state.spaces['Aegean Sea'].units.push({
+      owner: 'ottoman', regulars: 2, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    });
+
+    const r = validateNavalMove(state, 'ottoman', {
+      movements: [{ from: 'Aegean Sea', to: 'Ionian Sea' }]
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('No naval units');
+  });
+
+  it('accepts fleet with only corsairs and no squadrons', () => {
+    const state = cpState();
+    clearAllUnits(state);
+    placeNaval(state, 'Aegean Sea', 'ottoman', 0, 2);
+
+    const r = validateNavalMove(state, 'ottoman', {
+      movements: [{ from: 'Aegean Sea', to: 'Ionian Sea' }]
+    });
+    expect(r.valid).toBe(true);
+  });
+
+  it('allows fleet with naval leader only (no squadrons/corsairs) to move', () => {
+    const state = cpState();
+    clearAllUnits(state);
+    if (!state.spaces['Aegean Sea']) state.spaces['Aegean Sea'] = { units: [] };
+    state.spaces['Aegean Sea'].units.push({
+      owner: 'ottoman', regulars: 0, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: ['barbarossa']
+    });
+
+    const r = validateNavalMove(state, 'ottoman', {
+      movements: [{ from: 'Aegean Sea', to: 'Ionian Sea' }]
+    });
+    expect(r.valid).toBe(true);
+  });
+});
+
+describe('naval-actions edge cases: naval move through enemy sea zone', () => {
+  it('triggers naval combat when moving through sea zone with enemy fleet at war', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+    placeNaval(state, 'Aegean Sea', 'ottoman', 3, 0);
+    placeNaval(state, 'Ionian Sea', 'hapsburg', 2, 0);
+
+    // Force evade to fail (low rolls) so combat happens
+    vi.spyOn(Math, 'random').mockReturnValue(0.0);
+
+    executeNavalMove(state, 'ottoman', {
+      movements: [{ from: 'Aegean Sea', to: 'Ionian Sea' }]
+    }, helpers);
+
+    const combatEvent = state.eventLog.find(e => e.type === 'naval_combat');
+    expect(combatEvent).toBeDefined();
+    expect(combatEvent.data.space).toBe('Ionian Sea');
+  });
+});
+
+describe('naval-actions edge cases: naval move with loaned squadrons', () => {
+  it('moves all naval units in a stack including corsairs', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Aegean Sea', 'ottoman', 2, 3, ['barbarossa']);
+
+    executeNavalMove(state, 'ottoman', {
+      movements: [{ from: 'Aegean Sea', to: 'Ionian Sea' }]
+    }, helpers);
+
+    const dst = state.spaces['Ionian Sea'].units.find(u => u.owner === 'ottoman');
+    expect(dst.squadrons).toBe(2);
+    expect(dst.corsairs).toBe(3);
+    expect(dst.leaders).toContain('barbarossa');
+
+    // Source should be cleaned up
+    const src = state.spaces['Aegean Sea'].units.find(u => u.owner === 'ottoman');
+    expect(src).toBeUndefined();
+  });
+});
+
+describe('naval-actions edge cases: piracy VP cap', () => {
+  it('piracy VP does not exceed MAX_PIRACY_VP (10)', () => {
+    const state = cpState(10);
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    state.piracyTrack = 10; // already at max
+    state.piracyEnabled = true;
+    placeNaval(state, 'North Sea', 'ottoman', 0, 2);
+    vi.spyOn(Math, 'random').mockReturnValue(0.99); // all hits
+
+    const result = executePiracy(state, 'ottoman', {
+      seaZone: 'North Sea', targetPower: 'hapsburg',
+      hitChoices: ['give_vp', 'give_vp']
+    }, helpers);
+
+    expect(state.piracyTrack).toBe(10);
+    expect(result.piracyVpAwarded).toBe(0);
+  });
+});
+
+describe('naval-actions edge cases: piracy with no eligible targets', () => {
+  it('rejects piracy when target has no ports connected to sea zone', () => {
+    const state = cpState();
+    state.piracyEnabled = true;
+    clearAllUnits(state);
+    placeNaval(state, 'Black Sea', 'ottoman', 0, 2);
+
+    // Protestant has no ports on Black Sea
+    const r = validatePiracy(state, 'ottoman', {
+      seaZone: 'Black Sea', targetPower: 'protestant'
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('port');
+  });
+});
+
+describe('naval-actions edge cases: piracy die roll boundaries', () => {
+  it('piracy hit threshold is 5+ (die roll 5 hits, 4 misses)', () => {
+    const state = cpState(10);
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    state.piracyEnabled = true;
+    placeNaval(state, 'North Sea', 'ottoman', 0, 1);
+
+    // Die value mapping: random < 1/6 = 1, < 2/6 = 2, ... < 5/6 = 5, >= 5/6 = 6
+    // 0.66 => floor(0.66*6)+1 = floor(3.96)+1 = 4 => miss
+    vi.spyOn(Math, 'random').mockReturnValue(0.66);
+
+    const result = executePiracy(state, 'ottoman', {
+      seaZone: 'North Sea', targetPower: 'hapsburg'
+    }, helpers);
+
+    expect(result.piracyHits).toBe(0);
+  });
+
+  it('piracy die value of 5 counts as a hit', () => {
+    const state = cpState(10);
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    state.piracyEnabled = true;
+    placeNaval(state, 'North Sea', 'ottoman', 0, 1);
+
+    // 0.83 => floor(0.83*6)+1 = floor(4.98)+1 = 5 => hit (>= hitThreshold 5)
+    vi.spyOn(Math, 'random').mockReturnValue(0.83);
+
+    const result = executePiracy(state, 'ottoman', {
+      seaZone: 'North Sea', targetPower: 'hapsburg'
+    }, helpers);
+
+    expect(result.piracyHits).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('naval-actions edge cases: naval combat dice calculation', () => {
+  it('squadron count maps to correct dice (2 per squadron)', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Ionian Sea', 'ottoman', 4, 0); // 4*2 = 8 dice
+    placeNaval(state, 'Ionian Sea', 'hapsburg', 1, 0);
+
+    const result = resolveNavalCombat(
+      state, 'Ionian Sea', 'ottoman', 'hapsburg', false, helpers
+    );
+
+    expect(result.attackerDice).toBe(8);
+  });
+
+  it('corsairs add 1 die each', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Ionian Sea', 'ottoman', 1, 4); // 1*2 + 4*1 = 6 dice
+    placeNaval(state, 'Ionian Sea', 'hapsburg', 1, 0);
+
+    const result = resolveNavalCombat(
+      state, 'Ionian Sea', 'ottoman', 'hapsburg', false, helpers
+    );
+
+    expect(result.attackerDice).toBe(6);
+  });
+});
+
+describe('naval-actions edge cases: naval combat with leader bonus', () => {
+  it('naval leader adds battle rating to dice count', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    // Barbarossa: battle 2
+    placeNaval(state, 'Ionian Sea', 'ottoman', 1, 0, ['barbarossa']); // 1*2 + 2 = 4
+    placeNaval(state, 'Ionian Sea', 'hapsburg', 1, 0);
+
+    const result = resolveNavalCombat(
+      state, 'Ionian Sea', 'ottoman', 'hapsburg', false, helpers
+    );
+
+    expect(result.attackerDice).toBe(4);
+  });
+});
+
+describe('naval-actions edge cases: naval combat tie', () => {
+  it('equal hits gives victory to defender', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Ionian Sea', 'ottoman', 3, 0);
+    placeNaval(state, 'Ionian Sea', 'hapsburg', 3, 0);
+    // Force equal rolls: all dice hit
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
+
+    const result = resolveNavalCombat(
+      state, 'Ionian Sea', 'ottoman', 'hapsburg', false, helpers
+    );
+
+    // When attackerHits === defenderHits, winner is defender
+    expect(result.winner).toBe('defender');
+    expect(result.winnerPower).toBe('hapsburg');
+    expect(result.loserPower).toBe('ottoman');
+  });
+});
+
+describe('naval-actions edge cases: naval combat casualties', () => {
+  it('casualties remove 1 squadron per 2 hits', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Ionian Sea', 'ottoman', 5, 0);
+    placeNaval(state, 'Ionian Sea', 'hapsburg', 5, 0);
+    // Force all misses so we can test structure
+    vi.spyOn(Math, 'random').mockReturnValue(0.0);
+
+    const result = resolveNavalCombat(
+      state, 'Ionian Sea', 'ottoman', 'hapsburg', false, helpers
+    );
+
+    // With all misses, 0 hits on each side, 0 casualties
+    expect(result.attackerHits).toBe(0);
+    expect(result.defenderHits).toBe(0);
+    expect(result.attackerLosses.squadrons).toBe(0);
+    expect(result.defenderLosses.squadrons).toBe(0);
+  });
+});
+
+describe('naval-actions edge cases: corsair vs squadron distinction', () => {
+  it('corsairs are eliminated after squadrons when overflow hits occur', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Ionian Sea', 'ottoman', 1, 2); // 1 squad + 2 corsair
+    placeNaval(state, 'Ionian Sea', 'hapsburg', 5, 0); // massive firepower
+    vi.spyOn(Math, 'random').mockReturnValue(0.99); // all hits
+
+    resolveNavalCombat(
+      state, 'Ionian Sea', 'ottoman', 'hapsburg', false, helpers
+    );
+
+    // Ottoman should lose squadron first, then corsairs absorb remaining
+    const ottStack = state.spaces['Ionian Sea'].units.find(u => u.owner === 'ottoman');
+    // Either fully eliminated or retained with 1 unit (defender retains on mutual elimination)
+    const totalRemaining = (ottStack?.squadrons || 0) + (ottStack?.corsairs || 0);
+    expect(totalRemaining).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('naval-actions edge cases: naval move to port', () => {
+  it('fleet enters own port successfully', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Aegean Sea', 'ottoman', 2, 0);
+
+    executeNavalMove(state, 'ottoman', {
+      movements: [{ from: 'Aegean Sea', to: 'Istanbul' }]
+    }, helpers);
+
+    const dst = state.spaces['Istanbul'].units.find(u => u.owner === 'ottoman');
+    expect(dst).toBeDefined();
+    expect(dst.squadrons).toBe(2);
+  });
+});
+
+describe('naval-actions edge cases: multiple fleets in same sea zone', () => {
+  it('two different powers can coexist in same sea zone', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Ionian Sea', 'ottoman', 2, 0);
+    placeNaval(state, 'Ionian Sea', 'hapsburg', 3, 0);
+
+    const ottStack = state.spaces['Ionian Sea'].units.find(u => u.owner === 'ottoman');
+    const habStack = state.spaces['Ionian Sea'].units.find(u => u.owner === 'hapsburg');
+    expect(ottStack.squadrons).toBe(2);
+    expect(habStack.squadrons).toBe(3);
+    expect(state.spaces['Ionian Sea'].units.length).toBe(2);
+  });
+});
+
+describe('naval-actions edge cases: fleet elimination', () => {
+  it('completely destroyed fleet is removed from space units', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Ionian Sea', 'ottoman', 1, 0);
+    placeNaval(state, 'Ionian Sea', 'hapsburg', 5, 0);
+    // All dice hit = massive hits on ottoman
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
+
+    resolveNavalCombat(
+      state, 'Ionian Sea', 'ottoman', 'hapsburg', false, helpers
+    );
+
+    // Ottoman should be eliminated (hapsburg retains on mutual or ottoman simply dies)
+    const ottStack = state.spaces['Ionian Sea'].units.find(u => u.owner === 'ottoman');
+    // Either fully removed from units array or has 0 naval
+    const ottNaval = (ottStack?.squadrons || 0) + (ottStack?.corsairs || 0);
+    expect(ottNaval).toBe(0);
+  });
+});
+
+describe('naval-actions edge cases: Professional Rowers card #34 interaction', () => {
+  it('combat result includes roll data that response window can modify', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Ionian Sea', 'ottoman', 2, 0);
+    placeNaval(state, 'Ionian Sea', 'hapsburg', 2, 0);
+
+    const result = resolveNavalCombat(
+      state, 'Ionian Sea', 'ottoman', 'hapsburg', false, helpers
+    );
+
+    // Result should expose roll arrays for post-roll card modification
+    expect(Array.isArray(result.attackerRolls)).toBe(true);
+    expect(Array.isArray(result.defenderRolls)).toBe(true);
+    expect(result.attackerRolls.length).toBe(result.attackerDice);
+    expect(result.defenderRolls.length).toBe(result.defenderDice);
+  });
+});

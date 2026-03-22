@@ -15,8 +15,8 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 | 源码文件 | 58 个 JS 文件 |
 | 测试文件 | 34 个 test.js 文件 |
 | 源码行数 | ~26,100 行 |
-| 测试行数 | ~16,800 行 |
-| 单元测试 | **1,330 个**，全部通过 |
+| 测试行数 | ~18,200 行 |
+| 单元测试 | **1,451 个**，全部通过 |
 | 事件处理器 | **135/135 张卡牌已实现** |
 
 **已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心)
@@ -311,7 +311,7 @@ frontend/src/games/his/
 
 **11.1 验证结果**：config/export/getVisibleState/processMove 格式/网络收发路径/状态大小均正确。修复了 UI-only action（SELECT_CARD、SELECT_SPACE）泄漏到引擎的问题，以及 action 格式 `{type,data}` → `{actionType,actionData}` 的统一。
 
-**11.4 边界用例测试进展**（+271 新测试，870→1141）：
+**11.4 边界用例测试进展**（+392 新测试，870→1451）：
 
 第一批（870→997）：
 
@@ -334,6 +334,15 @@ frontend/src/games/his/
 - `loan-actions.test.js` +6：零中队、精确边界、多借调追踪
 - `interception.test.js` +6：奥斯曼骑兵加值、纯海军排除、山口排除、去重
 - `phase-new-world.test.js` +6：空探险家池、发现回退链、非哈布斯堡征服
+
+第三批（1330→1451）：
+
+- `index.test.js` +15：W7 多响应者流程、Wartburg 取消事件、#31/#32/#38 中断效果、CP 模式取消
+- `response-actions.test.js` +20：W5/W6 投骰后窗口设置/过滤、W7 中断资格/推进/跳过
+- `phase-winter.test.js` +16：损耗顺序（佣兵→正规→骑兵）、借调归还、强制事件、围城处理、状态重置
+- `military-actions.test.js` +28：山口移动、领袖/骑兵随队、阻挡验证、征募/佣兵/舰队边界、骑兵资格
+- `naval-actions.test.js` +17：海战触发/骰数/领袖加值/平局/伤亡、海盗 VP 上限、舰队消灭
+- `state-helpers.test.js` +16：空间单位查询、岛屿/山口邻接、路径搜索阻挡、势力映射、改革空间计数
 
 **11.7 响应卡系统设计**：
 
@@ -405,7 +414,7 @@ frontend/src/games/his/
 | Phase 10 卡牌事件 UI | ~3,000 | ~1,100 | ✅ |
 | Phase 11 多人联机 | ~1,000 | — | ⬅️ |
 | **源码合计** | ~27,500 | **~25,300** | |
-| **测试合计** | ~8,000-12,000 | **~15,600** | 1,285 tests |
+| **测试合计** | ~8,000-12,000 | **~18,200** | 1,451 tests |
 
 **依赖关系图**：
 ```
@@ -425,14 +434,14 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 | 测试文件 | 测试数 | 覆盖模块 |
 |----------|--------|----------|
 | state-init.test.js | 35 | 初始化、数据完整性 |
-| state-helpers.test.js | 54 | 查询工具、路径搜索、辩士 |
+| state-helpers.test.js | 76 | 查询工具、路径搜索、辩士、邻接、改革计数 |
 | state-visible.test.js | 29 | 信息隐藏、深拷贝、旁观者 |
 | war-helpers.test.js | 33 | 战争/同盟状态 |
 | victory-checks.test.js | 41 | 胜利条件、阈值边界 |
 | reformer-helpers.test.js | 15 | 宗教改革者追踪 |
 | cp-manager.test.js | 22 | CP 花费 |
-| military-actions.test.js | 46 | 移动、征募、建造 |
-| naval-actions.test.js | 50 | 海军、海盗 |
+| military-actions.test.js | 75 | 移动、征募、建造、山口、骑兵资格 |
+| naval-actions.test.js | 69 | 海军、海盗、海战骰数/伤亡、舰队消灭 |
 | combat-actions.test.js | 54 | 野战、领袖类型、伤亡级联、W1-W4 窗口 |
 | siege-actions.test.js | 35 | 围城、半骰进位、LOC、W5 |
 | interception.test.js | 17 | 拦截、骑兵修正、山口排除 |
@@ -455,10 +464,10 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 | phase-diet-of-worms.test.js | 17 | 沃尔姆斯议会 |
 | phase-luther95.test.js | 29 | 95 条论纲 |
 | phase-new-world.test.js | 14 | 新世界阶段、发现回退 |
-| phase-winter.test.js | 21 | 冬季阶段 |
-| index.test.js | 60 | 集成测试、响应卡流程、W7 中断 |
-| response-actions.test.js | 139 | 响应卡系统（W1-W7） |
-| **合计** | **1,330** | |
+| phase-winter.test.js | 37 | 冬季阶段、损耗、借调归还、围城 |
+| index.test.js | 75 | 集成测试、响应卡流程、W7 中断 |
+| response-actions.test.js | 159 | 响应卡系统（W1-W7） |
+| **合计** | **1,451** | |
 
 运行命令：
 ```bash

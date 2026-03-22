@@ -1891,3 +1891,333 @@ describe('W7 response card handling', () => {
     expect(result.error).toContain('france');
   });
 });
+
+// ── W5/W6 Post-Roll Edge Cases ───────────────────────────────────
+
+describe('getValidPostRollCards — edge cases', () => {
+  it('returns #35 only for assault battle type', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [35, 50];
+    expect(getValidPostRollCards(state, 'hapsburg', 'assault'))
+      .toEqual([35]);
+    expect(getValidPostRollCards(state, 'hapsburg', 'field'))
+      .toEqual([]);
+    expect(getValidPostRollCards(state, 'hapsburg', 'naval'))
+      .toEqual([]);
+  });
+
+  it('returns #34 only for naval battle type', () => {
+    const state = createTestState();
+    state.hands['france'] = [34, 50];
+    expect(getValidPostRollCards(state, 'france', 'naval'))
+      .toEqual([34]);
+    expect(getValidPostRollCards(state, 'france', 'field'))
+      .toEqual([]);
+    expect(getValidPostRollCards(state, 'france', 'assault'))
+      .toEqual([]);
+  });
+
+  it('returns #1 only for Ottoman in field battle', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [1, 50];
+    expect(getValidPostRollCards(state, 'ottoman', 'field'))
+      .toEqual([1]);
+    // Non-Ottoman cannot use #1
+    state.hands['hapsburg'] = [1, 50];
+    expect(getValidPostRollCards(state, 'hapsburg', 'field'))
+      .toEqual([]);
+  });
+
+  it('returns empty for non-matching battle type', () => {
+    const state = createTestState();
+    // #35 is assault only, #34 is naval only, #1 is field+ottoman only
+    state.hands['hapsburg'] = [35, 34, 50];
+    expect(getValidPostRollCards(state, 'hapsburg', 'field'))
+      .toEqual([]);
+  });
+});
+
+describe('canAnyPowerRespondPostRoll — edge cases', () => {
+  it('finds attacker first, then defender', () => {
+    const state = createTestState();
+    // Both attacker and defender have #35 for assault
+    state.hands['hapsburg'] = [35];
+    state.hands['france'] = [35];
+    const result = canAnyPowerRespondPostRoll(
+      state, 'assault', 'hapsburg', 'france'
+    );
+    expect(result.canRespond).toBe(true);
+    // Attacker is checked first
+    expect(result.respondingPower).toBe('hapsburg');
+  });
+
+  it('returns correct windowType (W4/W5/W6)', () => {
+    const state = createTestState();
+
+    // W4 for Ottoman field
+    state.hands['ottoman'] = [1];
+    state.hands['hapsburg'] = [50];
+    const w4 = canAnyPowerRespondPostRoll(
+      state, 'field', 'ottoman', 'hapsburg'
+    );
+    expect(w4.windowType).toBe('W4');
+
+    // W5 for assault
+    state.hands['ottoman'] = [50];
+    state.hands['hapsburg'] = [35];
+    const w5 = canAnyPowerRespondPostRoll(
+      state, 'assault', 'ottoman', 'hapsburg'
+    );
+    expect(w5.windowType).toBe('W5');
+
+    // W6 for naval
+    state.hands['ottoman'] = [34];
+    state.hands['hapsburg'] = [50];
+    const w6 = canAnyPowerRespondPostRoll(
+      state, 'naval', 'ottoman', 'hapsburg'
+    );
+    expect(w6.windowType).toBe('W6');
+  });
+});
+
+describe('createPostRollWindow — edge cases', () => {
+  it('sets up W5 for assault correctly', () => {
+    const state = createTestState();
+    state.hands['hapsburg'] = [35, 50];
+    state.hands['france'] = [50];
+    const created = createPostRollWindow(
+      state, 'W5', 'Vienna', 'hapsburg', 'france', 'assault'
+    );
+    expect(created).toBe(true);
+    expect(state.pendingResponse.window).toBe('W5');
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+    expect(state.pendingResponse.validCards).toContain(35);
+    expect(state.pendingResponse.context.type).toBe('assault');
+    expect(state.pendingResponse.context.space).toBe('Vienna');
+  });
+
+  it('sets up W6 for naval correctly', () => {
+    const state = createTestState();
+    state.hands['ottoman'] = [34, 50];
+    state.hands['hapsburg'] = [50];
+    const created = createPostRollWindow(
+      state, 'W6', 'Adriatic Sea', 'ottoman', 'hapsburg', 'naval'
+    );
+    expect(created).toBe(true);
+    expect(state.pendingResponse.window).toBe('W6');
+    expect(state.pendingResponse.respondingPower).toBe('ottoman');
+    expect(state.pendingResponse.validCards).toContain(34);
+    expect(state.pendingResponse.context.type).toBe('naval');
+  });
+
+  it('returns false when no eligible power', () => {
+    const state = createTestState();
+    // No one has post-roll cards for assault
+    state.hands['hapsburg'] = [50, 51];
+    state.hands['france'] = [50, 51];
+    const created = createPostRollWindow(
+      state, 'W5', 'Vienna', 'hapsburg', 'france', 'assault'
+    );
+    expect(created).toBe(false);
+  });
+});
+
+describe('getNextPostRollWindow — terminal', () => {
+  it('always returns null for all post-roll windows', () => {
+    expect(getNextPostRollWindow('W4')).toBeNull();
+    expect(getNextPostRollWindow('W5')).toBeNull();
+    expect(getNextPostRollWindow('W6')).toBeNull();
+  });
+});
+
+// ── W7 Interrupt Edge Cases ──────────────────────────────────────
+
+describe('getValidInterruptCards — W7 edge cases', () => {
+  it('with no triggerType returns all interrupt cards the power holds', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.lutherPlaced = true;
+    state.hands['protestant'] = [31, 37, 38, 50];
+    // No triggerType filter — all matching cards returned
+    const result = getValidInterruptCards(state, 'protestant');
+    expect(result).toContain(31);
+    expect(result).toContain(37);
+    expect(result).toContain(38);
+    expect(result).toHaveLength(3);
+  });
+
+  it('active power excluded even if holding interrupt cards', () => {
+    const state = createTestState();
+    state.activePower = 'hapsburg';
+    state.hands['hapsburg'] = [31, 32, 38, 50];
+    // Active power cannot play any interrupt
+    const result = getValidInterruptCards(
+      state, 'hapsburg', 'impulse_start'
+    );
+    expect(result).toEqual([]);
+  });
+});
+
+describe('canAnyPowerInterrupt — W7 edge cases', () => {
+  it('returns powers in IMPULSE_ORDER', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['papacy'] = [32, 50];
+    state.hands['hapsburg'] = [31, 50];
+    state.hands['france'] = [38, 50];
+    const result = canAnyPowerInterrupt(state, 'impulse_start');
+    // IMPULSE_ORDER: ottoman, hapsburg, england, france, papacy, protestant
+    // ottoman is active → excluded
+    expect(result.powers).toEqual(['hapsburg', 'france', 'papacy']);
+  });
+
+  it('with no eligible powers returns empty', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50, 51];
+    }
+    const result = canAnyPowerInterrupt(state, 'impulse_start');
+    expect(result.powers).toEqual([]);
+    expect(result.cards.size).toBe(0);
+  });
+});
+
+describe('createInterruptWindow — W7 edge cases', () => {
+  it('stores triggerData in battleState', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['hapsburg'] = [31, 50];
+
+    const triggerData = { cardNumber: 50, power: 'ottoman' };
+    createInterruptWindow(state, 'impulse_start', triggerData);
+
+    expect(state.pendingResponse.battleState).toEqual(triggerData);
+    expect(state.pendingResponse.context.triggerData).toEqual(triggerData);
+  });
+
+  it('with event_play only includes #37 holders (Protestant)', () => {
+    const state = createTestState();
+    state.activePower = 'ottoman';
+    state.lutherPlaced = true;
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    // Hapsburg has impulse_start cards but not event_play cards
+    state.hands['hapsburg'] = [31, 50];
+    state.hands['protestant'] = [37, 50];
+
+    const created = createInterruptWindow(state, 'event_play', {
+      cardNumber: 42, power: 'ottoman'
+    });
+
+    expect(created).toBe(true);
+    // Only Protestant should be a responder (not Hapsburg)
+    expect(state.pendingResponse.respondingPowers).toEqual(['protestant']);
+    expect(state.pendingResponse.respondingPower).toBe('protestant');
+    expect(state.pendingResponse.validCards).toContain(37);
+  });
+});
+
+describe('advanceInterruptWindow — W7 edge cases', () => {
+  it('skips power that lost cards between turns', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['hapsburg'] = [31, 50];
+    state.hands['england'] = [38, 50];
+    state.hands['papacy'] = [32, 50];
+
+    createInterruptWindow(state, 'impulse_start');
+    expect(state.pendingResponse.respondingPower).toBe('hapsburg');
+
+    // England loses card before their turn
+    state.hands['england'] = [50];
+
+    const next = advanceInterruptWindow(state, helpers);
+    expect(next).toBe('W7');
+    // Should skip england and go to papacy
+    expect(state.pendingResponse.respondingPower).toBe('papacy');
+  });
+
+  it('returns null when already at last responder', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    for (const p of Object.keys(state.hands)) {
+      state.hands[p] = [50];
+    }
+    state.hands['hapsburg'] = [31, 50];
+
+    createInterruptWindow(state, 'impulse_start');
+    expect(state.pendingResponse.respondingPowers).toHaveLength(1);
+
+    const next = advanceInterruptWindow(state, helpers);
+    expect(next).toBeNull();
+  });
+});
+
+describe('handlePlayResponseCard in W7 context', () => {
+  it('card removed from hand and effect applied', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    state.hands['hapsburg'] = [31, 50];
+
+    createInterruptWindow(state, 'impulse_start');
+
+    const result = handlePlayResponseCard(
+      state, 'hapsburg', {
+        cardNumber: 31,
+        targetPower: 'ottoman'
+      }, helpers
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.cardNumber).toBe(31);
+    expect(result.window).toBe('W7');
+    // Card removed from hand
+    expect(state.hands['hapsburg']).not.toContain(31);
+    // Foul Weather handler sets pendingFoulWeather
+    // Note: handlePlayResponseCard recomputes targetPower from context,
+    // so for W7 windows (no attackerPower/defenderPower) the handler
+    // receives the recomputed value. We verify the handler ran.
+    expect(state.pendingFoulWeather).toBeDefined();
+  });
+});
+
+describe('handleDeclineResponse in W7 context', () => {
+  it('responses recorded correctly and card stays in hand', () => {
+    const state = createTestState();
+    const helpers = createMockHelpers();
+    state.activePower = 'ottoman';
+    state.hands['hapsburg'] = [31, 50];
+
+    createInterruptWindow(state, 'impulse_start');
+
+    const result = handleDeclineResponse(state, 'hapsburg', helpers);
+
+    expect(result.success).toBe(true);
+    expect(result.window).toBe('W7');
+    // Card stays in hand
+    expect(state.hands['hapsburg']).toContain(31);
+    // pendingResponse cleared
+    expect(state.pendingResponse).toBeNull();
+    // Decline logged
+    const logEntry = state.eventLog.find(
+      e => e.type === 'decline_response'
+    );
+    expect(logEntry).toBeDefined();
+    expect(logEntry.data.power).toBe('hapsburg');
+    expect(logEntry.data.window).toBe('W7');
+  });
+});
