@@ -7,6 +7,9 @@ import { GameEngine } from '../../game/engine.js';
 import config from './config.json';
 import { MAJOR_POWERS, VICTORY } from './constants.js';
 import { buildInitialState } from './state/state-init.js';
+import {
+  initBotDecks, placeBotExtraUnits, isBotPower, botPlayerId
+} from './ai/bot-controller.js';
 import { getVisibleState } from './state/state-visible.js';
 import {
   getPowerForPlayer, getPowersForPlayer, playerControlsPower,
@@ -213,6 +216,21 @@ export class HISGame extends GameEngine {
     const { players, options = {} } = gameConfig;
     const state = buildInitialState(players, options);
 
+    // Bot initialization: set up AI-controlled powers
+    const botPowerIds = options.botPowers || [];
+    if (botPowerIds.length > 0) {
+      initBotDecks(state, botPowerIds);
+      placeBotExtraUnits(state);
+
+      // Register bot player IDs in power mappings
+      for (const power of botPowerIds) {
+        const bpId = botPlayerId(power);
+        state.playerByPower[power] = bpId;
+        state.powerByPlayer[bpId] = power;
+        state.powersForPlayer[bpId] = [power];
+      }
+    }
+
     // Run Turn 1: Luther's 95 Theses (interactive — waits for Protestant input)
     const helpers = this._getPhaseHelpers();
     transitionPhase(state, PHASES.LUTHER_95, helpers);
@@ -264,6 +282,40 @@ export class HISGame extends GameEngine {
     }
 
     return powers[0] || getPowerForPlayer(state, playerId);
+  }
+
+  // ── Save/Load Metadata ─────────────────────────────────────────
+
+  /** @override */
+  _getSaveMetadata() {
+    const s = this.state;
+    if (!s) return {};
+    return {
+      turn: s.turn,
+      phase: s.phase,
+      activePower: s.activePower,
+      playerCount: s.players?.length || 0,
+      vp: s.vp ? { ...s.vp } : {}
+    };
+  }
+
+  /** @override */
+  _autoLabel() {
+    const s = this.state;
+    if (!s) return 'HIS Save';
+    const phaseNames = {
+      luther_95: '九十五条论纲',
+      card_draw: '抽牌',
+      diplomacy: '外交',
+      diet_of_worms: '沃尔姆斯会议',
+      spring_deployment: '春季部署',
+      action: '行动',
+      winter: '冬季',
+      new_world: '新世界',
+      victory_determination: '胜利判定'
+    };
+    const phaseName = phaseNames[s.phase] || s.phase;
+    return `第${s.turn || '?'}回合 — ${phaseName}`;
   }
 
   /**

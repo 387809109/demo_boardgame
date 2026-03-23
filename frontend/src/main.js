@@ -12,7 +12,16 @@ import {
   saveSessionData,
   loadSessionData,
   saveRoomCreatePreset,
-  loadRoomCreatePreset
+  loadRoomCreatePreset,
+  saveGameSlot,
+  loadGameSlot,
+  listGameSlots,
+  deleteGameSlot,
+  exportSaveFile,
+  importSaveFile,
+  autoSaveGame,
+  loadAutoSave,
+  clearAutoSave
 } from './utils/storage.js';
 import { initAnalytics, setAnalyticsConsent, trackEvent } from './utils/analytics.js';
 
@@ -37,6 +46,7 @@ import { CloudNetworkClient } from './cloud/cloud-network.js';
 import unoConfig from './games/uno/config.json';
 import werewolfConfig from './games/werewolf/config.json';
 import hisConfig from './games/his/config.json';
+import { scheduleBotAction } from './games/his/ai/bot-controller.js';
 
 const GAME_REGISTRY = {
   uno: {
@@ -848,12 +858,33 @@ class App {
 
     // Note: invalidMove errors are handled in _handleGameAction, no need for separate listener
 
+    // Auto-save for offline games
+    if (mode === 'offline') {
+      game._autoSaveEnabled = true;
+      game._performAutoSave = () => {
+        autoSaveGame(gameType, game.exportSave());
+      };
+    }
+
+    // Wire up save/load events from game UI
+    if (gameUI) {
+      gameUI.on?.('saveRequested', () => this._saveGame());
+      gameUI.on?.('loadRequested', () => this._showLoadDialog());
+      gameUI.on?.('exportRequested', () => this._exportGame());
+      gameUI.on?.('importRequested', () => this._importGame());
+    }
+
     // Start AI simulation if offline, or if online and host with AI players
     const shouldSimulateAI = mode === 'offline' ||
       (mode === 'online' && this._isHost() && this._aiPlayers?.length > 0);
 
     if (shouldSimulateAI) {
       setTimeout(() => this._simulateAITurn(), 500);
+    }
+
+    // HIS Bot: schedule first bot action if any bot powers exist
+    if (gameType === 'his' && mode === 'offline') {
+      this._scheduleHisBotAction();
     }
   }
 
@@ -863,6 +894,101 @@ class App {
    */
   _isHost() {
     return this.currentRoom?.players?.find(p => p.id === this.playerId)?.isHost || false;
+  }
+
+  // ── Save/Load Handlers ─────────────────────────────────────────
+
+  /**
+   * Save current game to next available slot.
+   * @private
+   */
+  _saveGame() {
+    if (!this.currentGame) return;
+    const save = this.currentGame.exportSave();
+    const slots = listGameSlots(save.gameId);
+    // Use next slot index (cycle within MAX_SAVE_SLOTS)
+    const maxSlots = 5;
+    const slotIndex = slots.length < maxSlots
+      ? slots.length
+      : maxSlots - 1; // overwrite oldest (last in desc-sorted list)
+    const slotKey = `${save.gameId}_slot_${slotIndex}`;
+    saveGameSlot(slotKey, save);
+    showToast(`存档成功：${save.label}`);
+  }
+
+  /**
+   * Show load dialog with available saves.
+   * @private
+   */
+  _showLoadDialog() {
+    if (!this.currentGame) return;
+    const gameId = this._activeGameType;
+    const slots = listGameSlots(gameId);
+    if (slots.length === 0) {
+      showToast('没有可用的存档');
+      return;
+    }
+    // Load most recent save
+    const save = loadGameSlot(slots[0].slotKey);
+    if (!save) {
+      showToast('读取存档失败');
+      return;
+    }
+    this._loadSave(save);
+  }
+
+  /**
+   * Load a save into the current game.
+   * @param {Object} save - Save data
+   * @private
+   */
+  async _loadSave(save) {
+    try {
+      const { validateSaveData } = await import(
+        './games/his/state/save-load.js'
+      );
+      const validation = validateSaveData(save);
+      if (!validation.valid) {
+        showToast(`存档无效：${validation.error}`);
+        return;
+      }
+    } catch (_) {
+      // Validation module not available — skip validation
+    }
+    this.currentGame.importSave(save);
+    showToast(`读档成功：${save.label || '存档'}`);
+  }
+
+  /**
+   * Export current game to a JSON file download.
+   * @private
+   */
+  _exportGame() {
+    if (!this.currentGame) return;
+    const save = this.currentGame.exportSave();
+    const filename = `his_save_turn${save.metadata?.turn || 0}.json`;
+    exportSaveFile(save, filename);
+  }
+
+  /**
+   * Import a save from a JSON file.
+   * @private
+   */
+  _importGame() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const save = await importSaveFile(file);
+        await this._loadSave(save);
+      } catch (err) {
+        showToast(`导入失败：${err.message}`);
+      }
+    };
+    input.click();
   }
 
   /**
@@ -908,6 +1034,11 @@ class App {
     if (this.currentGame.mode === 'offline'
       || (this.currentGame.mode === 'online' && this._isHost() && this._aiPlayers?.length > 0)) {
       setTimeout(() => this._simulateAITurn(), 500);
+    }
+
+    // HIS Bot: schedule next bot action after human move
+    if (this._activeGameType === 'his' && this.currentGame.mode === 'offline') {
+      this._scheduleHisBotAction();
     }
   }
 
@@ -1079,6 +1210,29 @@ class App {
 
       setTimeout(() => this._simulateAITurn(), 500);
     }, 600);
+  }
+
+  /**
+   * Schedule next HIS Bot action if active power is a Bot.
+   * @private
+   */
+  _scheduleHisBotAction() {
+    if (this._hisBotTimer) {
+      clearTimeout(this._hisBotTimer);
+      this._hisBotTimer = null;
+    }
+
+    const game = this.currentGame;
+    if (!game || !game.isRunning) return;
+
+    this._hisBotTimer = scheduleBotAction(game, (move) => {
+      if (!game.isRunning) return;
+      const result = game.executeMove(move);
+      if (result.success) {
+        // Chain: schedule next bot action after this one
+        this._scheduleHisBotAction();
+      }
+    });
   }
 
   /**

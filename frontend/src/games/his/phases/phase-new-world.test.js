@@ -327,4 +327,147 @@ describe('resolveNewWorld', () => {
     }
     expect(verified).toBe(true);
   });
+
+  // ── Edge Cases ─────────────────────────────────────────────────
+
+  it('multiple colonies from different powers all placed', () => {
+    const state = stateWithNewWorld({
+      underwayColonies: [
+        { power: 'england' }, { power: 'france' }, { power: 'hapsburg' }
+      ]
+    });
+    const helpers = createMockHelpers();
+    resolveNewWorld(state, helpers);
+    expect(state.newWorld.colonies).toHaveLength(3);
+    expect(state.newWorld.underwayColonies).toHaveLength(0);
+    const powers = state.newWorld.colonies.map(c => c.power);
+    expect(powers).toContain('england');
+    expect(powers).toContain('france');
+    expect(powers).toContain('hapsburg');
+  });
+
+  it('Hapsburg conquest skipped when no conquistadors available', () => {
+    const allConqs = ['cordova', 'coronado', 'cortez', 'montejo', 'pizarro'];
+    const state = stateWithNewWorld({
+      underwayConquests: [{ power: 'hapsburg' }],
+      deadConquistadors: allConqs
+    });
+    const helpers = createMockHelpers();
+    resolveNewWorld(state, helpers);
+    // No conquest events should appear
+    const conquestEvents = state.eventLog.filter(e =>
+      e.type === 'conquest_made' || e.type === 'conquest_failed'
+    );
+    expect(conquestEvents).toHaveLength(0);
+  });
+
+  it('conquests resolved in power order: Hapsburg before England', () => {
+    let verified = false;
+    for (let i = 0; i < 50 && !verified; i++) {
+      const state = stateWithNewWorld({
+        underwayConquests: [
+          { power: 'england' },
+          { power: 'hapsburg' }
+        ]
+      });
+      const helpers = createMockHelpers();
+      resolveNewWorld(state, helpers);
+      const events = state.eventLog.filter(e =>
+        e.type === 'conquest_made' || e.type === 'conquest_failed'
+      );
+      if (events.length >= 2) {
+        expect(events[0].data.power).toBe('hapsburg');
+        expect(events[1].data.power).toBe('england');
+        verified = true;
+      }
+    }
+    expect(verified).toBe(true);
+  });
+
+  it('all conquests claimed returns all_claimed result', () => {
+    let found = false;
+    for (let i = 0; i < 100 && !found; i++) {
+      const state = stateWithNewWorld({
+        underwayConquests: [{ power: 'england' }],
+        claimedConquests: ['aztec', 'inca', 'maya']
+      });
+      const helpers = createMockHelpers();
+      resolveNewWorld(state, helpers);
+      const evt = state.eventLog.find(e =>
+        e.type === 'conquest_failed' && e.data.result === 'all_claimed'
+      );
+      if (evt) found = true;
+    }
+    // With 2d6+0 >= 9 (28% chance) and all claimed, should trigger
+    expect(found).toBe(true);
+  });
+
+  it('deep penetration with Pacific+Amazon claimed falls back to 1VP discovery', () => {
+    let found = false;
+    for (let i = 0; i < 100 && !found; i++) {
+      const state = stateWithNewWorld({
+        underwayExplorations: [{ power: 'hapsburg' }],
+        claimedDiscoveries: ['pacific_strait', 'circumnavigation', 'amazon'],
+        deadExplorers: ['cabot_hap', 'desoto', 'de_vaca', 'leon', 'narvaez', 'orellana']
+        // Only magellan (+4) remains — rolls 2d6+4, 10+ triggers deep penetration
+      });
+      const helpers = createMockHelpers();
+      resolveNewWorld(state, helpers);
+
+      const disc = state.eventLog.find(e =>
+        e.type === 'discovery_made' &&
+        ['st_lawrence', 'great_lakes', 'mississippi'].includes(e.data.discovery)
+      );
+      if (disc) found = true;
+    }
+    // Magellan +4 on 2d6: P(sum >= 6 for roll 10+) ≈ 72%, then falls back to 1VP
+    expect(found).toBe(true);
+  });
+
+  it('deep penetration with everything claimed logs all_claimed', () => {
+    let found = false;
+    for (let i = 0; i < 100 && !found; i++) {
+      const state = stateWithNewWorld({
+        underwayExplorations: [{ power: 'hapsburg' }],
+        claimedDiscoveries: [
+          'st_lawrence', 'great_lakes', 'mississippi',
+          'pacific_strait', 'circumnavigation', 'amazon'
+        ],
+        deadExplorers: ['cabot_hap', 'desoto', 'de_vaca', 'leon', 'narvaez', 'orellana']
+      });
+      const helpers = createMockHelpers();
+      resolveNewWorld(state, helpers);
+
+      const noDisc = state.eventLog.find(e =>
+        e.type === 'no_discovery' && e.data.reason === 'all_claimed'
+      );
+      if (noDisc) found = true;
+    }
+    expect(found).toBe(true);
+  });
+
+  it('circumnavigation already claimed still awards Pacific VP', () => {
+    let found = false;
+    for (let i = 0; i < 100 && !found; i++) {
+      const state = stateWithNewWorld({
+        underwayExplorations: [{ power: 'hapsburg' }],
+        claimedDiscoveries: ['circumnavigation'],
+        deadExplorers: ['cabot_hap', 'desoto', 'de_vaca', 'leon', 'narvaez', 'orellana']
+      });
+      const helpers = createMockHelpers();
+      resolveNewWorld(state, helpers);
+
+      // If deep penetration triggered and Pacific not yet claimed
+      const circumEvt = state.eventLog.find(e =>
+        e.type === 'circumnavigation_success' || e.type === 'circumnavigation_failed'
+      );
+      if (circumEvt) {
+        // Pacific was claimed (new), circumnavigation was already claimed
+        expect(state.newWorld.claimedDiscoveries).toContain('pacific_strait');
+        found = true;
+      }
+    }
+    // Magellan +4 means high chance of deep penetration (roll 10+)
+    expect(found).toBe(true);
+  });
 });

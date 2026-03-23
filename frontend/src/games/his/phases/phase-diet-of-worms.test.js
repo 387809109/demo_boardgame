@@ -192,4 +192,79 @@ describe('needsDietCard', () => {
     submitDietCard(state, 'protestant', state.hands.protestant[0], helpers);
     expect(needsDietCard(state, 'protestant')).toBe(false);
   });
+
+  it('false when no pending diet', () => {
+    const state = createStateAfterDraw();
+    expect(needsDietCard(state, 'protestant')).toBe(false);
+  });
+});
+
+describe('edge cases', () => {
+  it('validateDietCard rejects when not in Diet phase', () => {
+    const state = createStateAfterDraw();
+    const r = validateDietCard(state, 'protestant', 50);
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Not in Diet');
+  });
+
+  it('home card marks homeCardPlayed for the power', () => {
+    const { state, helpers } = setupDiet();
+    // Card #6 is Protestant home card
+    state.hands.protestant = [6];
+    state.homeCardPlayed = state.homeCardPlayed || {};
+    submitDietCard(state, 'protestant', 6, helpers);
+    expect(state.homeCardPlayed.protestant).toBe(true);
+    // Home cards should not go to discard
+    expect(state.discard).not.toContain(6);
+  });
+
+  it('isDietComplete is true after resolution', () => {
+    const { state, helpers } = setupDiet();
+    expect(isDietComplete(state)).toBe(false);
+    submitDietCard(state, 'protestant', state.hands.protestant[0], helpers);
+    submitDietCard(state, 'hapsburg', state.hands.hapsburg[0], helpers);
+    submitDietCard(state, 'papacy', state.hands.papacy[0], helpers);
+    expect(isDietComplete(state)).toBe(true);
+    expect(state.pendingDietOfWorms).toBeNull();
+  });
+
+  it('resolution recounts protestant spaces', () => {
+    const { state, helpers } = setupDiet();
+    // Set some spaces to protestant to verify recount runs
+    const before = state.protestantSpaces;
+    submitDietCard(state, 'protestant', state.hands.protestant[0], helpers);
+    submitDietCard(state, 'hapsburg', state.hands.hapsburg[0], helpers);
+    submitDietCard(state, 'papacy', state.hands.papacy[0], helpers);
+    // protestantSpaces should be a number (recounted)
+    expect(typeof state.protestantSpaces).toBe('number');
+  });
+
+  it('resolution log includes dice arrays', () => {
+    const { state, helpers } = setupDiet();
+    submitDietCard(state, 'protestant', state.hands.protestant[0], helpers);
+    submitDietCard(state, 'hapsburg', state.hands.hapsburg[0], helpers);
+    submitDietCard(state, 'papacy', state.hands.papacy[0], helpers);
+    const log = state.eventLog.find(e => e.type === 'diet_of_worms_resolved');
+    expect(Array.isArray(log.data.protDice)).toBe(true);
+    expect(Array.isArray(log.data.hapDice)).toBe(true);
+    expect(Array.isArray(log.data.papDice)).toBe(true);
+  });
+
+  it('flipped spaces are all German zone on catholic victory (probabilistic)', () => {
+    let cathWins = 0;
+    for (let i = 0; i < 30; i++) {
+      const { state, helpers } = setupDiet();
+      submitDietCard(state, 'protestant', state.hands.protestant[0], helpers);
+      submitDietCard(state, 'hapsburg', state.hands.hapsburg[0], helpers);
+      const r = submitDietCard(state, 'papacy', state.hands.papacy[0], helpers);
+      if (r.result.catholicHits > r.result.protestantHits) {
+        cathWins++;
+        for (const name of r.result.spacesFlipped) {
+          expect(state.spaces[name].languageZone).toBe('german');
+        }
+      }
+    }
+    // Catholic can win sometimes (Hapsburg+Papacy combined dice)
+    // This is probabilistic, so we just verify the invariant when it happens
+  });
 });

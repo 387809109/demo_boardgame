@@ -8,7 +8,7 @@
   "estimatedTime": 360,
   "tags": ["战略", "历史", "区域控制", "卡牌驱动"],
   "gameType": "multiplayer",
-  "supportsAI": false,
+  "supportsAI": true,
 
   "powers": {
     "ottoman": { "name": "奥斯曼帝国", "color": "#2e7d32" },

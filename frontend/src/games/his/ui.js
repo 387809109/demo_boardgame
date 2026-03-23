@@ -91,10 +91,23 @@ export class HisUI {
     this._mapContainer = null;
     this._lastEventLogLength = 0;
 
+    // Simple event listeners for save/load
+    this._listeners = {};
+
     // Mount in game-ui-container (not ring center)
     this.mountInRingCenter = false;
     // Opt-in to incremental update path (preserves map zoom/pan state)
     this.supportsIncrementalUpdate = true;
+  }
+
+  /** Register event listener */
+  on(event, fn) {
+    (this._listeners[event] = this._listeners[event] || []).push(fn);
+  }
+
+  /** Emit event to listeners */
+  _emit(event, ...args) {
+    for (const fn of this._listeners[event] || []) fn(...args);
   }
 
   setGameBoard(gameBoard) {
@@ -422,12 +435,23 @@ export class HisUI {
     );
     wrapper.appendChild(panelEl);
 
-    // Reset map button
+    // Utility buttons row
+    const utilRow = document.createElement('div');
+    utilRow.style.cssText = 'display:flex;gap:4px;flex-direction:column;';
+
     const resetBtn = this._actionBtn('重置地图', () => {
       if (this._mapInteraction) this._mapInteraction.resetView();
     }, true);
-    resetBtn.style.alignSelf = 'flex-start';
-    wrapper.appendChild(resetBtn);
+    utilRow.appendChild(resetBtn);
+
+    // Save/Load/Export buttons
+    const saveBtn = this._actionBtn('存档', () => this._emit('saveRequested'), true);
+    const loadBtn = this._actionBtn('读档', () => this._emit('loadRequested'), true);
+    const exportBtn = this._actionBtn('导出', () => this._emit('exportRequested'), true);
+    const importBtn = this._actionBtn('导入', () => this._emit('importRequested'), true);
+    utilRow.append(saveBtn, loadBtn, exportBtn, importBtn);
+
+    wrapper.appendChild(utilRow);
 
     return wrapper;
   }

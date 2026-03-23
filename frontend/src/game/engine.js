@@ -159,6 +159,11 @@ export class GameEngine extends EventEmitter {
 
       this.emit('stateUpdated', newState);
 
+      // Auto-save checkpoint
+      if (this._autoSaveEnabled && this._performAutoSave) {
+        try { this._performAutoSave(); } catch (_) { /* best-effort */ }
+      }
+
       const endCheck = this.checkGameEnd(newState);
       if (endCheck.ended) {
         this.isRunning = false;
@@ -218,6 +223,54 @@ export class GameEngine extends EventEmitter {
    */
   isPlayerTurn(playerId) {
     return this.state?.currentPlayer === playerId;
+  }
+
+  // ── Save/Load ──────────────────────────────────────────────────
+
+  /**
+   * Export current game state as a serializable save object.
+   * @param {string} [label] - Optional save label
+   * @returns {Object} Save data
+   */
+  exportSave(label) {
+    return {
+      version: 1,
+      gameId: this.config?.gameType || 'unknown',
+      savedAt: Date.now(),
+      label: label || this._autoLabel(),
+      metadata: this._getSaveMetadata(),
+      state: JSON.parse(JSON.stringify(this.state)),
+      history: this.history.map(m => ({ ...m })),
+      config: this.config ? JSON.parse(JSON.stringify(this.config)) : null
+    };
+  }
+
+  /**
+   * Restore game from a save object.
+   * @param {Object} saveData - Previously exported save
+   */
+  importSave(saveData) {
+    this.state = saveData.state;
+    this.history = saveData.history || [];
+    this.config = saveData.config || this.config;
+    this.isRunning = true;
+    this.emit('stateUpdated', this.state);
+  }
+
+  /**
+   * Get metadata for save display. Override in subclass.
+   * @returns {Object}
+   */
+  _getSaveMetadata() {
+    return { turnNumber: this.state?.turnNumber };
+  }
+
+  /**
+   * Generate auto-label for save. Override in subclass.
+   * @returns {string}
+   */
+  _autoLabel() {
+    return `Turn ${this.state?.turnNumber || '?'}`;
   }
 }
 

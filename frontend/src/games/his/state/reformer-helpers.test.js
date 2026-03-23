@@ -132,5 +132,76 @@ describe('Reformer Helpers', () => {
       const bonus = getReformerDiceBonus(state, 'Istanbul');
       expect(bonus.total).toBe(0);
     });
+
+    it('excludes unrest spaces from adjacent bonus', () => {
+      const state = reformerState();
+      placeReformer(state, 'bucer', 'Leipzig');
+      state.spaces['Leipzig'].unrest = true;
+      const bonus = getReformerDiceBonus(state, 'Wittenberg');
+      expect(bonus.adjacentBonus).toBe(0);
+      expect(bonus.total).toBe(0);
+    });
+
+    it('counts multiple adjacent reformers', () => {
+      const state = reformerState();
+      // Wittenberg is adjacent to Leipzig and Magdeburg (both connections)
+      placeReformer(state, 'bucer', 'Leipzig');
+      placeReformer(state, 'calvin', 'Magdeburg');
+      const bonus = getReformerDiceBonus(state, 'Wittenberg');
+      expect(bonus.adjacentBonus).toBe(2);
+    });
+
+    it('in-space reformer still gives +2 even with unrest adjacent', () => {
+      const state = reformerState();
+      placeReformer(state, 'luther', 'Wittenberg');
+      placeReformer(state, 'bucer', 'Leipzig');
+      state.spaces['Leipzig'].unrest = true;
+      const bonus = getReformerDiceBonus(state, 'Wittenberg');
+      expect(bonus.inSpaceBonus).toBe(2);
+      expect(bonus.adjacentBonus).toBe(0); // Leipzig has unrest
+      expect(bonus.total).toBe(2);
+    });
+  });
+
+  // ── Edge Cases ─────────────────────────────────────────────────
+
+  describe('edge cases', () => {
+    it('placeReformer overwrites existing reformer on target space', () => {
+      const state = reformerState();
+      placeReformer(state, 'luther', 'Wittenberg');
+      placeReformer(state, 'calvin', 'Wittenberg');
+      // Calvin overwrites Luther on the space
+      expect(state.spaces['Wittenberg'].reformer).toBe('calvin');
+      // Luther is now nowhere
+      expect(getReformerLocation(state, 'luther')).toBeNull();
+    });
+
+    it('getReformerInSpace returns null for non-existent space', () => {
+      const state = reformerState();
+      expect(getReformerInSpace(state, 'NonexistentCity')).toBeNull();
+    });
+
+    it('getAdjacentReformers does not include reformer in the queried space', () => {
+      const state = reformerState();
+      placeReformer(state, 'luther', 'Wittenberg');
+      const adj = getAdjacentReformers(state, 'Wittenberg');
+      expect(adj).not.toContain('luther');
+    });
+
+    it('removeReformer is idempotent', () => {
+      const state = reformerState();
+      placeReformer(state, 'luther', 'Wittenberg');
+      removeReformer(state, 'luther');
+      removeReformer(state, 'luther'); // second call — no-op
+      expect(getReformerLocation(state, 'luther')).toBeNull();
+    });
+
+    it('placeReformer then removeReformer leaves space clean', () => {
+      const state = reformerState();
+      placeReformer(state, 'luther', 'Wittenberg');
+      removeReformer(state, 'luther');
+      expect(state.spaces['Wittenberg'].reformer).toBeNull();
+      expect(getReformerInSpace(state, 'Wittenberg')).toBeNull();
+    });
   });
 });

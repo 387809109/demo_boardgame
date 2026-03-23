@@ -21,7 +21,7 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 
 **已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心)
 
-**当前**：Phase 11（多人联机与打磨）— 11.1 ✅，11.4 🔶，11.7 ✅ 完成（响应卡系统 W1-W7 + UI）
+**当前**：Phase 12（AI/HISBOT）— Phase A ✅ Phase B ✅ 完成，Phase C 待开始
 
 ---
 
@@ -304,14 +304,14 @@ frontend/src/games/his/
 | 11.2 | 2-5 人变体（一人控制多势力） | ✅ | 🟡 中 |
 | 11.3 | 锦标赛场景（1532） | ❌ | 🟡 中 |
 | 11.4 | 边界用例全面测试 | 🔶 进行中 | 🟡 中 |
-| 11.5 | 存档/读档 | ❌ | 🟡 中 |
+| 11.5 | 存档/读档 | ✅ | 🟡 中 |
 | 11.6 | 大状态深拷贝性能优化 | ❌ | 🟢 低 |
 | 11.7 | 响应卡系统（引擎 W1-W7 + UI） | ✅ | 🟡 中 |
 | 11.8 | 回放系统（查看历史行动） | ❌ | 🟢 低 |
 
 ---
 
-### Phase 12: AI（HISBOT）⬜ 待开始
+### Phase 12: AI（HISBOT）⬅️ 进行中
 
 > **详细计划**：[`docs/games/his/AI_PLAN.md`](AI_PLAN.md)
 >
@@ -321,19 +321,33 @@ frontend/src/games/his/
 | # | 任务 | 状态 | 优先级 |
 |---|------|------|--------|
 | A0 | 参考文档整理（HISBOT.md → [HISBOT_REF.md](HISBOT_REF.md)，1825 行） | ✅ | 🔴 高 |
-| A | 数据与基础设施（行为卡数据、牌组管理、控制器骨架、游戏循环集成） | ❌ | 🔴 高 |
-| B | 阶段特定逻辑（抓牌、谈判、宣战、春季部署、冬季、新世界） | ❌ | 🔴 高 |
+| A | 数据与基础设施（行为卡数据、牌组管理、控制器骨架、游戏循环集成） | ✅ | 🔴 高 |
+| B | 阶段特定逻辑（抓牌、谈判、宣战、春季部署、冬季、新世界） | ✅ | 🔴 高 |
 | C | 行动阶段出牌路由（Home/Event/Mandatory/Combat-Response 卡判定） | ❌ | 🔴 高 |
 | D | 目标执行器（19 个 CP 花费目标：军事/海军/控制/宗教/新世界） | ❌ | 🔴 高 |
 | E | Bot 辅助工具与战斗决策（空间计算、单位放置/移除、避战/拦截/撤退） | ❌ | 🟡 中 |
 | F | 集成与打磨（全 Bot 对局、混合对局、规则例外、难度设置、UI 标识） | ❌ | 🟡 中 |
 
 **预估规模**：~6,300 行源码 + ~2,000 行测试
-**前置条件**：建议先完成 11.5（存档/读档）和 11.4（边界测试）
+**前置条件**：11.5（存档/读档）✅ 和 11.4（边界测试）🔶
+
+**Phase A 实现**（+77 新测试，1581→1658）：
+
+- `ai/behavior-cards.js` NEW（~600 行）：48 张行为卡完整数据（6 势力 × 5 唯一卡 + 3 Continue 卡），含谈判参数、目标优先级列表、颜色编码 Bot-Bot 交易映射。牌组管理：`initBotDeck`（Protestant 特殊 Goodwill）、`revealBehaviorCard`（Continue 逻辑 + 牌组耗尽重洗）、`resetDeckForSchmalkaldic`、`resetDeckForRulerDeath`
+- `ai/bot-controller.js` NEW（~300 行）：`BotController` 骨架——`decideBotAction` 按阶段路由到 `decideLuther95`/`decideDiplomacy`/`decideDietOfWorms`/`decideSpringDeployment`/`decideAction`，Action 阶段内含 `decideResponse`/`decideBattle`/`decideCardPlay`/`decideGoalAction` 占位。`scheduleBotAction` 延迟调度器 + `getNextActingBotPower` 识别下一个 Bot 玩家
+- `config.json`：`supportsAI: true`
+- `index.js`：`initialize()` 增加 Bot 初始化——调用 `initBotDecks`/`placeBotExtraUnits`/注册 `bot_<power>` 玩家 ID
+- `main.js`：`_scheduleHisBotAction` 方法 + `stateUpdated` 后自动调度下一个 Bot 行动
+
+**Phase B 实现**（+84 新测试，1658→1742）：
+
+- `ai/bot-phases.js` NEW（~520 行）：阶段特定 Bot 决策——`stackBotHand`（Home 卡置底 + 教廷特殊叠放：Leipzig 最底 + Papal Bull 其上）、`shouldSueForPeace`（首都失陷/钥匙失衡检查 + War 字段豁免）、`shouldRansomLeader`（统治者被俘/地图无领袖→最高指挥值优先）、`shouldGrantCardToRescind`（绝罚自动给牌）、`decideWarDeclaration`（6 势力 War Limitation 规则 + 附庸国→宗主国转换 + 英格兰 Home 卡例外）、`getWarDeclarationCost`（手牌 CP 总量检查）、`pickDietOfWormsCard`（翻顶牌 + 强制/1CP→Home 卡回退）、`decideSpringDeployment`（战时→首都编队部署至最近敌方钥匙 ≤4 格 / 和平→单单位补防弱钥匙）、`decideWinterActions`（港口优先级排序 + 最近首都动乱移除）、`pickExplorationChoice`（探索加值 ≤+1 / ≥+2 两套优先级）、`getGarrisonRequirement`（首都 2/钥匙 1/+1 近敌修正）
+- `ai/bot-negotiation.js` NEW（~300 行）：`evaluateDeal`（报价/要求值比较 + Bad Faith 罚分 + 最大数限制 + War 字段冲突 + Goodwill 资格判定）、`resolveBotToBotDeal`（颜色编码互认匹配 + 佣兵×2 规则）、`resolveAllBotDeals`（全 Bot 对组合）、`getBadFaithCount`/`canUseGoodwill`/`getGoodwillRemaining`/`isTreatyBlocked`（教廷/哈布斯堡永不与新教交换条约令牌）
+- `ai/bot-controller.js` UPDATED：`decideDiplomacy` 按 `diplomacySegment` 路由到 sue_for_peace/ransom/excommunication/declarations_of_war 各段逻辑；`decideDietOfWorms` 调用 `pickDietOfWormsCard`；`decideSpringDeployment` 调用 `decideSpringDeploy` + `springDeploymentDone` 幂等检查
 
 **11.1 验证结果**：config/export/getVisibleState/processMove 格式/网络收发路径/状态大小均正确。修复了 UI-only action（SELECT_CARD、SELECT_SPACE）泄漏到引擎的问题，以及 action 格式 `{type,data}` → `{actionType,actionData}` 的统一。
 
-**11.4 边界用例测试进展**（+392 新测试，870→1451）：
+**11.4 边界用例测试进展**（+459 新测试，870→1549）：
 
 第一批（870→997）：
 
@@ -362,9 +376,26 @@ frontend/src/games/his/
 - `index.test.js` +15：W7 多响应者流程、Wartburg 取消事件、#31/#32/#38 中断效果、CP 模式取消
 - `response-actions.test.js` +20：W5/W6 投骰后窗口设置/过滤、W7 中断资格/推进/跳过
 - `phase-winter.test.js` +16：损耗顺序（佣兵→正规→骑兵）、借调归还、强制事件、围城处理、状态重置
+
+第四批（1482→1549）：
+
+- `event-actions-diplomacy.test.js` +33：#201 重复单位、#202 幂等战争/领袖、#203 全命中/全未命中、#204 激活/停用附庸国、#205 外交压力状态、#206 henry_ii 变体/战争幂等/抽牌、#207 空部署/无效空间、#208 圣彼得贡献、#209 瘟疫移除上限/船队/后备兵、#210 造船上限、#211 SL 后无战争/领袖、#212 威尼斯三模式、#214 查理五世/抽牌、#215 马基雅维利、#218 维也纳围城移除/限制、#219 西班牙宗教裁判所双路径
+- `excommunication-actions.test.js` +13：多重罪名叠加、5 教宗领空间逐一验证、罪名去重、缺失参数校验、敌军占领跳过动乱、已有动乱跳过、非天主教跳过、非目标势力跳过、不可开除势力、未放置改革家开除
+- `reformer-helpers.test.js` +8：动乱空间排除邻接加骰、多邻接改革家叠加、动乱+同格组合、覆写目标格改革家、不存在空间返回 null、去重、幂等移除、放置后移除清理
+- `phase-diet-of-worms.test.js` +7：非阶段校验、Home 卡标记、完成标志、重新计数、骰子日志、天主教胜利翻转区域、无待定时 needsDietCard
+- `phase-new-world.test.js` +8：多殖民地放置、征服者全灭跳过、征服优先级顺序、全征服已占领、深渗透 Pacific+Amazon 已占后回退 1VP、全发现已占领、已有环航仍获太平洋 VP
 - `military-actions.test.js` +28：山口移动、领袖/骑兵随队、阻挡验证、征募/佣兵/舰队边界、骑兵资格
 - `naval-actions.test.js` +17：海战触发/骰数/领袖加值/平局/伤亡、海盗 VP 上限、舰队消灭
 - `state-helpers.test.js` +16：空间单位查询、岛屿/山口邻接、路径搜索阻挡、势力映射、改革空间计数
+
+**11.5 存档/读档实现**（+32 新测试，1549→1581）：
+
+- `utils/storage.js` +9 函数：`saveGameSlot`/`loadGameSlot`/`listGameSlots`/`deleteGameSlot`（localStorage 5 槽位）+ `exportSaveFile`/`importSaveFile`（JSON 文件导出导入）+ `autoSaveGame`/`loadAutoSave`/`clearAutoSave`（sessionStorage 自动存档）
+- `game/engine.js` +`exportSave()`/`importSave()`/`_getSaveMetadata()`/`_autoLabel()` + `executeMove` 自动存档钩子
+- `games/his/index.js` +`_getSaveMetadata()`/`_autoLabel()` 覆写（中文阶段名）
+- `games/his/state/save-load.js` NEW：`validateSaveData()` 验证存档完整性 + `generateSlotKey()` + 常量
+- `games/his/ui.js` +存档/读档/导出/导入按钮（仅离线模式）+ 最小事件系统 `on`/`_emit`
+- `main.js` +`_saveGame`/`_showLoadDialog`/`_loadSave`/`_exportGame`/`_importGame` 事件处理
 
 **11.7 响应卡系统设计**：
 
@@ -492,7 +523,10 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 | phase-winter.test.js | 37 | 冬季阶段、损耗、借调归还、围城 |
 | index.test.js | 75 | 集成测试、响应卡流程、W7 中断 |
 | response-actions.test.js | 159 | 响应卡系统（W1-W7） |
-| **合计** | **1,451** | |
+| save-load.test.js | 32 | 存档/读档验证、引擎集成 |
+| behavior-cards.test.js | 47 | 行为卡数据完整性、牌组管理 |
+| bot-controller.test.js | 30 | Bot 识别、初始化、决策路由、HISGame 集成 |
+| **合计** | **1,658** | |
 
 运行命令：
 ```bash
