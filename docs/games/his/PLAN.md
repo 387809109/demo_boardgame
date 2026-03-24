@@ -12,16 +12,16 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 
 | 指标 | 数值 |
 |------|------|
-| 源码文件 | 58 个 JS 文件 |
-| 测试文件 | 34 个 test.js 文件 |
-| 源码行数 | ~26,100 行 |
-| 测试行数 | ~18,200 行 |
-| 单元测试 | **1,451 个**，全部通过 |
+| 源码文件 | 66 个 JS 文件 |
+| 测试文件 | 43 个 test.js 文件 |
+| 源码行数 | ~32,100 行 |
+| 测试行数 | ~23,300 行 |
+| 单元测试 | **1,902 个**，全部通过 |
 | 事件处理器 | **135/135 张卡牌已实现** |
 
 **已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心)
 
-**当前**：Phase 12（AI/HISBOT）— Phase A ✅ Phase B ✅ 完成，Phase C 待开始
+**当前**：Phase 12（AI/HISBOT）— Phase A ✅ Phase B ✅ Phase C ✅ Phase D ✅ 完成，Phase E 待开始
 
 ---
 
@@ -323,8 +323,8 @@ frontend/src/games/his/
 | A0 | 参考文档整理（HISBOT.md → [HISBOT_REF.md](HISBOT_REF.md)，1825 行） | ✅ | 🔴 高 |
 | A | 数据与基础设施（行为卡数据、牌组管理、控制器骨架、游戏循环集成） | ✅ | 🔴 高 |
 | B | 阶段特定逻辑（抓牌、谈判、宣战、春季部署、冬季、新世界） | ✅ | 🔴 高 |
-| C | 行动阶段出牌路由（Home/Event/Mandatory/Combat-Response 卡判定） | ❌ | 🔴 高 |
-| D | 目标执行器（19 个 CP 花费目标：军事/海军/控制/宗教/新世界） | ❌ | 🔴 高 |
+| C | 行动阶段出牌路由（Home/Event/Mandatory/Combat-Response 卡判定） | ✅ | 🔴 高 |
+| D | 目标执行器（19 个 CP 花费目标：军事/海军/控制/宗教/新世界） | ✅ | 🔴 高 |
 | E | Bot 辅助工具与战斗决策（空间计算、单位放置/移除、避战/拦截/撤退） | ❌ | 🟡 中 |
 | F | 集成与打磨（全 Bot 对局、混合对局、规则例外、难度设置、UI 标识） | ❌ | 🟡 中 |
 
@@ -344,6 +344,17 @@ frontend/src/games/his/
 - `ai/bot-phases.js` NEW（~520 行）：阶段特定 Bot 决策——`stackBotHand`（Home 卡置底 + 教廷特殊叠放：Leipzig 最底 + Papal Bull 其上）、`shouldSueForPeace`（首都失陷/钥匙失衡检查 + War 字段豁免）、`shouldRansomLeader`（统治者被俘/地图无领袖→最高指挥值优先）、`shouldGrantCardToRescind`（绝罚自动给牌）、`decideWarDeclaration`（6 势力 War Limitation 规则 + 附庸国→宗主国转换 + 英格兰 Home 卡例外）、`getWarDeclarationCost`（手牌 CP 总量检查）、`pickDietOfWormsCard`（翻顶牌 + 强制/1CP→Home 卡回退）、`decideSpringDeployment`（战时→首都编队部署至最近敌方钥匙 ≤4 格 / 和平→单单位补防弱钥匙）、`decideWinterActions`（港口优先级排序 + 最近首都动乱移除）、`pickExplorationChoice`（探索加值 ≤+1 / ≥+2 两套优先级）、`getGarrisonRequirement`（首都 2/钥匙 1/+1 近敌修正）
 - `ai/bot-negotiation.js` NEW（~300 行）：`evaluateDeal`（报价/要求值比较 + Bad Faith 罚分 + 最大数限制 + War 字段冲突 + Goodwill 资格判定）、`resolveBotToBotDeal`（颜色编码互认匹配 + 佣兵×2 规则）、`resolveAllBotDeals`（全 Bot 对组合）、`getBadFaithCount`/`canUseGoodwill`/`getGoodwillRemaining`/`isTreatyBlocked`（教廷/哈布斯堡永不与新教交换条约令牌）
 - `ai/bot-controller.js` UPDATED：`decideDiplomacy` 按 `diplomacySegment` 路由到 sue_for_peace/ransom/excommunication/declarations_of_war 各段逻辑；`decideDietOfWorms` 调用 `pickDietOfWormsCard`；`decideSpringDeployment` 调用 `decideSpringDeploy` + `springDeploymentDone` 幂等检查
+
+**Phase C 实现**（+90 新测试，1742→1832）：
+
+- `ai/bot-event-criteria.js` NEW（~450 行）：§5 事件卡判定表——`EVENT_CRITERIA`（~60 条目按卡牌编号索引）和 `RESPONSE_CRITERIA`（~11 条目），每条含 `shouldPlay(state, power)` 函数和可选 `satisfiesTreaty(state, power, tokenPower)` 函数。覆盖 A Mighty Fortress/Copernicus（always-play）、Spanish Inquisition/Papal Inquisition（势力限定）、Fuggers/Foreign Recruits（交战条件）、Erasmus（回合条件）、Indulgence Vendor（St. Peter's 检查）、Machiavelli/Diplomatic Overture（never-play）等全部 §5 规则
+- `ai/bot-card-play.js` NEW（~550 行）：卡牌出牌路由主模块——`classifyCard`（home/mandatory/combat/response/event 分类）、`evaluateHomeCard`（§6 七势力 Home 卡判定：Ottoman 伊斯坦布尔常备军/Hapsburg 查理五世移动/England 宣战或婚姻/France 城堡骰/Papacy 绝罚或 Leipzig Debate/Protestant 路德替换）、`checkTreatyObligation`（§2.10.1 条约令牌义务）、`getGangingUpTargets`/`shouldPlayEventGangingUp`（§2.10.2 合力打击高 VP 势力）、`shouldSaveCards`（§4.25 节牌判定——统治者 Admin Rating 阈值 + ≥25VP 禁止节牌）、`getFinalAutumnAssaults`（§2.10.3 秋季免费攻城/外国战争）、`decideCardPlay`（5 级路由：空手→Home→Mandatory→Combat/Response→Event）、`decideResponsePlay`（响应窗口决策）
+- `ai/bot-controller.js` UPDATED：`decideResponse` 改用 `decideResponsePlay`（不再一律 DECLINE）；`decideCardPlay` 改用 `routeCardPlay`（不再一律 CP）
+
+**Phase D 实现**（+70 新测试，1832→1902）：
+
+- `ai/bot-goals.js` NEW（~800 行）：§3 目标执行器——21 个 CP 花费目标 + 目标分发器。D1 军事基础（`executeGarrison` 驻军补充含 §4.10 驻军需求计算 + 回退到佣兵/骑兵、`executeTroops`/`executeMercenaries`/`executeCavalry` §4.17 放置优先级）；D2 军事移动（`executeAdvance` BFS 近敌搜索 + 编队移动、`executeLandBattle` 解围优先 + 非堡垒空间攻击 + 2倍兵力限制、`executeSiege` 三级子优先：外国战争→突击→发起围城 + 钥匙优先）；D3 海军（`executeSetSail` 海域优先级、`executeNavalBattle` 优势检查、`executeShipbuilding` Ottoman 海盗船特殊逻辑 + Barbary Pirates 卡判定、`executePiracy` 骰数比较）；D4 控制（`executeControl` 驱乱优先→政治控制 + Protestant 新教影响区特殊）；D5 宗教（`executeTranslate` §3.16 语言选择 + Calvin/Cranmer 前置检查、`executePublish` §4.20 宗教改革目标选择、`executeDebate` Papacy 最多新教区/Protestant 最高辩值、`executeStPeters`/`executeBurn` Cajetan→Tetzel→Caraffa 承诺优先、`executeJesuits` §4.19 放置 + Society of Jesus 前置）；D6 新世界（`executeExplore`/`executeColonize`/`executeConquer` 探索者/殖民/征服者可用检查）；D7 目标分发器 `dispatchGoalAction`（遍历行为卡优先级列表 + max 执行次数限制 + §3 CP 溢出→+1 CP 令牌）
+- `ai/bot-controller.js` UPDATED：`decideGoalAction` 改用 `dispatchGoalAction`（不再一律 END_IMPULSE）
 
 **11.1 验证结果**：config/export/getVisibleState/processMove 格式/网络收发路径/状态大小均正确。修复了 UI-only action（SELECT_CARD、SELECT_SPACE）泄漏到引擎的问题，以及 action 格式 `{type,data}` → `{actionType,actionData}` 的统一。
 

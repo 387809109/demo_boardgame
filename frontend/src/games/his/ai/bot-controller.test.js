@@ -229,14 +229,15 @@ describe('decideBotAction', () => {
 });
 
 describe('decideBotAction — action phase', () => {
-  it('plays first card for CP when no cards have been played', () => {
+  it('plays card for event or CP based on §5 criteria', () => {
     const state = createBotState(['ottoman']);
     state.phase = 'action';
     state.activePower = 'ottoman';
     state.cpRemaining = 0;
+    // Card 42 = Roxelana, Ottoman always plays as event
     state.hands.ottoman = [42, 50];
     const action = decideBotAction(state, 'ottoman');
-    expect(action.actionType).toBe('PLAY_CARD_CP');
+    expect(action.actionType).toBe('PLAY_CARD_EVENT');
     expect(action.actionData.cardNumber).toBe(42);
   });
 

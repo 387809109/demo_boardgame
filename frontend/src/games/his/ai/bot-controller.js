@@ -23,6 +23,11 @@ import {
   shouldRansomLeader, shouldGrantCardToRescind
 } from './bot-phases.js';
 import { areAtWar, getWarsOf } from '../state/war-helpers.js';
+import {
+  decideCardPlay as routeCardPlay,
+  decideResponsePlay, getFinalAutumnAssaults
+} from './bot-card-play.js';
+import { dispatchGoalAction } from './bot-goals.js';
 
 // ── Bot Identification ─────────────────────────────────────────────
 
@@ -351,16 +356,18 @@ function decideAction(state, power) {
 
 /**
  * Response card decision: play or decline.
+ *
+ * HISBOT §5 + §2.10: Check set-aside Combat/Response cards.
+ * Only play if it could change the state of the game.
+ *
  * @param {Object} state
  * @param {string} power
  * @returns {Object|null}
  */
 function decideResponse(state, power) {
-  // Stub: always decline responses
-  // Full implementation in Phase C5
   const respPower = state.pendingResponse?.respondingPower;
   if (respPower && isBotPower(state, respPower)) {
-    return { actionType: ACTION_TYPES.DECLINE_RESPONSE, actionData: {} };
+    return decideResponsePlay(state, respPower);
   }
   return null;
 }
@@ -427,35 +434,34 @@ function decideDebate(state, power) {
 
 /**
  * Card play decision: choose which card to play and how.
+ *
+ * HISBOT §2.10: Flip top card from hand deck and route:
+ *   Home → §6 criteria → event or CPs
+ *   Event → §5 criteria → event, Treaty, Gang Up, or CPs
+ *   Mandatory → play event + spend remaining CPs
+ *   Combat/Response → set aside or play if §5 criteria met
+ *
  * @param {Object} state
  * @param {string} power
  * @returns {Object|null}
  */
 function decideCardPlay(state, power) {
-  const hand = state.hands[power] || [];
-  if (hand.length === 0) {
-    return { actionType: ACTION_TYPES.PASS, actionData: {} };
-  }
-
-  // Stub: play first non-Home card for CP
-  // Full implementation in Phase C1-C5
-  const card = hand[0];
-  return {
-    actionType: ACTION_TYPES.PLAY_CARD_CP,
-    actionData: { cardNumber: card }
-  };
+  return routeCardPlay(state, power);
 }
 
 /**
  * Goal execution within CP mode. Iterates behavior card priority list.
+ *
+ * HISBOT §3: Walk behavior card goal priorities, find first executable
+ * goal with remaining CPs. Track execution counts per impulse via
+ * state.botGoalCounts[power].
+ *
  * @param {Object} state
  * @param {string} power
  * @returns {Object|null}
  */
 function decideGoalAction(state, power) {
-  // Stub: end impulse (spend no CPs)
-  // Full implementation in Phase D
-  return { actionType: ACTION_TYPES.END_IMPULSE, actionData: {} };
+  return dispatchGoalAction(state, power);
 }
 
 // ── Bot Action Scheduler ───────────────────────────────────────────
