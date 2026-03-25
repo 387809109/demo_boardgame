@@ -12,16 +12,16 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 
 | 指标 | 数值 |
 |------|------|
-| 源码文件 | 66 个 JS 文件 |
-| 测试文件 | 43 个 test.js 文件 |
-| 源码行数 | ~32,100 行 |
-| 测试行数 | ~23,300 行 |
-| 单元测试 | **1,902 个**，全部通过 |
+| 源码文件 | 68 个 JS 文件 |
+| 测试文件 | 45 个 test.js 文件 |
+| 源码行数 | ~33,500 行 |
+| 测试行数 | ~24,400 行 |
+| 单元测试 | **1,987 个**，全部通过 |
 | 事件处理器 | **135/135 张卡牌已实现** |
 
 **已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心)
 
-**当前**：Phase 12（AI/HISBOT）— Phase A ✅ Phase B ✅ Phase C ✅ Phase D ✅ 完成，Phase E 待开始
+**当前**：Phase 12（AI/HISBOT）— Phase A ✅ Phase B ✅ Phase C ✅ Phase D ✅ Phase E ✅ 完成，Phase F 待开始
 
 ---
 
@@ -325,7 +325,7 @@ frontend/src/games/his/
 | B | 阶段特定逻辑（抓牌、谈判、宣战、春季部署、冬季、新世界） | ✅ | 🔴 高 |
 | C | 行动阶段出牌路由（Home/Event/Mandatory/Combat-Response 卡判定） | ✅ | 🔴 高 |
 | D | 目标执行器（19 个 CP 花费目标：军事/海军/控制/宗教/新世界） | ✅ | 🔴 高 |
-| E | Bot 辅助工具与战斗决策（空间计算、单位放置/移除、避战/拦截/撤退） | ❌ | 🟡 中 |
+| E | Bot 辅助工具与战斗决策（空间计算、单位放置/移除、避战/拦截/撤退） | ✅ | 🟡 中 |
 | F | 集成与打磨（全 Bot 对局、混合对局、规则例外、难度设置、UI 标识） | ❌ | 🟡 中 |
 
 **预估规模**：~6,300 行源码 + ~2,000 行测试
@@ -355,6 +355,12 @@ frontend/src/games/his/
 
 - `ai/bot-goals.js` NEW（~800 行）：§3 目标执行器——21 个 CP 花费目标 + 目标分发器。D1 军事基础（`executeGarrison` 驻军补充含 §4.10 驻军需求计算 + 回退到佣兵/骑兵、`executeTroops`/`executeMercenaries`/`executeCavalry` §4.17 放置优先级）；D2 军事移动（`executeAdvance` BFS 近敌搜索 + 编队移动、`executeLandBattle` 解围优先 + 非堡垒空间攻击 + 2倍兵力限制、`executeSiege` 三级子优先：外国战争→突击→发起围城 + 钥匙优先）；D3 海军（`executeSetSail` 海域优先级、`executeNavalBattle` 优势检查、`executeShipbuilding` Ottoman 海盗船特殊逻辑 + Barbary Pirates 卡判定、`executePiracy` 骰数比较）；D4 控制（`executeControl` 驱乱优先→政治控制 + Protestant 新教影响区特殊）；D5 宗教（`executeTranslate` §3.16 语言选择 + Calvin/Cranmer 前置检查、`executePublish` §4.20 宗教改革目标选择、`executeDebate` Papacy 最多新教区/Protestant 最高辩值、`executeStPeters`/`executeBurn` Cajetan→Tetzel→Caraffa 承诺优先、`executeJesuits` §4.19 放置 + Society of Jesus 前置）；D6 新世界（`executeExplore`/`executeColonize`/`executeConquer` 探索者/殖民/征服者可用检查）；D7 目标分发器 `dispatchGoalAction`（遍历行为卡优先级列表 + max 执行次数限制 + §3 CP 溢出→+1 CP 令牌）
 - `ai/bot-controller.js` UPDATED：`decideGoalAction` 改用 `dispatchGoalAction`（不再一律 END_IMPULSE）
+
+**Phase E 实现**（+85 新测试，1902→1987）：
+
+- `ai/bot-helpers.js` NEW（~950 行）：E1 空间计算——`weightedDistance`（§4.3 加权 BFS：pass=2、单海域穿越、三级路径偏好排序）、`findClosestSpace`（谓词匹配最近空间）、`simpleBfsDistance`（无权 BFS）、`hasSupplyLine`（补给线检查）。E2 单位放置/移除——`chooseLandUnitPlacementEnhanced`（§4.17 增强版：驻军缺口按近敌排序 + 领袖近敌搜索 + Protestant 无首都处理）、`chooseNavalPlacementEnhanced`（§4.18：近敌海军→近敌陆军→近首都 + 2 艘分散规则）、`chooseUnitToRemove`（§4.21：安全余量→最远→佣兵/骑兵优先）、`chooseNavalUnitToRemove`（§4.22：战时最远敌海军/和时最远首都）、`chooseDisplacementDestination`（§4.5：钥匙/选侯优先→近首都堡垒）。E4 编队扩充——`growFormationAlongPath`（§4.11 沿路径收编单位/领袖 + 指挥上限）、`applyMercenaryRatio`（§4.15 佣兵比例维持）。辅助——`getCapitals`（§4.12 双首都）、`hasNearbyIndependentThreat`（§4.13 独立空间视为敌方）
+- `ai/bot-combat.js` NEW（~365 行）：E3 战斗决策——`shouldAvoidLandBattle`（§4.1 ≤半兵力 + 单编队检查）、`shouldAvoidNavalBattle`（§4.1 海军版）、`shouldWithdrawIntoFortification`（§4.2 ≤4 单位入堡）、`chooseSiegeLeader`（§4.2 战斗值≥1 领袖留守）、`shouldIntercept`（§4.14 仅从非堡垒→受围堡垒拦截）、`findRetreatDestination`（§4.23 最近友方堡垒）、`findNavalRetreatDestination`（§4.23 近首都港口 + 海盗船→Algiers 特殊）、`decideBattleAction`（整合避战/入堡/撤退/自动解决）、`decideInterceptionAction`
+- `ai/bot-controller.js` UPDATED：`decideBattle` 改用 `decideBattleAction`（不再 stub）；`decideInterception` 改用 `decideInterceptionAction`（不再一律 decline）
 
 **11.1 验证结果**：config/export/getVisibleState/processMove 格式/网络收发路径/状态大小均正确。修复了 UI-only action（SELECT_CARD、SELECT_SPACE）泄漏到引擎的问题，以及 action 格式 `{type,data}` → `{actionType,actionData}` 的统一。
 

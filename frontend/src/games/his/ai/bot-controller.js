@@ -28,6 +28,7 @@ import {
   decideResponsePlay, getFinalAutumnAssaults
 } from './bot-card-play.js';
 import { dispatchGoalAction } from './bot-goals.js';
+import { decideBattleAction, decideInterceptionAction } from './bot-combat.js';
 
 // ── Bot Identification ─────────────────────────────────────────────
 
@@ -379,15 +380,7 @@ function decideResponse(state, power) {
  * @returns {Object|null}
  */
 function decideBattle(state, power) {
-  // Stub: auto-resolve
-  // Full implementation in Phase E3
-  if (state.pendingBattle?.type === 'retreat_choice') {
-    return { actionType: ACTION_TYPES.RESOLVE_RETREAT, actionData: { retreat: false } };
-  }
-  if (state.pendingBattle?.canWithdraw) {
-    return { actionType: ACTION_TYPES.WITHDRAW_INTO_FORTIFICATION, actionData: {} };
-  }
-  return { actionType: ACTION_TYPES.RESOLVE_BATTLE, actionData: {} };
+  return decideBattleAction(state, power);
 }
 
 /**
@@ -397,12 +390,7 @@ function decideBattle(state, power) {
  * @returns {Object|null}
  */
 function decideInterception(state, power) {
-  // Stub: decline interception
-  // Full implementation in Phase E3
-  return {
-    actionType: ACTION_TYPES.RESOLVE_INTERCEPTION,
-    actionData: { intercept: false }
-  };
+  return decideInterceptionAction(state, power);
 }
 
 /**
