@@ -20,7 +20,8 @@ import {
   stackBotHand, pickDietOfWormsCard,
   decideSpringDeployment as decideSpringDeploy,
   decideWarDeclaration, shouldSueForPeace,
-  shouldRansomLeader, shouldGrantCardToRescind
+  shouldRansomLeader, shouldGrantCardToRescind,
+  decideWinterActions
 } from './bot-phases.js';
 import { areAtWar, getWarsOf } from '../state/war-helpers.js';
 import {
@@ -29,6 +30,11 @@ import {
 } from './bot-card-play.js';
 import { dispatchGoalAction } from './bot-goals.js';
 import { decideBattleAction, decideInterceptionAction } from './bot-combat.js';
+import {
+  getNextAutumnAssault, markAutumnAssaultDone,
+  processBotTurnStart, getExtraCardCount, initBotDifficulty,
+  BOT_DIFFICULTY
+} from './bot-rules.js';
 
 // ── Bot Identification ─────────────────────────────────────────────
 
@@ -114,6 +120,19 @@ export function placeBotExtraUnits(state) {
   }
 }
 
+/**
+ * Full Bot initialization: decks, extra units, difficulty.
+ *
+ * @param {Object} state - Game state (mutated)
+ * @param {string[]} botPowerIds - Powers played by Bots
+ * @param {string} [difficulty='normal'] - Bot difficulty level
+ */
+export function initBotGame(state, botPowerIds, difficulty = 'normal') {
+  initBotDecks(state, botPowerIds);
+  placeBotExtraUnits(state);
+  initBotDifficulty(state, difficulty);
+}
+
 // ── Main Decision Engine ───────────────────────────────────────────
 
 /**
@@ -147,7 +166,7 @@ export function decideBotAction(state, power) {
       return decideAction(state, power);
 
     case PHASES.WINTER:
-      return null; // Winter is automatic
+      return decideWinter(state, power);
 
     case PHASES.NEW_WORLD:
       return null; // New World is automatic
@@ -349,8 +368,51 @@ function decideAction(state, power) {
     return decideGoalAction(state, power);
   }
 
-  // Not in CP mode: play next card or pass
-  return decideCardPlay(state, power);
+  // Not in CP mode: play next card
+  const cardAction = decideCardPlay(state, power);
+
+  // If card play says PASS → check final autumn assaults before ending
+  if (cardAction && cardAction.actionType === ACTION_TYPES.PASS) {
+    const assault = getNextAutumnAssault(state, power);
+    if (assault) {
+      markAutumnAssaultDone(state, power, assault.actionData.target);
+      return assault;
+    }
+  }
+
+  return cardAction;
+}
+
+/**
+ * Winter Phase: Bot free unrest removal (§2.11 / §8).
+ *
+ * Most winter actions are automatic; Bot gets one free unrest removal.
+ *
+ * @param {Object} state
+ * @param {string} power
+ * @returns {Object|null}
+ */
+function decideWinter(state, power) {
+  if (state.activePower && state.activePower !== power) return null;
+
+  // Check if Bot has already removed unrest this turn
+  if (state.botWinterUnrestDone?.[power]) return null;
+
+  const winter = decideWinterActions(state, power);
+
+  if (winter.unrestRemoval) {
+    return {
+      actionType: ACTION_TYPES.CONTROL_UNFORTIFIED,
+      actionData: {
+        target: winter.unrestRemoval,
+        free: true,
+        removeUnrest: true,
+        forPower: power
+      }
+    };
+  }
+
+  return null;
 }
 
 // ── Sub-Decision Stubs ─────────────────────────────────────────────

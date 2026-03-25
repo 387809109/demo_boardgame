@@ -73,8 +73,18 @@ export class StatusBar {
     if (state.activePower) {
       const color = POWER_COLORS[state.activePower] || '#666';
       const label = POWER_LABELS[state.activePower] || state.activePower;
-      const power = this._badge(`▶ ${label}`, color);
+      const isBot = !!state.botPowers?.[state.activePower];
+      const prefix = isBot ? '▶ [BOT] ' : '▶ ';
+      const power = this._badge(`${prefix}${label}`, color);
       this._el.appendChild(power);
+
+      // "Thinking..." indicator for active Bot
+      if (isBot) {
+        const thinking = this._badge('思考中...', '#4a5568', true);
+        thinking.className = 'his-bot-thinking-badge';
+        thinking.style.opacity = '0.8';
+        this._el.appendChild(thinking);
+      }
     }
 
     // Separator
@@ -86,8 +96,10 @@ export class StatusBar {
     if (state.vp) {
       for (const [power, score] of Object.entries(state.vp)) {
         const color = POWER_COLORS[power] || '#666';
-        const vp = this._badge(`${score}VP`, color, true);
-        vp.title = POWER_LABELS[power] || power;
+        const isBot = !!state.botPowers?.[power];
+        const vpLabel = isBot ? `${score}VP*` : `${score}VP`;
+        const vp = this._badge(vpLabel, color, true);
+        vp.title = (POWER_LABELS[power] || power) + (isBot ? ' (Bot)' : '');
         this._el.appendChild(vp);
       }
     }

@@ -12,16 +12,16 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 
 | 指标 | 数值 |
 |------|------|
-| 源码文件 | 68 个 JS 文件 |
-| 测试文件 | 45 个 test.js 文件 |
-| 源码行数 | ~33,500 行 |
-| 测试行数 | ~24,400 行 |
-| 单元测试 | **1,987 个**，全部通过 |
+| 源码文件 | 71 个 JS 文件 |
+| 测试文件 | 48 个 test.js 文件 |
+| 源码行数 | ~34,400 行 |
+| 测试行数 | ~25,600 行 |
+| 单元测试 | **2,884 个**，全部通过 |
 | 事件处理器 | **135/135 张卡牌已实现** |
 
 **已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心)
 
-**当前**：Phase 12（AI/HISBOT）— Phase A ✅ Phase B ✅ Phase C ✅ Phase D ✅ Phase E ✅ 完成，Phase F 待开始
+**当前**：Phase 12（AI/HISBOT）— Phase A ✅ Phase B ✅ Phase C ✅ Phase D ✅ Phase E ✅ Phase F ✅ 全部完成
 
 ---
 
@@ -311,7 +311,7 @@ frontend/src/games/his/
 
 ---
 
-### Phase 12: AI（HISBOT）⬅️ 进行中
+### Phase 12: AI（HISBOT）✅ 完成
 
 > **详细计划**：[`docs/games/his/AI_PLAN.md`](AI_PLAN.md)
 >
@@ -326,9 +326,9 @@ frontend/src/games/his/
 | C | 行动阶段出牌路由（Home/Event/Mandatory/Combat-Response 卡判定） | ✅ | 🔴 高 |
 | D | 目标执行器（19 个 CP 花费目标：军事/海军/控制/宗教/新世界） | ✅ | 🔴 高 |
 | E | Bot 辅助工具与战斗决策（空间计算、单位放置/移除、避战/拦截/撤退） | ✅ | 🟡 中 |
-| F | 集成与打磨（全 Bot 对局、混合对局、规则例外、难度设置、UI 标识） | ❌ | 🟡 中 |
+| F | 集成与打磨（全 Bot 对局、混合对局、规则例外、难度设置、UI 标识） | ✅ | 🟡 中 |
 
-**预估规模**：~6,300 行源码 + ~2,000 行测试
+**最终规模**：~5,400 行源码 + ~2,800 行测试（12 源码文件 + 12 测试文件）
 **前置条件**：11.5（存档/读档）✅ 和 11.4（边界测试）🔶
 
 **Phase A 实现**（+77 新测试，1581→1658）：
@@ -361,6 +361,13 @@ frontend/src/games/his/
 - `ai/bot-helpers.js` NEW（~950 行）：E1 空间计算——`weightedDistance`（§4.3 加权 BFS：pass=2、单海域穿越、三级路径偏好排序）、`findClosestSpace`（谓词匹配最近空间）、`simpleBfsDistance`（无权 BFS）、`hasSupplyLine`（补给线检查）。E2 单位放置/移除——`chooseLandUnitPlacementEnhanced`（§4.17 增强版：驻军缺口按近敌排序 + 领袖近敌搜索 + Protestant 无首都处理）、`chooseNavalPlacementEnhanced`（§4.18：近敌海军→近敌陆军→近首都 + 2 艘分散规则）、`chooseUnitToRemove`（§4.21：安全余量→最远→佣兵/骑兵优先）、`chooseNavalUnitToRemove`（§4.22：战时最远敌海军/和时最远首都）、`chooseDisplacementDestination`（§4.5：钥匙/选侯优先→近首都堡垒）。E4 编队扩充——`growFormationAlongPath`（§4.11 沿路径收编单位/领袖 + 指挥上限）、`applyMercenaryRatio`（§4.15 佣兵比例维持）。辅助——`getCapitals`（§4.12 双首都）、`hasNearbyIndependentThreat`（§4.13 独立空间视为敌方）
 - `ai/bot-combat.js` NEW（~365 行）：E3 战斗决策——`shouldAvoidLandBattle`（§4.1 ≤半兵力 + 单编队检查）、`shouldAvoidNavalBattle`（§4.1 海军版）、`shouldWithdrawIntoFortification`（§4.2 ≤4 单位入堡）、`chooseSiegeLeader`（§4.2 战斗值≥1 领袖留守）、`shouldIntercept`（§4.14 仅从非堡垒→受围堡垒拦截）、`findRetreatDestination`（§4.23 最近友方堡垒）、`findNavalRetreatDestination`（§4.23 近首都港口 + 海盗船→Algiers 特殊）、`decideBattleAction`（整合避战/入堡/撤退/自动解决）、`decideInterceptionAction`
 - `ai/bot-controller.js` UPDATED：`decideBattle` 改用 `decideBattleAction`（不再 stub）；`decideInterception` 改用 `decideInterceptionAction`（不再一律 decline）
+
+**Phase F 实现**（+86 新测试，1987→2073；全套 2884）：
+
+- `ai/bot-rules.js` NEW（~330 行）：§8 Bot 规则例外——F3.1 事件持续延长（`EXTENDED_EVENT_CARDS` 4 张卡 + `registerExtendedEvent`/`expireExtendedEvents`/`isExtendedEventActive`）；F3.2 冬季免费驱乱（`makeFreeUnrestRemovalAction`）；F3.3 谈判/求和获堡垒时自动驻军（`makeFortressGarrisonAction`）；F3.4 绝罚辩士延长返回（`registerExcommunicatedDebater`/`processExcommunicatedDebaterReturns`，returnTurn = currentTurn+2）；F3.5 Threat to Power 延长移除（`calcThreatToReturnTurn`/`registerThreatToLeader`/`processThreatLeaderReturns`）；F3.6 Phony War 豁免（`isExemptFromPhonyWar`）；F4 秋季免费突击（`getNextAutumnAssault`/`markAutumnAssaultDone`/`resetAutumnAssaults` 追踪机制）；F5 难度设置（`BOT_DIFFICULTY` normal/hard/expert + `getExtraCardCount` Turn 4+/Turn 1+ 额外抽牌 + `initBotDifficulty`）；`processBotTurnStart` 回合开始统一处理（过期事件/返回辩士/返回领袖/重置 CP 令牌/重置突击追踪）
+- `ai/bot-ui.js` NEW（~270 行）：F6 UI 辅助——`createBotBadge`（难度颜色标识）、`createThinkingIndicator`/`showThinkingIndicator`/`hideThinkingIndicator`（"思考中..." 动画含 CSS keyframe 注入）、`formatBotAction`（Bot 行动日志格式化：事件/移动/突击/宣战等中文标签 + 条约/围攻标记）、`getActiveBotInfo`/`getPowerDisplayList`（UI 状态查询）
+- `ai/bot-controller.js` UPDATED：新增 `initBotGame` 统一初始化（decks + units + difficulty）；`decideWinter` 冬季免费驱乱决策；`decideAction` 在手牌耗尽时检查秋季免费突击再 PASS；导入 `bot-rules.js` 的突击追踪和难度初始化
+- `ui/status-bar.js` UPDATED：Bot 势力显示 `[BOT]` 前缀 + "思考中..." 标签；VP 显示 Bot 标记（`*`后缀 + tooltip）
 
 **11.1 验证结果**：config/export/getVisibleState/processMove 格式/网络收发路径/状态大小均正确。修复了 UI-only action（SELECT_CARD、SELECT_SPACE）泄漏到引擎的问题，以及 action 格式 `{type,data}` → `{actionType,actionData}` 的统一。
 
