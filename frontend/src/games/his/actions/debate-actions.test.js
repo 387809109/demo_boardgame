@@ -643,3 +643,245 @@ describe('resolveCouncilRound', () => {
     expect(r.error).toContain('not in resolve');
   });
 });
+
+// ══════════════════════════════════════════════════════════════════
+// Batch 6 — Edge Case Tests
+// ══════════════════════════════════════════════════════════════════
+
+// ── validateCallDebate edge cases ───────────────────────────────
+
+describe('validateCallDebate — edge cases', () => {
+  it('rejects ottoman calling debate', () => {
+    const state = cpState();
+    const r = validateCallDebate(state, 'ottoman', { zone: 'german' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Papacy or Protestant');
+  });
+
+  it('rejects france calling debate', () => {
+    const state = cpState();
+    const r = validateCallDebate(state, 'france', { zone: 'german' });
+    expect(r.valid).toBe(false);
+  });
+
+  it('papacy can call debate when debaters available', () => {
+    const state = cpState();
+    const r = validateCallDebate(state, 'papacy', { zone: 'german' });
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects when attacker has no debaters at all', () => {
+    const state = cpState();
+    state.debaters.protestant = [];
+    const r = validateCallDebate(state, 'protestant', { zone: 'german' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('debaters');
+  });
+});
+
+// ── resolveDebateStep edge cases ────────────────────────────────
+
+describe('resolveDebateStep — edge cases', () => {
+  it('returns error for invalid debate phase', () => {
+    const state = cpState();
+    state.pendingDebate = { phase: 'unknown_phase' };
+    const helpers = createMockHelpers();
+    const result = resolveDebateStep(state, 'protestant', {}, helpers);
+    expect(result.status).toBe('error');
+  });
+
+  it('round 2 tie results in no_result', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    callDebate(state, 'protestant', { zone: 'german' }, helpers);
+
+    // Force round 2 tie
+    state.pendingDebate.round = 2;
+    state.pendingDebate.phase = 'resolve';
+    state.pendingDebate.attackerHits = 1;
+    state.pendingDebate.defenderHits = 1;
+
+    const result = resolveDebateStep(state, 'protestant', {}, helpers);
+    expect(result.status).toBe('no_result');
+    expect(result.round).toBe(2);
+    expect(state.pendingDebate).toBeNull();
+  });
+
+  it('round 2 defender bonus is lower than round 1', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    callDebate(state, 'protestant', { zone: 'german' }, helpers);
+
+    // Round 1 roll
+    const r1 = resolveDebateStep(state, 'protestant', {}, helpers);
+    const r1DefRolls = r1.defenderRolls.length;
+
+    // Force tie to get round 2
+    state.pendingDebate.phase = 'resolve';
+    state.pendingDebate.attackerHits = 0;
+    state.pendingDebate.defenderHits = 0;
+    resolveDebateStep(state, 'protestant', {}, helpers);
+
+    // Round 2 roll — defender gets committed bonus (1) instead of uncommitted (2)
+    if (state.pendingDebate) {
+      const r2 = resolveDebateStep(state, 'protestant', {}, helpers);
+      // Defender gets 1 fewer die in round 2
+      expect(r2.defenderRolls.length).toBe(r1DefRolls - 1);
+    }
+  });
+});
+
+// ── Debate completion edge cases ────────────────────────────────
+
+describe('resolveDebateStep — zero hit diff', () => {
+  it('attacker wins with 1 hit diff → 1 space to flip', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    callDebate(state, 'protestant', { zone: 'german' }, helpers);
+
+    state.pendingDebate.phase = 'resolve';
+    state.pendingDebate.attackerHits = 2;
+    state.pendingDebate.defenderHits = 1;
+
+    const result = resolveDebateStep(state, 'protestant', {}, helpers);
+    expect(result.status).toBe('complete');
+    expect(result.spacesToFlip).toBe(1);
+  });
+
+  it('defender wins — sets counter_reformation pending', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    callDebate(state, 'protestant', { zone: 'german' }, helpers);
+
+    state.pendingDebate.phase = 'resolve';
+    state.pendingDebate.attackerHits = 0;
+    state.pendingDebate.defenderHits = 2;
+
+    resolveDebateStep(state, 'protestant', {}, helpers);
+    expect(state.pendingReformation.type).toBe('counter_reformation');
+    expect(state.pendingReformation.autoFlip).toBe(true);
+  });
+});
+
+// ── validateDebateFlip edge cases ───────────────────────────────
+
+describe('validateDebateFlip — edge cases', () => {
+  it('rejects when attemptsLeft is 0', () => {
+    const state = cpState();
+    state.pendingReformation = {
+      type: 'reformation', zone: 'german', attemptsLeft: 0, source: 'debate'
+    };
+    const r = validateDebateFlip(state, 'protestant', { targetSpace: 'Wittenberg' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('No flips');
+  });
+
+  it('rejects missing targetSpace', () => {
+    const state = cpState();
+    state.pendingReformation = {
+      type: 'reformation', zone: 'german', attemptsLeft: 1, source: 'debate'
+    };
+    const r = validateDebateFlip(state, 'protestant', {});
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('target');
+  });
+
+  it('rejects unknown space', () => {
+    const state = cpState();
+    state.pendingReformation = {
+      type: 'reformation', zone: 'german', attemptsLeft: 1, source: 'debate'
+    };
+    const r = validateDebateFlip(state, 'protestant', { targetSpace: 'Atlantis' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('not found');
+  });
+
+  it('rejects non-debate source pending reformation', () => {
+    const state = cpState();
+    state.pendingReformation = {
+      type: 'reformation', zone: 'german', attemptsLeft: 1, source: 'publish'
+    };
+    const r = validateDebateFlip(state, 'protestant', { targetSpace: 'Wittenberg' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('debate');
+  });
+});
+
+// ── Council of Trent edge cases ─────────────────────────────────
+
+describe('validateCouncilChoice — edge cases', () => {
+  it('rejects non-array debaterIds', () => {
+    const state = councilState();
+    const r = validateCouncilChoice(state, 'papacy', { debaterIds: 'eck' });
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects null debaterIds', () => {
+    const state = councilState();
+    const r = validateCouncilChoice(state, 'papacy', {});
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects invalid Council phase', () => {
+    const state = councilState();
+    state.pendingCouncilOfTrent.phase = 'finished';
+    const r = validateCouncilChoice(state, 'papacy', { debaterIds: ['eck'] });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Invalid Council phase');
+  });
+
+  it('rejects committed papal debater', () => {
+    const state = councilState();
+    // Remove a debater so it's not found
+    state.debaters.papal = state.debaters.papal.filter(d => d.id !== 'eck');
+    const r = validateCouncilChoice(state, 'papacy', { debaterIds: ['eck'] });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('not available');
+  });
+
+  it('protestant exceeding max debaters rejected', () => {
+    const state = councilState();
+    state.pendingCouncilOfTrent.phase = 'protestant_choose';
+    const r = validateCouncilChoice(state, 'protestant', {
+      debaterIds: ['luther', 'melanchthon', 'bucer'] // max is 2
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('2');
+  });
+});
+
+describe('resolveCouncilRound — edge cases', () => {
+  function setupCouncilResolve(papacyIds = ['eck'], protestIds = ['luther']) {
+    const state = councilState();
+    const helpers = createMockHelpers();
+    executeCouncilChoice(state, 'papacy', { debaterIds: papacyIds }, helpers);
+    executeCouncilChoice(state, 'protestant', {
+      debaterIds: protestIds
+    }, helpers);
+    return { state, helpers };
+  }
+
+  it('council zone is null — allows flipping any zone', () => {
+    let found = false;
+    for (let attempt = 0; attempt < 20 && !found; attempt++) {
+      const { state, helpers } = setupCouncilResolve();
+      for (let round = 0; round < 3; round++) {
+        const result = resolveCouncilRound(state, helpers);
+        if (result.status === 'council_complete') {
+          expect(state.pendingReformation.zone).toBeNull();
+          found = true;
+          break;
+        }
+      }
+    }
+    expect(found).toBe(true);
+  });
+
+  it('council with no pending returns error', () => {
+    const state = cpState();
+    state.pendingCouncilOfTrent = null;
+    const helpers = createMockHelpers();
+    const r = resolveCouncilRound(state, helpers);
+    expect(r.error).toBeDefined();
+  });
+});

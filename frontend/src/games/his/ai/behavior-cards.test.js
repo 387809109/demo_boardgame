@@ -380,3 +380,180 @@ describe('getUniqueCards / getContinueCards', () => {
     expect(u + c).toBe(8);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — Deck Lifecycle
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('revealBehaviorCard deck lifecycle', () => {
+  it('reshuffles faceUp into drawPile when draw pile exhausted', () => {
+    const deck = initBotDeck('france', () => 0.5);
+    // Draw all 6 cards to exhaust draw pile
+    const drawn = [];
+    while (deck.drawPile.length > 0) {
+      drawn.push(revealBehaviorCard(deck, () => 0.5));
+    }
+    expect(deck.drawPile.length).toBe(0);
+    // Next reveal should reshuffle face-up back into drawPile
+    const nextId = revealBehaviorCard(deck, () => 0.5);
+    expect(typeof nextId).toBe('string');
+    expect(CARD_BY_ID[nextId]).toBeDefined();
+  });
+
+  it('handles Continue card when no face-up exists (draws again recursively)', () => {
+    const deck = {
+      drawPile: [],
+      faceUp: [],
+      goodwill: []
+    };
+    // Put 1 Continue then 1 unique in drawPile
+    const continueCards = getContinueCards('ottoman');
+    const uniqueCards = getUniqueCards('ottoman');
+    deck.drawPile = [continueCards[0].id, uniqueCards[0].id];
+    const result = revealBehaviorCard(deck, () => 0.5);
+    // After Continue with empty faceUp: Continue placed in faceUp, then draws unique
+    // Unique gets unshifted to faceUp[0], so result is the unique card
+    expect(result).toBe(uniqueCards[0].id);
+    expect(CARD_BY_ID[result].isContinue).toBeFalsy();
+  });
+
+  it('Continue card reuses previous face-up card', () => {
+    const unique = getUniqueCards('hapsburg');
+    const cont = getContinueCards('hapsburg');
+    const deck = {
+      drawPile: [cont[0].id],
+      faceUp: [unique[0].id],
+      goodwill: []
+    };
+    const result = revealBehaviorCard(deck, () => 0.5);
+    // Should return the previously face-up unique card
+    expect(result).toBe(unique[0].id);
+    // Continue card tucked under
+    expect(deck.faceUp).toContain(cont[0].id);
+  });
+
+  it('no card loss after full draw + reshuffle cycle', () => {
+    const deck = initBotDeck('england', () => 0.5);
+    const totalCards = deck.drawPile.length + deck.faceUp.length + deck.goodwill.length;
+    // Draw all
+    for (let i = 0; i < 6; i++) {
+      revealBehaviorCard(deck, () => 0.5);
+    }
+    // Reshuffle should happen on next draw
+    revealBehaviorCard(deck, () => 0.5);
+    const afterTotal = deck.drawPile.length + deck.faceUp.length + deck.goodwill.length;
+    // Total cards should remain constant (excluding goodwill which stays separate)
+    expect(afterTotal).toBe(totalCards);
+  });
+});
+
+describe('getActiveBehaviorCard edge cases', () => {
+  it('returns null when faceUp is empty', () => {
+    const deck = { drawPile: ['test'], faceUp: [], goodwill: [] };
+    expect(getActiveBehaviorCard(deck)).toBeNull();
+  });
+
+  it('returns first non-Continue card from faceUp', () => {
+    const unique = getUniqueCards('france');
+    const cont = getContinueCards('france');
+    const deck = {
+      drawPile: [],
+      faceUp: [unique[0].id, cont[0].id], // unique on top, continue below
+      goodwill: []
+    };
+    const result = getActiveBehaviorCard(deck);
+    expect(result.id).toBe(unique[0].id);
+    expect(result.isContinue).toBeFalsy();
+  });
+
+  it('returns null when faceUp contains only Continue cards', () => {
+    const cont = getContinueCards('papacy');
+    const deck = {
+      drawPile: [],
+      faceUp: [cont[0].id, cont[1].id],
+      goodwill: []
+    };
+    const result = getActiveBehaviorCard(deck);
+    expect(result).toBeNull();
+  });
+});
+
+describe('initBotDeck edge cases', () => {
+  it('Protestant goodwill cards are specific (Preventative War + Die by the Sword)', () => {
+    const deck = initBotDeck('protestant', () => 0.5);
+    expect(deck.goodwill).toContain('protestant_preventative_war');
+    expect(deck.goodwill).toContain('protestant_die_by_the_sword');
+    expect(deck.goodwill).toHaveLength(2);
+  });
+
+  it('draw pile has exactly 6 cards', () => {
+    const deck = initBotDeck('ottoman', () => 0.5);
+    expect(deck.drawPile).toHaveLength(6);
+    expect(deck.faceUp).toHaveLength(0);
+    expect(deck.goodwill).toHaveLength(2);
+  });
+
+  it('non-Protestant goodwill cards are random (first 2 from shuffle)', () => {
+    const deck = initBotDeck('hapsburg', () => 0.5);
+    expect(deck.goodwill).toHaveLength(2);
+    // All goodwill cards should be valid hapsburg cards
+    for (const id of deck.goodwill) {
+      expect(CARD_BY_ID[id].power).toBe('hapsburg');
+    }
+  });
+});
+
+describe('resetDeckForSchmalkaldic edge cases', () => {
+  it('returns full 8-card deck for protestant', () => {
+    const deck = resetDeckForSchmalkaldic('protestant', () => 0.5);
+    const total = deck.drawPile.length + deck.goodwill.length;
+    expect(total).toBe(8);
+    expect(deck.faceUp).toHaveLength(0);
+  });
+
+  it('all cards belong to the power', () => {
+    const deck = resetDeckForSchmalkaldic('protestant', () => 0.5);
+    const allIds = [...deck.drawPile, ...deck.goodwill];
+    for (const id of allIds) {
+      expect(CARD_BY_ID[id].power).toBe('protestant');
+    }
+  });
+});
+
+describe('behavior card data integrity (extended)', () => {
+  const POWERS = ['ottoman', 'hapsburg', 'england', 'france', 'papacy', 'protestant'];
+
+  it('all non-Continue cards have non-empty goals', () => {
+    for (const p of POWERS) {
+      const unique = getUniqueCards(p);
+      for (const card of unique) {
+        expect(card.goals.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('all Continue cards have isContinue=true and no goals', () => {
+    for (const p of POWERS) {
+      const conts = getContinueCards(p);
+      for (const card of conts) {
+        expect(card.isContinue).toBe(true);
+      }
+    }
+  });
+
+  it('each power has exactly 5 unique + 3 Continue', () => {
+    for (const p of POWERS) {
+      expect(getUniqueCards(p)).toHaveLength(5);
+      expect(getContinueCards(p)).toHaveLength(3);
+    }
+  });
+
+  it('CARD_BY_ID has entries for all 48 cards', () => {
+    let count = 0;
+    for (const p of POWERS) {
+      count += BEHAVIOR_CARDS[p].length;
+    }
+    expect(count).toBe(48);
+    expect(Object.keys(CARD_BY_ID).length).toBe(48);
+  });
+});

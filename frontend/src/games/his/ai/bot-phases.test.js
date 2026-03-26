@@ -557,3 +557,90 @@ describe('decideWinterActions', () => {
     expect(result.unrestRemoval).toBeNull();
   });
 });
+
+// ── Edge Cases ────────────────────────────────────────────────────────
+
+describe('decideSpringDeployment — edge cases', () => {
+  it('returns null at peace when no spare units above garrison', () => {
+    const state = createBotState(['france']);
+    // France at peace, but capital garrison exactly meets unit count
+    const action = decideSpringDeployment(state, 'france');
+    // Returns null or PASS — no deployable excess
+    expect(action === null ||
+      action?.actionType === 'SPRING_DEPLOY').toBe(true);
+  });
+
+  it('returns null at war when capitals are lost', () => {
+    const state = createBotState(['france']);
+    state.wars = [{ a: 'france', b: 'hapsburg' }];
+    // Lose Paris
+    state.spaces['Paris'].controller = 'hapsburg';
+    const action = decideSpringDeployment(state, 'france');
+    expect(action).toBeNull();
+  });
+});
+
+describe('pickExplorationChoice — edge cases', () => {
+  it('high bonus: picks circumnavigation when only option', () => {
+    const state = createBotState(['hapsburg']);
+    const result = pickExplorationChoice(
+      state, 'hapsburg', 3, ['circumnavigation']
+    );
+    expect(result).toBe('circumnavigation');
+  });
+
+  it('bonus = 2 uses high-bonus path (boundary)', () => {
+    const state = createBotState(['hapsburg']);
+    const result = pickExplorationChoice(
+      state, 'hapsburg', 2, ['amazon', 'pacific_strait']
+    );
+    expect(result).toBe('pacific_strait');
+  });
+
+  it('bonus = 1 uses low-bonus path (boundary)', () => {
+    const state = createBotState(['hapsburg']);
+    const result = pickExplorationChoice(
+      state, 'hapsburg', 1, ['amazon', 'pacific_strait']
+    );
+    expect(result).toBe('amazon');
+  });
+});
+
+describe('getGarrisonRequirement — edge cases', () => {
+  it('adds +1 when enemy unit within 2 spaces', () => {
+    const state = createBotState(['france']);
+    // Place enemy units near Paris
+    state.wars = [{ a: 'france', b: 'hapsburg' }];
+    // Find a space 1-2 away from Paris and place hapsburg there
+    const neighbors = state.landEdges?.filter(
+      e => e.a === 'Paris' || e.b === 'Paris'
+    ) || [];
+    if (neighbors.length > 0) {
+      const adj = neighbors[0].a === 'Paris'
+        ? neighbors[0].b : neighbors[0].a;
+      state.spaces[adj].units.push({
+        owner: 'hapsburg', regulars: 3, mercenaries: 0,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      });
+      // Paris as capital: 2 + 1 (enemy nearby) = 3
+      const req = getGarrisonRequirement(state, 'Paris', 'france');
+      expect(req).toBe(3);
+    }
+  });
+
+  it('returns 0 for space with no controller', () => {
+    const state = createBotState(['france']);
+    state.spaces['Metz'].controller = 'hapsburg';
+    const req = getGarrisonRequirement(state, 'Metz', 'france');
+    expect(req).toBe(0);
+  });
+});
+
+describe('stackBotHand — edge cases', () => {
+  it('handles multiple non-Home cards without modification', () => {
+    const hand = [40, 50, 60];
+    const result = stackBotHand(hand, 'ottoman');
+    // No Home card → original order preserved
+    expect(result).toEqual([40, 50, 60]);
+  });
+});

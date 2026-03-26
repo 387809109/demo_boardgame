@@ -471,4 +471,287 @@ describe('executeRansom', () => {
     expect(log).toBeDefined();
     expect(log.data.leaderId).toBe('henry_viii');
   });
+
+  it('ransom with empty hand draws no card', () => {
+    const state = makeState();
+    const helpers = createMockHelpers();
+    state.capturedLeaders.ottoman = ['charles_v'];
+    state.hands.hapsburg = []; // empty hand
+
+    const result = executeRansom(state, 'hapsburg', {
+      captor: 'ottoman', leaderId: 'charles_v'
+    }, helpers);
+
+    expect(result.ransomed).toBe(true);
+    expect(result.cardDrawn).toBe(false);
+    expect(state.capturedLeaders.ottoman).not.toContain('charles_v');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// Batch 6 — Edge Case Tests
+// ══════════════════════════════════════════════════════════════════
+
+// ── validateDOW edge cases ──────────────────────────────────────
+
+describe('validateDOW — edge cases', () => {
+  it('rejects DOW on self', () => {
+    const state = makeState();
+    const r = validateDOW(state, 'ottoman', { target: 'ottoman' });
+    // Self-DOW isn't explicitly blocked but cost lookup returns undefined
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects alliance formed this turn', () => {
+    const state = makeState();
+    state.alliancesFormedThisTurn = [{ a: 'ottoman', b: 'england' }];
+    const r = validateDOW(state, 'ottoman', { target: 'england' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('allied with this turn');
+  });
+
+  it('rejects England DOW on Venice', () => {
+    const state = makeState();
+    const r = validateDOW(state, 'england', { target: 'venice' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('England');
+  });
+
+  it('rejects DOW on Scotland by Ottoman', () => {
+    const state = makeState();
+    const r = validateDOW(state, 'ottoman', { target: 'scotland' });
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects DOW on Scotland when allied with France', () => {
+    const state = makeState();
+    addAlliance(state, 'england', 'france');
+    const r = validateDOW(state, 'england', { target: 'scotland' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('France');
+  });
+
+  it('rejects DOW on Venice when allied with Papacy', () => {
+    const state = makeState();
+    addAlliance(state, 'france', 'papacy');
+    const r = validateDOW(state, 'france', { target: 'venice' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Papacy');
+  });
+
+  it('rejects DOW on Scotland after peacing with France', () => {
+    const state = makeState();
+    state.peaceMadeThisTurn = ['england|france'];
+    const r = validateDOW(state, 'england', { target: 'scotland' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('France');
+  });
+
+  it('rejects DOW on Venice after peacing with Papacy', () => {
+    const state = makeState();
+    state.peaceMadeThisTurn = ['hapsburg|papacy'];
+    const r = validateDOW(state, 'hapsburg', { target: 'venice' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Papacy');
+  });
+
+  it('rejects non-Ottoman DOW on Hungary', () => {
+    const state = makeState();
+    const r = validateDOW(state, 'france', { target: 'hungary_bohemia' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Ottoman');
+  });
+
+  it('rejects DOW on own minor ally (caught as ally)', () => {
+    const state = makeState();
+    addAlliance(state, 'france', 'scotland');
+    const r = validateDOW(state, 'france', { target: 'scotland' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('ally');
+  });
+});
+
+// ── validateSueForPeace edge cases ──────────────────────────────
+
+describe('validateSueForPeace — edge cases', () => {
+  it('rejects peace on final turn', () => {
+    const state = makeState();
+    state.turn = 9;
+    addWar(state, 'ottoman', 'england');
+    state.spaces['Istanbul'].controller = 'england';
+    const r = validateSueForPeace(state, 'ottoman', { target: 'england' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('final turn');
+  });
+
+  it('rejects Protestant-Hapsburg peace', () => {
+    const state = makeState();
+    state.schmalkaldicLeagueFormed = true;
+    addWar(state, 'protestant', 'hapsburg');
+    const r = validateSueForPeace(state, 'protestant', { target: 'hapsburg' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Protestant');
+  });
+
+  it('rejects Protestant-Papacy peace', () => {
+    const state = makeState();
+    state.schmalkaldicLeagueFormed = true;
+    addWar(state, 'protestant', 'papacy');
+    const r = validateSueForPeace(state, 'protestant', { target: 'papacy' });
+    expect(r.valid).toBe(false);
+  });
+
+  it('accepts peace when leader captured by target', () => {
+    const state = makeState();
+    addWar(state, 'france', 'england');
+    state.capturedLeaders.england = ['francis_i'];
+    const r = validateSueForPeace(state, 'france', { target: 'england' });
+    expect(r.valid).toBe(true);
+  });
+});
+
+// ── executeSueForPeace edge cases ───────────────────────────────
+
+describe('executeSueForPeace — edge cases', () => {
+  it('non-Ottoman war gives 1 VP', () => {
+    const state = makeState();
+    const helpers = createMockHelpers();
+    addWar(state, 'france', 'england');
+    state.spaces['Paris'].controller = 'england';
+    const vpBefore = state.vp.england;
+
+    executeSueForPeace(state, 'france', { target: 'england' }, helpers);
+    expect(state.vp.england).toBe(vpBefore + 1); // 1 VP, not 2
+  });
+
+  it('Ottoman war gives 2 VP to winner', () => {
+    const state = makeState();
+    const helpers = createMockHelpers();
+    addWar(state, 'ottoman', 'france');
+    state.spaces['Istanbul'].controller = 'france';
+    const vpBefore = state.vp.france;
+
+    executeSueForPeace(state, 'ottoman', { target: 'france' }, helpers);
+    expect(state.vp.france).toBe(vpBefore + 2);
+  });
+});
+
+// ── validateNegotiate edge cases ────────────────────────────────
+
+describe('validateNegotiate — edge cases', () => {
+  it('rejects unknown negotiation type', () => {
+    const state = makeState();
+    const r = validateNegotiate(state, 'ottoman', {
+      type: 'bribe', target: 'england'
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Unknown');
+  });
+
+  it('rejects Papacy-Ottoman alliance', () => {
+    const state = makeState();
+    const r = validateNegotiate(state, 'papacy', {
+      type: 'form_alliance', target: 'ottoman'
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Papacy and Ottoman');
+  });
+
+  it('rejects Ottoman-Papacy alliance (reverse)', () => {
+    const state = makeState();
+    const r = validateNegotiate(state, 'ottoman', {
+      type: 'form_alliance', target: 'papacy'
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Papacy and Ottoman');
+  });
+
+  it('transfer_space rejects missing space', () => {
+    const state = makeState();
+    const r = validateNegotiate(state, 'ottoman', {
+      type: 'transfer_space', target: 'england'
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Missing space');
+  });
+
+  it('transfer_space rejects unknown space', () => {
+    const state = makeState();
+    const r = validateNegotiate(state, 'ottoman', {
+      type: 'transfer_space', target: 'england', space: 'Atlantis'
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('not found');
+  });
+
+  it('gift_cards rejects zero count', () => {
+    const state = makeState();
+    const r = validateNegotiate(state, 'ottoman', {
+      type: 'gift_cards', target: 'england', count: 0
+    });
+    expect(r.valid).toBe(false);
+  });
+
+  it('gift_cards rejects when only home cards in hand', () => {
+    const state = makeState();
+    state.hands.ottoman = [1]; // only home card
+    const r = validateNegotiate(state, 'ottoman', {
+      type: 'gift_cards', target: 'england', count: 1
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('non-home');
+  });
+
+  it('gift_mercenaries rejects zero count', () => {
+    const state = makeState();
+    const r = validateNegotiate(state, 'france', {
+      type: 'gift_mercenaries', target: 'england', count: 0
+    });
+    expect(r.valid).toBe(false);
+  });
+
+  it('gift_mercenaries rejects when not enough mercs', () => {
+    const state = makeState();
+    // No mercs anywhere
+    const r = validateNegotiate(state, 'france', {
+      type: 'gift_mercenaries', target: 'england', count: 3
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('Not enough');
+  });
+
+  it('return_leader rejects missing leaderId', () => {
+    const state = makeState();
+    const r = validateNegotiate(state, 'ottoman', {
+      type: 'return_leader', target: 'hapsburg'
+    });
+    expect(r.valid).toBe(false);
+  });
+});
+
+// ── executeNegotiate edge cases ─────────────────────────────────
+
+describe('executeNegotiate — edge cases', () => {
+  it('gift_cards transfers only non-home cards', () => {
+    const state = makeState();
+    const helpers = createMockHelpers();
+    state.hands.ottoman = [1, 42, 43]; // #1 is home card
+
+    executeNegotiate(state, 'ottoman', {
+      type: 'gift_cards', target: 'england', count: 2
+    }, helpers);
+
+    // Home card #1 should still be in ottoman hand
+    expect(state.hands.ottoman).toContain(1);
+    expect(state.hands.ottoman).toHaveLength(1);
+  });
+
+  it('unknown negotiate type returns empty object', () => {
+    const state = makeState();
+    const helpers = createMockHelpers();
+    const result = executeNegotiate(state, 'ottoman', {
+      type: 'unknown', target: 'england'
+    }, helpers);
+    expect(result).toEqual({});
+  });
 });

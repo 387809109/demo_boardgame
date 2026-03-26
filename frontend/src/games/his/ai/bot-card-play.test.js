@@ -498,3 +498,270 @@ describe('decideResponsePlay', () => {
     expect(result.actionType).toBe('PLAY_RESPONSE_CARD');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — classifyCard
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('classifyCard edge cases', () => {
+  it('unknown card number returns "event"', () => {
+    expect(classifyCard(9999)).toBe('event');
+    expect(classifyCard(-1)).toBe('event');
+  });
+
+  it('card #6 (Leipzig Debate) is classified as home', () => {
+    expect(classifyCard(6)).toBe('home');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — isHomeCardFor
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('isHomeCardFor edge cases', () => {
+  it('non-home card returns false for all powers', () => {
+    const powers = ['ottoman', 'hapsburg', 'england', 'france', 'papacy', 'protestant'];
+    for (const p of powers) {
+      expect(isHomeCardFor(50, p)).toBe(false);
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — evaluateHomeCard
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('evaluateHomeCard edge cases', () => {
+  it('Ottoman returns null when >= 12 units in Istanbul', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.spaces['Istanbul'] = {
+      ...state.spaces['Istanbul'],
+      units: [{ owner: 'ottoman', regulars: 12, mercenaries: 0, cavalry: 0,
+        squadrons: 0, corsairs: 0, leaders: [] }]
+    };
+    const result = evaluateHomeCard(state, 'ottoman');
+    expect(result).toBeNull();
+  });
+
+  it('Ottoman plays event when < 12 units in Istanbul', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.spaces['Istanbul'] = {
+      ...state.spaces['Istanbul'],
+      units: [{ owner: 'ottoman', regulars: 5, mercenaries: 0, cavalry: 0,
+        squadrons: 0, corsairs: 0, leaders: [] }]
+    };
+    const result = evaluateHomeCard(state, 'ottoman');
+    expect(result).not.toBeNull();
+    expect(result.actionData.cardNumber).toBe(1);
+  });
+
+  it('Hapsburg returns null when not at war', () => {
+    const state = createBotState(['hapsburg']);
+    setActiveBehaviorCard(state, 'hapsburg', 'hapsburg_holy_roman_empire');
+    // No wars
+    state.wars = [];
+    const result = evaluateHomeCard(state, 'hapsburg');
+    expect(result).toBeNull();
+  });
+
+  it('England plays marital status when Henry VIII alive and turn >= 2', () => {
+    const state = createBotState(['england']);
+    setActiveBehaviorCard(state, 'england', 'england_expedition');
+    state.turn = 2;
+    state.rulers = state.rulers || {};
+    state.rulers.england = { id: 'henry_viii', admin: 3 };
+    state.englandHomeCardWar = null;
+    const result = evaluateHomeCard(state, 'england');
+    // Should play marital status or null depending on behavior card home flag
+    if (result) {
+      expect(result.actionData.homeEffect).toBe('marital_status');
+    }
+  });
+
+  it('Protestant always returns null (response-only Home)', () => {
+    const state = createBotState(['protestant']);
+    setActiveBehaviorCard(state, 'protestant', 'protestant_oratory');
+    const result = evaluateHomeCard(state, 'protestant');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when no behavior card active (home=false)', () => {
+    const state = createBotState(['ottoman']);
+    // Empty faceUp → getActiveBehaviorCard returns null
+    state.botDecks.ottoman.faceUp = [];
+    const result = evaluateHomeCard(state, 'ottoman');
+    expect(result).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — evaluateLeipzigDebate
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('evaluateLeipzigDebate edge cases', () => {
+  it('returns null when < 2 uncommitted debaters with value >= 2', () => {
+    const state = createBotState(['papacy']);
+    state.debaters = {
+      papal: [
+        { id: 'cajetan', committed: true, value: 3 },
+        { id: 'tetzel', committed: false, value: 1 }
+      ]
+    };
+    expect(evaluateLeipzigDebate(state)).toBeNull();
+  });
+
+  it('returns action when >= 2 qualifying debaters', () => {
+    const state = createBotState(['papacy']);
+    state.debaters = {
+      papal: [
+        { id: 'cajetan', committed: false, value: 3 },
+        { id: 'eck', committed: false, value: 3 }
+      ]
+    };
+    const result = evaluateLeipzigDebate(state);
+    expect(result).not.toBeNull();
+    expect(result.actionData.cardNumber).toBe(6);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — Treaty & Ganging Up
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('checkTreatyObligation edge cases', () => {
+  it('returns false when no treaty tokens', () => {
+    const state = createBotState(['ottoman']);
+    state.treatyTokens = {};
+    const result = checkTreatyObligation(state, 'ottoman', 50);
+    expect(result.shouldPlayForTreaty).toBe(false);
+  });
+
+  it('returns false when treaty already satisfied this turn', () => {
+    const state = createBotState(['ottoman']);
+    state.treatyTokens = { ottoman: ['hapsburg'] };
+    state.treatySatisfied = { ottoman: true };
+    const result = checkTreatyObligation(state, 'ottoman', 50);
+    expect(result.shouldPlayForTreaty).toBe(false);
+  });
+});
+
+describe('getGangingUpTargets edge cases', () => {
+  it('returns empty when no power >= 21 VP', () => {
+    const state = createBotState(['ottoman']);
+    state.vp = { ottoman: 10, hapsburg: 15, england: 12 };
+    expect(getGangingUpTargets(state, 'ottoman')).toEqual([]);
+  });
+
+  it('returns powers at >= 21 VP above Bot VP', () => {
+    const state = createBotState(['ottoman']);
+    state.vp = { ottoman: 10, hapsburg: 22, england: 12, france: 21 };
+    const targets = getGangingUpTargets(state, 'ottoman');
+    expect(targets).toContain('hapsburg');
+    expect(targets).toContain('france');
+    expect(targets).not.toContain('england');
+  });
+
+  it('does not include self or lower-VP powers', () => {
+    const state = createBotState(['hapsburg']);
+    state.vp = { hapsburg: 23, ottoman: 21 };
+    const targets = getGangingUpTargets(state, 'hapsburg');
+    expect(targets).not.toContain('hapsburg');
+    expect(targets).not.toContain('ottoman');
+  });
+
+  it('tournament mode uses threshold 20', () => {
+    const state = createBotState(['ottoman']);
+    state.tournament = true;
+    state.vp = { ottoman: 10, hapsburg: 20 };
+    expect(getGangingUpTargets(state, 'ottoman')).toContain('hapsburg');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — shouldSaveCards
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('shouldSaveCards edge cases', () => {
+  it('returns false when set-aside is empty', () => {
+    const state = createBotState(['ottoman']);
+    state.botSetAside = { ottoman: [] };
+    expect(shouldSaveCards(state, 'ottoman')).toBe(false);
+  });
+
+  it('returns false when any power >= 25 VP (endgame)', () => {
+    const state = createBotState(['ottoman']);
+    state.botSetAside = { ottoman: [24, 25] };
+    state.vp = { hapsburg: 25 };
+    state.rulers = { ottoman: { id: 'suleiman', admin: 4 } };
+    expect(shouldSaveCards(state, 'ottoman')).toBe(false);
+  });
+
+  it('returns true when set-aside count <= admin rating', () => {
+    const state = createBotState(['ottoman']);
+    state.botSetAside = { ottoman: [24] }; // 1 card
+    state.vp = {};
+    state.rulers = { ottoman: { id: 'suleiman', admin: 3 } };
+    expect(shouldSaveCards(state, 'ottoman')).toBe(true);
+  });
+
+  it('tournament uses threshold 23', () => {
+    const state = createBotState(['ottoman']);
+    state.botSetAside = { ottoman: [24] };
+    state.tournament = true;
+    state.vp = { hapsburg: 23 };
+    state.rulers = { ottoman: { id: 'suleiman', admin: 3 } };
+    expect(shouldSaveCards(state, 'ottoman')).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — decideCardPlay routing
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('decideCardPlay routing edge cases', () => {
+  it('empty hand with no set-aside passes', () => {
+    const state = createBotState(['ottoman']);
+    state.hands = { ottoman: [] };
+    state.botSetAside = { ottoman: [] };
+    const result = decideCardPlay(state, 'ottoman');
+    expect(result.actionType).toBe('PASS');
+  });
+
+  it('empty hand with set-aside plays for CPs', () => {
+    const state = createBotState(['ottoman']);
+    state.hands = { ottoman: [] };
+    state.botSetAside = { ottoman: [24] }; // Arquebusiers
+    state.vp = { hapsburg: 25 }; // prevent saving
+    const result = decideCardPlay(state, 'ottoman');
+    expect(result.actionType).toBe('PLAY_CARD_CP');
+    expect(result.actionData.fromSetAside).toBe(true);
+  });
+
+  it('empty hand with saving criteria passes', () => {
+    const state = createBotState(['ottoman']);
+    state.hands = { ottoman: [] };
+    state.botSetAside = { ottoman: [24] };
+    state.vp = {};
+    state.rulers = { ottoman: { id: 'suleiman', admin: 3 } };
+    const result = decideCardPlay(state, 'ottoman');
+    expect(result.actionType).toBe('PASS');
+    expect(result.actionData.saving).toBe(true);
+  });
+
+  it('mandatory card always plays as event', () => {
+    const state = createBotState(['ottoman']);
+    state.hands = { ottoman: [9] }; // Barbary Pirates (mandatory)
+    const result = decideCardPlay(state, 'ottoman');
+    expect(result.actionType).toBe('PLAY_CARD_EVENT');
+    expect(result.actionData.mandatory).toBe(true);
+  });
+
+  it('unknown card in hand falls back to PASS', () => {
+    const state = createBotState(['ottoman']);
+    state.hands = { ottoman: [99999] };
+    const result = decideCardPlay(state, 'ottoman');
+    expect(result.actionType).toBe('PASS');
+  });
+});

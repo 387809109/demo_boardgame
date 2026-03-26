@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { createTestState } from '../test-helpers.js';
 import { initBotDecks } from './bot-controller.js';
-import { initBotDeck, NEG_ITEMS, CARD_BY_ID } from './behavior-cards.js';
+import { initBotDeck, NEG_ITEMS, CARD_BY_ID, getActiveBehaviorCard } from './behavior-cards.js';
 import { addWar } from '../state/war-helpers.js';
 import {
   evaluateDeal,
@@ -324,5 +324,88 @@ describe('isTreatyBlocked', () => {
     // Spoils of War: war = 'hapsburg'
     setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
     expect(isTreatyBlocked(state, 'ottoman', 'france')).toBe(false);
+  });
+
+  it('blocks Protestant-Papacy treaty (reverse direction)', () => {
+    const state = createBotState(['protestant']);
+    expect(isTreatyBlocked(state, 'protestant', 'papacy')).toBe(true);
+  });
+
+  it('blocks when powers are at war', () => {
+    const state = createBotState(['ottoman']);
+    addWar(state, 'ottoman', 'france');
+    expect(isTreatyBlocked(state, 'ottoman', 'france')).toBe(true);
+  });
+});
+
+// ── Edge Cases ────────────────────────────────────────────────────────
+
+describe('evaluateDeal — edge cases', () => {
+  it('fails when Bot has no behavior card', () => {
+    const state = createBotState(['ottoman']);
+    state.botDecks.ottoman.faceUp = [];
+    const result = evaluateDeal(state, 'ottoman', 'france', {}, {});
+    expect(result.success).toBe(false);
+    expect(result.reason).toBe('no_behavior_card');
+  });
+
+  it('bad faith blocks END_WAR in offer (not just request)', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.badFaithCards = { ottoman: { france: 1 } };
+    const result = evaluateDeal(
+      state, 'ottoman', 'france',
+      { [NEG_ITEMS.END_WAR]: 1 }, {}
+    );
+    expect(result.success).toBe(false);
+    expect(result.reason).toBe('bad_faith_restriction');
+  });
+
+  it('war field blocks ALLIANCE request', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    const result = evaluateDeal(
+      state, 'ottoman', 'hapsburg',
+      {}, { [NEG_ITEMS.ALLIANCE]: 1 }
+    );
+    expect(result.success).toBe(false);
+    expect(result.reason).toBe('war_field_conflict');
+  });
+
+  it('exceeds_max when offer + request > max', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    // Force a negotiation row with max
+    const card = getActiveBehaviorCard(state.botDecks.ottoman);
+    if (card?.negotiations) {
+      const firstItem = Object.keys(card.negotiations)[0];
+      if (firstItem && card.negotiations[firstItem].max != null) {
+        const maxVal = card.negotiations[firstItem].max;
+        const result = evaluateDeal(
+          state, 'ottoman', 'france',
+          { [firstItem]: maxVal },
+          { [firstItem]: 1 }
+        );
+        expect(result.success).toBe(false);
+        expect(result.reason).toBe('exceeds_max');
+      }
+    }
+  });
+});
+
+describe('resolveBotToBotDeal — edge cases', () => {
+  it('returns empty when one power is not a Bot', () => {
+    const state = createBotState(['ottoman']);
+    const result = resolveBotToBotDeal(state, 'ottoman', 'france');
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty when neither Bot has color-coded items', () => {
+    const state = createBotState(['ottoman', 'hapsburg']);
+    // Cards without colorCoded
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spread_thin');
+    setActiveBehaviorCard(state, 'hapsburg', 'hapsburg_consolidation');
+    const result = resolveBotToBotDeal(state, 'ottoman', 'hapsburg');
+    expect(result).toEqual([]);
   });
 });

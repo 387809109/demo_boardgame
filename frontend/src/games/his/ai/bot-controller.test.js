@@ -282,6 +282,67 @@ describe('decideBotAction — action phase', () => {
   });
 });
 
+// ── Edge Cases ────────────────────────────────────────────────────────
+
+describe('decideBotAction — edge cases', () => {
+  it('returns null for undefined/unknown phase', () => {
+    const state = createBotState(['ottoman']);
+    state.phase = 'some_unknown_phase';
+    const action = decideBotAction(state, 'ottoman');
+    expect(action).toBeNull();
+  });
+
+  it('returns PHASE_ADVANCE when luther_95 targets list is empty', () => {
+    const state = createBotState(['protestant']);
+    state.phase = 'luther_95';
+    state.luther95 = { remaining: 3, targets: [] };
+    const action = decideBotAction(state, 'protestant');
+    expect(action.actionType).toBe('PHASE_ADVANCE');
+  });
+
+  it('returns null for luther_95 when power is not protestant', () => {
+    const state = createBotState(['hapsburg']);
+    state.phase = 'luther_95';
+    state.luther95 = { remaining: 3, targets: ['Wittenberg'] };
+    const action = decideBotAction(state, 'hapsburg');
+    expect(action).toBeNull();
+  });
+
+  it('returns null in action phase when responding power is human', () => {
+    const state = createBotState(['ottoman']);
+    state.phase = 'action';
+    state.activePower = 'ottoman';
+    state.pendingResponse = { respondingPower: 'france' }; // human
+    const action = decideBotAction(state, 'ottoman');
+    expect(action).toBeNull();
+  });
+
+  it('returns null for winter when already removed unrest', () => {
+    const state = createBotState(['ottoman']);
+    state.phase = 'winter';
+    state.activePower = 'ottoman';
+    state.botWinterUnrestDone = { ottoman: true };
+    const action = decideBotAction(state, 'ottoman');
+    expect(action).toBeNull();
+  });
+
+  it('returns null for victory_determination phase', () => {
+    const state = createBotState(['ottoman']);
+    state.phase = 'victory_determination';
+    const action = decideBotAction(state, 'ottoman');
+    expect(action).toBeNull();
+  });
+
+  it('diplomacy passes when Bot already acted in segment', () => {
+    const state = createBotState(['ottoman']);
+    state.phase = 'diplomacy';
+    state.diplomacySegment = 'sue_for_peace';
+    state.diplomacyActed = { ottoman: true };
+    const action = decideBotAction(state, 'ottoman');
+    expect(action).toBeNull();
+  });
+});
+
 // ── HISGame Integration ─────────────────────────────────────────────
 
 describe('HISGame with Bot initialization', () => {

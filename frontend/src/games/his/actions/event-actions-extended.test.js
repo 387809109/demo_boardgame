@@ -799,6 +799,408 @@ describe('Extended Event Handlers (#55-116)', () => {
     });
   });
 
+  // ── Edge cases ─────────────────────────────────────────────────
+
+  describe('#57 Philip of Hesse — edge cases', () => {
+    it('discard branch removes random card from protestant hand', () => {
+      const state = eventState();
+      state.hands = { protestant: [40, 50] };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 57,
+        { choice: 'discard' }, helpers);
+
+      expect(state.hands.protestant.length).toBe(1);
+      expect(state.discard.length).toBeGreaterThan(0);
+    });
+
+    it('discard branch no-ops with empty protestant hand', () => {
+      const state = eventState();
+      state.hands = { protestant: [] };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 57,
+        { choice: 'discard' }, helpers);
+
+      expect(state.discard.length).toBe(0);
+    });
+  });
+
+  describe('#64 Pilgrimage — edge cases', () => {
+    it('skips occupied English home spaces', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      // Find an English home space and give it units
+      const engHome = Object.entries(state.spaces).find(
+        ([, sp]) => sp.homePower === 'england' && !sp.unrest
+      );
+      if (engHome) {
+        engHome[1].units = [{
+          owner: 'england', regulars: 2, mercenaries: 0,
+          cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+        }];
+
+        executeEvent(state, 'papacy', 64,
+          { targetSpaces: [engHome[0]] }, helpers);
+
+        expect(engHome[1].unrest).toBeFalsy();
+      }
+    });
+
+    it('skips spaces with existing unrest', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      const engHome = Object.entries(state.spaces).find(
+        ([, sp]) => sp.homePower === 'england'
+      );
+      if (engHome) {
+        engHome[1].unrest = true;
+        engHome[1].units = [];
+
+        executeEvent(state, 'papacy', 64,
+          { targetSpaces: [engHome[0]] }, helpers);
+
+        const log = state.eventLog.find(
+          e => e.type === 'event_pilgrimage_of_grace');
+        expect(log.data.placed).toBe(0);
+      }
+    });
+  });
+
+  describe('#67 Anabaptists — edge cases', () => {
+    it('skips electorate spaces', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      state.spaces['Wittenberg'].religion = 'protestant';
+      state.spaces['Wittenberg'].isElectorate = true;
+      state.spaces['Wittenberg'].units = [];
+
+      executeEvent(state, 'papacy', 67,
+        { targetSpaces: ['Wittenberg'] }, helpers);
+
+      expect(state.spaces['Wittenberg'].religion).toBe('protestant');
+    });
+
+    it('skips occupied spaces', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      state.spaces['Wittenberg'].religion = 'protestant';
+      state.spaces['Wittenberg'].isElectorate = false;
+      state.spaces['Wittenberg'].units = [{
+        owner: 'protestant', regulars: 2, mercenaries: 0,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      }];
+
+      executeEvent(state, 'papacy', 67,
+        { targetSpaces: ['Wittenberg'] }, helpers);
+
+      expect(state.spaces['Wittenberg'].religion).toBe('protestant');
+    });
+  });
+
+  describe('#69 Auld Alliance — edge cases', () => {
+    it('deactivate removes Scotland alliances', () => {
+      const state = eventState();
+      state.minorPowers = { scotland: { ally: 'france', active: true } };
+      state.alliances.push({ a: 'scotland', b: 'france' });
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'france', 69,
+        { mode: 'deactivate' }, helpers);
+
+      expect(state.minorPowers.scotland.active).toBe(false);
+      expect(state.alliances.some(a =>
+        a.a === 'scotland' || a.b === 'scotland'
+      )).toBe(false);
+    });
+
+    it('reinforce places up to 3 French regulars', () => {
+      const state = eventState();
+      state.spaces['Edinburgh'].units = [];
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'france', 69, {
+        mode: 'reinforce',
+        targetSpace: 'Edinburgh',
+        count: 5 // should cap at 3
+      }, helpers);
+
+      const fStack = state.spaces['Edinburgh'].units.find(
+        u => u.owner === 'france');
+      expect(fStack).toBeDefined();
+      expect(fStack.regulars).toBe(3);
+    });
+  });
+
+  describe('#78 Frederick the Wise — edge cases', () => {
+    it('skips Wartburg retrieval if card #37 not in discard', () => {
+      const state = eventState();
+      state.discard = [50, 60]; // no 37
+      state.hands = { protestant: [] };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'protestant', 78,
+        { targetSpaces: [] }, helpers);
+
+      expect(state.hands.protestant).not.toContain(37);
+    });
+  });
+
+  describe('#80 Gabelle Revolt — edge cases', () => {
+    it('skips non-French home spaces', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 80,
+        { targetSpaces: ['Vienna'] }, helpers);
+
+      expect(state.spaces['Vienna'].unrest).toBeFalsy();
+    });
+  });
+
+  describe('#87 Mercenaries Demand Pay — edge cases', () => {
+    it('removes all mercs when no card discarded', () => {
+      const state = eventState();
+      state.spaces['Paris'].units = [{
+        owner: 'france', regulars: 3, mercenaries: 4,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      }];
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'hapsburg', 87, {
+        targetPower: 'france'
+      }, helpers);
+
+      // All French mercs gone
+      for (const sp of Object.values(state.spaces)) {
+        for (const stack of sp.units) {
+          if (stack.owner === 'france') {
+            expect(stack.mercenaries).toBe(0);
+          }
+        }
+      }
+    });
+
+    it('keeps mercs when card is discarded', () => {
+      const state = eventState();
+      state.hands = { france: [40, 50] };
+      state.spaces['Paris'].units = [{
+        owner: 'france', regulars: 3, mercenaries: 4,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      }];
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'hapsburg', 87, {
+        targetPower: 'france', discardCard: 40
+      }, helpers);
+
+      expect(state.hands.france).not.toContain(40);
+      expect(state.discard).toContain(40);
+      // Mercs still intact
+      expect(state.spaces['Paris'].units[0].mercenaries).toBe(4);
+    });
+  });
+
+  describe('#100 Shipbuilding — edge cases', () => {
+    it('Ottoman corsairs mode places 2 corsairs per squadron', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      state.spaces['Algiers'].units = [{
+        owner: 'ottoman', regulars: 2, mercenaries: 0,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      }];
+
+      executeEvent(state, 'ottoman', 100, {
+        placements: [{ space: 'Algiers', count: 2 }],
+        useCorsairs: true
+      }, helpers);
+
+      const stack = state.spaces['Algiers'].units.find(
+        u => u.owner === 'ottoman');
+      expect(stack.corsairs).toBe(4); // 2 * 2
+      expect(stack.squadrons).toBe(0);
+    });
+  });
+
+  describe('#104 Trace Italienne — edge cases', () => {
+    it('skips reinforcement for independent controller', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      state.spaces['Metz'].controller = 'independent';
+      state.spaces['Metz'].units = [];
+
+      executeEvent(state, 'france', 104,
+        { targetSpace: 'Metz' }, helpers);
+
+      expect(state.spaces['Metz'].isFortress).toBe(true);
+      // No units added for independent
+      expect(state.spaces['Metz'].units.length).toBe(0);
+    });
+
+    it('skips reinforcement when space has unrest', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      state.spaces['Paris'].unrest = true;
+
+      executeEvent(state, 'france', 104,
+        { targetSpace: 'Paris' }, helpers);
+
+      expect(state.spaces['Paris'].isFortress).toBe(true);
+      // No additional regular added due to unrest
+    });
+  });
+
+  describe('#107 Unsanitary Camp — edge cases', () => {
+    it('cavalry absorbs overflow when regulars+mercs insufficient', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      // 0 regulars, 0 mercs, 6 cavalry → remove ceil(6/3)=2
+      // regLoss = min(ceil(2/2), 0) = 0, mercLoss = min(2, 0) = 0
+      // remaining = 2 → cavalry -= 2
+      state.spaces['Paris'].units = [{
+        owner: 'france', regulars: 0, mercenaries: 0,
+        cavalry: 6, squadrons: 0, corsairs: 0, leaders: []
+      }];
+
+      executeEvent(state, 'hapsburg', 107, {
+        targetSpace: 'Paris', targetPower: 'france'
+      }, helpers);
+
+      expect(state.spaces['Paris'].units[0].cavalry).toBe(4);
+    });
+
+    it('no-ops when target has no units', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      state.spaces['Paris'].units = [{
+        owner: 'france', regulars: 0, mercenaries: 0,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      }];
+
+      executeEvent(state, 'hapsburg', 107, {
+        targetSpace: 'Paris', targetPower: 'france'
+      }, helpers);
+
+      // ceil(0/3) = 0, no units removed
+      const stack = state.spaces['Paris'].units[0];
+      expect(stack.regulars + stack.mercenaries + stack.cavalry).toBe(0);
+    });
+  });
+
+  describe('#108 Venetian Alliance — edge cases', () => {
+    it('deactivate mode', () => {
+      const state = eventState();
+      state.minorPowers = { venice: { ally: 'papacy', active: true } };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 108,
+        { mode: 'deactivate' }, helpers);
+
+      expect(state.minorPowers.venice.active).toBe(false);
+    });
+
+    it('reinforce mode places venetian units', () => {
+      const state = eventState();
+      state.spaces['Venice'].units = [];
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 108, {
+        mode: 'reinforce', targetSpace: 'Venice'
+      }, helpers);
+
+      const vStack = state.spaces['Venice'].units.find(
+        u => u.owner === 'venice');
+      expect(vStack).toBeDefined();
+      expect(vStack.regulars).toBe(1);
+      expect(vStack.squadrons).toBe(2);
+    });
+  });
+
+  describe('#60 Maurice of Saxony — edge cases', () => {
+    it('logs notFound when leader not on map', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'hapsburg', 60,
+        { currentOwner: 'protestant' }, helpers);
+
+      const log = state.eventLog.find(
+        e => e.type === 'event_maurice_of_saxony');
+      expect(log.data.notFound).toBe(true);
+    });
+  });
+
+  describe('#116 Rough Wooing — edge cases', () => {
+    it('Scotland stays French when England fails', () => {
+      const state = eventState({ edwardBorn: true });
+      state.alliances.push({ a: 'scotland', b: 'france' });
+      const helpers = createMockHelpers();
+
+      // England needs engTotal >= fraTotal + 2, so 3 vs 3 fails
+      executeEvent(state, 'england', 116, {
+        engRoll: 3, fraRoll: 3
+      }, helpers);
+
+      expect(state.alliances.some(a =>
+        (a.a === 'scotland' && a.b === 'france') ||
+        (a.a === 'france' && a.b === 'scotland')
+      )).toBe(true);
+      // No England alliance
+      expect(state.alliances.some(a =>
+        (a.a === 'scotland' && a.b === 'england') ||
+        (a.a === 'england' && a.b === 'scotland')
+      )).toBe(false);
+    });
+  });
+
+  describe('#75 Erasmus — edge cases', () => {
+    it('turn 2 boundary: reformation (not counter)', () => {
+      const state = eventState({ turn: 2 });
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'protestant', 75, {}, helpers);
+
+      expect(state.pendingReformation).toBeDefined();
+      expect(state.pendingCounterReformation).toBeUndefined();
+    });
+
+    it('turn 3 boundary: counter-reformation', () => {
+      const state = eventState({ turn: 3 });
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 75, {}, helpers);
+
+      expect(state.pendingCounterReformation).toBeDefined();
+    });
+  });
+
+  describe('#115 Thomas Cromwell — edge cases', () => {
+    it('retrieve mode gets Dissolution from discard', () => {
+      const state = eventState();
+      state.discard = [63, 80];
+      state.hands = { england: [] };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 115,
+        { mode: 'retrieve' }, helpers);
+
+      expect(state.hands.england).toContain(63);
+      expect(state.discard).not.toContain(63);
+    });
+
+    it('retrieve no-ops if card #63 not in discard', () => {
+      const state = eventState();
+      state.discard = [80];
+      state.hands = { england: [] };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'england', 115,
+        { mode: 'retrieve' }, helpers);
+
+      expect(state.hands.england).not.toContain(63);
+    });
+  });
+
   // ── Verify all extended handlers registered ─────────────────────
   describe('handler registration', () => {
     const extendedCards = [

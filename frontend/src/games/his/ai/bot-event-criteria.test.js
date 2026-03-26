@@ -365,3 +365,49 @@ describe('hasEventCriteria / hasResponseCriteria', () => {
     expect(responseCount).toBeGreaterThanOrEqual(8);
   });
 });
+
+// ══════════════════════════════════════════════════════════════════
+// Edge Cases
+// ══════════════════════════════════════════════════════════════════
+
+describe('shouldPlayEvent — edge cases', () => {
+  it('returns false for non-existent card number', () => {
+    const state = createBotState();
+    expect(shouldPlayEvent(state, 'ottoman', 999)).toBe(false);
+  });
+
+  it('returns false for card with no power-specific criteria', () => {
+    const state = createBotState();
+    // Card 65 (A Mighty Fortress) only returns true for Protestant
+    expect(shouldPlayEvent(state, 'papacy', 65)).toBe(false);
+    expect(shouldPlayEvent(state, 'ottoman', 65)).toBe(false);
+  });
+});
+
+describe('satisfiesTreaty — edge cases', () => {
+  it('returns false for card with no treaty function', () => {
+    const state = createBotState();
+    // Pick a card that doesn't have treaty criteria
+    // Card 47 (Copernicus) — always play, no treaty logic
+    const result = satisfiesTreaty(state, 'ottoman', 47, 'france');
+    expect(result).toBe(false);
+  });
+
+  it('returns false for non-existent card', () => {
+    const state = createBotState();
+    expect(satisfiesTreaty(state, 'ottoman', 999, 'france')).toBe(false);
+  });
+});
+
+describe('shouldPlayResponse — edge cases', () => {
+  it('returns false for non-existent card', () => {
+    const state = createBotState();
+    expect(shouldPlayResponse(state, 'ottoman', 999)).toBe(false);
+  });
+
+  it('returns false for event card (not response)', () => {
+    const state = createBotState();
+    // Card 65 is an event, not response
+    expect(shouldPlayResponse(state, 'protestant', 65)).toBe(false);
+  });
+});

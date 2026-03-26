@@ -233,3 +233,218 @@ describe('winter phase — debater/CP reset', () => {
     expect(state.impulseActions).toEqual([]);
   });
 });
+
+// ══════════════════════════════════════════════════════════════════
+// Batch 6 — Edge Case Tests
+// ══════════════════════════════════════════════════════════════════
+
+// ── getPhaseOrder edge cases ────────────────────────────────────
+
+describe('getPhaseOrder — edge cases', () => {
+  it('turn 9 has same phases as turn 2', () => {
+    expect(getPhaseOrder(9)).toEqual(getPhaseOrder(2));
+  });
+
+  it('new_world phase is before victory_determination', () => {
+    const order = getPhaseOrder(2);
+    const nwIdx = order.indexOf('new_world');
+    const vdIdx = order.indexOf('victory_determination');
+    expect(nwIdx).toBeLessThan(vdIdx);
+    expect(nwIdx).toBeGreaterThan(-1);
+  });
+
+  it('action phase is after spring_deployment', () => {
+    const order = getPhaseOrder(2);
+    const sdIdx = order.indexOf('spring_deployment');
+    const actIdx = order.indexOf('action');
+    expect(actIdx).toBe(sdIdx + 1);
+  });
+});
+
+// ── getNextPhase edge cases ─────────────────────────────────────
+
+describe('getNextPhase — edge cases', () => {
+  it('luther_95 → card_draw on turn 1', () => {
+    const state = createTestState({ phase: 'luther_95', turn: 1 });
+    expect(getNextPhase(state)).toBe('card_draw');
+  });
+
+  it('winter → new_world', () => {
+    const state = createTestState({ phase: 'winter', turn: 2 });
+    expect(getNextPhase(state)).toBe('new_world');
+  });
+
+  it('new_world → victory_determination', () => {
+    const state = createTestState({ phase: 'new_world', turn: 2 });
+    expect(getNextPhase(state)).toBe('victory_determination');
+  });
+
+  it('spring_deployment → action', () => {
+    const state = createTestState({ phase: 'spring_deployment', turn: 3 });
+    expect(getNextPhase(state)).toBe('action');
+  });
+
+  it('unknown phase returns null', () => {
+    const state = createTestState({ phase: 'unknown_phase', turn: 2 });
+    expect(getNextPhase(state)).toBeNull();
+  });
+});
+
+// ── advancePhase edge cases ─────────────────────────────────────
+
+describe('advancePhase — edge cases', () => {
+  it('no-op when game already ended', () => {
+    const state = createTestState({ phase: 'action', turn: 2 });
+    const helpers = createMockHelpers();
+    state.status = 'ended';
+    advancePhase(state, helpers);
+    expect(state.phase).toBe('action'); // unchanged
+  });
+
+  it('turn 8 victory_determination advances to turn 9', () => {
+    const state = createTestState({ phase: 'victory_determination', turn: 8 });
+    const helpers = createMockHelpers();
+    advancePhase(state, helpers);
+    expect(state.turn).toBe(9);
+    expect(state.phase).toBe('card_draw');
+    expect(state.status).not.toBe('ended');
+  });
+
+  it('action phase initializes consecutivePasses to 0', () => {
+    const state = createTestState({ phase: 'spring_deployment', turn: 2 });
+    const helpers = createMockHelpers();
+    state.consecutivePasses = 99;
+    transitionPhase(state, PHASES.ACTION, helpers);
+    expect(state.consecutivePasses).toBe(0);
+    expect(state.impulseIndex).toBe(0);
+  });
+});
+
+// ── advanceImpulse edge cases ───────────────────────────────────
+
+describe('advanceImpulse — edge cases', () => {
+  it('impulseIndex 4 → 5 (last power)', () => {
+    const state = createTestState({ impulseIndex: 4 });
+    advanceImpulse(state);
+    expect(state.impulseIndex).toBe(5);
+    expect(state.activePower).toBe(IMPULSE_ORDER[5]);
+  });
+
+  it('two full cycles return to start', () => {
+    const state = createTestState({ impulseIndex: 0 });
+    for (let i = 0; i < 12; i++) {
+      advanceImpulse(state);
+    }
+    expect(state.impulseIndex).toBe(0);
+    expect(state.activePower).toBe(IMPULSE_ORDER[0]);
+  });
+});
+
+// ── Turn track naval leader edge cases ──────────────────────────
+
+describe('advancePhase — naval leader return edge cases', () => {
+  it('leader already on map is not duplicated', () => {
+    const state = createTestState({ phase: 'victory_determination', turn: 1 });
+    const helpers = createMockHelpers();
+
+    // Put dragut on map already
+    const istanbulUnits = state.spaces['Istanbul'].units || [];
+    let ottStack = istanbulUnits.find(u => u.owner === 'ottoman');
+    if (!ottStack) {
+      ottStack = { owner: 'ottoman', regulars: 0, mercenaries: 0, cavalry: 0,
+        squadrons: 0, corsairs: 0, leaders: [] };
+      state.spaces['Istanbul'].units = state.spaces['Istanbul'].units || [];
+      state.spaces['Istanbul'].units.push(ottStack);
+    }
+    ottStack.leaders.push('dragut');
+
+    state.turnTrack = {
+      navalLeaders: [{
+        power: 'ottoman', leaderId: 'dragut', returnTurn: 2,
+        source: 'test', space: 'Istanbul'
+      }],
+      navalUnits: []
+    };
+
+    advancePhase(state, helpers);
+
+    // Should not duplicate
+    let dragutCount = 0;
+    for (const sp of Object.values(state.spaces)) {
+      for (const stack of sp.units || []) {
+        dragutCount += (stack.leaders || []).filter(l => l === 'dragut').length;
+      }
+    }
+    expect(dragutCount).toBe(1);
+  });
+
+  it('leader delayed when no controlled port', () => {
+    const state = createTestState({ phase: 'victory_determination', turn: 1 });
+    const helpers = createMockHelpers();
+
+    // Remove dragut from map first (initial setup places him)
+    for (const sp of Object.values(state.spaces)) {
+      for (const stack of sp.units || []) {
+        stack.leaders = (stack.leaders || []).filter(l => l !== 'dragut');
+      }
+    }
+
+    // Set all ottoman-controlled spaces to enemy control (not just ports)
+    for (const [, sp] of Object.entries(state.spaces)) {
+      if (sp.controller === 'ottoman') {
+        sp.controller = 'hapsburg';
+      }
+    }
+
+    state.turnTrack = {
+      navalLeaders: [{
+        power: 'ottoman', leaderId: 'dragut', returnTurn: 2,
+        source: 'test', space: 'Istanbul'
+      }],
+      navalUnits: []
+    };
+
+    advancePhase(state, helpers);
+
+    // Leader should be delayed to next turn
+    expect(state.turnTrack.navalLeaders).toHaveLength(1);
+    expect(state.turnTrack.navalLeaders[0].returnTurn).toBe(3);
+  });
+
+  it('naval units with zero count are skipped', () => {
+    const state = createTestState({ phase: 'victory_determination', turn: 1 });
+    const helpers = createMockHelpers();
+
+    state.turnTrack = {
+      navalLeaders: [],
+      navalUnits: [{
+        power: 'ottoman', type: 'squadron', count: 0,
+        returnTurn: 2, source: 'test', space: 'Istanbul'
+      }]
+    };
+
+    advancePhase(state, helpers);
+
+    // Zero-count entry should be silently dropped
+    expect(state.turnTrack.navalUnits).toHaveLength(0);
+  });
+
+  it('future naval leader not returned early', () => {
+    const state = createTestState({ phase: 'victory_determination', turn: 1 });
+    const helpers = createMockHelpers();
+
+    state.turnTrack = {
+      navalLeaders: [{
+        power: 'ottoman', leaderId: 'dragut', returnTurn: 5,
+        source: 'test', space: 'Istanbul'
+      }],
+      navalUnits: []
+    };
+
+    advancePhase(state, helpers);
+
+    // Leader should remain on turn track
+    expect(state.turnTrack.navalLeaders).toHaveLength(1);
+    expect(state.turnTrack.navalLeaders[0].returnTurn).toBe(5);
+  });
+});

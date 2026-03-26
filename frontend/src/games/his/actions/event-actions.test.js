@@ -952,6 +952,468 @@ describe('EVENT_HANDLERS', () => {
     });
   });
 
+  // ── Card #18 Dragut — edge cases ────────────────────────────────
+
+  describe('#18 Dragut — edge cases', () => {
+    it('replaces Barbarossa in sea zone', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      // Clear Barbarossa from all land spaces
+      for (const sp of Object.values(state.spaces)) {
+        for (const stack of sp.units) {
+          const idx = stack.leaders.indexOf('barbarossa');
+          if (idx !== -1) stack.leaders.splice(idx, 1);
+        }
+      }
+      // Place Barbarossa in a sea zone fleet
+      state.seaZones = {
+        'Barbary Coast': {
+          fleets: [{
+            owner: 'ottoman', squadrons: 3, corsairs: 2,
+            leaders: ['barbarossa']
+          }]
+        }
+      };
+
+      executeEvent(state, 'ottoman', 18, {}, helpers);
+
+      const fleet = state.seaZones['Barbary Coast'].fleets[0];
+      expect(fleet.leaders).toContain('dragut');
+      expect(fleet.leaders).not.toContain('barbarossa');
+    });
+
+    it('handles Barbarossa not found anywhere', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      // No Barbarossa on map at all
+      state.seaZones = {};
+
+      executeEvent(state, 'ottoman', 18, {}, helpers);
+
+      const log = state.eventLog.find(e => e.type === 'event_dragut');
+      expect(log.data.location).toBeNull();
+    });
+  });
+
+  // ── Card #26 Mercenaries Bribed — edge cases ──────────────────
+
+  describe('#26 Mercenaries Bribed — edge cases', () => {
+    it('rejects Ottoman player', () => {
+      const state = eventState();
+      const r = validateEvent(state, 'ottoman', 26, {});
+      expect(r.valid).toBe(false);
+    });
+
+    it('ceils odd mercenary count (3 → 2 switched)', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      state.spaces['Paris'].units = [{
+        owner: 'france', regulars: 0, mercenaries: 3,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      }];
+
+      executeEvent(state, 'hapsburg', 26, {
+        targetSpace: 'Paris', targetPower: 'france'
+      }, helpers);
+
+      const fStack = state.spaces['Paris'].units.find(
+        u => u.owner === 'france');
+      expect(fStack.mercenaries).toBe(1); // 3 - ceil(3/2) = 1
+      const hStack = state.spaces['Paris'].units.find(
+        u => u.owner === 'hapsburg');
+      expect(hStack.mercenaries).toBe(2);
+    });
+
+    it('skips if target is ottoman', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'hapsburg', 26, {
+        targetSpace: 'Istanbul', targetPower: 'ottoman'
+      }, helpers);
+
+      // No mercs switched — early return
+      const log = state.eventLog.find(
+        e => e.type === 'event_mercenaries_bribed');
+      expect(log).toBeUndefined();
+    });
+
+    it('creates new stack for briber if none exists', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      state.spaces['Paris'].units = [{
+        owner: 'france', regulars: 0, mercenaries: 4,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      }];
+
+      executeEvent(state, 'england', 26, {
+        targetSpace: 'Paris', targetPower: 'france'
+      }, helpers);
+
+      const eStack = state.spaces['Paris'].units.find(
+        u => u.owner === 'england');
+      expect(eStack).toBeDefined();
+      expect(eStack.mercenaries).toBe(2);
+    });
+  });
+
+  // ── Card #33 Landsknechts — edge cases ────────────────────────
+
+  describe('#33 Landsknechts — edge cases', () => {
+    it('Ottoman mode removes 2 mercenaries', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      state.spaces['Paris'].units = [{
+        owner: 'france', regulars: 0, mercenaries: 3,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      }];
+      state.spaces['London'].units = [{
+        owner: 'england', regulars: 0, mercenaries: 2,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      }];
+
+      executeEvent(state, 'ottoman', 33, {
+        removals: [
+          { space: 'Paris', owner: 'france' },
+          { space: 'London', owner: 'england' }
+        ]
+      }, helpers);
+
+      expect(state.spaces['Paris'].units[0].mercenaries).toBe(2);
+      expect(state.spaces['London'].units[0].mercenaries).toBe(1);
+    });
+
+    it('Hapsburg gets 4 mercs, others get 2', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      // Hapsburg stack in Vienna
+      const vStack = state.spaces['Vienna'].units.find(
+        u => u.owner === 'hapsburg');
+      const before = vStack ? vStack.mercenaries : 0;
+
+      executeEvent(state, 'hapsburg', 33, {
+        placements: [{ space: 'Vienna', count: 4 }]
+      }, helpers);
+
+      const log = state.eventLog.find(
+        e => e.type === 'event_landsknechts');
+      expect(log.data.count).toBe(4);
+
+      // France only gets 2
+      const state2 = eventState();
+      const helpers2 = createMockHelpers();
+      const fStack = state2.spaces['Paris'].units.find(
+        u => u.owner === 'france');
+
+      executeEvent(state2, 'france', 33, {
+        placements: [{ space: 'Paris', count: 4 }]
+      }, helpers2);
+
+      const log2 = state2.eventLog.find(
+        e => e.type === 'event_landsknechts');
+      expect(log2.data.count).toBe(2);
+    });
+  });
+
+  // ── Card #36 Swiss Mercenaries — edge cases ───────────────────
+
+  describe('#36 Swiss Mercenaries — edge cases', () => {
+    it('Ottoman plays → places 4 French mercs', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      state.spaces['Paris'].units = [{
+        owner: 'france', regulars: 2, mercenaries: 0,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      }];
+
+      executeEvent(state, 'ottoman', 36, {
+        placements: [{ space: 'Paris', count: 4 }]
+      }, helpers);
+
+      const log = state.eventLog.find(
+        e => e.type === 'event_swiss_mercenaries');
+      expect(log.data.placePower).toBe('france');
+      expect(log.data.count).toBe(4);
+      expect(state.spaces['Paris'].units[0].mercenaries).toBe(4);
+    });
+  });
+
+  // ── Card #30 Tercios — edge cases ─────────────────────────────
+
+  describe('#30 Tercios — edge cases', () => {
+    it('anti-Hapsburg mode reduces dice', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'france', 30,
+        { mode: 'anti_hapsburg' }, helpers);
+
+      expect(state.pendingCombatBonus).toEqual({
+        card: 30, reduceDice: 3,
+        targetPower: 'hapsburg', types: ['field']
+      });
+    });
+  });
+
+  // ── Card #38 Halley's Comet — edge cases ──────────────────────
+
+  describe('#38 Halley\'s Comet — edge cases', () => {
+    it('skip mode pushes to pendingSkipImpulse', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 38,
+        { mode: 'skip', targetPower: 'protestant' }, helpers);
+
+      expect(state.pendingSkipImpulse).toContain('protestant');
+    });
+
+    it('discard mode no-ops on empty hand', () => {
+      const state = eventState();
+      state.hands = { protestant: [] };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 38,
+        { mode: 'discard', targetPower: 'protestant' }, helpers);
+
+      // No log for discard since hand was empty
+      const log = state.eventLog.find(
+        e => e.type === 'event_halleys_comet_discard');
+      expect(log).toBeUndefined();
+    });
+  });
+
+  // ── Card #42 Roxelana — edge cases ────────────────────────────
+
+  describe('#42 Roxelana — edge cases', () => {
+    it('non-Ottoman sends Suleiman to Istanbul + 2 CP', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      // Place Suleiman in some field space
+      state.spaces['Vienna'].units.push({
+        owner: 'ottoman', regulars: 5, mercenaries: 0,
+        cavalry: 0, squadrons: 0, corsairs: 0,
+        leaders: ['suleiman']
+      });
+
+      const result = executeEvent(state, 'hapsburg', 42, {}, helpers);
+
+      expect(result).toEqual({ grantCp: 2 });
+      // Suleiman removed from Vienna
+      const vStack = state.spaces['Vienna'].units.find(
+        u => u.owner === 'ottoman');
+      expect(vStack.leaders).not.toContain('suleiman');
+      // Suleiman placed in Istanbul
+      const iStack = state.spaces['Istanbul'].units.find(
+        u => u.owner === 'ottoman');
+      expect(iStack.leaders).toContain('suleiman');
+    });
+
+    it('Ottoman gets free assault with Suleiman', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'ottoman', 42, {}, helpers);
+
+      expect(state.pendingFreeAssault).toEqual({
+        power: 'ottoman', requireLeader: 'suleiman'
+      });
+    });
+  });
+
+  // ── Card #47 Copernicus — edge cases ──────────────────────────
+
+  describe('#47 Copernicus — edge cases', () => {
+    it('awards 2 VP when half or more home spaces protestant', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      // Set up home spaces for france: 2 protestant, 2 catholic
+      state.spaces['Paris'].homePower = 'france';
+      state.spaces['Paris'].religion = 'protestant';
+      state.spaces['Lyon'].homePower = 'france';
+      state.spaces['Lyon'].religion = 'protestant';
+      state.spaces['Rouen'].homePower = 'france';
+      state.spaces['Rouen'].religion = 'catholic';
+      state.spaces['Marseille'].homePower = 'france';
+      state.spaces['Marseille'].religion = 'catholic';
+      const vpBefore = state.vp.france;
+
+      executeEvent(state, 'france', 47, {}, helpers);
+
+      // 2/4 = half → halfOrMore → 2 VP
+      expect(state.vp.france).toBe(vpBefore + 2);
+    });
+
+    it('awards 1 VP when less than half protestant', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      // Set up home spaces for france: 1 protestant, 3 catholic
+      state.spaces['Paris'].homePower = 'france';
+      state.spaces['Paris'].religion = 'protestant';
+      state.spaces['Lyon'].homePower = 'france';
+      state.spaces['Lyon'].religion = 'catholic';
+      state.spaces['Rouen'].homePower = 'france';
+      state.spaces['Rouen'].religion = 'catholic';
+      state.spaces['Marseille'].homePower = 'france';
+      state.spaces['Marseille'].religion = 'catholic';
+      const vpBefore = state.vp.france;
+
+      executeEvent(state, 'france', 47, {}, helpers);
+
+      // 1/4 < ceil(4/2)=2 → 1 VP
+      expect(state.vp.france).toBe(vpBefore + 1);
+    });
+  });
+
+  // ── Card #15 Society of Jesus — edge cases ────────────────────
+
+  describe('#15 Society of Jesus — edge cases', () => {
+    it('skips non-Catholic spaces', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+      state.spaces['Wittenberg'].religion = 'protestant';
+
+      executeEvent(state, 'papacy', 15,
+        { jesuitSpaces: ['Wittenberg'] }, helpers);
+
+      expect(state.spaces['Wittenberg'].jesuitUniversity).toBeFalsy();
+    });
+  });
+
+  // ── Card #37 Wartburg — edge cases ────────────────────────────
+
+  describe('#37 Wartburg — edge cases', () => {
+    it('commits Luther and blocks debates', () => {
+      const state = eventState();
+      state.lutherPlaced = true;
+      state.debaters = {
+        protestant: [
+          { id: 'luther', committed: false, value: 4 }
+        ]
+      };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'protestant', 37, {}, helpers);
+
+      expect(state.pendingEventCancelled).toBe(true);
+      expect(state.protestantNoDebatesThisTurn).toBe(true);
+      const luther = state.debaters.protestant.find(
+        d => d.id === 'luther');
+      expect(luther.committed).toBe(true);
+    });
+
+    it('rejects non-Protestant', () => {
+      const state = eventState();
+      state.lutherPlaced = true;
+      const r = validateEvent(state, 'hapsburg', 37, {});
+      expect(r.valid).toBe(false);
+    });
+  });
+
+  // ── Card #5 Papal Bull — edge cases ───────────────────────────
+
+  describe('#5 Papal Bull — edge cases', () => {
+    it('does not duplicate already-excommunicated reformer', () => {
+      const state = eventState();
+      state.excommunicatedReformers = ['luther'];
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 5,
+        { mode: 'reformer', reformerId: 'luther' }, helpers);
+
+      const count = state.excommunicatedReformers.filter(
+        r => r === 'luther').length;
+      expect(count).toBe(1);
+    });
+  });
+
+  // ── Card #39 Augsburg Confession — edge cases ─────────────────
+
+  describe('#39 Augsburg Confession — edge cases', () => {
+    it('rejects when Melanchthon committed', () => {
+      const state = eventState();
+      state.debaters = {
+        protestant: [{ id: 'melanchthon', committed: true }]
+      };
+      const r = validateEvent(state, 'protestant', 39, {});
+      expect(r.valid).toBe(false);
+    });
+
+    it('sets flag and commits Melanchthon', () => {
+      const state = eventState();
+      state.debaters = {
+        protestant: [{ id: 'melanchthon', committed: false }]
+      };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'protestant', 39, {}, helpers);
+
+      expect(state.augsburgConfessionActive).toBe(true);
+      expect(state.debaters.protestant[0].committed).toBe(true);
+    });
+  });
+
+  // ── Card #41 Marburg Colloquy — edge cases ────────────────────
+
+  describe('#41 Marburg Colloquy — edge cases', () => {
+    it('total value from committed debaters = attempts', () => {
+      const state = eventState();
+      state.debaters = {
+        protestant: [
+          { id: 'melanchthon', committed: false, value: 3 },
+          { id: 'bucer', committed: false, value: 2 }
+        ]
+      };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'protestant', 41, {
+        commitDebaters: ['melanchthon', 'bucer']
+      }, helpers);
+
+      expect(state.pendingReformation.attemptsRemaining).toBe(5);
+      expect(state.debaters.protestant[0].committed).toBe(true);
+      expect(state.debaters.protestant[1].committed).toBe(true);
+    });
+
+    it('unknown debater ID is silently skipped', () => {
+      const state = eventState();
+      state.debaters = { protestant: [] };
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'protestant', 41, {
+        commitDebaters: ['nobody']
+      }, helpers);
+
+      expect(state.pendingReformation.attemptsRemaining).toBe(0);
+    });
+  });
+
+  // ── Card #52 Michelangelo — edge cases ────────────────────────
+
+  describe('#52 Michelangelo — edge cases', () => {
+    it('adds both dice to St. Peter\'s fund', () => {
+      const state = eventState();
+      state.stPetersFund = 10;
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 52,
+        { die1: 6, die2: 6 }, helpers);
+
+      expect(state.stPetersFund).toBe(22);
+    });
+
+    it('works from zero fund', () => {
+      const state = eventState();
+      state.stPetersFund = 0;
+      const helpers = createMockHelpers();
+
+      executeEvent(state, 'papacy', 52,
+        { die1: 1, die2: 1 }, helpers);
+
+      expect(state.stPetersFund).toBe(2);
+    });
+  });
+
   // ── Utility Functions ──────────────────────────────────────────
 
   describe('executeEvent', () => {

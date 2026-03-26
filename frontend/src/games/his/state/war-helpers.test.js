@@ -260,3 +260,180 @@ describe('isEnemyControlled', () => {
     expect(isEnemyControlled(state, 'TestSpace', 'ottoman')).toBe(false);
   });
 });
+
+// ══════════════════════════════════════════════════════════════════
+// Batch 6 — Edge Case Tests
+// ══════════════════════════════════════════════════════════════════
+
+// ── areAtWar edge cases ─────────────────────────────────────────
+
+describe('areAtWar — edge cases', () => {
+  it('same power is never at war with itself', () => {
+    const state = makeState([['ottoman', 'hapsburg']]);
+    expect(areAtWar(state, 'ottoman', 'ottoman')).toBe(false);
+  });
+
+  it('multiple wars tracked independently', () => {
+    const state = makeState([
+      ['ottoman', 'hapsburg'],
+      ['ottoman', 'france'],
+      ['england', 'france']
+    ]);
+    expect(areAtWar(state, 'ottoman', 'hapsburg')).toBe(true);
+    expect(areAtWar(state, 'ottoman', 'france')).toBe(true);
+    expect(areAtWar(state, 'england', 'france')).toBe(true);
+    expect(areAtWar(state, 'england', 'hapsburg')).toBe(false);
+  });
+});
+
+// ── getWarsOf edge cases ────────────────────────────────────────
+
+describe('getWarsOf — edge cases', () => {
+  it('same power appears in multiple wars', () => {
+    const state = makeState([
+      ['ottoman', 'hapsburg'],
+      ['ottoman', 'france'],
+      ['ottoman', 'england']
+    ]);
+    const enemies = getWarsOf(state, 'ottoman');
+    expect(enemies).toHaveLength(3);
+    expect(enemies).toContain('hapsburg');
+    expect(enemies).toContain('france');
+    expect(enemies).toContain('england');
+  });
+});
+
+// ── addWar / removeWar edge cases ───────────────────────────────
+
+describe('addWar — edge cases', () => {
+  it('adding war does not affect existing wars', () => {
+    const state = makeState([['ottoman', 'hapsburg']]);
+    addWar(state, 'france', 'england');
+    expect(state.wars).toHaveLength(2);
+    expect(areAtWar(state, 'ottoman', 'hapsburg')).toBe(true);
+    expect(areAtWar(state, 'france', 'england')).toBe(true);
+  });
+});
+
+describe('removeWar — edge cases', () => {
+  it('removing non-existent war leaves others intact', () => {
+    const state = makeState([['ottoman', 'hapsburg'], ['france', 'england']]);
+    removeWar(state, 'ottoman', 'france'); // doesn't exist
+    expect(state.wars).toHaveLength(2);
+  });
+
+  it('removing one of multiple wars keeps others', () => {
+    const state = makeState([
+      ['ottoman', 'hapsburg'],
+      ['ottoman', 'france'],
+      ['france', 'england']
+    ]);
+    removeWar(state, 'ottoman', 'france');
+    expect(state.wars).toHaveLength(2);
+    expect(areAtWar(state, 'ottoman', 'hapsburg')).toBe(true);
+    expect(areAtWar(state, 'france', 'england')).toBe(true);
+    expect(areAtWar(state, 'ottoman', 'france')).toBe(false);
+  });
+});
+
+// ── Alliance edge cases ─────────────────────────────────────────
+
+describe('removeAlliance — edge cases', () => {
+  it('removing non-existent alliance is no-op', () => {
+    const state = makeState([], [['england', 'france']]);
+    removeAlliance(state, 'ottoman', 'hapsburg');
+    expect(state.alliances).toHaveLength(1);
+  });
+
+  it('removing alliance in reverse order works', () => {
+    const state = makeState([], [['england', 'france']]);
+    removeAlliance(state, 'france', 'england');
+    expect(state.alliances).toHaveLength(0);
+  });
+});
+
+// ── Minor power edge cases ──────────────────────────────────────
+
+describe('isMinorPower — edge cases', () => {
+  it('returns false for empty string', () => {
+    expect(isMinorPower('')).toBe(false);
+  });
+
+  it('returns false for undefined', () => {
+    expect(isMinorPower(undefined)).toBe(false);
+  });
+
+  it('genoa is minor power', () => {
+    expect(isMinorPower('genoa')).toBe(true);
+  });
+});
+
+describe('getMinorAlly — edge cases', () => {
+  it('returns major ally for a minor with alliance to major', () => {
+    const state = makeState([], [['scotland', 'england']]);
+    expect(getMinorAlly(state, 'scotland')).toBe('england');
+  });
+
+  it('minor allied to minor returns null (no major ally)', () => {
+    const state = makeState([], [['scotland', 'venice']]);
+    // Both are minor — neither qualifies as major ally
+    expect(getMinorAlly(state, 'scotland')).toBeNull();
+    expect(getMinorAlly(state, 'venice')).toBeNull();
+  });
+});
+
+// ── canAttack edge cases ────────────────────────────────────────
+
+describe('canAttack — edge cases', () => {
+  it('inactive minor cannot attack anyone', () => {
+    const state = makeState([['france', 'england']]);
+    // scotland has no major ally
+    expect(canAttack(state, 'scotland', 'england')).toBe(false);
+  });
+
+  it('major cannot attack inactive minor', () => {
+    const state = makeState([['france', 'england']]);
+    // genoa has no major ally, no direct war
+    expect(canAttack(state, 'france', 'genoa')).toBe(false);
+  });
+
+  it('two active minors of same major cannot attack each other', () => {
+    const state = makeState(
+      [],
+      [['scotland', 'france'], ['venice', 'france']]
+    );
+    // Both allied to france, no war — cannot attack
+    expect(canAttack(state, 'scotland', 'venice')).toBe(false);
+  });
+
+  it('self-attack returns false (no self-war)', () => {
+    const state = makeState([['ottoman', 'hapsburg']]);
+    expect(canAttack(state, 'ottoman', 'ottoman')).toBe(false);
+  });
+});
+
+// ── isEnemyControlled edge cases ────────────────────────────────
+
+describe('isEnemyControlled — edge cases', () => {
+  it('false for non-existent space', () => {
+    const state = makeState([['ottoman', 'hapsburg']]);
+    expect(isEnemyControlled(state, 'Atlantis', 'ottoman')).toBe(false);
+  });
+
+  it('true via minor ally transitivity', () => {
+    const state = makeState(
+      [['ottoman', 'hapsburg']],
+      [['hungary_bohemia', 'hapsburg']]
+    );
+    state.spaces['Buda'] = { controller: 'hungary_bohemia', units: [] };
+    // Ottoman at war with hapsburg, hungary_bohemia allied to hapsburg
+    expect(isEnemyControlled(state, 'Buda', 'ottoman')).toBe(true);
+  });
+
+  it('controlled by neutral power is not enemy', () => {
+    const state = makeState([['ottoman', 'hapsburg']]);
+    state.spaces['London'] = { controller: 'england', units: [] };
+    // england is not at war with ottoman
+    expect(isEnemyControlled(state, 'London', 'ottoman')).toBe(false);
+  });
+});

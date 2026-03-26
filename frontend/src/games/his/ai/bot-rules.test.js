@@ -527,3 +527,66 @@ describe('initBotGame', () => {
     expect(state.botDifficulty).toBe('normal');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Edge Cases
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('expireExtendedEvents — edge cases', () => {
+  it('expires events AT currentTurn (boundary: expiryTurn == turn)', () => {
+    const state = createBotState();
+    state.botExtendedEvents = [
+      { cardNumber: 90, expiryTurn: 3 },
+      { cardNumber: 91, expiryTurn: 4 }
+    ];
+    const expired = expireExtendedEvents(state, 3);
+    expect(expired).toHaveLength(1);
+    expect(expired[0].cardNumber).toBe(90);
+    // 91 still active
+    expect(state.botExtendedEvents).toHaveLength(1);
+    expect(state.botExtendedEvents[0].cardNumber).toBe(91);
+  });
+
+  it('returns empty array when no extended events', () => {
+    const state = createBotState();
+    state.botExtendedEvents = undefined;
+    const expired = expireExtendedEvents(state, 5);
+    expect(expired).toEqual([]);
+  });
+});
+
+describe('processBotTurnStart — edge cases', () => {
+  it('returns all three arrays even when empty', () => {
+    const state = createBotState();
+    state.turn = 2;
+    const result = processBotTurnStart(state);
+    expect(Array.isArray(result.expiredEvents)).toBe(true);
+    expect(Array.isArray(result.returnedDebaters)).toBe(true);
+    expect(Array.isArray(result.returnedLeaders)).toBe(true);
+  });
+
+  it('resets botCpTokens for all bot powers', () => {
+    const state = createBotState(['ottoman', 'hapsburg']);
+    state.botCpTokens = { ottoman: 3, hapsburg: 2 };
+    processBotTurnStart(state);
+    expect(state.botCpTokens.ottoman).toBe(0);
+    expect(state.botCpTokens.hapsburg).toBe(0);
+  });
+
+  it('resets autumn assaults', () => {
+    const state = createBotState();
+    markAutumnAssaultDone(state, 'ottoman', 'Vienna');
+    processBotTurnStart(state);
+    // After reset, getNextAutumnAssault should not find 'Vienna' as done
+    const next = getNextAutumnAssault(state, 'ottoman');
+    expect(next).toBeNull(); // null because no pending assaults
+  });
+});
+
+describe('getNextAutumnAssault — edge cases', () => {
+  it('returns null when no autumn assaults pending', () => {
+    const state = createBotState();
+    const result = getNextAutumnAssault(state, 'ottoman');
+    expect(result).toBeNull();
+  });
+});

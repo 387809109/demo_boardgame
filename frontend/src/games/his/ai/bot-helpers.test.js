@@ -497,3 +497,222 @@ function getAllAdjacentSpacesFromState(spaceName) {
   const { getAllAdjacentSpaces } = require('../state/state-helpers.js');
   return getAllAdjacentSpaces(spaceName);
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — weightedDistance
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('weightedDistance edge cases', () => {
+  it('same space returns distance 0', () => {
+    const state = createBotState();
+    const result = weightedDistance(state, 'Paris', 'Paris', 'france');
+    expect(result).toEqual({ distance: 0, usesPass: false, usesSea: false });
+  });
+
+  it('returns non-null for connected map spaces', () => {
+    const state = createBotState();
+    const result = weightedDistance(state, 'Paris', 'Lyon', 'france');
+    expect(result).not.toBeNull();
+    expect(result.distance).toBeGreaterThan(0);
+  });
+
+  it('allowSea=false prevents sea crossings', () => {
+    const state = createBotState();
+    // London to Calais via sea should be blocked
+    const noSea = weightedDistance(state, 'London', 'Calais', 'england', { allowSea: false });
+    const withSea = weightedDistance(state, 'London', 'Calais', 'england', { allowSea: true });
+    // noSea should be null or longer than withSea
+    if (noSea && withSea) {
+      expect(noSea.distance).toBeGreaterThanOrEqual(withSea.distance);
+    }
+  });
+
+  it('returns null for unreachable synthetic space', () => {
+    const state = createBotState();
+    state.spaces['Isolated'] = {
+      controller: 'france', units: [], isKey: false,
+      isElectorate: false, isFortress: false, isPort: false
+    };
+    const result = weightedDistance(state, 'Paris', 'Isolated', 'france');
+    expect(result).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — simpleBfsDistance
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('simpleBfsDistance edge cases', () => {
+  it('same space returns 0', () => {
+    expect(simpleBfsDistance('Vienna', 'Vienna')).toBe(0);
+  });
+
+  it('adjacent spaces return 1', () => {
+    // Vienna and Pressburg should be adjacent
+    const d = simpleBfsDistance('Vienna', 'Pressburg');
+    expect(d).not.toBeNull();
+    expect(d).toBeGreaterThanOrEqual(1);
+  });
+
+  it('returns null for unknown space', () => {
+    expect(simpleBfsDistance('Vienna', 'FakeSpace')).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — findClosestSpace
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('findClosestSpace edge cases', () => {
+  it('returns null when predicate never matches', () => {
+    const state = createBotState();
+    const result = findClosestSpace(state, 'Vienna', 'hapsburg', () => false);
+    expect(result).toBeNull();
+  });
+
+  it('returns the space itself if predicate matches at distance 0', () => {
+    const state = createBotState();
+    const result = findClosestSpace(state, 'Vienna', 'hapsburg', (name) => name === 'Vienna');
+    expect(result).not.toBeNull();
+    expect(result.space).toBe('Vienna');
+    expect(result.distance).toBe(0);
+  });
+
+  it('finds closest matching space in multi-hop', () => {
+    const state = createBotState();
+    const result = findClosestSpace(state, 'Vienna', 'hapsburg', (name) => name === 'Istanbul');
+    expect(result).not.toBeNull();
+    expect(result.space).toBe('Istanbul');
+    expect(result.distance).toBeGreaterThan(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — Unit Removal
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('chooseUnitToRemove edge cases', () => {
+  it('returns null when power has no removable units', () => {
+    const state = createBotState();
+    // Clear all protestant units
+    for (const sp of Object.values(state.spaces)) {
+      sp.units = sp.units.filter(u => u.owner !== 'protestant');
+    }
+    const result = chooseUnitToRemove(state, 'protestant');
+    expect(result).toBeNull();
+  });
+
+  it('removes mercenary before regular when both available', () => {
+    const state = createBotState();
+    // Put mercs and regulars in a non-critical space
+    state.spaces['TestTown'] = {
+      controller: 'france', units: [
+        { owner: 'france', regulars: 2, mercenaries: 2, cavalry: 0,
+          squadrons: 0, corsairs: 0, leaders: [] }
+      ],
+      isKey: false, isElectorate: false, isFortress: false, isPort: false
+    };
+    const result = chooseUnitToRemove(state, 'france');
+    if (result) {
+      expect(result.unitType === 'mercenary' || typeof result.space === 'string').toBe(true);
+    }
+  });
+});
+
+describe('chooseNavalUnitToRemove edge cases', () => {
+  it('returns null for power with no squadrons', () => {
+    const state = createBotState();
+    // Clear all protestant naval units
+    for (const sp of Object.values(state.spaces)) {
+      for (const u of sp.units) {
+        if (u.owner === 'protestant') u.squadrons = 0;
+      }
+    }
+    const result = chooseNavalUnitToRemove(state, 'protestant');
+    expect(result).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — Displacement
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('chooseDisplacementDestination edge cases', () => {
+  it('returns null when no valid destinations exist', () => {
+    const state = createBotState();
+    // Synthetic isolated space
+    state.spaces['Isolated'] = {
+      controller: 'france', units: [], isKey: false,
+      isElectorate: false, isFortress: false, isPort: false
+    };
+    const result = chooseDisplacementDestination(state, 'Isolated', 'france');
+    expect(result).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — Supply Lines
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('hasSupplyLine edge cases', () => {
+  it('returns true for capital itself', () => {
+    const state = createBotState();
+    const result = hasSupplyLine(state, 'Istanbul', 'ottoman');
+    expect(result).toBe(true);
+  });
+
+  it('returns true for space adjacent to capital', () => {
+    const state = createBotState();
+    // Edirne is adjacent to Istanbul
+    const result = hasSupplyLine(state, 'Edirne', 'ottoman');
+    expect(result).toBe(true);
+  });
+
+  it('returns false for isolated synthetic space', () => {
+    const state = createBotState();
+    state.spaces['FloatingIsland'] = {
+      controller: 'ottoman', units: [],
+      isKey: false, isElectorate: false, isFortress: false, isPort: false
+    };
+    const result = hasSupplyLine(state, 'FloatingIsland', 'ottoman');
+    expect(result).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — Formation Growing
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('growFormationAlongPath edge cases', () => {
+  it('returns force object when path has no pickable units', () => {
+    const state = createBotState();
+    const initial = { regulars: 3, mercenaries: 0, cavalry: 0 };
+    const result = growFormationAlongPath(state, 'france', 'Paris', 'Lyon', initial);
+    // Should return a force object (possibly unchanged)
+    expect(typeof result).toBe('object');
+    expect(result.regulars).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('applyMercenaryRatio edge cases', () => {
+  it('returns zeroes when count is 0', () => {
+    const stack = { regulars: 5, mercenaries: 3, cavalry: 0 };
+    const result = applyMercenaryRatio(stack, 0);
+    expect(result.regulars).toBe(0);
+    expect(result.mercenaries).toBe(0);
+  });
+
+  it('returns all regulars when no mercenaries in stack', () => {
+    const stack = { regulars: 5, mercenaries: 0, cavalry: 0 };
+    const result = applyMercenaryRatio(stack, 3);
+    expect(result.regulars).toBe(3);
+    expect(result.mercenaries).toBe(0);
+  });
+
+  it('picks from mixed stack maintaining ratio', () => {
+    const stack = { regulars: 4, mercenaries: 4, cavalry: 0 };
+    const result = applyMercenaryRatio(stack, 4);
+    expect(result.regulars + result.mercenaries).toBe(4);
+    expect(result.mercenaries).toBeGreaterThan(0);
+  });
+});

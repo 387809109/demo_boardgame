@@ -517,3 +517,279 @@ describe('decideInterceptionAction', () => {
     expect(action.actionData.intercept).toBe(true);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — shouldAvoidLandBattle
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('shouldAvoidLandBattle edge cases', () => {
+  it('returns false when no pendingBattle', () => {
+    const state = createBotState();
+    state.pendingBattle = null;
+    const result = shouldAvoidLandBattle(state, 'france');
+    expect(result.avoid).toBe(false);
+  });
+
+  it('returns false in fortified space', () => {
+    const state = createBotState();
+    setUnits(state, 'Paris', 'france', { regulars: 2 });
+    state.pendingBattle = { space: 'Paris', attackerStrength: 10 };
+    const result = shouldAvoidLandBattle(state, 'france');
+    // Paris is fortified → never avoid
+    expect(result.avoid).toBe(false);
+  });
+
+  it('returns false when defender > half attacker strength', () => {
+    const state = createBotState();
+    // Find an unfortified france space
+    let unforted = null;
+    for (const [name, sp] of Object.entries(state.spaces)) {
+      if (sp.controller === 'france' && !sp.isKey && !sp.isFortress && !sp.isElectorate) {
+        unforted = name;
+        break;
+      }
+    }
+    if (!unforted) return;
+    setUnits(state, unforted, 'france', { regulars: 6 });
+    state.pendingBattle = { space: unforted, attackerStrength: 10 };
+    const result = shouldAvoidLandBattle(state, 'france');
+    // 6 > floor(10/2)=5 → should NOT avoid
+    expect(result.avoid).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — shouldAvoidNavalBattle
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('shouldAvoidNavalBattle edge cases', () => {
+  it('returns false when no pendingBattle', () => {
+    const state = createBotState();
+    state.pendingBattle = null;
+    expect(shouldAvoidNavalBattle(state, 'france').avoid).toBe(false);
+  });
+
+  it('returns false when battle type is not naval', () => {
+    const state = createBotState();
+    state.pendingBattle = { type: 'land', attackerStrength: 10, defenderStrength: 3 };
+    expect(shouldAvoidNavalBattle(state, 'france').avoid).toBe(false);
+  });
+
+  it('returns true when fleet <= half attacker', () => {
+    const state = createBotState();
+    state.pendingBattle = { type: 'naval', attackerStrength: 6, defenderStrength: 3 };
+    expect(shouldAvoidNavalBattle(state, 'france').avoid).toBe(true);
+  });
+
+  it('returns false when fleet > half attacker', () => {
+    const state = createBotState();
+    state.pendingBattle = { type: 'naval', attackerStrength: 6, defenderStrength: 4 };
+    expect(shouldAvoidNavalBattle(state, 'france').avoid).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — shouldWithdrawIntoFortification
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('shouldWithdrawIntoFortification edge cases', () => {
+  it('returns false when no pendingBattle', () => {
+    const state = createBotState();
+    state.pendingBattle = null;
+    expect(shouldWithdrawIntoFortification(state, 'france').withdraw).toBe(false);
+  });
+
+  it('returns false when space is not fortified', () => {
+    const state = createBotState();
+    // Find unfortified space
+    let unforted = null;
+    for (const [name, sp] of Object.entries(state.spaces)) {
+      if (!sp.isKey && !sp.isFortress && !sp.isElectorate) {
+        unforted = name;
+        break;
+      }
+    }
+    if (!unforted) return;
+    state.pendingBattle = { space: unforted };
+    expect(shouldWithdrawIntoFortification(state, 'france').withdraw).toBe(false);
+  });
+
+  it('returns true when <= 4 units in fortified space', () => {
+    const state = createBotState();
+    setUnits(state, 'Paris', 'france', { regulars: 4 });
+    state.pendingBattle = { space: 'Paris' };
+    expect(shouldWithdrawIntoFortification(state, 'france').withdraw).toBe(true);
+  });
+
+  it('returns false when > 4 units in fortified space', () => {
+    const state = createBotState();
+    setUnits(state, 'Paris', 'france', { regulars: 5 });
+    state.pendingBattle = { space: 'Paris' };
+    expect(shouldWithdrawIntoFortification(state, 'france').withdraw).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — shouldIntercept
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('shouldIntercept edge cases', () => {
+  it('returns false when no pendingInterception', () => {
+    const state = createBotState();
+    state.pendingInterception = null;
+    const result = shouldIntercept(state, 'france');
+    expect(result.intercept).toBe(false);
+  });
+
+  it('returns false when target space not fortified', () => {
+    const state = createBotState();
+    let unforted = null;
+    for (const [name, sp] of Object.entries(state.spaces)) {
+      if (sp.controller === 'france' && !sp.isKey && !sp.isFortress && !sp.isElectorate) {
+        unforted = name;
+        break;
+      }
+    }
+    if (!unforted) return;
+    state.pendingInterception = {
+      targetSpace: unforted,
+      enemyMovingIn: true,
+      interceptFrom: []
+    };
+    const result = shouldIntercept(state, 'france');
+    expect(result.intercept).toBe(false);
+  });
+
+  it('returns false when enemy not moving in', () => {
+    const state = createBotState();
+    state.pendingInterception = {
+      targetSpace: 'Paris',
+      enemyMovingIn: false,
+      interceptFrom: ['Rouen']
+    };
+    const result = shouldIntercept(state, 'france');
+    expect(result.intercept).toBe(false);
+  });
+
+  it('returns false when target space not controlled by power', () => {
+    const state = createBotState();
+    state.pendingInterception = {
+      targetSpace: 'Vienna', // Hapsburg controlled, not France
+      enemyMovingIn: true,
+      interceptFrom: ['Paris']
+    };
+    const result = shouldIntercept(state, 'france');
+    expect(result.intercept).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — Retreat Destinations
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('findRetreatDestination edge cases', () => {
+  it('returns a friendly fortification', () => {
+    const state = createBotState();
+    // Find a non-fortified france space
+    let from = null;
+    for (const [name, sp] of Object.entries(state.spaces)) {
+      if (sp.controller === 'france' && !sp.isKey && !sp.isFortress && !sp.isElectorate) {
+        from = name;
+        break;
+      }
+    }
+    if (!from) return;
+    const result = findRetreatDestination(state, from, 'france');
+    if (result) {
+      const sp = state.spaces[result];
+      expect(sp.isKey || sp.isFortress || sp.isElectorate).toBe(true);
+    }
+  });
+});
+
+describe('findNavalRetreatDestination edge cases', () => {
+  it('Ottoman corsair retreats to Algiers if controlled', () => {
+    const state = createBotState();
+    state.spaces['Algiers'] = {
+      ...state.spaces['Algiers'],
+      controller: 'ottoman'
+    };
+    const result = findNavalRetreatDestination(state, 'ottoman', { isCorsair: true });
+    expect(result).toBe('Algiers');
+  });
+
+  it('Ottoman corsair falls back to Istanbul if Algiers lost', () => {
+    const state = createBotState();
+    if (state.spaces['Algiers']) {
+      state.spaces['Algiers'].controller = 'hapsburg';
+    }
+    const result = findNavalRetreatDestination(state, 'ottoman', { isCorsair: true });
+    expect(result).toBe('Istanbul');
+  });
+
+  it('returns closest port to capital for regular fleet', () => {
+    const state = createBotState();
+    const result = findNavalRetreatDestination(state, 'france');
+    if (result) {
+      expect(state.spaces[result].isPort).toBe(true);
+    }
+  });
+
+  it('returns null for power with no capital', () => {
+    const state = createBotState();
+    const result = findNavalRetreatDestination(state, 'protestant');
+    expect(result).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  11.4 Edge Cases — decideBattleAction integration
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('decideBattleAction edge cases', () => {
+  it('resolves battle when no pendingBattle', () => {
+    const state = createBotState();
+    state.pendingBattle = null;
+    const action = decideBattleAction(state, 'france');
+    expect(action.actionType).toBe(ACTION_TYPES.RESOLVE_BATTLE);
+  });
+
+  it('handles retreat_choice type', () => {
+    const state = createBotState();
+    // Find a France-controlled non-fortified space
+    let from = null;
+    for (const [name, sp] of Object.entries(state.spaces)) {
+      if (sp.controller === 'france' && !sp.isKey && !sp.isFortress) {
+        from = name;
+        break;
+      }
+    }
+    if (!from) return;
+    state.pendingBattle = { type: 'retreat_choice', space: from };
+    const action = decideBattleAction(state, 'france');
+    expect(action.actionType).toBe(ACTION_TYPES.RESOLVE_RETREAT);
+  });
+
+  it('avoids naval battle when fleet is weak', () => {
+    const state = createBotState();
+    state.pendingBattle = {
+      type: 'naval',
+      attackerStrength: 10,
+      defenderStrength: 3,
+      isCorsair: false
+    };
+    const action = decideBattleAction(state, 'france');
+    expect(action.actionType).toBe(ACTION_TYPES.AVOID_BATTLE);
+  });
+
+  it('resolves naval battle when fleet is strong', () => {
+    const state = createBotState();
+    state.pendingBattle = {
+      type: 'naval',
+      attackerStrength: 6,
+      defenderStrength: 5
+    };
+    const action = decideBattleAction(state, 'france');
+    expect(action.actionType).toBe(ACTION_TYPES.RESOLVE_BATTLE);
+  });
+});

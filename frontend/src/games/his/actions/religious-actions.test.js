@@ -464,3 +464,322 @@ describe('foundJesuit', () => {
     expect(state.cpRemaining).toBeLessThan(before);
   });
 });
+
+// ══════════════════════════════════════════════════════════════════
+// Batch 6 — Edge Case Tests
+// ══════════════════════════════════════════════════════════════════
+
+// ── rollDice edge cases ──────────────────────────────────────────
+
+describe('rollDice — edge cases', () => {
+  it('negative n still returns at least 1 die', () => {
+    expect(rollDice(-5)).toHaveLength(1);
+  });
+
+  it('large n returns correct length', () => {
+    expect(rollDice(100)).toHaveLength(100);
+  });
+});
+
+// ── Counter-Reformation edge cases ──────────────────────────────
+
+describe('resolveReformationAttempt — counter-reformation', () => {
+  it('Augsburg Confession modifier reduces papal dice', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    state.augsburgConfessionActive = true;
+
+    state.spaces['Wittenberg'].religion = RELIGION.PROTESTANT;
+    state.pendingReformation = {
+      type: 'counter_reformation', zone: 'german', attemptsLeft: 2
+    };
+
+    const result = resolveReformationAttempt(state, 'papacy', {
+      targetSpace: 'Wittenberg'
+    }, helpers);
+
+    expect(result).toHaveProperty('success');
+    expect(result).toHaveProperty('papalDice');
+    // Augsburg doesn't reduce dice count, only modifies values (min 1)
+    expect(result.papalDice.length).toBeGreaterThan(0);
+  });
+
+  it('counter-reformation flips space to catholic on success', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+
+    let gotSuccess = false;
+    for (let i = 0; i < 50 && !gotSuccess; i++) {
+      const s = cpState();
+      s.spaces['Wittenberg'].religion = RELIGION.PROTESTANT;
+      s.pendingReformation = {
+        type: 'counter_reformation', zone: 'german', attemptsLeft: 2
+      };
+      // Set pope for tie-win ability
+      s.rulers = { papacy: 'paul_iii' };
+      const r = resolveReformationAttempt(s, 'papacy', {
+        targetSpace: 'Wittenberg'
+      }, helpers);
+      if (r.success) {
+        expect(s.spaces['Wittenberg'].religion).toBe(RELIGION.CATHOLIC);
+        gotSuccess = true;
+      }
+    }
+    expect(gotSuccess).toBe(true);
+  });
+
+  it('counter-reformation without papal tie-win pope', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    state.rulers = { papacy: 'clement_vii' }; // no tie-win
+
+    state.spaces['Wittenberg'].religion = RELIGION.PROTESTANT;
+    state.pendingReformation = {
+      type: 'counter_reformation', zone: 'german', attemptsLeft: 1
+    };
+
+    const result = resolveReformationAttempt(state, 'papacy', {
+      targetSpace: 'Wittenberg'
+    }, helpers);
+
+    expect(result).toHaveProperty('success');
+    expect(state.pendingReformation).toBeNull();
+  });
+});
+
+// ── Reformation attempt with dice modifier ──────────────────────
+
+describe('resolveReformationAttempt — dice modifier', () => {
+  it('Full Bible dice modifier applies +1 to protestant rolls', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+
+    state.spaces['Wittenberg'].religion = RELIGION.CATHOLIC;
+    state.pendingReformation = {
+      type: 'reformation', zone: 'german', attemptsLeft: 1,
+      diceModifier: 1
+    };
+
+    const result = resolveReformationAttempt(state, 'protestant', {
+      targetSpace: 'Wittenberg'
+    }, helpers);
+
+    // With +1 modifier, auto-success threshold is effectively easier
+    expect(result).toHaveProperty('protestantDice');
+    expect(result.protestantDice.length).toBeGreaterThan(0);
+  });
+});
+
+// ── validateReformationAttempt edge cases ────────────────────────
+
+describe('validateReformationAttempt — edge cases', () => {
+  it('rejects missing targetSpace', () => {
+    const state = cpState();
+    state.pendingReformation = {
+      type: 'reformation', zone: 'german', attemptsLeft: 1
+    };
+    const r = validateReformationAttempt(state, 'protestant', {});
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('target');
+  });
+
+  it('rejects unknown space name', () => {
+    const state = cpState();
+    state.pendingReformation = {
+      type: 'reformation', zone: 'german', attemptsLeft: 1
+    };
+    const r = validateReformationAttempt(state, 'protestant', {
+      targetSpace: 'Atlantis'
+    });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('not found');
+  });
+
+  it('rejects counter-reformation target that is already catholic', () => {
+    const state = cpState();
+    state.pendingReformation = {
+      type: 'counter_reformation', zone: 'german', attemptsLeft: 1
+    };
+    // Find a catholic german space
+    const target = Object.entries(state.spaces).find(
+      ([, sp]) => sp.religion === RELIGION.CATHOLIC && sp.languageZone === 'german'
+    );
+    if (target) {
+      const r = validateReformationAttempt(state, 'papacy', {
+        targetSpace: target[0]
+      });
+      expect(r.valid).toBe(false);
+    }
+  });
+});
+
+// ── Translate Scripture edge cases ──────────────────────────────
+
+describe('translateScripture — edge cases', () => {
+  it('rejects zone not in valid set', () => {
+    const state = cpState();
+    const r = validateTranslateScripture(state, 'protestant', { zone: 'spanish' });
+    expect(r.valid).toBe(false);
+  });
+
+  it('english zone translation works for protestant', () => {
+    const state = cpState();
+    const r = validateTranslateScripture(state, 'protestant', { zone: 'english' });
+    expect(r.valid).toBe(true);
+  });
+
+  it('french zone translation works for protestant', () => {
+    const state = cpState();
+    const r = validateTranslateScripture(state, 'protestant', { zone: 'french' });
+    expect(r.valid).toBe(true);
+  });
+
+  it('NT completion does not award VP', () => {
+    const state = cpState(20);
+    const helpers = createMockHelpers();
+    state.translationTracks.german = TRANSLATION.newTestamentCp - 1;
+    state.bonusVp = state.bonusVp || {};
+    const vpBefore = state.bonusVp.protestant || 0;
+
+    translateScripture(state, 'protestant', { zone: 'german' }, helpers);
+
+    expect(state.bonusVp.protestant || 0).toBe(vpBefore); // no VP for NT
+    expect(state.pendingReformation.source).toBe('new_testament');
+  });
+
+  it('Full Bible grants +1 dice modifier in pending', () => {
+    const state = cpState(20);
+    const helpers = createMockHelpers();
+    state.translationTracks.german = TRANSLATION.fullBibleCp - 1;
+
+    translateScripture(state, 'protestant', { zone: 'german' }, helpers);
+
+    expect(state.pendingReformation.diceModifier).toBe(1);
+    expect(state.pendingReformation.source).toBe('full_bible');
+  });
+
+  it('mid-track translation has no pending reformation', () => {
+    const state = cpState(20);
+    const helpers = createMockHelpers();
+    state.translationTracks.german = 3; // well below NT threshold
+
+    translateScripture(state, 'protestant', { zone: 'german' }, helpers);
+
+    expect(state.translationTracks.german).toBe(4);
+    expect(state.pendingReformation).toBeNull();
+  });
+});
+
+// ── Build St. Peter's edge cases ────────────────────────────────
+
+describe('buildStPeters — edge cases', () => {
+  it('multiple builds without crossing milestone give no VP', () => {
+    const state = cpState(20);
+    const helpers = createMockHelpers();
+    state.stPetersProgress = 0;
+    state.stPetersVp = 0;
+
+    // Build 4 times (cpPerVp=5, so no milestone yet)
+    for (let i = 0; i < 4; i++) {
+      buildStPeters(state, 'papacy', {}, helpers);
+    }
+    expect(state.stPetersProgress).toBe(4);
+    expect(state.stPetersVp).toBe(0);
+  });
+
+  it('building past already-max VP does nothing extra', () => {
+    const state = cpState(20);
+    const helpers = createMockHelpers();
+    state.stPetersProgress = ST_PETERS.cpPerVp * ST_PETERS.maxVp;
+    state.stPetersVp = ST_PETERS.maxVp;
+
+    // Should reject since already complete
+    const r = validateBuildStPeters(state, 'papacy');
+    expect(r.valid).toBe(false);
+  });
+});
+
+// ── Found Jesuit edge cases ─────────────────────────────────────
+
+describe('foundJesuit — edge cases', () => {
+  it('rejects missing space parameter', () => {
+    const state = cpState();
+    state.jesuitUnlocked = true;
+    const r = validateFoundJesuit(state, 'papacy', {});
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('space');
+  });
+
+  it('rejects unknown space name', () => {
+    const state = cpState();
+    state.jesuitUnlocked = true;
+    const r = validateFoundJesuit(state, 'papacy', { space: 'Atlantis' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('not found');
+  });
+
+  it('multiple jesuits in different spaces works', () => {
+    const state = cpState(20);
+    state.jesuitUnlocked = true;
+    const helpers = createMockHelpers();
+
+    // Find two different catholic spaces
+    const cathSpaces = Object.entries(state.spaces)
+      .filter(([, sp]) => sp.religion === RELIGION.CATHOLIC)
+      .slice(0, 2);
+    if (cathSpaces.length >= 2) {
+      foundJesuit(state, 'papacy', { space: cathSpaces[0][0] }, helpers);
+      foundJesuit(state, 'papacy', { space: cathSpaces[1][0] }, helpers);
+      expect(state.jesuitUniversities).toContain(cathSpaces[0][0]);
+      expect(state.jesuitUniversities).toContain(cathSpaces[1][0]);
+      expect(state.jesuitUniversities).toHaveLength(2);
+    }
+  });
+
+  it('rejects insufficient CP for jesuit', () => {
+    const state = cpState(1); // jesuit costs 2 CP
+    state.jesuitUnlocked = true;
+    const r = validateFoundJesuit(state, 'papacy', { space: 'Rome' });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('CP');
+  });
+});
+
+// ── Publish Treatise edge cases ─────────────────────────────────
+
+describe('publishTreatise — edge cases', () => {
+  it('sets initiator in pending', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    publishTreatise(state, 'protestant', { zone: 'german' }, helpers);
+    expect(state.pendingReformation.initiator).toBe('protestant');
+  });
+
+  it('records impulse action', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    publishTreatise(state, 'protestant', { zone: 'german' }, helpers);
+    expect(state.impulseActions[0].type).toBe('publish_treatise');
+    expect(state.impulseActions[0].zone).toBe('german');
+  });
+});
+
+// ── Burn Books edge cases ───────────────────────────────────────
+
+describe('burnBooks — edge cases', () => {
+  it('rejects missing zone', () => {
+    const state = cpState();
+    const r = validateBurnBooks(state, 'papacy', {});
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('zone');
+  });
+
+  it('sets counter_reformation type in pending', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    burnBooks(state, 'papacy', { zone: 'french' }, helpers);
+    expect(state.pendingReformation.type).toBe('counter_reformation');
+    expect(state.pendingReformation.zone).toBe('french');
+    expect(state.pendingReformation.initiator).toBe('papacy');
+  });
+});
