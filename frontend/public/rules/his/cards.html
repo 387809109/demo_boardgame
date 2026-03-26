@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>卡牌系统 &mdash; 教改风云规则</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>三、卡牌系统</h1>
+      <div class="subtitle">教改风云 (Here I Stand) 游戏规则</div>
+    </header>
+
+    <nav class="page-nav">
+      <a href="index.html">目录</a> <span class="sep">|</span>
+      <a href="powers.html">势力</a> <span class="sep">|</span>
+      <a href="turns.html">回合</a> <span class="sep">|</span>
+      <a href="cards.html" class="active">卡牌</a> <span class="sep">|</span>
+      <a href="actions.html">行动</a> <span class="sep">|</span>
+      <a href="combat.html">战斗</a> <span class="sep">|</span>
+      <a href="religion.html">宗教</a> <span class="sep">|</span>
+      <a href="special.html">特殊</a> <span class="sep">|</span>
+      <a href="victory.html">胜利</a>
+    </nav>
+
+    <div class="content">
+
+      <section>
+        <h2>卡牌概览</h2>
+        <p>游戏共 <strong>135 张卡牌</strong>，每张标有 CP 值和事件描述。打出时，玩家选择作为<strong>事件</strong>或<strong>征服点（CP）</strong>使用。</p>
+      </section>
+
+      <section>
+        <h2>卡牌类型</h2>
+        <div class="card-grid">
+          <div class="card-type">
+            <div class="card-type-name">本势力卡 (Home Card)</div>
+            <div class="card-type-desc">每势力 1 张，永不丢失。必须在本回合打出，仅可换取 CP（不可作为事件）</div>
+          </div>
+          <div class="card-type">
+            <div class="card-type-name">必出事件 (Mandatory)</div>
+            <div class="card-type-desc">指定回合出现。行动阶段必须打出。若未打出，冬季自动触发（无 CP 奖励）</div>
+          </div>
+          <div class="card-type">
+            <div class="card-type-name">普通事件</div>
+            <div class="card-type-desc">可选择作为事件触发或换取 CP。部分事件触发后移出游戏</div>
+          </div>
+          <div class="card-type">
+            <div class="card-type-name">响应卡 (Response)</div>
+            <div class="card-type-desc">在战斗或特定时机中断打出。如：Landsknechts、瑞士佣兵、攻城炮</div>
+          </div>
+          <div class="card-type">
+            <div class="card-type-name">战斗卡 (Combat)</div>
+            <div class="card-type-desc">仅在自方参与的战斗中可作为事件打出，否则只能换取 CP</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>出牌规则</h2>
+
+        <div class="highlight-box">
+          <strong>出牌选择：</strong>每次打出一张牌时，选择以下之一：
+          <ul style="margin-top: 8px;">
+            <li><strong>事件</strong> &mdash; 触发卡牌描述的历史事件效果，然后弃牌（或移出游戏）</li>
+            <li><strong>征服点</strong> &mdash; 获得卡面标注的 CP 值，用于执行军事/宗教/外交行动</li>
+          </ul>
+        </div>
+
+        <h3>出牌限制</h3>
+        <ul>
+          <li><strong>本势力卡</strong>只能换取 CP，不能作为事件</li>
+          <li><strong>必出事件</strong>必须先作为事件触发，然后额外获得 2CP</li>
+          <li><strong>战斗卡</strong>只有在自方参与的战斗中才能作为事件打出</li>
+          <li><strong>响应卡</strong>只能在特定响应窗口中打出</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>手牌管理</h2>
+
+        <h3>不能跳过的情况</h3>
+        <div class="highlight-box danger">
+          以下情况下，你<strong>不能跳过</strong>行动：
+          <ul style="margin-top: 8px;">
+            <li>手中仍有<strong>本势力卡</strong>未打出</li>
+            <li>手中仍有<strong>必出事件</strong>未打出</li>
+            <li>手牌数超过统治者<strong>行政值</strong>上限</li>
+          </ul>
+        </div>
+
+        <h3>抽牌数量</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>势力</th>
+              <th>基础抽牌</th>
+              <th>调整</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>奥斯曼</td>
+              <td>6 张</td>
+              <td>关键城市动乱 -1</td>
+            </tr>
+            <tr>
+              <td>哈布斯堡</td>
+              <td>5 张</td>
+              <td>+统治者卡牌加成</td>
+            </tr>
+            <tr>
+              <td>英格兰</td>
+              <td>5 张</td>
+              <td>+1 额外卡</td>
+            </tr>
+            <tr>
+              <td>法兰西</td>
+              <td>5 张</td>
+              <td>关键城市动乱 -1</td>
+            </tr>
+            <tr>
+              <td>教廷</td>
+              <td>5 张</td>
+              <td>关键城市动乱 -1</td>
+            </tr>
+            <tr>
+              <td>新教</td>
+              <td>4 张</td>
+              <td>控制 4+ 选侯国 = 5 张</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>实际抽牌最少为 1 张。本势力卡不计入抽牌数。</p>
+      </section>
+
+      <section>
+        <h2>牌堆生命周期</h2>
+        <ol>
+          <li>每回合开始，将本回合新增的卡牌（按回合门控）加入牌堆</li>
+          <li>洗牌</li>
+          <li>按顺序给各势力发牌</li>
+          <li>手牌 = 新抽牌 + 上回合未打出的留存牌 + 本势力卡</li>
+          <li>打出为事件且标记"移除"的牌移出游戏，不再返回牌堆</li>
+          <li>普通弃牌在下回合重新洗入牌堆</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>响应卡窗口</h2>
+        <p>战斗过程中有 7 个响应窗口（W1&ndash;W7），玩家可在特定时机打出响应卡：</p>
+        <table>
+          <thead>
+            <tr>
+              <th>窗口</th>
+              <th>时机</th>
+              <th>代表卡牌</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>W1</td>
+              <td>野战前</td>
+              <td>Landsknechts、瑞士佣兵</td>
+            </tr>
+            <tr>
+              <td>W2</td>
+              <td>野战后</td>
+              <td>撤退/追击相关</td>
+            </tr>
+            <tr>
+              <td>W3</td>
+              <td>突击前</td>
+              <td>攻城炮</td>
+            </tr>
+            <tr>
+              <td>W4</td>
+              <td>突击后</td>
+              <td>防御相关</td>
+            </tr>
+            <tr>
+              <td>W5</td>
+              <td>围城投骰后</td>
+              <td>围城相关</td>
+            </tr>
+            <tr>
+              <td>W6</td>
+              <td>海战投骰后</td>
+              <td>海军相关</td>
+            </tr>
+            <tr>
+              <td>W7</td>
+              <td>事件中断</td>
+              <td>特定事件的中断效果</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <div class="page-footer-nav">
+        <a href="turns.html">&larr; 回合流程</a>
+        <a href="actions.html">行动类型 &rarr;</a>
+      </div>
+    </div>
+
+    <footer>
+      Here I Stand 是 GMT Games 出版的桌游。本规则仅供学习参考。
+    </footer>
+  </div>
+</body>
+</html>

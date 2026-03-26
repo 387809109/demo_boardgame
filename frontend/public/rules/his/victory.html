@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>胜利条件与策略 &mdash; 教改风云规则</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>八、胜利条件与策略</h1>
+      <div class="subtitle">教改风云 (Here I Stand) 游戏规则</div>
+    </header>
+
+    <nav class="page-nav">
+      <a href="index.html">目录</a> <span class="sep">|</span>
+      <a href="powers.html">势力</a> <span class="sep">|</span>
+      <a href="turns.html">回合</a> <span class="sep">|</span>
+      <a href="cards.html">卡牌</a> <span class="sep">|</span>
+      <a href="actions.html">行动</a> <span class="sep">|</span>
+      <a href="combat.html">战斗</a> <span class="sep">|</span>
+      <a href="religion.html">宗教</a> <span class="sep">|</span>
+      <a href="special.html">特殊</a> <span class="sep">|</span>
+      <a href="victory.html" class="active">胜利</a>
+    </nav>
+
+    <div class="content">
+
+      <section>
+        <h2>胜利条件</h2>
+
+        <div class="victory-grid">
+          <div class="victory-item">
+            <h4>即时军事胜利</h4>
+            <p>行动阶段中，非新教势力控制的关键城市达到自动胜利阈值，且无关键城市处于动乱。立刻获胜。</p>
+          </div>
+          <div class="victory-item">
+            <h4>即时宗教胜利</h4>
+            <p>行动阶段中，新教控制 <strong>50 个</strong>新教影响空间（动乱空间不计入）。立刻获胜。</p>
+          </div>
+          <div class="victory-item">
+            <h4>标准胜利</h4>
+            <p>回合结束的胜利判定阶段，VP &ge; <strong>25</strong> 且为最高者获胜。</p>
+          </div>
+          <div class="victory-item">
+            <h4>优势胜利</h4>
+            <p>第 4 回合起，若 VP &lt; 25 但领先所有对手 <strong>5 分以上</strong>，获胜。</p>
+          </div>
+          <div class="victory-item">
+            <h4>时间胜利</h4>
+            <p>第 9 回合结束，VP <strong>最高者</strong>获胜。</p>
+          </div>
+          <div class="victory-item">
+            <h4>平局处理</h4>
+            <p>VP 相同时，逐回合<strong>回溯比较</strong>历史 VP，先领先者胜。</p>
+          </div>
+        </div>
+
+        <h3>自动胜利阈值</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>势力</th>
+              <th>所需关键城市</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>奥斯曼</td>
+              <td>11</td>
+            </tr>
+            <tr>
+              <td>哈布斯堡</td>
+              <td>14</td>
+            </tr>
+            <tr>
+              <td>英格兰</td>
+              <td>9</td>
+            </tr>
+            <tr>
+              <td>法兰西</td>
+              <td>13</td>
+            </tr>
+            <tr>
+              <td>新教</td>
+              <td>50 个新教空间（宗教胜利）</td>
+            </tr>
+            <tr>
+              <td>教廷</td>
+              <td>无自动胜利（依靠 VP）</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>VP 来源一览</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>势力</th>
+              <th>起始 VP</th>
+              <th>主要 VP 来源</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>奥斯曼</strong></td>
+              <td>10</td>
+              <td>关键城市控制、海盗 VP（上限 10）、战争胜利 VP</td>
+            </tr>
+            <tr>
+              <td><strong>哈布斯堡</strong></td>
+              <td>12</td>
+              <td>关键城市、选侯国控制（联盟后）、新世界探索/征服</td>
+            </tr>
+            <tr>
+              <td><strong>英格兰</strong></td>
+              <td>5</td>
+              <td>关键城市、王位继承人（爱德华 +5）、新教英格兰空间、新世界</td>
+            </tr>
+            <tr>
+              <td><strong>法兰西</strong></td>
+              <td>12</td>
+              <td>关键城市、城堡赞助（Chateaux）、新世界探索</td>
+            </tr>
+            <tr>
+              <td><strong>教廷</strong></td>
+              <td>19</td>
+              <td>圣彼得大教堂建造、焚刑异端辩士、守住初始优势</td>
+            </tr>
+            <tr>
+              <td><strong>新教</strong></td>
+              <td>0</td>
+              <td>新教空间数、圣经翻译（新约/全本 VP）、辩论胜利</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>通用 VP 来源</h2>
+        <ul>
+          <li><strong>战争胜利</strong>：求和时胜者 +1VP（涉及奥斯曼 +2VP）</li>
+          <li><strong>关键城市</strong>：控制超出起始数量的关键城市 +VP</li>
+          <li><strong>辩士焚刑</strong>：在辩论中大幅击败对手辩士 +1VP</li>
+          <li><strong>事件 VP</strong>：部分事件卡直接奖励 VP</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>新手策略建议</h2>
+
+        <h3>通用建议</h3>
+        <ul>
+          <li>谨慎使用事件牌 &mdash; 有些事件触发后移出游戏，确保<strong>时机正确</strong></li>
+          <li>关注<strong>必出事件</strong>，冬季前必须打出，否则失去 CP 奖励</li>
+          <li>利用<strong>外交阶段</strong>结盟 &mdash; 同盟允许穿越友方领土和借调海军</li>
+          <li><strong>本势力卡</strong>必须打出 &mdash; 合理安排在最佳时机使用其 CP</li>
+          <li>保留<strong>响应卡</strong>到关键战斗 &mdash; 它们往往能扭转战局</li>
+          <li>关注其他势力的 VP &mdash; 阻止领先者比自己得分更重要</li>
+        </ul>
+
+        <h3>各势力建议</h3>
+        <div class="power-grid">
+          <div class="power-card ottoman">
+            <h4>奥斯曼</h4>
+            <div class="power-desc">
+              <strong>适合新手</strong>。目标明确：向西扩张关键城市，利用海盗获取额外 VP。苏莱曼战斗值高，军事行动效率强。早期应积极进攻。
+            </div>
+          </div>
+          <div class="power-card hapsburg">
+            <h4>哈布斯堡</h4>
+            <div class="power-desc">
+              需要多线作战：防守维也纳对抗奥斯曼，管控德意志选侯国，同时投资新世界。佣兵成本低是优势，善用双首都的部署灵活性。
+            </div>
+          </div>
+          <div class="power-card england">
+            <h4>英格兰</h4>
+            <div class="power-desc">
+              岛国地利使其不易被入侵。关注婚姻轨道推进（爱德华六世 = +5VP 巨大收益）。利用海军优势和新世界探索补充 VP。
+            </div>
+          </div>
+          <div class="power-card france">
+            <h4>法兰西</h4>
+            <div class="power-desc">
+              灵活型势力，可根据局势选择军事/文化/外交路线。城堡赞助是稳定 VP 来源。与奥斯曼结盟对抗哈布斯堡是经典策略。
+            </div>
+          </div>
+          <div class="power-card papacy">
+            <h4>教廷</h4>
+            <div class="power-desc">
+              起始 VP 最高但持续受到侵蚀。核心任务：遏制新教扩张。善用绝罚和耶稣会。圣彼得大教堂是稳定 VP 来源。与其他天主教势力合作至关重要。
+            </div>
+          </div>
+          <div class="power-card protestant">
+            <h4>新教</h4>
+            <div class="power-desc">
+              前期弱但潜力大。优先推进<strong>圣经翻译</strong>获取改革加成。利用辩论快速翻转空间。施马尔卡尔登联盟（T4）后获得军事能力，可考虑宗教胜利冲刺。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="page-footer-nav">
+        <a href="special.html">&larr; 特殊机制</a>
+        <a href="index.html">返回目录 &rarr;</a>
+      </div>
+    </div>
+
+    <footer>
+      Here I Stand 是 GMT Games 出版的桌游。本规则仅供学习参考。
+    </footer>
+  </div>
+</body>
+</html>

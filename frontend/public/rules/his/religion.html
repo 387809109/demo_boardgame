@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>宗教系统 &mdash; 教改风云规则</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>六、宗教系统</h1>
+      <div class="subtitle">教改风云 (Here I Stand) 游戏规则</div>
+    </header>
+
+    <nav class="page-nav">
+      <a href="index.html">目录</a> <span class="sep">|</span>
+      <a href="powers.html">势力</a> <span class="sep">|</span>
+      <a href="turns.html">回合</a> <span class="sep">|</span>
+      <a href="cards.html">卡牌</a> <span class="sep">|</span>
+      <a href="actions.html">行动</a> <span class="sep">|</span>
+      <a href="combat.html">战斗</a> <span class="sep">|</span>
+      <a href="religion.html" class="active">宗教</a> <span class="sep">|</span>
+      <a href="special.html">特殊</a> <span class="sep">|</span>
+      <a href="victory.html">胜利</a>
+    </nav>
+
+    <div class="content">
+
+      <section>
+        <h2>宗教改革概述</h2>
+        <p>宗教系统是教改风云的核心特色。<strong>新教</strong>试图将天主教空间转为新教，<strong>教廷</strong>则努力反改革。每个地图空间有宗教归属：天主教或新教。</p>
+      </section>
+
+      <section>
+        <h2>改革尝试</h2>
+        <p>新教势力尝试将天主教空间翻转为新教影响：</p>
+
+        <h3>新教攻方骰数</h3>
+        <ul>
+          <li>基础：1 骰</li>
+          <li>每个<strong>邻接新教空间</strong>：+1 骰</li>
+          <li>每个<strong>邻接改革家</strong>（路德/加尔文等）：+1 骰</li>
+          <li>目标空间<strong>有改革家</strong>：+2 骰</li>
+          <li>语言区有<strong>新约翻译</strong>完成：+1 骰</li>
+          <li>语言区有<strong>全本翻译</strong>完成：额外 +1 骰</li>
+        </ul>
+
+        <h3>教廷守方骰数</h3>
+        <ul>
+          <li>基础：1 骰</li>
+          <li>每个<strong>邻接天主教空间</strong>：+1 骰</li>
+          <li>每个<strong>邻接耶稣会大学</strong>：+1 骰</li>
+          <li>目标空间<strong>有耶稣会</strong>：+2 骰</li>
+          <li>Augsburg Confession 事件激活：修正（视情况）</li>
+        </ul>
+
+        <h3>结算</h3>
+        <ul>
+          <li>双方投骰，命中 = 5 或 6</li>
+          <li>比较<strong>最高单骰</strong>：新教最高 > 教廷最高 = 成功翻转</li>
+          <li>平局：天主教保持（守方优势）</li>
+          <li>翻转后在该空间放置新教标记</li>
+          <li>若翻转的是<strong>选侯国</strong>，还放置 2 正规军</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>反改革</h2>
+        <p>教廷使用相同机制但方向相反 &mdash; 将新教空间翻回天主教：</p>
+        <ul>
+          <li>仅<strong>教廷</strong>可发起（非其他天主教势力）</li>
+          <li>骰数计算与改革尝试镜像对称</li>
+          <li>教廷最高骰 > 新教最高骰 = 成功翻回</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>神学辩论</h2>
+        <p>花费 <strong>3CP</strong> 发起正式辩论。这是新教扩张的重要手段。</p>
+
+        <h3>流程</h3>
+        <ol>
+          <li>攻方选择（或随机）一名<strong>未使用的辩士</strong></li>
+          <li>守方选择一名辩士应战</li>
+          <li>双方投骰：
+            <ul>
+              <li>攻方：辩士值 + 3 骰</li>
+              <li>守方：辩士值 + 2 骰（未使用）或 + 1 骰（已使用）</li>
+            </ul>
+          </li>
+          <li>命中 5+，比较命中数</li>
+        </ol>
+
+        <h3>结果</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>结果</th>
+              <th>效果</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>攻方命中 > 守方</td>
+              <td>攻方翻转空间数 = 命中差</td>
+            </tr>
+            <tr>
+              <td>守方命中 &ge; 攻方</td>
+              <td>守方翻转空间数 = 命中差（若 > 0）</td>
+            </tr>
+            <tr>
+              <td>首轮平局</td>
+              <td>进入第二轮（换新辩士）</td>
+            </tr>
+            <tr>
+              <td>两轮都平局</td>
+              <td>无结果</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="highlight-box danger">
+          <strong>焚刑/蒙羞</strong>：若命中差 &gt; 败方辩士值，该辩士被焚刑（新教辩士）或蒙羞（天主教辩士），移出游戏。胜方获得 VP 奖励。
+        </div>
+      </section>
+
+      <section>
+        <h2>圣经翻译</h2>
+        <p>新教可花费 CP 推进各语言区的翻译进度：</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>语言区</th>
+              <th>新约完成</th>
+              <th>全本完成</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>德语</td>
+              <td>+1VP，改革 +1 骰</td>
+              <td>+1VP，改革额外 +1 骰</td>
+            </tr>
+            <tr>
+              <td>英语</td>
+              <td>+1VP，改革 +1 骰</td>
+              <td>+1VP，改革额外 +1 骰</td>
+            </tr>
+            <tr>
+              <td>法语</td>
+              <td>+1VP，改革 +1 骰</td>
+              <td>+1VP，改革额外 +1 骰</td>
+            </tr>
+            <tr>
+              <td>西班牙语</td>
+              <td>改革 +1 骰</td>
+              <td>改革额外 +1 骰</td>
+            </tr>
+            <tr>
+              <td>意大利语</td>
+              <td>改革 +1 骰</td>
+              <td>改革额外 +1 骰</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>翻译进度通过花费 CP 推进（每 CP 前进 1 格）。完成新约和全本各需到达特定格数。</p>
+      </section>
+
+      <section>
+        <h2>出版论文</h2>
+        <ul>
+          <li>花费 <strong>2CP</strong>，在一个语言区进行 2 次改革尝试</li>
+          <li>每语言区每回合最多出版 1 次</li>
+          <li>不需要改革家在场</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>改革家</h2>
+        <p>改革家是新教的关键人物，放置在地图空间上增强改革效果：</p>
+        <ul>
+          <li><strong>马丁路德</strong> &mdash; 第 1 回合放置于维滕贝格</li>
+          <li><strong>加尔文</strong> &mdash; 第 3 回合可用</li>
+          <li><strong>茨温利</strong> &mdash; 第 2 回合可用</li>
+          <li><strong>克兰默/科弗代尔/拉蒂默</strong> &mdash; 安妮博林结婚后可用（英格兰）</li>
+          <li>改革家在目标空间提供 +2 骰加成，邻接提供 +1 骰</li>
+          <li>改革家可被<strong>焚刑</strong>（特定事件），移出游戏</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>耶稣会（教廷）</h2>
+        <ul>
+          <li>第 5 回合"耶稣会"事件触发后可建立</li>
+          <li>花费 2CP 在天主教空间建立耶稣会大学</li>
+          <li>提供反改革防御加成：目标格 +2 骰，邻接 +1 骰</li>
+          <li>是教廷抵御新教扩张的重要工具</li>
+        </ul>
+      </section>
+
+      <div class="page-footer-nav">
+        <a href="combat.html">&larr; 战斗规则</a>
+        <a href="special.html">特殊机制 &rarr;</a>
+      </div>
+    </div>
+
+    <footer>
+      Here I Stand 是 GMT Games 出版的桌游。本规则仅供学习参考。
+    </footer>
+  </div>
+</body>
+</html>

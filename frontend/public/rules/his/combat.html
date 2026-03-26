@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>战斗规则 &mdash; 教改风云规则</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>五、战斗规则</h1>
+      <div class="subtitle">教改风云 (Here I Stand) 游戏规则</div>
+    </header>
+
+    <nav class="page-nav">
+      <a href="index.html">目录</a> <span class="sep">|</span>
+      <a href="powers.html">势力</a> <span class="sep">|</span>
+      <a href="turns.html">回合</a> <span class="sep">|</span>
+      <a href="cards.html">卡牌</a> <span class="sep">|</span>
+      <a href="actions.html">行动</a> <span class="sep">|</span>
+      <a href="combat.html" class="active">战斗</a> <span class="sep">|</span>
+      <a href="religion.html">宗教</a> <span class="sep">|</span>
+      <a href="special.html">特殊</a> <span class="sep">|</span>
+      <a href="victory.html">胜利</a>
+    </nav>
+
+    <div class="content">
+
+      <section>
+        <h2>野战</h2>
+        <p>当敌方编队进入己方占据的<strong>无堡垒空间</strong>（或堡垒已满），触发野战。</p>
+
+        <h3>骰数计算</h3>
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>攻方</th>
+              <th>守方</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>基础</td>
+              <td>每单位 1 骰</td>
+              <td>每单位 1 骰</td>
+            </tr>
+            <tr>
+              <td>将领</td>
+              <td>+将领战斗值</td>
+              <td>+将领战斗值</td>
+            </tr>
+            <tr>
+              <td>防御加成</td>
+              <td>&mdash;</td>
+              <td>+1 额外骰</td>
+            </tr>
+            <tr>
+              <td>骑兵（奥斯曼）</td>
+              <td>+1 每骑兵</td>
+              <td>+1 每骑兵</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>结算流程</h3>
+        <ol>
+          <li><strong>响应窗口 W1</strong>：双方可打出响应卡（如 Landsknechts 增援）</li>
+          <li>双方同时投骰，<strong>5 或 6 = 命中</strong></li>
+          <li>命中多者获胜；<strong>平局守方胜</strong></li>
+          <li>败方每 2 命中承受 1 伤亡（向上取整）</li>
+          <li>败方<strong>撤退</strong>至相邻友方空间</li>
+          <li><strong>响应窗口 W2</strong>：战后响应</li>
+        </ol>
+
+        <div class="highlight-box info">
+          <strong>伤亡优先级</strong>：佣兵 &rarr; 正规军 &rarr; 骑兵。骑兵只有在无其他单位可移除时才作为伤亡。
+        </div>
+      </section>
+
+      <section>
+        <h2>拦截</h2>
+        <p>敌方编队<strong>经过</strong>（非停留）你的编队相邻空间时，可尝试拦截：</p>
+        <ul>
+          <li>投 1d6，结果 &ge; 5 则拦截成功，触发野战</li>
+          <li>有骑兵修正：奥斯曼骑兵在编队中 = 拦截 +1</li>
+          <li><strong>山口</strong>连接不可拦截</li>
+          <li>拦截方变为守方（享受 +1 防御骰）</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>撤退</h2>
+        <ul>
+          <li>败方必须撤退至<strong>相邻友方空间</strong></li>
+          <li>优先撤入友方<strong>堡垒</strong></li>
+          <li>若无合法撤退路线，部队<strong>全灭</strong></li>
+          <li>堡垒有容量限制 &mdash; 超出的单位被消灭</li>
+          <li>将领随部队撤退；若部队全灭，将领被<strong>俘虏</strong></li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>围城与突击</h2>
+
+        <h3>围城建立</h3>
+        <ul>
+          <li>守方退入堡垒（或已在堡垒中）且进攻方人数优势时形成围城</li>
+          <li>围城持续直到突击成功、解围、或冬季</li>
+        </ul>
+
+        <h3>突击（1CP）</h3>
+        <ul>
+          <li>需要<strong>补给线（LOC）</strong>到攻方堡垒</li>
+          <li>前一脉冲已建立围城</li>
+          <li><strong>攻方</strong>：每 2 单位 1 骰（骑兵不计，向上取整）</li>
+          <li><strong>守方</strong>：每单位 1 骰 + 1 额外骰</li>
+          <li>命中 5+；攻方命中 > 守方 = 突破</li>
+          <li>突破后攻方获得空间控制权</li>
+        </ul>
+
+        <div class="highlight-box">
+          <strong>响应窗口 W3/W4</strong>：突击前后各有一个响应窗口。攻城炮（Siege Artillery）可在 W3 打出增加攻方骰数。
+        </div>
+      </section>
+
+      <section>
+        <h2>海战</h2>
+
+        <h3>骰数计算</h3>
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>攻方</th>
+              <th>守方</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>中队</td>
+              <td>每中队 2 骰</td>
+              <td>每中队 2 骰</td>
+            </tr>
+            <tr>
+              <td>私掠船</td>
+              <td>每船 1 骰</td>
+              <td>每船 1 骰</td>
+            </tr>
+            <tr>
+              <td>将领</td>
+              <td>+海军将领值</td>
+              <td>+海军将领值</td>
+            </tr>
+            <tr>
+              <td>港口防御</td>
+              <td>&mdash;</td>
+              <td>+1（若在港口内）</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>结算</h3>
+        <ul>
+          <li>命中 5+</li>
+          <li>每 2 命中击沉 1 中队（向上取整）</li>
+          <li>败方舰队撤退至最近友方港口</li>
+          <li>若无港口可退，舰队<strong>全灭</strong></li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>将领</h2>
+        <ul>
+          <li><strong>陆军将领</strong>：提供战斗值加成和指挥值（决定可指挥的最大单位数）</li>
+          <li><strong>海军将领</strong>：提供海战骰数加成</li>
+          <li>将领在部队全灭时被<strong>俘虏</strong></li>
+          <li>被俘将领可在外交阶段<strong>赎回</strong></li>
+          <li>赎回费用取决于将领等级</li>
+        </ul>
+      </section>
+
+      <div class="page-footer-nav">
+        <a href="actions.html">&larr; 行动类型</a>
+        <a href="religion.html">宗教系统 &rarr;</a>
+      </div>
+    </div>
+
+    <footer>
+      Here I Stand 是 GMT Games 出版的桌游。本规则仅供学习参考。
+    </footer>
+  </div>
+</body>
+</html>

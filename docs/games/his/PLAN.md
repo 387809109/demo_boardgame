@@ -12,16 +12,16 @@ Here I Stand (HIS) 是一款经典的卡牌驱动六方兵棋桌游，覆盖 16 
 
 | 指标 | 数值 |
 |------|------|
-| 源码文件 | 71 个 JS 文件 |
+| 源码文件 | 70 个 JS 文件 |
 | 测试文件 | 48 个 test.js 文件 |
-| 源码行数 | ~34,400 行 |
-| 测试行数 | ~25,600 行 |
-| 单元测试 | **2,884 个**，全部通过 |
+| 源码行数 | ~34,300 行 |
+| 测试行数 | ~29,400 行 |
+| 单元测试 | **2,403 个**，全部通过 |
 | 事件处理器 | **135/135 张卡牌已实现** |
 
-**已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心)
+**已完成 Phase**：0 ✅ → 1 ✅ → 2 ✅ → 3 ✅ → 4 ✅ → 5 ✅ → 6 ✅ → 7 ✅ → 8 ✅ → 9 ✅ → 10 ✅(核心) → 12 ✅(AI)
 
-**当前**：Phase 12（AI/HISBOT）— Phase A ✅ Phase B ✅ Phase C ✅ Phase D ✅ Phase E ✅ Phase F ✅ 全部完成
+**当前**：Phase 11（多人联机与打磨）⬅️ 进行中
 
 ---
 
@@ -290,7 +290,7 @@ frontend/src/games/his/
 | 10.7 | 卡牌详情弹窗（右键预览+日志点击） | `ui/event-display.js` (showCard) | ✅ | 🟡 中 |
 | 10.8 | 空间详情弹窗（单位列表+属性） | `ui/space-detail.js` (~220 行) | ✅ | 🟡 中 |
 | 10.9 | CSS 主题对齐（统一色调） | `theme/his.css` | ❌ | 🟢 低 |
-| 10.10 | 玩家规则书 | `public/rules/his.html` | ❌ | 🟢 低 |
+| 10.10 | 玩家规则书 | `public/rules/his/` (8 页) | ✅ | 🟢 低 |
 
 ---
 
@@ -303,7 +303,7 @@ frontend/src/games/his/
 | 11.1 | 多人网络同步验证 | ✅ | 🔴 高 |
 | 11.2 | 2-5 人变体（一人控制多势力） | ✅ | 🟡 中 |
 | 11.3 | 锦标赛场景（1532） | ❌ | 🟡 中 |
-| 11.4 | 边界用例全面测试 | 🔶 进行中 | 🟡 中 |
+| 11.4 | 边界用例全面测试 | ✅ | 🟡 中 |
 | 11.5 | 存档/读档 | ✅ | 🟡 中 |
 | 11.6 | 大状态深拷贝性能优化 | ❌ | 🟢 低 |
 | 11.7 | 响应卡系统（引擎 W1-W7 + UI） | ✅ | 🟡 中 |
@@ -371,7 +371,7 @@ frontend/src/games/his/
 
 **11.1 验证结果**：config/export/getVisibleState/processMove 格式/网络收发路径/状态大小均正确。修复了 UI-only action（SELECT_CARD、SELECT_SPACE）泄漏到引擎的问题，以及 action 格式 `{type,data}` → `{actionType,actionData}` 的统一。
 
-**11.4 边界用例测试进展**（+459 新测试，870→1549）：
+**11.4 边界用例测试进展**（+664 新测试，870→1549→2317→2403）：
 
 第一批（870→997）：
 
@@ -411,6 +411,36 @@ frontend/src/games/his/
 - `military-actions.test.js` +28：山口移动、领袖/骑兵随队、阻挡验证、征募/佣兵/舰队边界、骑兵资格
 - `naval-actions.test.js` +17：海战触发/骰数/领袖加值/平局/伤亡、海盗 VP 上限、舰队消灭
 - `state-helpers.test.js` +16：空间单位查询、岛屿/山口邻接、路径搜索阻挡、势力映射、改革空间计数
+
+第五批 Bot AI（2073→2198）：
+
+- `bot-goals.test.js` +33：驻军边界（未知空间/选侯/近敌）、单位放置（无空间/Protestant 回退）、围城子优先级、造船/海盗、控制/宗教/新世界边界、dispatchGoalAction（cp=0/无牌组/已满）
+- `behavior-cards.test.js` +19：重洗生命周期（抽尽/Continue 逻辑/无牌损失）、getActiveBehaviorCard 边界、initBotDeck（Protestant Goodwill）、数据完整性
+- `bot-card-play.test.js` +25：classifyCard 边界、Home 卡六势力判定条件、Leipzig Debate 辩士阈值、条约义务、合力打击 VP 阈值、节牌判定、出牌路由
+- `bot-helpers.test.js` +22：weightedDistance（同格/连接/不可达）、BFS、findClosestSpace（4 参数签名）、单位移除/放置、编队扩充/佣兵比例
+- `bot-combat.test.js` +25：避战（堡垒/兵力比）、入堡（单位阈值）、拦截（非堡垒/受围目标）、撤退（友方堡垒/海盗→Algiers）、战斗决策整合
+
+第六批 核心规则模块（2198→2317）：
+
+- `religious-actions.test.js` +25：反改革 Augsburg 修正/教宗限定、骰子修正器 Full Bible、验证边界（缺参/未知空间/已天主教）、翻译边界（无效区域/NT 无 VP/Full Bible 修正器/中途无 pending）、St. Peters 多次构建/上限、耶稣会（缺参/未知空间/多建/CP 不足）、出版/焚书边界
+- `debate-actions.test.js` +20：非宗教势力辩论、无辩士辩论、无效 debate phase、R2 平局 no_result、R2 defender 骰减少、1 命中差→1 空间翻转、defender 赢→反改革 pending、翻转验证边界（剩余/缺参/未知/非 debate 来源）、Council 验证（非数组/null/无效阶段/不可用辩士/超额）、Council zone=null
+- `diplomacy-actions.test.js` +22：自我宣战、本回合结盟后宣战、England→Venice/Ottoman→Scotland/非 Ottoman→Hungary 限制、France→Scotland 限制、Venice 限制（Papacy 同盟/求和后）、自方附庸宣战、最终回合求和、Protestant-Hapsburg/Papacy 和约限制、leader 被俘求和、Ottoman/非 Ottoman VP 差异、未知谈判类型、Papacy-Ottoman 同盟、空手赎回、仅 Home 卡赠送、零数量赠送
+- `phase-manager.test.js` +18：T9 同 T2 阶段序、阶段顺序验证、Turn1 特殊阶段转换、未知阶段→null、已结束不操作、T8→T9 过渡、action 初始化、双周期脉冲归位、海军领袖已在地图不重复/无港口延迟/零数量跳过/未来不提前释放
+- `phase-card-draw.test.js` +8：空牌堆仅 Home 卡、牌堆耗尽分配、大弃牌堆合并、外交/特殊牌排除、removedCards 不重新加入、手牌中不重复、homeCardPlayed 重置
+- `war-helpers.test.js` +12：自我交战检测、多重战争独立、添加不影响现有、多重战争移除、反向移除同盟、空字符串/undefined 非附属国、附属国→附属国无主国、非活跃附属国不可攻击、自我攻击检测、同主国附属国不互攻、不存在空间/附属国传递性/中立非敌
+
+第七批 事件处理器边界（2317→2367）：
+
+- `event-actions.test.js` +26：#18 Dragut 海区/未找到、#26 佣兵贿赂 Ottoman 限制/ceil 数学/目标跳过/新编队、#33 Landsknechts Ottoman 移除/上限差异、#36 Swiss→Ottoman→France、#30 Tercios 反 Hapsburg、#38 Halley 跳过/空手、#42 Roxelana 非 Ottoman 归还/Ottoman 突击、#47 Copernicus 半数边界、#15 耶稣会 Protestant 空间、#37 Wartburg Luther 提交、#5 Papal Bull 去重、#39 Augsburg/#41 Marburg/#52 Michelangelo
+- `event-actions-extended.test.js` +25：#57 Philip 弃牌分支、#64 Pilgrimage 占领/动乱、#67 Anabaptists 选侯/占领、#69 Auld Alliance 停用/增援、#78 Frederick 37 未在弃牌堆、#80 Gabelle 非法国、#87 佣兵讨薪/弃牌保留、#100 造船 corsairs、#104 Trace Italienne 独立/动乱、#107 Unsanitary 骑兵溢出/零、#108 Venetian 停用/增援、#60 Maurice 未找到、#116 Rough Wooing 失败、#75 Erasmus T2/T3 边界、#115 Thomas Cromwell 取回/不在弃牌堆
+
+第八批 Bot 模块边界（2367→2403）：
+
+- `bot-controller.test.js` +7：未知阶段 null、空目标 PHASE_ADVANCE、非 Protestant luther_95、人类响应方 null、已移除动乱、victory_determination null、外交已行动
+- `bot-phases.test.js` +8：春季部署无余/丢失首都、探索 bonus=2/1 边界、驻军近敌+1、无控制空间 0、stackBotHand 无 Home 卡
+- `bot-negotiation.test.js` +8：Protestant-Papacy 反向阻止、交战阻止、无行为卡、Bad Faith 阻止、War 字段阻止 ALLIANCE、超过上限、非 bot bot-to-bot、无颜色编码
+- `bot-event-criteria.test.js` +6：不存在卡牌 false、不匹配势力 false、satisfiesTreaty null 条约、不存在卡牌、shouldPlayResponse 不存在/事件卡
+- `bot-rules.test.js` +6：expireExtendedEvents 边界(==)、无事件空、processBotTurnStart 全数组、重置 CP tokens、重置秋季突击、getNextAutumnAssault null
 
 **11.5 存档/读档实现**（+32 新测试，1549→1581）：
 
@@ -489,10 +519,10 @@ frontend/src/games/his/
 | Phase 8 剩余事件 | — | （合并至 P6） | ✅ |
 | Phase 9 SVG+UI | ~4,000 | ~3,300 | ✅ |
 | Phase 10 卡牌事件 UI | ~3,000 | ~1,100 | ✅ |
-| Phase 11 多人联机 | ~1,000 | — | ⬅️ |
-| Phase 12 AI (HISBOT) | ~6,300 | — | ⬜ |
-| **源码合计** | ~27,500 | **~25,300** | |
-| **测试合计** | ~8,000-12,000 | **~18,200** | 1,451 tests |
+| Phase 11 多人联机 | ~1,000 | ~800 | ⬅️ |
+| Phase 12 AI (HISBOT) | ~6,300 | ~5,400 | ✅ |
+| **源码合计** | ~27,500 | **~34,300** | |
+| **测试合计** | ~8,000-12,000 | **~28,000** | 2,317 tests |
 
 **依赖关系图**：
 ```
@@ -504,7 +534,7 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
                                          ↓
                                     P11（多人联机）⬅️ 当前
                                          ↓
-                                    P12（AI / HISBOT）⬜ → 详见 AI_PLAN.md
+                                    P12（AI / HISBOT）✅
 ```
 
 ---
@@ -515,10 +545,11 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 |----------|--------|----------|
 | state-init.test.js | 35 | 初始化、数据完整性 |
 | state-helpers.test.js | 76 | 查询工具、路径搜索、辩士、邻接、改革计数 |
-| state-visible.test.js | 29 | 信息隐藏、深拷贝、旁观者 |
-| war-helpers.test.js | 33 | 战争/同盟状态 |
+| state-visible.test.js | 28 | 信息隐藏、深拷贝、旁观者 |
+| war-helpers.test.js | 45 | 战争/同盟状态 |
 | victory-checks.test.js | 41 | 胜利条件、阈值边界 |
-| reformer-helpers.test.js | 15 | 宗教改革者追踪 |
+| reformer-helpers.test.js | 23 | 宗教改革者追踪 |
+| multi-power.test.js | 31 | 多势力变体（2-5 人） |
 | cp-manager.test.js | 22 | CP 花费 |
 | military-actions.test.js | 75 | 移动、征募、建造、山口、骑兵资格 |
 | naval-actions.test.js | 69 | 海军、海盗、海战骰数/伤亡、舰队消灭 |
@@ -526,31 +557,41 @@ P0 → P1 → P2 → P3 → P5 → P6 → P7 → P8（已完成）
 | siege-actions.test.js | 35 | 围城、半骰进位、LOC、W5 |
 | interception.test.js | 17 | 拦截、骑兵修正、山口排除 |
 | retreat.test.js | 25 | 撤退、堡垒容量、领袖移动 |
-| religious-actions.test.js | 44 | 改革、出版、翻译、焚书 |
-| debate-actions.test.js | 49 | 辩论 + 特伦托会议 |
-| diplomacy-actions.test.js | 49 | 外交 |
-| excommunication-actions.test.js | 24 | 绝罚 |
-| event-actions.test.js | 79 | 事件卡 #1-54 |
-| event-actions-extended.test.js | 120 | 事件卡 #55-116 |
-| event-actions-diplomacy.test.js | 32 | 外交牌 #201-219 |
+| religious-actions.test.js | 69 | 改革、出版、翻译、焚书 |
+| debate-actions.test.js | 69 | 辩论 + 特伦托会议 |
+| diplomacy-actions.test.js | 71 | 外交 |
+| excommunication-actions.test.js | 36 | 绝罚 |
+| event-actions.test.js | 105 | 事件卡 #1-54 |
+| event-actions-extended.test.js | 145 | 事件卡 #55-116 |
+| event-actions-diplomacy.test.js | 65 | 外交牌 #201-219 |
 | event-display.test.js | 28 | 事件展示 UI |
 | new-world-actions.test.js | 28 | 新世界 |
 | loan-actions.test.js | 16 | 中队借调、零边界、多借调 |
 | conclave-actions.test.js | 30 | 教宗选举、平票、继承链 |
-| phase-manager.test.js | 26 | 阶段状态机 |
-| phase-card-draw.test.js | 14 | 抽牌 |
+| response-actions.test.js | 159 | 响应卡系统（W1-W7） |
+| phase-manager.test.js | 44 | 阶段状态机 |
+| phase-card-draw.test.js | 22 | 抽牌 |
 | phase-diplomacy.test.js | 30 | 外交阶段、段序、幂等 |
 | phase-spring-deployment.test.js | 26 | 春季部署 |
-| phase-diet-of-worms.test.js | 17 | 沃尔姆斯议会 |
+| phase-diet-of-worms.test.js | 24 | 沃尔姆斯议会 |
 | phase-luther95.test.js | 29 | 95 条论纲 |
-| phase-new-world.test.js | 14 | 新世界阶段、发现回退 |
+| phase-new-world.test.js | 21 | 新世界阶段、发现回退 |
 | phase-winter.test.js | 37 | 冬季阶段、损耗、借调归还、围城 |
 | index.test.js | 75 | 集成测试、响应卡流程、W7 中断 |
-| response-actions.test.js | 159 | 响应卡系统（W1-W7） |
 | save-load.test.js | 32 | 存档/读档验证、引擎集成 |
-| behavior-cards.test.js | 47 | 行为卡数据完整性、牌组管理 |
-| bot-controller.test.js | 30 | Bot 识别、初始化、决策路由、HISGame 集成 |
-| **合计** | **1,658** | |
+| behavior-cards.test.js | 66 | 行为卡数据完整性、牌组管理、生命周期边界 |
+| bot-controller.test.js | 37 | Bot 识别、初始化、决策路由、HISGame 集成 |
+| bot-phases.test.js | 62 | Bot 阶段逻辑（抓牌、外交、部署、冬季） |
+| bot-negotiation.test.js | 38 | Bot 谈判（报价评估、Bot-Bot 交易） |
+| bot-event-criteria.test.js | 51 | Bot 事件卡判定表 |
+| bot-card-play.test.js | 70 | Bot 出牌路由、Home 卡评估、条约、存牌边界 |
+| bot-goals.test.js | 103 | Bot 目标执行器、驻军/围城/宗教/新世界边界 |
+| bot-helpers.test.js | 70 | Bot 空间计算、BFS、单位放置/移除、补给线 |
+| bot-combat.test.js | 62 | Bot 战斗决策、避战/拦截/撤退、海战边界 |
+| bot-rules.test.js | 50 | Bot 规则例外、难度、秋季突击 |
+| bot-ui.test.js | 15 | Bot UI 格式化、状态查询 |
+| bot-integration.test.js | 27 | Bot 全流程集成测试 |
+| **合计** | **2,403** | |
 
 运行命令：
 ```bash

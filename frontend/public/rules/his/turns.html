@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>回合流程 &mdash; 教改风云规则</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>二、回合流程</h1>
+      <div class="subtitle">教改风云 (Here I Stand) 游戏规则</div>
+    </header>
+
+    <nav class="page-nav">
+      <a href="index.html">目录</a> <span class="sep">|</span>
+      <a href="powers.html">势力</a> <span class="sep">|</span>
+      <a href="turns.html" class="active">回合</a> <span class="sep">|</span>
+      <a href="cards.html">卡牌</a> <span class="sep">|</span>
+      <a href="actions.html">行动</a> <span class="sep">|</span>
+      <a href="combat.html">战斗</a> <span class="sep">|</span>
+      <a href="religion.html">宗教</a> <span class="sep">|</span>
+      <a href="special.html">特殊</a> <span class="sep">|</span>
+      <a href="victory.html">胜利</a>
+    </nav>
+
+    <div class="content">
+
+      <section>
+        <h2>回合结构</h2>
+        <p>游戏共 9 个回合，每回合按以下阶段依序进行：</p>
+        <ol class="phase-list">
+          <li>
+            <span class="phase-name">路德 95 条论纲</span>
+            <span class="phase-note">（仅第 1 回合）新教在德意志地区进行 5 次改革尝试</span>
+          </li>
+          <li>
+            <span class="phase-name">抽牌阶段</span>
+            <span class="phase-note">添加新辩士/改革家，洗牌，按关键城市数量发牌</span>
+          </li>
+          <li>
+            <span class="phase-name">外交阶段</span>
+            <span class="phase-note">谈判结盟、宣战、求和、赎回将领、绝罚</span>
+          </li>
+          <li>
+            <span class="phase-name">沃尔姆斯议会</span>
+            <span class="phase-note">（仅第 1 回合）哈布斯堡、教廷、新教各出 1 张牌进行宗教对决</span>
+          </li>
+          <li>
+            <span class="phase-name">春季部署</span>
+            <span class="phase-note">每个势力可将一支编队从首都免费移动至友方空间</span>
+          </li>
+          <li>
+            <span class="phase-name">行动阶段</span>
+            <span class="phase-note">核心阶段 &mdash; 按固定顺序轮流打牌执行行动，直到连续 6 次跳过</span>
+          </li>
+          <li>
+            <span class="phase-name">冬季阶段</span>
+            <span class="phase-note">部队归营、损耗结算、同盟失效、首都补充兵力</span>
+          </li>
+          <li>
+            <span class="phase-name">新世界阶段</span>
+            <span class="phase-note">结算航海探索和征服行动</span>
+          </li>
+          <li>
+            <span class="phase-name">胜利判定</span>
+            <span class="phase-note">检查所有胜利条件，无人获胜则进入下一回合</span>
+          </li>
+        </ol>
+
+        <div class="highlight-box info">
+          <strong>第 1 回合特殊：</strong>包含"路德 95 条论纲"和"沃尔姆斯议会"两个特殊阶段，从第 2 回合起省略。外交阶段在第 1 回合受限（仅允许结盟和借调）。
+        </div>
+      </section>
+
+      <section>
+        <h2>阶段详解</h2>
+
+        <h3>路德 95 条论纲（仅第 1 回合）</h3>
+        <p>新教玩家在德意志语言区连续进行 5 次改革尝试：</p>
+        <ul>
+          <li>每次选择一个目标空间</li>
+          <li>第 1 次尝试 +1 额外骰，第 2 次 +2...递增加成</li>
+          <li>维滕贝格自动成为新教空间，路德和 2 正规军放置于此</li>
+        </ul>
+
+        <h3>抽牌阶段</h3>
+        <ul>
+          <li>按回合计划添加新辩士和改革家到可用池</li>
+          <li>洗入本回合新增的事件牌</li>
+          <li>每势力抽牌数 = 基础值 + 统治者卡牌加成 &mdash; 关键城市处于动乱的扣减</li>
+          <li>新教抽牌：控制 4+ 选侯国 = 5 张，否则 4 张</li>
+          <li>本势力卡（Home Card）始终在手中，不计入抽牌</li>
+        </ul>
+
+        <h3>外交阶段</h3>
+        <p>各势力可进行以下外交行动（按段依序执行）：</p>
+        <ol>
+          <li><strong>求和</strong> &mdash; 交战双方协商停战（胜者获 VP）</li>
+          <li><strong>赎回将领</strong> &mdash; 支付赎金赎回被俘将领</li>
+          <li><strong>绝罚</strong> &mdash; 教廷施加或解除绝罚</li>
+          <li><strong>谈判</strong> &mdash; 结盟、借调海军、赠送卡牌/佣兵、转让控制</li>
+          <li><strong>宣战</strong> &mdash; 支付 CP 对目标势力宣战</li>
+        </ol>
+
+        <h3>沃尔姆斯议会（仅第 1 回合）</h3>
+        <p>哈布斯堡、教廷和新教各暗出 1 张牌，比较 CP 值进行宗教对决。结果影响德意志地区的宗教归属。</p>
+
+        <h3>春季部署</h3>
+        <ul>
+          <li>每势力可将<strong>一支编队</strong>从首都免费移动到友方控制空间</li>
+          <li>路径必须经过友方控制且无动乱的空间</li>
+          <li>可跨越一个海域（需有港口）</li>
+          <li>新教无首都，不能进行春季部署</li>
+        </ul>
+
+        <h3>行动阶段（核心）</h3>
+        <p>详见 <a href="actions.html">四、行动类型</a>。</p>
+        <div class="impulse-order">
+          <span class="power-tag ottoman-tag">奥斯曼</span>
+          <span class="arrow">&rarr;</span>
+          <span class="power-tag hapsburg-tag">哈布斯堡</span>
+          <span class="arrow">&rarr;</span>
+          <span class="power-tag england-tag">英格兰</span>
+          <span class="arrow">&rarr;</span>
+          <span class="power-tag france-tag">法兰西</span>
+          <span class="arrow">&rarr;</span>
+          <span class="power-tag papacy-tag">教廷</span>
+          <span class="arrow">&rarr;</span>
+          <span class="power-tag protestant-tag">新教</span>
+        </div>
+        <p>按上述顺序轮流执行脉冲。每次打出 1 张牌或跳过。连续 6 次跳过 = 阶段结束。</p>
+
+        <h3>冬季阶段</h3>
+        <ol>
+          <li>移除借调标记，归还借调的海军中队</li>
+          <li>海军部队返回港口</li>
+          <li>陆军和将领返回合法驻地（堡垒/友方空间）&mdash; 路径被封锁则承受<strong>损耗</strong>（按佣兵→正规→骑兵顺序移除）</li>
+          <li>移除本回合同盟标记</li>
+          <li>每个友方首都补充 1 正规军</li>
+          <li>重置所有辩士为未使用状态</li>
+          <li>未打出的<strong>必出事件</strong>自动触发（无 CP 奖励）</li>
+        </ol>
+
+        <h3>新世界阶段</h3>
+        <p>结算本回合声明的航海探索和征服行动。详见 <a href="actions.html">四、行动类型 &mdash; 新世界探索</a>。</p>
+
+        <h3>胜利判定</h3>
+        <p>检查所有胜利条件。无人获胜则推进回合标记，开始下一回合。详见 <a href="victory.html">八、胜利条件</a>。</p>
+      </section>
+
+      <div class="page-footer-nav">
+        <a href="powers.html">&larr; 六大势力</a>
+        <a href="cards.html">卡牌系统 &rarr;</a>
+      </div>
+    </div>
+
+    <footer>
+      Here I Stand 是 GMT Games 出版的桌游。本规则仅供学习参考。
+    </footer>
+  </div>
+</body>
+</html>
