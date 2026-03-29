@@ -71,6 +71,10 @@ demo_boardgame/
 ├── cloud/                 # Cloud backend config (Supabase)
 │   ├── README.md          # Supabase project setup guide
 │   └── migrations/        # Database migration SQL files (001_profiles, 002_card_data)
+├── mcp/                   # MCP server (boardgame-mcp, stdio + HTTP)
+│   ├── index.js           # stdio entry
+│   ├── server-http.js     # HTTP/SSE entry
+│   └── tools/             # get-game-rules.js, query-pokemon.js
 ├── render.yaml            # Render deployment configuration
 ├── docs/
 │   ├── PROTOCOL.md        # WebSocket message spec (required reading)
@@ -105,6 +109,15 @@ npm run build            # Production build to dist/
 cd backend/server
 npm install
 node index.js            # Start WebSocket server on port 7777
+
+# E2E Testing (Playwright — requires dev server running on localhost:5173)
+cd frontend
+npx playwright test                        # Run all E2E tests (headless)
+npx playwright test --ui                   # Interactive test runner (headed)
+npx playwright test e2e/lobby              # Run lobby suite only
+npx playwright test e2e/games/his          # Run HIS game suite
+npx playwright test --headed               # Watch tests run in browser
+npx playwright show-report                 # Open last test report
 ```
 
 ## Key Technical Details
@@ -168,6 +181,45 @@ Game modes (single-player vs multiplayer) are determined by `gameType` and `supp
 **Implementation rule**: The game lobby must enforce these rules - hide or disable unavailable modes based on game config.
 
 **AI Support**: Games can optionally support AI players. Set `"supportsAI": true` in config.json to enable AI features. AI logic is an **optional, non-priority** development item - focus on core game rules and multiplayer first.
+
+### E2E Testing (Playwright MCP)
+
+Playwright MCP is configured for this project, enabling Claude Code to directly control Chrome for live testing without writing test scripts manually.
+
+**MCP tool examples** (Claude Code calls these directly):
+
+- `browser_navigate` — open `http://localhost:5173`
+- `browser_click` — click buttons/elements by selector or text
+- `browser_screenshot` — capture current page state
+- `browser_type` — fill inputs
+- `browser_wait_for` — wait for element/network idle
+
+**Playwright test files** (for scripted/CI regression tests):
+
+```text
+frontend/e2e/
+├── lobby/           # Game lobby, room creation, mode selection (all games)
+├── network/         # Multiplayer sync, reconnect, WebSocket (all games)
+└── games/
+    ├── uno/         # UNO-specific flows
+    ├── werewolf/    # Werewolf-specific flows
+    └── his/         # HIS flows: HISBOT, save/load, map interaction
+```
+
+**Config**: `frontend/playwright.config.js` — baseURL: `http://localhost:5173`, browser: Chromium
+
+**Scope philosophy**: Lobby/network tests are written once and cover all games. Each game adds its own suite under `e2e/games/[name]/`. Playwright MCP is used for exploratory/live testing; scripted `.spec.js` files are for regression.
+
+### MCP Servers
+
+This project uses two MCP servers registered in `~/.claude.json` under the project scope:
+
+| Server       | Purpose                               | Entry                        |
+|--------------|---------------------------------------|------------------------------|
+| `boardgame`  | Game rules query, Pokémon data lookup | `mcp/index.js`               |
+| `playwright` | Browser automation — live E2E testing | `npx @playwright/mcp@latest` |
+
+Both are project-scoped (only active in this workspace) and run as stdio processes.
 
 ### Code Style
 
