@@ -5,10 +5,21 @@
  */
 
 import {
-  sendChatMessage, fetchChatGames, isApiConfigured, ApiError
+  sendChatMessage, isApiConfigured, ApiError
 } from '../utils/api-client.js';
 import { createSpinner } from './loading.js';
 import { trackEvent } from '../utils/analytics.js';
+
+/**
+ * Available games for AI rule Q&A.
+ * These correspond to games that have rule docs loaded in the backend
+ * (docs/games/{gameId}/RULES.md).
+ */
+const CHAT_GAMES = [
+  { gameId: 'uno',      gameName: 'UNO' },
+  { gameId: 'werewolf', gameName: '狼人杀' },
+  { gameId: 'his',      gameName: 'Here I Stand' },
+];
 
 /** Suggestion prompts per game */
 const GAME_SUGGESTIONS = {
@@ -22,10 +33,15 @@ const GAME_SUGGESTIONS = {
     'UNO 万能牌可以在什么时候出？',
     '+4 可以叠加吗？',
   ],
+  his: [
+    'HIS 中奥斯曼帝国的自动胜利条件是什么？',
+    '宗教改革骰子的修正有哪些？',
+    '外交阶段的流程是怎样的？',
+  ],
   default: [
     'UNO 的出牌规则是什么？',
     '狼人杀中预言家的技能如何使用？',
-    'UNO 万能牌可以在什么时候出？',
+    'HIS 中有哪些势力？',
   ],
 };
 
@@ -540,28 +556,21 @@ export class ChatPanel {
   }
 
   /**
-   * Load available games into the selector dropdown
+   * Populate game selector from hardcoded CHAT_GAMES list
    * @private
    */
-  async _loadGames() {
-    if (!isApiConfigured()) return;
-    try {
-      const result = await fetchChatGames();
-      const games = result.data || [];
-      for (const game of games) {
-        const opt = document.createElement('option');
-        opt.value = game.gameId;
-        opt.textContent = game.gameName;
-        this._gameSelect.appendChild(opt);
-      }
-      // Restore selected value if auto-detected
-      if (this._selectedGameId) {
-        this._gameSelect.value = this._selectedGameId;
-      }
-      this._gamesLoaded = true;
-    } catch {
-      // Silently fail — dropdown stays with just "通用"
+  _loadGames() {
+    for (const game of CHAT_GAMES) {
+      const opt = document.createElement('option');
+      opt.value = game.gameId;
+      opt.textContent = game.gameName;
+      this._gameSelect.appendChild(opt);
     }
+    // Restore selected value if auto-detected
+    if (this._selectedGameId) {
+      this._gameSelect.value = this._selectedGameId;
+    }
+    this._gamesLoaded = true;
   }
 
   /**

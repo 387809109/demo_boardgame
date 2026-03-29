@@ -153,6 +153,22 @@ export async function fetchCards(gameId, options = {}) {
   return get(`/api/v1/games/${gameId}/cards`, options);
 }
 
+// Game data table API functions
+
+/**
+ * Fetch data from a game-specific table (cards, leaders, debaters, explorers)
+ * @param {string} gameId - Game ID (e.g., 'his', 'uno')
+ * @param {string} table - Table endpoint (e.g., 'cards', 'leaders')
+ * @param {Object} [options]
+ * @param {string} [options.search] - Search term
+ * @param {number} [options.limit] - Page size
+ * @param {number} [options.offset] - Page offset
+ * @returns {Promise<{ data: Object[], meta: Object }>}
+ */
+export async function fetchGameTables(gameId, table, options = {}) {
+  return get(`/api/v1/games/${gameId}/${table}`, options);
+}
+
 // Chat API functions
 
 /**
@@ -171,14 +187,6 @@ export async function sendChatMessage(message, sessionId, gameId) {
     body.gameId = gameId;
   }
   return post('/api/v1/chat', body);
-}
-
-/**
- * Fetch list of games with loaded rule documents
- * @returns {Promise<{ data: Array<{ gameId: string, gameName: string }> }>}
- */
-export async function fetchChatGames() {
-  return get('/api/v1/chat/games');
 }
 
 /**
@@ -208,9 +216,9 @@ export default {
   fetchGames,
   fetchGame,
   fetchCards,
+  fetchGameTables,
   sendChatMessage,
   getChatHistory,
   deleteChatSession,
-  fetchChatGames,
   ApiError
 };

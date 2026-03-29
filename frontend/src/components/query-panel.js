@@ -1,16 +1,41 @@
 /**
  * Query Panel Component
- * Displays game data from API in a modal panel
+ * Queries static game data from Supabase tables
  * @module components/query-panel
  */
 
-import { fetchGames, isApiConfigured, ApiError } from '../utils/api-client.js';
+import {
+  fetchCards, fetchGameTables, isApiConfigured, ApiError
+} from '../utils/api-client.js';
 import { createSpinner } from './loading.js';
 import { trackEvent } from '../utils/analytics.js';
-import { getChatPanel, showChatPanel } from './chat-panel.js';
 
 /**
- * Query Panel for browsing game data from API
+ * Available games and their queryable data tables.
+ * Each game lists the Supabase tables/endpoints that hold its static data.
+ */
+const QUERYABLE_GAMES = [
+  {
+    gameId: 'his',
+    gameName: 'Here I Stand',
+    tables: [
+      { key: 'cards',     label: '卡牌',     endpoint: 'cards' },
+      { key: 'leaders',   label: '将领',     endpoint: 'leaders' },
+      { key: 'debaters',  label: '辩论家',   endpoint: 'debaters' },
+      { key: 'explorers', label: '探险家',   endpoint: 'explorers' },
+    ]
+  },
+  {
+    gameId: 'uno',
+    gameName: 'UNO',
+    tables: [
+      { key: 'cards', label: '卡牌', endpoint: 'cards' },
+    ]
+  },
+];
+
+/**
+ * Query Panel for browsing static game data from Supabase
  */
 export class QueryPanel {
   constructor() {
@@ -18,9 +43,23 @@ export class QueryPanel {
     this._container = null;
     this._content = null;
     this._isOpen = false;
-    this._games = [];
     this._loading = false;
     this._error = null;
+
+    /** @type {string|null} Currently selected game */
+    this._selectedGameId = null;
+    /** @type {string|null} Currently selected table key */
+    this._selectedTable = null;
+    /** @type {object[]} Current query results */
+    this._results = [];
+    /** @type {number} Total results count */
+    this._total = 0;
+    /** @type {number} Current page offset */
+    this._offset = 0;
+    /** @type {number} Page size */
+    this._limit = 20;
+    /** @type {string} Search text */
+    this._search = '';
 
     this._init();
   }
@@ -55,7 +94,7 @@ export class QueryPanel {
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow-xl);
       width: 90vw;
-      max-width: 800px;
+      max-width: 900px;
       max-height: 85vh;
       display: flex;
       flex-direction: column;
@@ -74,6 +113,12 @@ export class QueryPanel {
       flex-shrink: 0;
     `;
 
+    const titleArea = document.createElement('div');
+    titleArea.style.cssText = `
+      display: flex; align-items: center; gap: var(--spacing-3);
+      flex-wrap: wrap;
+    `;
+
     const title = document.createElement('h3');
     title.textContent = '游戏数据查询';
     title.style.cssText = `
@@ -81,6 +126,59 @@ export class QueryPanel {
       font-size: var(--text-lg);
       font-weight: var(--font-semibold);
     `;
+    titleArea.appendChild(title);
+
+    // Game selector
+    this._gameSelect = document.createElement('select');
+    this._gameSelect.className = 'input';
+    this._gameSelect.style.cssText = `
+      font-size: var(--text-xs);
+      padding: var(--spacing-1) var(--spacing-2);
+      max-width: 160px;
+      border-radius: var(--radius-sm);
+    `;
+    const defaultGameOpt = document.createElement('option');
+    defaultGameOpt.value = '';
+    defaultGameOpt.textContent = '选择游戏...';
+    this._gameSelect.appendChild(defaultGameOpt);
+    for (const game of QUERYABLE_GAMES) {
+      const opt = document.createElement('option');
+      opt.value = game.gameId;
+      opt.textContent = game.gameName;
+      this._gameSelect.appendChild(opt);
+    }
+    this._gameSelect.addEventListener('change', () => {
+      this._selectedGameId = this._gameSelect.value || null;
+      this._selectedTable = null;
+      this._results = [];
+      this._offset = 0;
+      this._search = '';
+      this._renderTableSelector();
+    });
+    titleArea.appendChild(this._gameSelect);
+
+    // Table selector (populated on game change)
+    this._tableSelect = document.createElement('select');
+    this._tableSelect.className = 'input';
+    this._tableSelect.style.cssText = `
+      font-size: var(--text-xs);
+      padding: var(--spacing-1) var(--spacing-2);
+      max-width: 120px;
+      border-radius: var(--radius-sm);
+      display: none;
+    `;
+    this._tableSelect.addEventListener('change', () => {
+      this._selectedTable = this._tableSelect.value || null;
+      this._results = [];
+      this._offset = 0;
+      this._search = '';
+      if (this._selectedTable) {
+        this._loadData();
+      } else {
+        this._renderEmpty('请选择数据表');
+      }
+    });
+    titleArea.appendChild(this._tableSelect);
 
     const closeBtn = document.createElement('button');
     closeBtn.innerHTML = '&times;';
@@ -95,8 +193,74 @@ export class QueryPanel {
     `;
     closeBtn.addEventListener('click', () => this.hide());
 
-    header.appendChild(title);
+    header.appendChild(titleArea);
     header.appendChild(closeBtn);
+
+    // Create toolbar (search + pagination)
+    this._toolbar = document.createElement('div');
+    this._toolbar.style.cssText = `
+      display: none;
+      align-items: center;
+      gap: var(--spacing-2);
+      padding: var(--spacing-2) var(--spacing-6);
+      border-bottom: 1px solid var(--border-light);
+      flex-shrink: 0;
+    `;
+
+    this._searchInput = document.createElement('input');
+    this._searchInput.type = 'text';
+    this._searchInput.className = 'input';
+    this._searchInput.placeholder = '搜索...';
+    this._searchInput.style.cssText = 'flex: 1; font-size: var(--text-sm);';
+    this._searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        this._search = this._searchInput.value.trim();
+        this._offset = 0;
+        this._loadData();
+      }
+    });
+
+    const searchBtn = document.createElement('button');
+    searchBtn.className = 'btn btn-primary btn-sm';
+    searchBtn.textContent = '搜索';
+    searchBtn.addEventListener('click', () => {
+      this._search = this._searchInput.value.trim();
+      this._offset = 0;
+      this._loadData();
+    });
+
+    this._pageInfo = document.createElement('span');
+    this._pageInfo.style.cssText = `
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    `;
+
+    this._prevBtn = document.createElement('button');
+    this._prevBtn.className = 'btn btn-ghost btn-sm';
+    this._prevBtn.textContent = '上一页';
+    this._prevBtn.addEventListener('click', () => {
+      if (this._offset > 0) {
+        this._offset = Math.max(0, this._offset - this._limit);
+        this._loadData();
+      }
+    });
+
+    this._nextBtn = document.createElement('button');
+    this._nextBtn.className = 'btn btn-ghost btn-sm';
+    this._nextBtn.textContent = '下一页';
+    this._nextBtn.addEventListener('click', () => {
+      if (this._offset + this._limit < this._total) {
+        this._offset += this._limit;
+        this._loadData();
+      }
+    });
+
+    this._toolbar.appendChild(this._searchInput);
+    this._toolbar.appendChild(searchBtn);
+    this._toolbar.appendChild(this._pageInfo);
+    this._toolbar.appendChild(this._prevBtn);
+    this._toolbar.appendChild(this._nextBtn);
 
     // Create content area
     this._content = document.createElement('div');
@@ -108,6 +272,7 @@ export class QueryPanel {
     `;
 
     this._container.appendChild(header);
+    this._container.appendChild(this._toolbar);
     this._container.appendChild(this._content);
     this._backdrop.appendChild(this._container);
     document.body.appendChild(this._backdrop);
@@ -128,15 +293,17 @@ export class QueryPanel {
   }
 
   /**
-   * Show the panel and load data
+   * Show the panel
    */
-  async show() {
+  show() {
     this._backdrop.style.display = 'flex';
     this._isOpen = true;
     document.body.style.overflow = 'hidden';
     trackEvent('query_panel_opened');
 
-    await this._loadGames();
+    if (!this._selectedGameId) {
+      this._renderEmpty('请选择游戏和数据表');
+    }
   }
 
   /**
@@ -157,23 +324,73 @@ export class QueryPanel {
   }
 
   /**
-   * Load games from API
+   * Update table selector dropdown when game changes
    * @private
    */
-  async _loadGames() {
+  _renderTableSelector() {
+    // Clear old options
+    this._tableSelect.innerHTML = '';
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '选择数据表...';
+    this._tableSelect.appendChild(defaultOpt);
+
+    const game = QUERYABLE_GAMES.find(g => g.gameId === this._selectedGameId);
+    if (game) {
+      for (const table of game.tables) {
+        const opt = document.createElement('option');
+        opt.value = table.key;
+        opt.textContent = table.label;
+        this._tableSelect.appendChild(opt);
+      }
+      this._tableSelect.style.display = '';
+      this._renderEmpty('请选择数据表');
+    } else {
+      this._tableSelect.style.display = 'none';
+      this._renderEmpty('请选择游戏和数据表');
+    }
+
+    this._toolbar.style.display = 'none';
+  }
+
+  /**
+   * Load data from API
+   * @private
+   */
+  async _loadData() {
     if (!isApiConfigured()) {
       this._renderError('API 未配置。请在 .env 中设置 VITE_API_URL');
       return;
     }
 
+    if (!this._selectedGameId || !this._selectedTable) return;
+
     this._loading = true;
     this._renderLoading();
 
+    const game = QUERYABLE_GAMES.find(g => g.gameId === this._selectedGameId);
+    const table = game?.tables.find(t => t.key === this._selectedTable);
+    if (!table) return;
+
     try {
-      const result = await fetchGames();
-      this._games = result.data || [];
+      const result = await fetchGameTables(
+        this._selectedGameId,
+        table.endpoint,
+        {
+          search: this._search || undefined,
+          limit: this._limit,
+          offset: this._offset,
+        }
+      );
+      this._results = result.data || [];
+      this._total = result.meta?.total ?? this._results.length;
       this._error = null;
-      this._renderGames();
+      this._renderResults(table.label);
+      trackEvent('query_data_loaded', {
+        game_id: this._selectedGameId,
+        table: this._selectedTable,
+        total: this._total
+      });
     } catch (err) {
       this._error = err;
       if (err instanceof ApiError) {
@@ -218,6 +435,7 @@ export class QueryPanel {
    * @private
    */
   _renderError(message) {
+    this._toolbar.style.display = 'none';
     this._content.innerHTML = '';
     const errorDiv = document.createElement('div');
     errorDiv.style.cssText = `
@@ -227,8 +445,11 @@ export class QueryPanel {
     `;
 
     const icon = document.createElement('div');
-    icon.textContent = '⚠️';
-    icon.style.fontSize = 'var(--text-4xl)';
+    icon.textContent = '!';
+    icon.style.cssText = `
+      font-size: var(--text-4xl);
+      font-weight: bold;
+    `;
     errorDiv.appendChild(icon);
 
     const text = document.createElement('p');
@@ -240,202 +461,181 @@ export class QueryPanel {
     retryBtn.className = 'btn btn-secondary';
     retryBtn.textContent = '重试';
     retryBtn.style.marginTop = 'var(--spacing-4)';
-    retryBtn.addEventListener('click', () => this._loadGames());
+    retryBtn.addEventListener('click', () => this._loadData());
     errorDiv.appendChild(retryBtn);
 
     this._content.appendChild(errorDiv);
   }
 
   /**
-   * Render games list
+   * Render empty/placeholder state
+   * @param {string} message
    * @private
    */
-  _renderGames() {
+  _renderEmpty(message) {
+    this._toolbar.style.display = 'none';
+    this._content.innerHTML = '';
+    const emptyDiv = document.createElement('div');
+    emptyDiv.style.cssText = `
+      text-align: center;
+      padding: var(--spacing-12);
+      color: var(--text-secondary);
+    `;
+    emptyDiv.textContent = message;
+    this._content.appendChild(emptyDiv);
+  }
+
+  /**
+   * Render query results as a data table
+   * @param {string} tableLabel
+   * @private
+   */
+  _renderResults(tableLabel) {
     this._content.innerHTML = '';
 
-    if (this._games.length === 0) {
+    // Show toolbar
+    this._toolbar.style.display = 'flex';
+    this._searchInput.value = this._search;
+    this._updatePagination();
+
+    if (this._results.length === 0) {
       const emptyDiv = document.createElement('div');
       emptyDiv.style.cssText = `
         text-align: center;
         padding: var(--spacing-12);
         color: var(--text-secondary);
       `;
-      emptyDiv.textContent = '暂无游戏数据';
+      emptyDiv.textContent = this._search
+        ? `未找到匹配 "${this._search}" 的${tableLabel}数据`
+        : `暂无${tableLabel}数据`;
       this._content.appendChild(emptyDiv);
       return;
     }
 
-    // Games grid
-    const grid = document.createElement('div');
-    grid.style.cssText = `
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--spacing-4);
-    `;
-
-    for (const game of this._games) {
-      grid.appendChild(this._createGameCard(game));
-    }
-
-    this._content.appendChild(grid);
-  }
-
-  /**
-   * Create a game card element
-   * @param {Object} game
-   * @returns {HTMLElement}
-   * @private
-   */
-  _createGameCard(game) {
-    const gameId = this._resolveGameId(game);
-    const isInteractive = Boolean(gameId);
-
-    const card = document.createElement('div');
-    card.className = 'game-query-card';
-    card.style.cssText = `
-      background: var(--bg-secondary);
-      border-radius: var(--radius-base);
-      padding: var(--spacing-4);
-      border: 1px solid var(--border-light);
-      transition: box-shadow var(--transition-fast), transform var(--transition-fast);
-      cursor: ${isInteractive ? 'pointer' : 'default'};
-    `;
-
-    if (isInteractive) {
-      card.addEventListener('click', () => {
-        getChatPanel().setGameContext(gameId);
-        trackEvent('query_card_opened_chat', {
-          game_id: gameId,
-          source: 'query_panel'
-        });
-        showChatPanel();
-      });
-    }
-
-    card.addEventListener('mouseenter', () => {
-      card.style.boxShadow = 'var(--shadow-md)';
-      card.style.transform = 'translateY(-2px)';
-    });
-    card.addEventListener('mouseleave', () => {
-      card.style.boxShadow = 'none';
-      card.style.transform = 'none';
-    });
-
-    // Game name
-    const name = document.createElement('h4');
-    name.textContent = game.name || game.id;
-    name.style.cssText = `
-      margin: 0 0 var(--spacing-2) 0;
-      font-size: var(--text-lg);
-      font-weight: var(--font-semibold);
-      color: var(--text-primary);
-    `;
-    card.appendChild(name);
-
-    // Category badge
-    if (game.category) {
-      const badge = document.createElement('span');
-      badge.textContent = this._getCategoryLabel(game.category);
-      badge.style.cssText = `
-        display: inline-block;
-        padding: var(--spacing-1) var(--spacing-2);
-        background: var(--primary-100);
-        color: var(--primary-700);
-        font-size: var(--text-xs);
-        border-radius: var(--radius-sm);
-        margin-bottom: var(--spacing-2);
-      `;
-      card.appendChild(badge);
-    }
-
-    // Description
-    if (game.description) {
-      const desc = document.createElement('p');
-      desc.textContent = game.description;
-      desc.style.cssText = `
-        margin: 0 0 var(--spacing-3) 0;
-        font-size: var(--text-sm);
-        color: var(--text-secondary);
-        line-height: 1.5;
-      `;
-      card.appendChild(desc);
-    }
-
-    // Player count
-    const players = document.createElement('div');
-    players.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-2);
+    // Build table from result columns
+    const columns = this._getDisplayColumns(this._results[0]);
+    const table = document.createElement('table');
+    table.style.cssText = `
+      width: 100%;
+      border-collapse: collapse;
       font-size: var(--text-sm);
-      color: var(--text-tertiary);
     `;
-    players.innerHTML = `
-      <span style="font-size: var(--text-base);">👥</span>
-      <span>${game.min_players || 2} - ${game.max_players || 4} 人</span>
-    `;
-    card.appendChild(players);
 
-    // Tags
-    if (game.tags && game.tags.length > 0) {
-      const tagsDiv = document.createElement('div');
-      tagsDiv.style.cssText = `
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--spacing-1);
-        margin-top: var(--spacing-3);
+    // Header
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    for (const col of columns) {
+      const th = document.createElement('th');
+      th.textContent = col.label;
+      th.style.cssText = `
+        text-align: left;
+        padding: var(--spacing-2) var(--spacing-3);
+        border-bottom: 2px solid var(--border-light);
+        font-weight: var(--font-semibold);
+        color: var(--text-secondary);
+        white-space: nowrap;
       `;
+      headerRow.appendChild(th);
+    }
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
 
-      for (const tag of game.tags.slice(0, 4)) {
-        const tagEl = document.createElement('span');
-        tagEl.textContent = tag;
-        tagEl.style.cssText = `
-          padding: 2px var(--spacing-2);
-          background: var(--neutral-100);
-          color: var(--text-tertiary);
-          font-size: var(--text-xs);
-          border-radius: var(--radius-sm);
+    // Body
+    const tbody = document.createElement('tbody');
+    for (const row of this._results) {
+      const tr = document.createElement('tr');
+      tr.style.cssText = `
+        border-bottom: 1px solid var(--border-light);
+        transition: background var(--transition-fast);
+      `;
+      tr.addEventListener('mouseenter', () => {
+        tr.style.background = 'var(--bg-secondary)';
+      });
+      tr.addEventListener('mouseleave', () => {
+        tr.style.background = '';
+      });
+
+      for (const col of columns) {
+        const td = document.createElement('td');
+        td.style.cssText = `
+          padding: var(--spacing-2) var(--spacing-3);
+          max-width: 300px;
+          overflow: hidden;
+          text-overflow: ellipsis;
         `;
-        tagsDiv.appendChild(tagEl);
+        const val = row[col.key];
+        if (val === null || val === undefined) {
+          td.textContent = '-';
+          td.style.color = 'var(--text-tertiary)';
+        } else if (typeof val === 'object') {
+          td.textContent = JSON.stringify(val);
+          td.style.fontSize = 'var(--text-xs)';
+          td.style.fontFamily = 'monospace';
+        } else {
+          td.textContent = String(val);
+        }
+        tr.appendChild(td);
       }
-
-      card.appendChild(tagsDiv);
+      tbody.appendChild(tr);
     }
+    table.appendChild(tbody);
 
-    return card;
+    this._content.appendChild(table);
   }
 
   /**
-   * Resolve game id for chat context, supporting API variations
-   * @param {Object} game
-   * @returns {string}
+   * Determine display columns from a data row, excluding internal fields
+   * @param {object} sampleRow
+   * @returns {{ key: string, label: string }[]}
    * @private
    */
-  _resolveGameId(game) {
-    if (typeof game?.gameId === 'string' && game.gameId.trim()) {
-      return game.gameId.trim();
-    }
-    if (typeof game?.id === 'string' && game.id.trim()) {
-      return game.id.trim();
-    }
-    return '';
-  }
-
-  /**
-   * Get category display label
-   * @param {string} category
-   * @returns {string}
-   * @private
-   */
-  _getCategoryLabel(category) {
-    const labels = {
-      'card': '卡牌游戏',
-      'social_deduction': '社交推理',
-      'strategy': '策略游戏',
-      'party': '派对游戏',
-      'puzzle': '益智游戏'
+  _getDisplayColumns(sampleRow) {
+    const HIDDEN = new Set([
+      'id', 'game_id', 'category_id', 'created_at', 'updated_at',
+      'card_categories'
+    ]);
+    const LABELS = {
+      name: '名称',
+      display_name: '显示名',
+      description: '描述',
+      effects: '效果',
+      attributes: '属性',
+      image_url: '图片',
+      cp: 'CP',
+      number: '编号',
+      title: '标题',
+      faction: '势力',
+      type: '类型',
+      deck: '牌组',
+      category: '分类',
+      battle: '战斗',
+      command: '指挥',
+      piracy: '海盗',
+      conquest: '征服',
+      exploration: '探索',
+      value: '数值',
+      entry_turn: '登场回合',
+      zone: '区域',
+      sort_order: '排序',
     };
-    return labels[category] || category;
+
+    return Object.keys(sampleRow)
+      .filter(k => !HIDDEN.has(k))
+      .map(k => ({ key: k, label: LABELS[k] || k }));
+  }
+
+  /**
+   * Update pagination controls
+   * @private
+   */
+  _updatePagination() {
+    const start = this._total === 0 ? 0 : this._offset + 1;
+    const end = Math.min(this._offset + this._limit, this._total);
+    this._pageInfo.textContent = `${start}-${end} / ${this._total}`;
+    this._prevBtn.disabled = this._offset === 0;
+    this._nextBtn.disabled = this._offset + this._limit >= this._total;
+    this._prevBtn.style.opacity = this._prevBtn.disabled ? '0.4' : '1';
+    this._nextBtn.style.opacity = this._nextBtn.disabled ? '0.4' : '1';
   }
 }
 

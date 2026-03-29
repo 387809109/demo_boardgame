@@ -1,15 +1,50 @@
 /**
- * Card data routes
+ * Card and game data routes
  * @module routes/v1/cards
  */
 
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/auth.js';
 import * as cardService from '../../services/card-service.js';
+import * as gameDataService from '../../services/game-data-service.js';
 import { validatePagination, validateRequired } from '../../utils/validator.js';
 import { config } from '../../config.js';
 
 const router = Router();
+
+/**
+ * GET /api/v1/games/:gameId/leaders
+ * GET /api/v1/games/:gameId/debaters
+ * GET /api/v1/games/:gameId/explorers
+ * Query game-specific static data tables
+ */
+const GAME_DATA_TABLES = ['leaders', 'debaters', 'explorers'];
+
+for (const table of GAME_DATA_TABLES) {
+  router.get(`/:gameId/${table}`, async (req, res, next) => {
+    try {
+      const { search } = req.query;
+      const { limit, offset } = validatePagination(
+        req.query,
+        config.pagination.defaultLimit,
+        config.pagination.maxLimit
+      );
+
+      const result = await gameDataService.listTableData(
+        req.params.gameId,
+        table,
+        { search, limit, offset }
+      );
+
+      res.json({
+        data: result.data,
+        meta: { total: result.total, limit, offset }
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+}
 
 /**
  * GET /api/v1/games/:gameId/cards
