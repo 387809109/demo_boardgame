@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 机器人玩家 &mdash; 教改风云规则</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── Bot-page specific styles ─────────────────── */
+    .difficulty-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin: 14px 0;
+    }
+    .diff-card {
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+      border: 2px solid transparent;
+    }
+    .diff-card.normal  { background: #f0f2f4; border-color: #718096; }
+    .diff-card.hard    { background: #fff3e0; border-color: #c05621; }
+    .diff-card.expert  { background: #fff0f0; border-color: #c53030; }
+    .diff-card h4      { font-size: 1.1em; margin-bottom: 8px; }
+    .diff-card.normal  h4 { color: #2d3748; }
+    .diff-card.hard    h4 { color: #c05621; }
+    .diff-card.expert  h4 { color: #c53030; }
+    .diff-tag {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .diff-tag.normal  { background: #718096; color: #fff; }
+    .diff-tag.hard    { background: #c05621; color: #fff; }
+    .diff-tag.expert  { background: #c53030; color: #fff; }
+    .diff-card p { font-size: 0.9em; color: #555; }
+
+    .rule-exception {
+      background: rgba(255,255,255,0.55);
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 10px;
+      border-left: 3px solid var(--his-blue);
+    }
+    .rule-exception .rule-id {
+      font-size: 0.78em;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--his-blue);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .rule-exception h4 { margin-bottom: 4px; color: var(--his-dark); }
+    .rule-exception p  { font-size: 0.9em; color: #444; margin: 0; }
+
+    .behavior-card-box {
+      background: rgba(255,255,255,0.6);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 1px solid #e0d8c0;
+    }
+    .behavior-card-box h4 { color: var(--his-brown); margin-bottom: 8px; }
+
+    .goal-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 10px 0;
+    }
+    .goal-tag {
+      background: rgba(46,74,122,0.1);
+      color: var(--his-blue);
+      border: 1px solid rgba(46,74,122,0.25);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.82em;
+      font-weight: 600;
+    }
+
+    .bot-badge-demo {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 4px 0;
+    }
+    .badge-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.82em;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #e2e8f0;
+    }
+    .badge-normal  { background: #4a5568; }
+    .badge-hard    { background: #c05621; }
+    .badge-expert  { background: #c53030; }
+
+    @media (max-width: 600px) {
+      .difficulty-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>九、AI 机器人玩家</h1>
+      <div class="subtitle">教改风云 (Here I Stand) 游戏规则</div>
+    </header>
+
+    <nav class="page-nav">
+      <a href="index.html">目录</a> <span class="sep">|</span>
+      <a href="powers.html">势力</a> <span class="sep">|</span>
+      <a href="turns.html">回合</a> <span class="sep">|</span>
+      <a href="cards.html">卡牌</a> <span class="sep">|</span>
+      <a href="actions.html">行动</a> <span class="sep">|</span>
+      <a href="combat.html">战斗</a> <span class="sep">|</span>
+      <a href="religion.html">宗教</a> <span class="sep">|</span>
+      <a href="special.html">特殊</a> <span class="sep">|</span>
+      <a href="victory.html">胜利</a> <span class="sep">|</span>
+      <a href="bot.html" class="active">BOT</a>
+    </nav>
+
+    <div class="content">
+
+      <section>
+        <h2>什么是 HISBOT？</h2>
+        <p><strong>HISBOT</strong> 是教改风云的 AI 对手系统，基于 Russ Brown 设计的 HISBOT v1.1 规则改编。它允许 1&ndash;5 名真人玩家将剩余势力交由电脑控制，实现<strong>单人游戏</strong>或<strong>人机对战</strong>。</p>
+        <p>HISBOT 的所有行动（军事、宗教、外交、新世界）都经过与真人相同的规则验证流程，结果完全合法。它不具有信息优势，不能偷看其他玩家的手牌。</p>
+        <div class="highlight-box info">
+          <strong>如何启用：</strong>在游戏大厅创建单机游戏时，为每个势力选择"玩家"或"电脑（BOT）"。可以将 1&ndash;6 个势力全部设为 BOT。
+        </div>
+      </section>
+
+      <section>
+        <h2>难度等级</h2>
+        <p>可在游戏创建时选择 BOT 难度。难度会影响 BOT 每轮的抽牌数。</p>
+        <div class="difficulty-grid">
+          <div class="diff-card normal">
+            <div class="diff-tag normal">NORMAL</div>
+            <h4>普通</h4>
+            <p>无额外抽牌。适合初次体验 HISBOT 或作为练习对手。</p>
+          </div>
+          <div class="diff-card hard">
+            <div class="diff-tag hard">HARD</div>
+            <h4>困难</h4>
+            <p>从<strong>第 4 回合</strong>起，每个 BOT 势力额外抽 1 张牌。后期压力显著增大。</p>
+          </div>
+          <div class="diff-card expert">
+            <div class="diff-tag expert">EXPERT</div>
+            <h4>专家</h4>
+            <p>从<strong>第 1 回合</strong>起每轮额外抽 1 张牌。全程领先优势，推荐有经验的玩家挑战。</p>
+          </div>
+        </div>
+        <p>界面中，BOT 控制的势力面板右上角会显示难度徽标：</p>
+        <div class="bot-badge-demo">
+          <span class="badge-pill badge-normal">BOT</span>普通
+        </div>
+        &nbsp;&nbsp;
+        <div class="bot-badge-demo">
+          <span class="badge-pill badge-hard">BOT 困难</span>困难
+        </div>
+        &nbsp;&nbsp;
+        <div class="bot-badge-demo">
+          <span class="badge-pill badge-expert">BOT 专家</span>专家
+        </div>
+      </section>
+
+      <section>
+        <h2>行为卡系统</h2>
+        <p>每个势力拥有一套 <strong>8 张行为卡</strong>（5 张特色卡 + 3 张"继续"卡）。每回合开始时，BOT 从本势力的行为卡组顶部翻开一张，作为本回合的行动指引。</p>
+
+        <div class="behavior-card-box">
+          <h4>特色行为卡包含：</h4>
+          <ul>
+            <li><strong>战争目标</strong>：本回合是否宣战，以及宣战对象（可能为空）</li>
+            <li><strong>外交谈判值</strong>：BOT 愿意提供或接受各类外交条件的意愿评分</li>
+            <li><strong>目标优先级列表</strong>：按顺序列出本回合优先执行的行动目标（驻守、征兵、推进、突击、探索等）</li>
+            <li><strong>Bot 间谈判映射</strong>：与其他 BOT 势力进行外交时的优先对象</li>
+          </ul>
+        </div>
+
+        <div class="behavior-card-box">
+          <h4>"继续"卡：</h4>
+          <p>翻到"继续"卡时，复用<strong>上一张翻开的特色卡</strong>的所有设置。若之前没有特色卡记录（游戏开始），则继续翻牌直至翻到特色卡为止。</p>
+        </div>
+
+        <h3>目标类型</h3>
+        <p>行为卡的目标列表由以下类型组合而成：</p>
+        <div class="goal-list">
+          <span class="goal-tag">驻守</span>
+          <span class="goal-tag">征召正规军</span>
+          <span class="goal-tag">雇佣兵</span>
+          <span class="goal-tag">骑兵</span>
+          <span class="goal-tag">推进编队</span>
+          <span class="goal-tag">出海</span>
+          <span class="goal-tag">海战</span>
+          <span class="goal-tag">野战</span>
+          <span class="goal-tag">围城突击</span>
+          <span class="goal-tag">控制</span>
+          <span class="goal-tag">造舰</span>
+          <span class="goal-tag">海盗</span>
+          <span class="goal-tag">探索</span>
+          <span class="goal-tag">殖民</span>
+          <span class="goal-tag">征服</span>
+          <span class="goal-tag">翻译圣经</span>
+          <span class="goal-tag">出版论文</span>
+          <span class="goal-tag">神学辩论</span>
+          <span class="goal-tag">圣彼得大教堂</span>
+          <span class="goal-tag">焚烧辩士</span>
+          <span class="goal-tag">耶稣会</span>
+        </div>
+        <p>每个目标有<strong>最大执行次数</strong>限制。BOT 按优先级顺序依次尝试执行，无法执行时跳至下一目标。</p>
+      </section>
+
+      <section>
+        <h2>BOT 行动决策流程</h2>
+        <p>BOT 在轮到自己的脉冲时，按以下顺序决策：</p>
+        <ol>
+          <li><strong>检查响应牌</strong>：若当前脉冲触发了可响应的战斗/骰定，优先决定是否打出响应卡</li>
+          <li><strong>决定出牌方式</strong>：优先打本势力的"本势力卡"；否则根据行为卡目标优先级选择以事件触发还是以 CP 值使用</li>
+          <li><strong>执行目标</strong>：按行为卡目标列表，找到第一个可执行的目标并生成对应行动</li>
+          <li><strong>无可用目标</strong>：宣布跳过</li>
+        </ol>
+        <div class="highlight-box">
+          <strong>行动透明：</strong>BOT 的每一步行动都会显示在游戏日志中，包括行动类型和目标空间，方便玩家理解 BOT 的决策。
+        </div>
+
+        <h3>外交阶段</h3>
+        <p>BOT 在外交阶段的行为由行为卡的战争目标和谈判值决定：</p>
+        <ul>
+          <li>若行为卡指定了宣战对象，BOT 会在外交阶段对该势力宣战（满足条件时）</li>
+          <li>BOT 会评估求和条件，并根据当前战场形势决定是否接受</li>
+          <li>与真人玩家的外交谈判由真人发起，BOT 根据谈判值决定接受或拒绝</li>
+        </ul>
+
+        <h3>战斗判定</h3>
+        <p>当 BOT 参与战斗（野战、围城、海战）时：</p>
+        <ul>
+          <li>自动选择合理的战斗阵型（正面迎战或依托领袖加成）</li>
+          <li>根据兵力对比评估是否尝试<strong>拦截</strong>或<strong>避战</strong></li>
+          <li>围城时优先突击有领袖指挥加成的目标</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>BOT 特殊规则</h2>
+        <p>为补偿 AI 无法进行长期战略规划，HISBOT 包含若干对 BOT 有利的规则调整：</p>
+
+        <div class="rule-exception">
+          <div class="rule-id">F3.1 &mdash; 事件延续效果</div>
+          <h4>以下 4 张事件卡由 BOT 打出时，效果持续至下一回合结束：</h4>
+          <p><strong>奥格斯堡宣言</strong>（Augsburg Confession）、<strong>加尔文被驱逐</strong>（Calvin Expelled）、<strong>胡利亚·冈萨加</strong>（Julia Gonzaga）、<strong>印刷机</strong>（Printing Press）。正常规则下这些事件仅持续当前回合。</p>
+        </div>
+
+        <div class="rule-exception">
+          <div class="rule-id">F3.2 &mdash; 冬季免费清除动乱</div>
+          <h4>每个 BOT 势力在冬季阶段可免费清除一个本势力空间的动乱标记。</h4>
+          <p>无需消耗卡牌或 CP，相当于每回合一次的免费内政行动。</p>
+        </div>
+
+        <div class="rule-exception">
+          <div class="rule-id">F3.3 &mdash; 据点驻兵</div>
+          <h4>通过外交谈判或求和获得堡垒空间控制权时，BOT 立即在该空间放置一个正规军。</h4>
+          <p>补偿 BOT 缺乏主动防守规划的局限性，防止获得的堡垒因无兵把守而立即易手。</p>
+        </div>
+
+        <div class="rule-exception">
+          <div class="rule-id">F3.4 &mdash; 被绝罚辩士延迟返回</div>
+          <h4>教廷打出教皇绝罚（Papal Bull）使 BOT 的辩士受绝罚时，该辩士返回延迟至下一回合结束。</h4>
+          <p>正常规则下受绝罚辩士在当前回合结束返回。</p>
+        </div>
+
+        <div class="rule-exception">
+          <div class="rule-id">F3.5 &mdash; 威胁领袖延迟返回</div>
+          <h4>Threat to Power 事件由 BOT 打出时，被移除的领袖额外延迟 1 回合才返回。</h4>
+          <p>正常规则下领袖在当前回合结束返回；BOT 版本延迟至下一回合结束。</p>
+        </div>
+
+        <div class="rule-exception">
+          <div class="rule-id">F3.6 &mdash; 免于"虚假战争"处罚</div>
+          <h4>BOT 控制的势力不会因宣战后未发动进攻而承受 &minus;1 VP 的虚假战争处罚。</h4>
+          <p>因 BOT 的战略视野有限，豁免此处罚以避免 BOT 因规划局限而不断失分。</p>
+        </div>
+
+        <div class="highlight-box">
+          <strong>秋季最终突击（F4）：</strong>行动阶段结束时，若 BOT 的所有手牌已打完，BOT 会对当前正在围城的所有目标额外执行一次<strong>免费突击</strong>，以及对所有符合条件的外战目标发动进攻。这代表了最后一次秋季攻势。
+        </div>
+      </section>
+
+      <section>
+        <h2>回合开始时的 BOT 处理</h2>
+        <p>每回合开始时，游戏引擎会自动处理以下 BOT 内务：</p>
+        <ul>
+          <li>到期的延续事件效果从状态中移除</li>
+          <li>被绝罚辩士按延迟返回时间处理归队</li>
+          <li>Threat to Power 被移除领袖按延迟返回时间处理归队</li>
+          <li>上一回合的 +1 CP 标记重置</li>
+          <li>秋季突击记录清空，准备新回合</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>界面提示</h2>
+        <p>游戏进行中，可通过以下界面元素识别 BOT 行为：</p>
+        <ul>
+          <li><strong>势力面板徽标</strong>：BOT 控制的势力在面板中显示 <span class="badge-pill badge-normal" style="font-size:0.78em">BOT</span>（普通）/<span class="badge-pill badge-hard" style="font-size:0.78em">BOT 困难</span>/<span class="badge-pill badge-expert" style="font-size:0.78em">BOT 专家</span> 徽标</li>
+          <li><strong>思考指示器</strong>：BOT 正在计算行动时，面板右上角出现"X 思考中…"动画提示</li>
+          <li><strong>行动日志</strong>：BOT 的每次行动以 <code>[BOT] 势力名: 行动类型</code> 格式记录在游戏日志中</li>
+        </ul>
+        <div class="highlight-box info">
+          <strong>延迟设计：</strong>BOT 的行动经过短暂延迟后执行，便于玩家观察 BOT 的决策过程，避免游戏节奏过快。
+        </div>
+      </section>
+
+      <div class="page-footer-nav">
+        <a href="victory.html">&larr; 胜利条件</a>
+        <a href="index.html">返回目录 &rarr;</a>
+      </div>
+    </div>
+
+    <footer>
+      Here I Stand 是 GMT Games 出版的桌游。本规则仅供学习参考。
+    </footer>
+  </div>
+</body>
+</html>
