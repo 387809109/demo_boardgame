@@ -1,0 +1,224 @@
+/**
+ * HIS (Here I Stand) Theme
+ * Power colors, religion indicators, and game-specific styling.
+ * Import after variables.css and default.css.
+ */
+
+:root {
+  /* ── HIS Power Colors ─────────────────────────────────── */
+  --his-ottoman: #2e7d32;
+  --his-hapsburg: #c6873e;
+  --his-england: #c62828;
+  --his-france: #1565c0;
+  --his-papacy: #7b1fa2;
+  --his-protestant: #2c3e50;
+
+  /* Minor / vassal powers */
+  --his-independent: #9e9e9e;
+  --his-hungary: #8d6e63;
+  --his-scotland: #0d47a1;
+  --his-venice: #00838f;
+  --his-genoa: #d84315;
+
+  /* ── HIS Semantic Colors ──────────────────────────────── */
+  --his-catholic: #7b1fa2;
+  --his-protestant-faith: #2c3e50;
+  --his-unrest: #ff5722;
+  --his-fortress: #5d4037;
+  --his-key-space: #ffd600;
+
+  /* ── HIS Tint Backgrounds (8% opacity) ────────────────── */
+  --his-ottoman-tint: #2e7d3215;
+  --his-hapsburg-tint: #c6873e15;
+  --his-england-tint: #c6282815;
+  --his-france-tint: #1565c015;
+  --his-papacy-tint: #7b1fa215;
+  --his-protestant-tint: #2c3e5015;
+}
+
+/* ── Power badge utility classes ──────────────────────── */
+
+.his-power--ottoman { background: var(--his-ottoman); color: #fff; }
+.his-power--hapsburg { background: var(--his-hapsburg); color: #fff; }
+.his-power--england { background: var(--his-england); color: #fff; }
+.his-power--france { background: var(--his-france); color: #fff; }
+.his-power--papacy { background: var(--his-papacy); color: #fff; }
+.his-power--protestant { background: var(--his-protestant); color: #fff; }
+.his-power--independent { background: var(--his-independent); color: #fff; }
+.his-power--hungary { background: var(--his-hungary); color: #fff; }
+.his-power--scotland { background: var(--his-scotland); color: #fff; }
+.his-power--venice { background: var(--his-venice); color: #fff; }
+.his-power--genoa { background: var(--his-genoa); color: #fff; }
+
+/* ── Power tint backgrounds (for cards, rows, panels) ─── */
+
+.his-tint--ottoman { background: var(--his-ottoman-tint); }
+.his-tint--hapsburg { background: var(--his-hapsburg-tint); }
+.his-tint--england { background: var(--his-england-tint); }
+.his-tint--france { background: var(--his-france-tint); }
+.his-tint--papacy { background: var(--his-papacy-tint); }
+.his-tint--protestant { background: var(--his-protestant-tint); }
+
+/* ── Power left-border accent ──────────────────────────── */
+
+.his-accent--ottoman { border-left: 3px solid var(--his-ottoman); }
+.his-accent--hapsburg { border-left: 3px solid var(--his-hapsburg); }
+.his-accent--england { border-left: 3px solid var(--his-england); }
+.his-accent--france { border-left: 3px solid var(--his-france); }
+.his-accent--papacy { border-left: 3px solid var(--his-papacy); }
+.his-accent--protestant { border-left: 3px solid var(--his-protestant); }
+
+/* ── Religion indicator ───────────────────────────────── */
+
+.his-religion--catholic {
+  background: var(--his-catholic);
+  color: #fff;
+  border-radius: var(--radius-full);
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+}
+
+.his-religion--protestant {
+  background: var(--his-protestant-faith);
+  color: #fff;
+  border-radius: var(--radius-full);
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+}
+
+/* ── HIS panel shared styles ──────────────────────────── */
+
+.his-panel {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-base);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.his-panel-header {
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.his-panel-body {
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: var(--text-sm);
+}
+
+/* ── HIS data table ───────────────────────────────────── */
+
+.his-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+
+.his-table th {
+  text-align: left;
+  padding: var(--spacing-1) var(--spacing-2);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--border-light);
+  white-space: nowrap;
+}
+
+.his-table td {
+  padding: var(--spacing-1) var(--spacing-2);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.his-table tr:hover td {
+  background: var(--bg-secondary);
+}
+
+/* ── HIS VP bar ───────────────────────────────────────── */
+
+.his-vp-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 var(--spacing-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  color: #fff;
+}
+
+/* ── HIS card styles ──────────────────────────────────── */
+
+.his-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-2);
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.his-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.his-card--selected {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 2px var(--primary-200);
+}
+
+.his-card--playable {
+  border-color: var(--success-400);
+}
+
+.his-card--mandatory {
+  border-left: 3px solid var(--error-500);
+}
+
+.his-card--combat {
+  border-left: 3px solid var(--warning-500);
+}
+
+.his-card--response {
+  border-left: 3px solid var(--primary-500);
+}
+
+/* ── HIS action buttons ──────────────────────────────── */
+
+.his-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1) var(--spacing-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.his-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.his-btn--primary {
+  background: #5c6bc0;
+  color: #fff;
+}
+
+.his-btn--event {
+  background: var(--warning-500);
+  color: #fff;
+}
+
+.his-btn--danger {
+  background: var(--his-england);
+  color: #fff;
+}

@@ -38,20 +38,7 @@ const SPACE_R = 11;
 const KEY_SPACE_R = 14;
 const SEA_ZONE_R = 18;
 
-/** Power colors */
-const POWER_COLORS = {
-  ottoman: '#2e7d32',
-  hapsburg: '#f9a825',
-  england: '#c62828',
-  france: '#1565c0',
-  papacy: '#7b1fa2',
-  protestant: '#1a1a1a',
-  independent: '#9e9e9e',
-  hungary: '#8d6e63',
-  scotland: '#0d47a1',
-  venice: '#00838f',
-  genoa: '#e65100',
-};
+import { ALL_POWER_COLORS as POWER_COLORS } from '../ui/his-theme.js';
 
 // ── SVG Namespace ──────────────────────────────────────────────────
 

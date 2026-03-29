@@ -152,4 +152,13 @@
   --uno-green: #2ecc71;
   --uno-yellow: #f1c40f;
   --uno-black: #2c3e50;
+
+  /* HIS Power Colors */
+  --his-ottoman: #2e7d32;
+  --his-hapsburg: #c6873e;
+  --his-england: #c62828;
+  --his-france: #1565c0;
+  --his-papacy: #7b1fa2;
+  --his-protestant: #2c3e50;
+  --his-independent: #9e9e9e;
 }

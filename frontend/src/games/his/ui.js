@@ -37,17 +37,7 @@ import { GameLog } from './ui/game-log.js';
 import { SpaceDetail } from './ui/space-detail.js';
 import { CARD_BY_NUMBER } from './data/cards.js';
 import { MAJOR_POWERS } from './constants.js';
-
-// ── Power Colors & Labels ────────────────────────────────────────
-
-const POWER_COLORS = {
-  ottoman: '#2e7d32', hapsburg: '#f9a825', england: '#c62828',
-  france: '#1565c0', papacy: '#7b1fa2', protestant: '#1a1a1a'
-};
-const POWER_LABELS = {
-  ottoman: '奥斯曼', hapsburg: '哈布斯堡', england: '英格兰',
-  france: '法兰西', papacy: '教廷', protestant: '新教'
-};
+import { POWER_COLORS, POWER_LABELS } from './ui/his-theme.js';
 const ZONE_LABELS = {
   german: '德语区', french: '法语区', english: '英语区',
   italian: '意大利语区', spanish: '西班牙语区'

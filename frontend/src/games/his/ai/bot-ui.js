@@ -8,6 +8,7 @@
  */
 
 import { isBotPower, getBotPowers, botPlayerId } from './bot-controller.js';
+import { POWER_LABELS } from '../ui/his-theme.js';
 import { getActiveBehaviorCard } from './behavior-cards.js';
 import { BOT_DIFFICULTY } from './bot-rules.js';
 
@@ -189,14 +190,6 @@ export function hideThinkingIndicator(container) {
 
 // ── Action Log Formatting ────────────────────────────────────────────
 
-const POWER_LABELS = {
-  ottoman: '奥斯曼',
-  hapsburg: '哈布斯堡',
-  england: '英格兰',
-  france: '法兰西',
-  papacy: '教廷',
-  protestant: '新教'
-};
 
 const ACTION_LABELS = {
   PLAY_CARD_EVENT: '打出事件',

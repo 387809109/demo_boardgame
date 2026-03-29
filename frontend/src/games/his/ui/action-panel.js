@@ -10,6 +10,7 @@
 
 import { ACTION_COSTS } from '../constants.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
+import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
 
 // ── Action Definitions ──────────────────────────────────────────
 
@@ -53,17 +54,6 @@ const NEEDS_SELECTION = new Set([
   'RESOLVE_REFORMATION_ATTEMPT', 'RESOLVE_RETREAT'
 ]);
 
-// ── Power Colors ──────────────────────────────────────────────
-
-const POWER_COLORS = {
-  ottoman: '#4a7c59',
-  hapsburg: '#c6873e',
-  england: '#c0392b',
-  france: '#2980b9',
-  papacy: '#8e44ad',
-  protestant: '#2c3e50'
-};
-
 const RESPONSE_WINDOW_LABELS = {
   W1: '佣兵响应',
   W2: '攻方战斗卡',
@@ -84,14 +74,6 @@ const RESPONSE_WINDOW_HINTS = {
   W7: '响应对手行动'
 };
 
-const POWER_NAMES = {
-  ottoman: '奥斯曼',
-  hapsburg: '哈布斯堡',
-  england: '英格兰',
-  france: '法兰西',
-  papacy: '教廷',
-  protestant: '新教'
-};
 
 export class ActionPanel {
   constructor() {
@@ -487,7 +469,7 @@ export class ActionPanel {
     const label = RESPONSE_WINDOW_LABELS[windowId] || windowId;
     const hint = RESPONSE_WINDOW_HINTS[windowId] || '';
     const respPower = resp.respondingPower;
-    const respPowerName = POWER_NAMES[respPower] || respPower;
+    const respPowerName = POWER_LABELS[respPower] || respPower;
     const isMyResponse = respPower === playerPower;
 
     // Window header
@@ -501,8 +483,8 @@ export class ActionPanel {
       const parts = [];
       if (ctx.space) parts.push(`地点: ${ctx.space}`);
       if (ctx.attackerPower && ctx.defenderPower) {
-        const atkName = POWER_NAMES[ctx.attackerPower] || ctx.attackerPower;
-        const defName = POWER_NAMES[ctx.defenderPower] || ctx.defenderPower;
+        const atkName = POWER_LABELS[ctx.attackerPower] || ctx.attackerPower;
+        const defName = POWER_LABELS[ctx.defenderPower] || ctx.defenderPower;
         parts.push(`${atkName} vs ${defName}`);
       }
       if (parts.length > 0) {

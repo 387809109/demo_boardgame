@@ -14,20 +14,7 @@ import { LEADER_BY_ID } from '../data/leaders.js';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const SCALE = 1700 / 5100;
 
-/** Power colors for unit tokens */
-const POWER_COLORS = {
-  ottoman: '#2e7d32',
-  hapsburg: '#f9a825',
-  england: '#c62828',
-  france: '#1565c0',
-  papacy: '#7b1fa2',
-  protestant: '#1a1a1a',
-  independent: '#9e9e9e',
-  hungary: '#8d6e63',
-  scotland: '#0d47a1',
-  venice: '#00838f',
-  genoa: '#e65100',
-};
+import { ALL_POWER_COLORS as POWER_COLORS, contrastText } from '../ui/his-theme.js';
 
 function svgEl(tag, attrs = {}) {
   const el = document.createElementNS(SVG_NS, tag);
@@ -122,7 +109,7 @@ export class MapOverlay {
           'text-anchor': 'middle',
           'dominant-baseline': 'middle',
           'font-size': '4',
-          fill: this._contrastColor(color),
+          fill: contrastText(color),
           'font-weight': 'bold',
           'pointer-events': 'none',
         });
@@ -212,7 +199,7 @@ export class MapOverlay {
           'text-anchor': 'middle',
           'dominant-baseline': 'middle',
           'font-size': '3.2',
-          fill: this._contrastColor(color),
+          fill: contrastText(color),
           'font-weight': 'bold',
           'pointer-events': 'none',
         });
@@ -229,13 +216,4 @@ export class MapOverlay {
   }
 
   /**
-   * Get contrasting text color for a background
-   */
-  _contrastColor(hex) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return lum > 0.5 ? '#000' : '#fff';
-  }
 }

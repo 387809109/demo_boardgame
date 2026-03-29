@@ -7,10 +7,7 @@
  *   - Reformation/counter-reformation attempt (dice vs dice)
  */
 
-const POWER_COLORS = {
-  ottoman: '#2e7d32', hapsburg: '#c6873e', england: '#c62828',
-  france: '#1565c0', papacy: '#7b1fa2', protestant: '#2c3e50'
-};
+import { POWER_COLORS } from './his-theme.js';
 
 const HIT_THRESHOLD = 5;
 

@@ -12,14 +12,7 @@ const CARD_TYPE_LABELS = {
   response: '响应',
 };
 
-const POWER_COLORS = {
-  ottoman: '#2e7d32',
-  hapsburg: '#f9a825',
-  england: '#c62828',
-  france: '#1565c0',
-  papacy: '#7b1fa2',
-  protestant: '#1a1a1a',
-};
+import { POWER_COLORS } from './his-theme.js';
 
 export class HandPanel {
   constructor() {

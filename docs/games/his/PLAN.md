@@ -289,7 +289,7 @@ frontend/src/games/his/
 | 10.6 | 新世界探索/征服结算展示 | `ui/new-world-display.js` (~290 行) | ✅ | 🟡 中 |
 | 10.7 | 卡牌详情弹窗（右键预览+日志点击） | `ui/event-display.js` (showCard) | ✅ | 🟡 中 |
 | 10.8 | 空间详情弹窗（单位列表+属性） | `ui/space-detail.js` (~220 行) | ✅ | 🟡 中 |
-| 10.9 | CSS 主题对齐（统一色调） | `theme/his.css` | ❌ | 🟢 低 |
+| 10.9 | CSS 主题对齐（统一色调） | `theme/his.css` + `ui/his-theme.js` | ✅ | 🟢 低 |
 | 10.10 | 玩家规则书 | `public/rules/his/` (8 页) | ✅ | 🟢 低 |
 
 ---

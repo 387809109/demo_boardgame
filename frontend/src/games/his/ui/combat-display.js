@@ -8,15 +8,7 @@
  *   - Interception: 2d6 roll vs threshold
  */
 
-const POWER_COLORS = {
-  ottoman: '#2e7d32', hapsburg: '#c6873e', england: '#c62828',
-  france: '#1565c0', papacy: '#7b1fa2', protestant: '#2c3e50'
-};
-
-const POWER_LABELS = {
-  ottoman: '奥斯曼', hapsburg: '哈布斯堡', england: '英格兰',
-  france: '法兰西', papacy: '教廷', protestant: '新教'
-};
+import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
 
 const HIT_THRESHOLD = 5;
 

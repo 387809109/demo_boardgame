@@ -10,16 +10,7 @@
  */
 
 import { ARMY_LEADERS, NAVAL_LEADERS, LEADER_BY_ID } from '../data/leaders.js';
-
-const POWER_LABELS = {
-  ottoman: '奥斯曼帝国', hapsburg: '哈布斯堡', england: '英格兰',
-  france: '法兰西', papacy: '教廷', protestant: '新教',
-};
-
-const POWER_COLORS = {
-  ottoman: '#2e7d32', hapsburg: '#f9a825', england: '#c62828',
-  france: '#1565c0', papacy: '#7b1fa2', protestant: '#1a1a1a',
-};
+import { POWER_COLORS, POWER_LABELS, contrastText } from './his-theme.js';
 
 /** Action costs per power: [cost, actionLabel] */
 const COMMON_ACTIONS = [
@@ -139,7 +130,7 @@ export class PowerDetailPanel {
     const header = document.createElement('div');
     header.style.cssText = `
       font-weight:700;font-size:14px;padding:4px 8px;margin-bottom:6px;
-      background:${color};color:${this._contrast(color)};border-radius:4px;
+      background:${color};color:${contrastText(color)};border-radius:4px;
     `;
     header.textContent = `${POWER_LABELS[power] || power} — 势力详情`;
     this._el.appendChild(header);
@@ -479,11 +470,4 @@ export class PowerDetailPanel {
     return bar;
   }
 
-  _contrast(hex) {
-    if (!hex || hex[0] !== '#') return '#fff';
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? '#000' : '#fff';
-  }
 }

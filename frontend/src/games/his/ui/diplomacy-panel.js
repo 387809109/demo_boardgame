@@ -8,18 +8,9 @@
 const MAJOR_POWERS = ['ottoman', 'hapsburg', 'england', 'france', 'papacy', 'protestant'];
 const MINOR_POWERS = ['genoa', 'hungary', 'scotland', 'venice'];
 
-const POWER_LABELS = {
-  ottoman: '奥斯曼', hapsburg: '哈布斯堡', england: '英格兰',
-  france: '法兰西', papacy: '教廷', protestant: '新教',
-  genoa: '热那亚', hungary: '匈牙利', scotland: '苏格兰', venice: '威尼斯',
-  hungary_bohemia: '匈牙利',
-};
-
-const POWER_COLORS = {
-  ottoman: '#2e7d32', hapsburg: '#f9a825', england: '#c62828',
-  france: '#1565c0', papacy: '#7b1fa2', protestant: '#1a1a1a',
-  genoa: '#d84315', hungary: '#8d6e63', scotland: '#0d47a1', venice: '#00838f',
-};
+import { ALL_POWER_COLORS, ALL_LABELS, contrastText } from './his-theme.js';
+const POWER_COLORS = ALL_POWER_COLORS;
+const POWER_LABELS = { ...ALL_LABELS, hungary_bohemia: '匈牙利' };
 
 /** DOW CP cost matrix (row declares on column) */
 const DOW_COST = {
@@ -96,7 +87,7 @@ export class DiplomacyPanel {
       const th = document.createElement('td');
       th.style.cssText = `
         font-weight: 700; padding: 3px 6px;
-        background: ${POWER_COLORS[row]}; color: ${this._contrast(POWER_COLORS[row])};
+        background: ${POWER_COLORS[row]}; color: ${contrastText(POWER_COLORS[row])};
         border: 1px solid #ddd; white-space: nowrap;
       `;
       th.textContent = POWER_LABELS[row] || row;
@@ -183,17 +174,10 @@ export class DiplomacyPanel {
     th.style.cssText = `
       padding: 3px 4px; font-size: 9px; white-space: nowrap;
       border: 1px solid #ddd; writing-mode: horizontal-tb;
-      ${bgColor ? `background: ${bgColor}; color: ${this._contrast(bgColor)};` : ''}
+      ${bgColor ? `background: ${bgColor}; color: ${contrastText(bgColor)};` : ''}
     `;
     th.textContent = text;
     return th;
   }
 
-  _contrast(hex) {
-    if (!hex || hex[0] !== '#') return '#fff';
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? '#000' : '#fff';
-  }
 }
