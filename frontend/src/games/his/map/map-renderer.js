@@ -19,6 +19,7 @@ import {
 import {
   DISCOVERIES, CONQUESTS, AMAZON, PACIFIC_STRAIT, CIRCUMNAVIGATION
 } from '../constants.js';
+import { ALL_POWER_COLORS as POWER_COLORS } from '../ui/his-theme.js';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -37,8 +38,6 @@ const SCALE = VIEW_W / SOURCE_W;
 const SPACE_R = 11;
 const KEY_SPACE_R = 14;
 const SEA_ZONE_R = 18;
-
-import { ALL_POWER_COLORS as POWER_COLORS } from '../ui/his-theme.js';
 
 // ── SVG Namespace ──────────────────────────────────────────────────
 

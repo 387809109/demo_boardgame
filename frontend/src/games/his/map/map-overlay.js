@@ -10,11 +10,10 @@
 
 import { SPACE_COORDINATES, SEA_ZONE_COORDINATES } from '../data/map-data.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
+import { ALL_POWER_COLORS as POWER_COLORS, contrastText } from '../ui/his-theme.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const SCALE = 1700 / 5100;
-
-import { ALL_POWER_COLORS as POWER_COLORS, contrastText } from '../ui/his-theme.js';
 
 function svgEl(tag, attrs = {}) {
   const el = document.createElementNS(SVG_NS, tag);
