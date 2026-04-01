@@ -213,6 +213,4 @@ export class MapOverlay {
     this._group.appendChild(stackGroup);
     this._unitNodes[spaceName] = stackGroup;
   }
-
-  /**
 }
