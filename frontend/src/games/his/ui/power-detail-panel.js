@@ -7,94 +7,70 @@
  * - Cards/VP track
  * - Bonus VP rules
  * - Power-specific tracks (piracy, chateau, marital, etc.)
+ *
+ * All data is derived from authoritative constants — no hardcoded duplicates.
  */
 
-import { ARMY_LEADERS, NAVAL_LEADERS, LEADER_BY_ID } from '../data/leaders.js';
+import {
+  KEY_VP_TRACK, PROTESTANT_CARD_DRAW, ACTION_COSTS,
+  RULERS, MARITAL_STATUS, CHATEAU_VP_TRACK, ST_PETERS, PIRACY_VP_TRACK,
+  TRANSLATION
+} from '../constants.js';
 import { POWER_COLORS, POWER_LABELS, contrastText } from './his-theme.js';
 
-/** Action costs per power: [cost, actionLabel] */
-const COMMON_ACTIONS = [
-  [1, '移动编队 (平地)'],
-  [2, '移动编队 (山口)'],
-  [1, '海军移动'],
-  [1, '控制无防御地点'],
-  [1, '攻城/外战'],
-  [1, '购买雇佣兵'],
-  [2, '招募正规军'],
-  [2, '建造舰队'],
-];
-
-const POWER_ACTIONS = {
-  ottoman: [
-    [1, '招募骑兵'],
-    [1, '建造海盗船'],
-    [2, '发动海盗掠夺'],
-  ],
-  hapsburg: [
-    [2, '探索新世界'],
-    [2, '殖民'],
-    [4, '征服'],
-  ],
-  england: [
-    [2, '探索新世界'],
-    [3, '殖民'],
-    [4, '征服'],
-    [5, '出版宣传册 (英语区)'],
-  ],
-  france: [
-    [2, '探索新世界'],
-    [3, '殖民'],
-    [4, '征服'],
-  ],
-  papacy: [
-    [1, '建造圣彼得大教堂'],
-    [2, '焚书'],
-    [3, '创建耶稣会大学'],
-    [3, '发起神学辩论'],
-  ],
-  protestant: [
-    [1, '翻译圣经'],
-    [2, '出版宣传册'],
-    [3, '发起神学辩论'],
-  ],
+/** Chinese labels for action cost keys */
+const ACTION_LABELS = {
+  move_formation: '移动编队 (平地)',
+  move_over_pass: '移动编队 (山口)',
+  naval_move: '海军移动',
+  buy_mercenary: '购买雇佣兵',
+  raise_regular: '招募正规军',
+  raise_cavalry: '招募骑兵',
+  build_squadron: '建造舰队',
+  build_corsair: '建造海盗船',
+  assault: '攻城突击',
+  fight_foreign_war: '打外战',
+  control_unfortified: '控制无防御地点',
+  initiate_piracy: '发动海盗掠夺',
+  explore: '探索新世界',
+  colonize: '殖民',
+  conquer: '征服',
+  publish_treatise: '出版宣传册',
+  translate_scripture: '翻译圣经',
+  call_debate: '发起神学辩论',
+  build_st_peters: '建造圣彼得大教堂',
+  burn_books: '焚书',
+  found_jesuit: '创建耶稣会大学',
 };
 
-/** Cards/VP track per power (keysControlled → { cards, vp }) */
-const VP_TRACKS = {
-  ottoman:    [{ k: 2, c: 2, v: 2 }, { k: 3, c: 2, v: 4 }, { k: 4, c: 3, v: 6 }, { k: 5, c: 3, v: 8 }, { k: 6, c: 4, v: 10 }, { k: 7, c: 5, v: 12 }, { k: 8, c: 6, v: 0, auto: true }],
-  hapsburg:   [{ k: 3, c: 1, v: 2 }, { k: 4, c: 2, v: 4 }, { k: 5, c: 2, v: 6 }, { k: 6, c: 3, v: 8 }, { k: 7, c: 4, v: 9 }, { k: 8, c: 5, v: 10 }, { k: 9, c: 6, v: 11 }, { k: 10, c: 6, v: 0, auto: true }],
-  england:    [{ k: 1, c: 1, v: 3 }, { k: 2, c: 1, v: 5 }, { k: 3, c: 2, v: 7 }, { k: 4, c: 2, v: 9 }, { k: 5, c: 3, v: 11 }, { k: 6, c: 3, v: 13 }, { k: 7, c: 4, v: 15 }, { k: 8, c: 4, v: 17 }, { k: 9, c: 4, v: 0, auto: true }],
-  france:     [{ k: 2, c: 1, v: 2 }, { k: 3, c: 2, v: 6 }, { k: 4, c: 3, v: 9 }, { k: 5, c: 3, v: 12 }, { k: 6, c: 4, v: 15 }, { k: 7, c: 5, v: 18 }, { k: 8, c: 5, v: 20 }, { k: 9, c: 5, v: 0, auto: true }],
-  papacy:     [{ k: 2, c: 2, v: 2 }, { k: 3, c: 2, v: 5 }, { k: 4, c: 3, v: 8 }, { k: 5, c: 4, v: 12 }, { k: 6, c: 4, v: 0, auto: true }],
-  protestant: [{ k: 0, c: 4, v: 0 }, { k: 1, c: 4, v: 2 }, { k: 2, c: 4, v: 4 }, { k: 3, c: 4, v: 6 }, { k: 4, c: 5, v: 8 }, { k: 5, c: 5, v: 0, auto: true }],
+/** Chinese ruler names */
+const RULER_NAMES_ZH = {
+  suleiman: '苏莱曼',
+  charles_v: '查理五世',
+  henry_viii: '亨利八世',
+  edward_vi: '爱德华六世',
+  mary_i: '玛丽一世',
+  elizabeth_i: '伊丽莎白一世',
+  francis_i: '弗朗索瓦一世',
+  henry_ii: '亨利二世',
+  leo_x: '利奥十世',
+  clement_vii: '克莱门特七世',
+  paul_iii: '保罗三世',
+  julius_iii: '尤利乌斯三世',
+  paul_iv: '保罗四世',
+  luther: '马丁·路德',
 };
 
-/** Ruler attributes */
-const RULERS = {
-  ottoman: [
-    { id: 'suleiman', name: '苏莱曼', battle: 2, command: 12, admin: '保留2张', bonus: '无' },
-  ],
-  hapsburg: [
-    { id: 'charles_v', name: '查理五世', battle: 2, command: 10, admin: '保留2张', bonus: '无' },
-  ],
-  england: [
-    { id: 'henry_viii', name: '亨利八世', battle: 1, command: 8, admin: '保留1张', bonus: '+1摸牌' },
-  ],
-  france: [
-    { id: 'francis_i', name: '弗朗西斯一世', battle: 1, command: 8, admin: '保留1张', bonus: '+1摸牌' },
-  ],
-  papacy: [
-    { id: 'leo_x', name: '利奥十世', battle: 0, command: 0, admin: '无', bonus: '无' },
-  ],
-  protestant: [
-    { id: 'luther', name: '马丁·路德', battle: 0, command: 0, admin: '保留2张', bonus: '无' },
-  ],
+/** Chinese labels for marital status */
+const MARITAL_LABELS = {
+  catherine_of_aragon: { name: '凯瑟琳 (阿拉贡)', note: '初始配偶' },
+  ask_divorce: { name: '请求离婚', note: '事件推进' },
+  anne_boleyn: { name: '安妮·博林', note: '英格兰宗教改革开启' },
+  jane_seymour: { name: '简·西摩', note: '+1继承人掷骰' },
+  anne_of_cleves: { name: '安妮 (克里维斯)', note: '' },
+  kathryn_howard: { name: '凯瑟琳·霍华德', note: '' },
+  katherine_parr: { name: '凯瑟琳·帕尔', note: '最终配偶' },
 };
-
-const MARITAL_TRACK = [
-  'Catherine of Aragon', 'Anne Boleyn', 'Jane Seymour (+1)',
-  'Anne of Cleves', 'Catherine Howard', 'Catherine Parr'
-];
 
 export class PowerDetailPanel {
   constructor() {
@@ -149,33 +125,38 @@ export class PowerDetailPanel {
   }
 
   _renderRuler(power, state) {
-    const rulers = RULERS[power];
-    if (!rulers || rulers.length === 0) return;
+    const allRulers = RULERS[power];
+    if (!allRulers || allRulers.length === 0) return;
 
     const currentRulerId = state?.rulers?.[power];
-    const ruler = rulers.find(r => r.id === currentRulerId) || rulers[0];
+    const ruler = allRulers.find(r => r.id === currentRulerId) || allRulers[0];
 
     const section = this._section('君主/领袖');
     const grid = document.createElement('div');
     grid.style.cssText = 'display:grid;grid-template-columns:auto 1fr;gap:2px 8px;';
 
-    this._gridRow(grid, '名称', ruler.name);
+    const zhName = RULER_NAMES_ZH[ruler.id] || ruler.name;
+    this._gridRow(grid, '名称', zhName);
     this._gridRow(grid, '战斗力', `${ruler.battle}`);
     this._gridRow(grid, '指挥值', `${ruler.command}`);
-    this._gridRow(grid, '行政', ruler.admin);
-    this._gridRow(grid, '摸牌奖励', ruler.bonus);
+    this._gridRow(grid, '行政', ruler.admin > 0 ? `保留${ruler.admin}张` : '无');
+    this._gridRow(grid, '摸牌奖励', ruler.cardBonus > 0 ? `+${ruler.cardBonus}摸牌` : '无');
 
     section.appendChild(grid);
     this._el.appendChild(section);
   }
 
   _renderActionCosts(power) {
+    const costs = ACTION_COSTS[power];
+    if (!costs) return;
+
     const section = this._section('行动消耗 (CP)');
     const table = document.createElement('table');
     table.style.cssText = 'border-collapse:collapse;width:100%;font-size:10px;';
 
-    const allActions = [...COMMON_ACTIONS, ...(POWER_ACTIONS[power] || [])];
-    for (const [cost, label] of allActions) {
+    for (const [key, cost] of Object.entries(costs)) {
+      if (cost === null) continue; // action not available for this power
+      const label = ACTION_LABELS[key] || key;
       const tr = document.createElement('tr');
       const tdCost = document.createElement('td');
       tdCost.style.cssText = 'padding:2px 6px;font-weight:700;text-align:center;border-bottom:1px solid #eee;width:24px;';
@@ -193,7 +174,12 @@ export class PowerDetailPanel {
   }
 
   _renderVpTrack(power, state) {
-    const track = VP_TRACKS[power];
+    if (power === 'protestant') {
+      this._renderProtestantCardDraw(state);
+      return;
+    }
+
+    const track = KEY_VP_TRACK[power];
     if (!track) return;
 
     const section = this._section('关键城市 / 摸牌 / VP');
@@ -218,11 +204,14 @@ export class PowerDetailPanel {
       }
     }
 
-    for (const entry of track) {
+    // Rows from index 1 up to (autoWin - 1), then auto-win row
+    const maxIdx = Math.max(track.vp.length, track.cards.length) - 1;
+    for (let k = 1; k <= maxIdx; k++) {
+      const vp = k < track.vp.length ? track.vp[k] : track.vp[track.vp.length - 1];
+      const cards = k < track.cards.length ? track.cards[k] : track.cards[track.cards.length - 1];
+      const isCurrent = k === currentKeys;
       const tr = document.createElement('tr');
-      const isCurrent = entry.k === currentKeys;
-
-      for (const val of [entry.k, entry.c, entry.auto ? '自动胜利' : entry.v]) {
+      for (const val of [k, cards, vp]) {
         const td = document.createElement('td');
         td.style.cssText = `padding:2px 4px;border:1px solid #ddd;${isCurrent ? 'background:#fff3e0;font-weight:700;' : ''}`;
         td.textContent = val;
@@ -231,7 +220,38 @@ export class PowerDetailPanel {
       table.appendChild(tr);
     }
 
+    // Auto-win row
+    const autoTr = document.createElement('tr');
+    const isCurrentAuto = currentKeys >= track.autoWin;
+    for (const val of [track.autoWin, '—', '自动胜利']) {
+      const td = document.createElement('td');
+      td.style.cssText = `padding:2px 4px;border:1px solid #ddd;font-weight:700;color:#c62828;${isCurrentAuto ? 'background:#fff3e0;' : ''}`;
+      td.textContent = val;
+      autoTr.appendChild(td);
+    }
+    table.appendChild(autoTr);
+
     section.appendChild(table);
+    this._el.appendChild(section);
+  }
+
+  /** Protestant has fixed card draw, not key-based */
+  _renderProtestantCardDraw(state) {
+    const section = this._section('摸牌规则');
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:10px;color:#444;';
+    const electorateCount = state?.spaces
+      ? Object.values(state.spaces).filter(sp => sp.isElectorate && sp.controller === 'protestant').length
+      : 0;
+    const currentDraw = electorateCount >= PROTESTANT_CARD_DRAW.electorateThreshold
+      ? PROTESTANT_CARD_DRAW.withElectorates
+      : PROTESTANT_CARD_DRAW.base;
+    note.innerHTML = `
+      基础: <b>${PROTESTANT_CARD_DRAW.base}张</b><br>
+      控制${PROTESTANT_CARD_DRAW.electorateThreshold}+选帝侯: <b>${PROTESTANT_CARD_DRAW.withElectorates}张</b><br>
+      当前: 控制 ${electorateCount} 个选帝侯 → <b>${currentDraw}张</b>
+    `;
+    section.appendChild(note);
     this._el.appendChild(section);
   }
 
@@ -262,11 +282,12 @@ export class PowerDetailPanel {
   _renderOttomanPiracy(state) {
     const section = this._section('海盗VP轨');
     const val = state?.piracyTrack || 0;
-    const bar = this._trackBar(val, 10, '#2e7d32');
+    const max = PIRACY_VP_TRACK.length - 1;
+    const bar = this._trackBar(val, max, '#2e7d32');
     section.appendChild(bar);
     const note = document.createElement('div');
     note.style.cssText = 'font-size:9px;color:#666;margin-top:4px;';
-    note.textContent = '每次成功海盗+1VP (最高10VP)';
+    note.textContent = `每次成功海盗+1VP (最高${max}VP)`;
     section.appendChild(note);
     this._el.appendChild(section);
   }
@@ -287,26 +308,18 @@ export class PowerDetailPanel {
     const section = this._section('婚姻轨');
     const currentWife = state?.henryMaritalStatus || 'catherine_of_aragon';
 
-    const wives = [
-      { id: 'catherine_of_aragon', name: 'Catherine of Aragon', note: '初始配偶' },
-      { id: 'anne_boleyn', name: 'Anne Boleyn', note: '离婚需2CP' },
-      { id: 'jane_seymour', name: 'Jane Seymour', note: '+1继承人掷骰' },
-      { id: 'anne_of_cleves', name: 'Anne of Cleves', note: '德意志联盟' },
-      { id: 'catherine_howard', name: 'Catherine Howard', note: '' },
-      { id: 'catherine_parr', name: 'Catherine Parr', note: '最终配偶' },
-    ];
-
     const list = document.createElement('div');
     list.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
-    for (const wife of wives) {
+    for (const id of MARITAL_STATUS) {
+      const info = MARITAL_LABELS[id] || { name: id, note: '' };
       const chip = document.createElement('span');
-      const isCurrent = wife.id === currentWife;
+      const isCurrent = id === currentWife;
       chip.style.cssText = `
         padding:2px 6px;border-radius:3px;font-size:9px;
         ${isCurrent ? 'background:#c62828;color:#fff;font-weight:700;' : 'background:#f0f0f0;color:#666;'}
       `;
-      chip.textContent = wife.name;
-      if (wife.note) chip.title = wife.note;
+      chip.textContent = info.name;
+      if (info.note) chip.title = info.note;
       list.appendChild(chip);
     }
     section.appendChild(list);
@@ -331,7 +344,8 @@ export class PowerDetailPanel {
   _renderFranceChateau(state) {
     const section = this._section('城堡建造轨 (Chateau)');
     const val = state?.chateauxTrack || 0;
-    const bar = this._trackBar(val, 4, '#1565c0');
+    const max = CHATEAU_VP_TRACK.length - 1;
+    const bar = this._trackBar(val, max, '#1565c0');
     section.appendChild(bar);
 
     const modifiers = document.createElement('div');
@@ -351,11 +365,11 @@ export class PowerDetailPanel {
     const section1 = this._section('圣彼得大教堂建造轨');
     const progress = state?.stPetersProgress || 0;
     const stVp = state?.stPetersVp || 0;
-    const bar = this._trackBar(progress, 5, '#7b1fa2');
+    const bar = this._trackBar(progress, ST_PETERS.cpPerVp, '#7b1fa2');
     section1.appendChild(bar);
     const vpNote = document.createElement('div');
     vpNote.style.cssText = 'font-size:9px;color:#666;margin-top:2px;';
-    vpNote.textContent = `建造VP: ${stVp} | 每CP投入+1进度`;
+    vpNote.textContent = `建造VP: ${stVp}/${ST_PETERS.maxVp} | 每${ST_PETERS.cpPerVp}CP = +1VP`;
     section1.appendChild(vpNote);
     this._el.appendChild(section1);
 
@@ -395,8 +409,8 @@ export class PowerDetailPanel {
       langLabel.textContent = label;
       row.appendChild(langLabel);
 
-      const ntMax = 6;
-      const fbMax = 10;
+      const ntMax = TRANSLATION.newTestamentCp;
+      const fbMax = TRANSLATION.fullBibleCp;
       const val = tracks[lang] || 0;
       const isNtDone = val >= ntMax;
       const ntBar = this._trackBar(Math.min(val, ntMax), ntMax, '#1a1a1a', '新约');
@@ -416,7 +430,7 @@ export class PowerDetailPanel {
     note.innerHTML = `
       每个新教控制+影响的选帝侯 +2VP<br>
       Protestant Spaces轨 → Religious Struggle VP<br>
-      4+选帝侯控制时每回合摸5张 (否则4张)
+      ${PROTESTANT_CARD_DRAW.electorateThreshold}+选帝侯控制时每回合摸${PROTESTANT_CARD_DRAW.withElectorates}张 (否则${PROTESTANT_CARD_DRAW.base}张)
     `;
     section2.appendChild(note);
     this._el.appendChild(section2);
