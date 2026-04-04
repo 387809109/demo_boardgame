@@ -181,30 +181,7 @@ export class GameSettingsModal {
             ` : ''}
           `}
 
-          ${this.mode === 'offline' && this.gameConfig.supportsAI !== false ? `
-            <div style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);">
-              <label style="display: block; margin-bottom: var(--spacing-2); font-weight: var(--font-medium);">
-                AI 玩家数量
-              </label>
-              <div style="display: flex; align-items: center; gap: var(--spacing-3);">
-                <input type="range" class="ai-count-slider" min="1" max="${(this.gameConfig.maxPlayers || 4) - 1}" value="1" style="flex: 1;">
-                <span class="ai-count-display" style="
-                  min-width: 60px;
-                  text-align: center;
-                  padding: var(--spacing-1) var(--spacing-2);
-                  background: var(--bg-tertiary);
-                  border-radius: var(--radius-sm);
-                ">1 个</span>
-              </div>
-            </div>
-          ` : ''}
-          ${this.mode === 'offline' && this.gameConfig.supportsAI === false ? `
-            <div style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);">
-              <p style="color: var(--text-tertiary); font-size: var(--text-sm); text-align: center;">
-                ⚠️ 此游戏暂不支持 AI 玩家，请创建房间进行联机游戏
-              </p>
-            </div>
-          ` : ''}
+          ${this._renderOfflineAISection()}
         </div>
 
         <div class="card-footer" style="display: flex; gap: var(--spacing-3); justify-content: flex-end;">
@@ -356,6 +333,67 @@ export class GameSettingsModal {
   }
 
   /**
+   * Render offline AI section — power selector for games with powers, slider for others
+   * @private
+   */
+  _renderOfflineAISection() {
+    if (this.mode !== 'offline') return '';
+
+    // Game with named powers: show power selector instead of AI slider
+    const powers = this.gameConfig.powers;
+    if (powers && this.gameConfig.supportsAI !== false) {
+      const powerEntries = Object.entries(powers);
+      const options = powerEntries.map(([id, p]) =>
+        `<option value="${id}">${p.name}</option>`
+      ).join('');
+      const aiCount = powerEntries.length - 1;
+
+      return `
+        <div style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);">
+          <label style="display: block; margin-bottom: var(--spacing-2); font-weight: var(--font-medium);">
+            选择控制的势力
+          </label>
+          <select class="power-select input" style="width: 100%;">
+            ${options}
+          </select>
+          <p style="margin: var(--spacing-2) 0 0; font-size: var(--text-sm); color: var(--text-tertiary);">
+            其余 ${aiCount} 个势力由 AI (BOT) 控制
+          </p>
+        </div>
+      `;
+    }
+
+    // Generic AI slider
+    if (this.gameConfig.supportsAI !== false) {
+      return `
+        <div style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);">
+          <label style="display: block; margin-bottom: var(--spacing-2); font-weight: var(--font-medium);">
+            AI 玩家数量
+          </label>
+          <div style="display: flex; align-items: center; gap: var(--spacing-3);">
+            <input type="range" class="ai-count-slider" min="1" max="${(this.gameConfig.maxPlayers || 4) - 1}" value="1" style="flex: 1;">
+            <span class="ai-count-display" style="
+              min-width: 60px;
+              text-align: center;
+              padding: var(--spacing-1) var(--spacing-2);
+              background: var(--bg-tertiary);
+              border-radius: var(--radius-sm);
+            ">1 个</span>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);">
+        <p style="color: var(--text-tertiary); font-size: var(--text-sm); text-align: center;">
+          ⚠️ 此游戏暂不支持 AI 玩家，请创建房间进行联机游戏
+        </p>
+      </div>
+    `;
+  }
+
+  /**
    * Render a single setting field
    * @private
    */
@@ -441,13 +479,21 @@ export class GameSettingsModal {
 
     // Confirm button
     this.element.querySelector('.confirm-btn')?.addEventListener('click', () => {
-      const aiCount = this.mode === 'offline'
-        ? parseInt(this.element.querySelector('.ai-count-slider')?.value || '1')
-        : 0;
-
       const settings = { ...this.settings };
       if (this.hasRoleSetup && this.roleCounts) {
         settings.roleCounts = { ...this.roleCounts };
+      }
+
+      let aiCount = 0;
+      if (this.mode === 'offline') {
+        const powerSelect = this.element.querySelector('.power-select');
+        if (powerSelect) {
+          // Power-based game: human picks one power, rest are AI
+          settings.selectedPower = powerSelect.value;
+          aiCount = Object.keys(this.gameConfig.powers).length - 1;
+        } else {
+          aiCount = parseInt(this.element.querySelector('.ai-count-slider')?.value || '1');
+        }
       }
 
       this.options.onConfirm?.({

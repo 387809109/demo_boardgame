@@ -2,7 +2,6 @@
 
 来源：
 - `his_ref/HIS-Rules-2010.pdf`
-- `his_ref/rulebook_extraction/RULEBOOK_SECTION_NORMALIZED.md`
 
 说明：
 - 本文按原书章节编号翻译为中文，优先保持与英文原文的术语和句义对应关系。

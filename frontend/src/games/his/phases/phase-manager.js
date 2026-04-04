@@ -90,6 +90,7 @@ export function transitionPhase(state, toPhase, helpers) {
   switch (toPhase) {
     case PHASES.CARD_DRAW:
       executeCardDraw(state, helpers);
+      advancePhase(state, helpers);
       break;
 
     case PHASES.ACTION:
@@ -100,6 +101,7 @@ export function transitionPhase(state, toPhase, helpers) {
 
     case PHASES.WINTER:
       executeWinter(state, helpers);
+      advancePhase(state, helpers);
       break;
 
     case PHASES.DIPLOMACY:
@@ -120,10 +122,12 @@ export function transitionPhase(state, toPhase, helpers) {
 
     case PHASES.NEW_WORLD:
       resolveNewWorld(state, helpers);
+      advancePhase(state, helpers);
       break;
 
     case PHASES.VICTORY_DETERMINATION:
       resolveVictoryDetermination(state, helpers);
+      advancePhase(state, helpers);
       break;
 
     default:

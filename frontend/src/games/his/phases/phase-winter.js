@@ -17,7 +17,7 @@
 import { CAPITALS, MAJOR_POWERS } from '../constants.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import { PORTS_BY_SEA_ZONE, SEA_EDGES, SEA_ZONES } from '../data/map-data.js';
-import { findNearestFortifiedSpace } from '../state/state-helpers.js';
+import { findNearestFortifiedSpace, isFortified } from '../state/state-helpers.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
 
 const SEA_ADJACENCY = (() => {
@@ -269,16 +269,20 @@ function returnLandUnits(state, helpers) {
   for (const [spaceName, sp] of Object.entries(state.spaces)) {
     if (!sp.units || sp.units.length === 0) continue;
 
-    // Units in fortified spaces they control can stay (up to limit)
-    if (sp.isFortress && !sp.besieged) continue;
-
-    // Units in unfortified spaces must return
+    // Process each stack — units in friendly fortified spaces can stay
     for (const stack of sp.units) {
       if (!MAJOR_POWERS.includes(stack.owner)) continue;
       const totalLand = stack.regulars + stack.mercenaries + stack.cavalry;
       if (totalLand === 0) continue;
 
       const power = stack.owner;
+      const allies = getAlliedPowers(state, power);
+      const friendly = new Set([power, ...allies]);
+
+      // Units in a friendly fortified space (not besieged) can stay
+      // Key spaces and post-Schmalkaldic electorates are also fortified (§15)
+      if (isFortified(sp, state) && !sp.besieged && friendly.has(sp.controller)) continue;
+
       const capitals = CAPITALS[power] || [];
 
       // Try to find nearest friendly fortified space

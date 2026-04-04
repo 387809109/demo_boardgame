@@ -7,7 +7,8 @@
 import {
   MAJOR_POWERS, IMPULSE_ORDER, RULERS,
   KEY_VP_TRACK, PROTESTANT_CARD_DRAW,
-  CARD_TYPE, FORMATION, DEBATERS, RELIGION
+  CARD_TYPE, FORMATION, DEBATERS, RELIGION,
+  MARITAL_STATUS
 } from '../constants.js';
 import { CARDS, CARD_BY_NUMBER } from '../data/cards.js';
 import {
@@ -62,7 +63,7 @@ export function playerControlsPower(state, playerId, power) {
 }
 
 /**
- * Count key spaces controlled by a power.
+ * Count key spaces controlled by a power (raw count, includes keys in unrest).
  * @param {Object} state
  * @param {string} power
  * @returns {number}
@@ -71,6 +72,21 @@ export function countKeysForPower(state, power) {
   let count = 0;
   for (const sp of Object.values(state.spaces)) {
     if (sp.isKey && sp.controller === power) count++;
+  }
+  return count;
+}
+
+/**
+ * Count key spaces controlled by a power that are in unrest.
+ * Per rules: each key in unrest covers one box on the VP/card track.
+ * @param {Object} state
+ * @param {string} power
+ * @returns {number}
+ */
+export function countKeysInUnrestForPower(state, power) {
+  let count = 0;
+  for (const sp of Object.values(state.spaces)) {
+    if (sp.isKey && sp.controller === power && sp.unrest) count++;
   }
   return count;
 }
@@ -124,7 +140,9 @@ export function getCardDrawCount(state, power) {
   if (!track) return 1;
 
   const keys = countKeysForPower(state, power);
-  const clampedKeys = Math.min(keys, track.cards.length - 1);
+  const unrestKeys = countKeysInUnrestForPower(state, power);
+  const effectiveKeys = Math.max(0, keys - unrestKeys);
+  const clampedKeys = Math.min(effectiveKeys, track.cards.length - 1);
   const baseCards = Math.max(track.cards[clampedKeys], 1);
   return baseCards + ruler.cardBonus;
 }
@@ -140,7 +158,9 @@ export function getKeyVp(state, power) {
   const track = KEY_VP_TRACK[power];
   if (!track) return 0;
   const keys = countKeysForPower(state, power);
-  const clamped = Math.min(keys, track.vp.length - 1);
+  const unrestKeys = countKeysInUnrestForPower(state, power);
+  const effectiveKeys = Math.max(0, keys - unrestKeys);
+  const clamped = Math.min(effectiveKeys, track.vp.length - 1);
   return track.vp[clamped];
 }
 
@@ -213,11 +233,17 @@ export function isCardInPlay(state, cardNumber) {
 
 /**
  * Check if a space is fortified (fortress OR key space per §15).
+ * After Schmalkaldic League forms, electorates also count as fortified.
  * @param {Object} sp - Space state object
+ * @param {Object} [state] - Game state (optional, needed for Schmalkaldic League check)
  * @returns {boolean}
  */
-export function isFortified(sp) {
-  return Boolean(sp && (sp.isFortress || sp.isKey));
+export function isFortified(sp, state) {
+  if (!sp) return false;
+  if (sp.isFortress || sp.isKey) return true;
+  // §13.3: Electorates become fortified after Schmalkaldic League event
+  if (sp.isElectorate && state?.schmalkaldicLeagueFormed) return true;
+  return false;
 }
 
 // ── Phase 2: Map & Adjacency Helpers ──────────────────────────────
@@ -547,8 +573,13 @@ export function getAvailableDebaters(state, side, zone, committedOnly) {
     if (!def) return false;
     // Entry turn check
     if (def.entryTurn > state.turn) return false;
-    // Conditional debaters (Cranmer, Coverdale, Latimer) require Edward/Elizabeth born
-    if (def.conditional && !(state.edwardBorn || state.elizabethBorn)) return false;
+    // Conditional debaters (Cranmer, Coverdale, Latimer) require Anne Boleyn marriage
+    // Per §21.3: English Reformation opens when Henry reaches Anne Boleyn on marital track
+    if (def.conditional) {
+      const maritalIdx = MARITAL_STATUS.indexOf(state.henryMaritalStatus);
+      const anneBoleynIdx = MARITAL_STATUS.indexOf('anne_boleyn');
+      if (maritalIdx < anneBoleynIdx) return false;
+    }
     // Zone filter (Protestant debaters are zone-specific)
     if (zone && side === 'protestant' && def.zone !== zone) return false;
     // Committed filter
@@ -639,7 +670,7 @@ export function findNearestFortifiedSpace(state, from, power, alliedPowers = [])
 
   // Check 'from' itself
   const fromSp = state.spaces[from];
-  if (fromSp && fromSp.isFortress && friendly.has(fromSp.controller)) {
+  if (fromSp && isFortified(fromSp, state) && friendly.has(fromSp.controller)) {
     return from;
   }
 
@@ -654,7 +685,7 @@ export function findNearestFortifiedSpace(state, from, power, alliedPowers = [])
       const sp = state.spaces[next];
       if (!sp) continue;
 
-      if (sp.isFortress && friendly.has(sp.controller) && !sp.unrest) {
+      if (isFortified(sp, state) && friendly.has(sp.controller) && !sp.unrest) {
         return next;
       }
 

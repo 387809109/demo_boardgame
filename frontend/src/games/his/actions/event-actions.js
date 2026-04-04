@@ -18,6 +18,7 @@ import {
   MARITAL_STATUS, PREGNANCY_TABLE
 } from '../constants.js';
 import { areAllied } from '../state/war-helpers.js';
+import { isHomeSpace } from '../state/state-helpers.js';
 import { EXTENDED_EVENT_HANDLERS } from './event-actions-extended.js';
 import { DIPLOMACY_EVENT_HANDLERS } from './event-actions-diplomacy.js';
 
@@ -525,12 +526,25 @@ EVENT_HANDLERS[13] = {
   },
   execute(state, power, actionData, helpers) {
     state.schmalkaldicLeague = true;
+    state.schmalkaldicLeagueFormed = true;
+
+    // Transfer control: all Protestant-religion Protestant-home spaces → Protestant
+    const transferred = [];
+    for (const [name, sp] of Object.entries(state.spaces)) {
+      if (sp.religion === 'protestant' && isHomeSpace(name, 'protestant')) {
+        sp.controller = 'protestant';
+        transferred.push(name);
+      }
+    }
+
     // Add Schmalkaldic League diplomacy cards to deck
     if (state.diplomacyDeck) {
       const slCards = [/* diplomacy_sl cards would be added here */];
       state.diplomacyDeck.push(...slCards);
     }
-    helpers.logEvent(state, 'event_schmalkaldic_league', { power, turn: state.turn });
+    helpers.logEvent(state, 'event_schmalkaldic_league', {
+      power, turn: state.turn, spacesTransferred: transferred
+    });
   }
 };
 

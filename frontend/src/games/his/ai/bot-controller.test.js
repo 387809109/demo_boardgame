@@ -157,9 +157,10 @@ describe('decideBotAction', () => {
   it('returns an action for Bot power in luther_95 phase', () => {
     const state = createBotState(['protestant']);
     state.phase = 'luther_95';
-    state.luther95 = {
-      remaining: 3,
-      targets: ['Erfurt', 'Leipzig', 'Magdeburg']
+    state.pendingLuther95 = {
+      attemptNumber: 0,
+      attemptsTotal: 5,
+      validTargets: ['Erfurt', 'Leipzig', 'Magdeburg']
     };
     const action = decideBotAction(state, 'protestant');
     expect(action).not.toBeNull();

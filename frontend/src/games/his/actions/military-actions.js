@@ -541,7 +541,7 @@ export function validateControlUnfortified(state, power, actionData) {
   if (!space) return { valid: false, error: 'Missing space' };
   const sp = state.spaces[space];
   if (!sp) return { valid: false, error: `Space "${space}" not found` };
-  if (isFortified(sp)) return { valid: false, error: 'Space is fortified' };
+  if (isFortified(sp, state)) return { valid: false, error: 'Space is fortified' };
 
   const friendlyPowers = getFriendlyPowers(state, power);
   const removingUnrest = Boolean(sp.unrest);

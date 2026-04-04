@@ -142,7 +142,8 @@ describe('advancePhase', () => {
     const helpers = createMockHelpers();
     advancePhase(state, helpers);
     expect(state.turn).toBe(2);
-    expect(state.phase).toBe('card_draw');
+    // card_draw auto-executes and advances to diplomacy (first interactive phase of turn 2)
+    expect(state.phase).toBe('diplomacy');
   });
 
   it('ends game after turn 9', () => {
@@ -306,7 +307,8 @@ describe('advancePhase — edge cases', () => {
     const helpers = createMockHelpers();
     advancePhase(state, helpers);
     expect(state.turn).toBe(9);
-    expect(state.phase).toBe('card_draw');
+    // card_draw auto-executes and advances to diplomacy (first interactive phase)
+    expect(state.phase).toBe('diplomacy');
     expect(state.status).not.toBe('ended');
   });
 

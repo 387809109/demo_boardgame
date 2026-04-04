@@ -1188,7 +1188,7 @@ export class HISGame extends GameEngine {
     // Defender stays in the space (withdrawn into fort)
     // Attacker initiates siege
     const sp = state.spaces[space];
-    if (isFortified(sp) && sp.controller !== winnerPower) {
+    if (isFortified(sp, state) && sp.controller !== winnerPower) {
       sp.besieged = true;
       sp.besiegedBy = winnerPower;
       sp.siegeEstablishedImpulse = state.turnNumber;

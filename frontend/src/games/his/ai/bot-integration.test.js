@@ -76,7 +76,7 @@ describe('Bot decisions across all phases', () => {
   it('returns non-null action for Bot in Luther 95 phase', () => {
     const state = createBotState(['protestant']);
     state.phase = PHASES.LUTHER_95;
-    state.luther95 = { remaining: 3, targets: ['Erfurt', 'Leipzig'] };
+    state.pendingLuther95 = { attemptNumber: 0, attemptsTotal: 5, validTargets: ['Erfurt', 'Leipzig'] };
     const action = decideBotAction(state, 'protestant');
     expect(action).not.toBeNull();
     expect(action.actionType).toBe('SELECT_LUTHER95_TARGET');

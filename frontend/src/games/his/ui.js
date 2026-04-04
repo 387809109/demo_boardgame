@@ -217,7 +217,7 @@ export class HisUI {
     `;
     this._sidebarContent = document.createElement('div');
     this._sidebarContent.style.cssText = `
-      flex: 1; min-height: 0; overflow-y: auto;
+      flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column;
     `;
 
     // Render all panels
@@ -380,7 +380,20 @@ export class HisUI {
     this._activeTab = key;
     this._sidebarContent.innerHTML = '';
     const panel = this._sidebarPanels[key];
-    if (panel) this._sidebarContent.appendChild(panel);
+    if (panel) {
+      if (key === 'log') {
+        // Log panel manages its own internal scroll
+        panel.style.flex = '1';
+        panel.style.minHeight = '0';
+        panel.style.overflowY = '';
+      } else {
+        // Other panels scroll via their own element
+        panel.style.flex = '1';
+        panel.style.minHeight = '0';
+        panel.style.overflowY = 'auto';
+      }
+      this._sidebarContent.appendChild(panel);
+    }
 
     if (this._sidebarTabs) {
       const tabs = this._sidebarTabs.children;

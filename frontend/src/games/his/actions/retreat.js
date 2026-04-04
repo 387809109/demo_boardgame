@@ -67,7 +67,7 @@ export function findLegalRetreats(state, space, power) {
  */
 export function canWithdrawIntoFortification(state, space, power) {
   const sp = state.spaces[space];
-  if (!sp || !isFortified(sp)) return false;
+  if (!sp || !isFortified(sp, state)) return false;
 
   // Must be controlled by the withdrawing power or an allied power
   if (sp.controller !== power && !areAllied(state, sp.controller, power)) {

@@ -268,7 +268,7 @@ function _validBuildSpaces(state, power, naval) {
 function _validControlSpaces(state, power) {
   const result = [];
   for (const [name, sp] of Object.entries(state.spaces)) {
-    if (isFortified(sp)) continue;
+    if (isFortified(sp, state)) continue;
     if (sp.controller === power) continue;
     // Must have adjacent own units
     const adj = getAdjacentSpaces(name);

@@ -525,7 +525,7 @@ function handlePostBattle(state, space, battleResult, helpers) {
  */
 function checkSiegeInitiation(state, space, winnerPower, helpers) {
   const sp = state.spaces[space];
-  if (!isFortified(sp)) return;
+  if (!isFortified(sp, state)) return;
 
   // Check if there are defender units inside (withdrew into fort)
   const defenderUnits = sp.units.filter(u => u.owner !== winnerPower);

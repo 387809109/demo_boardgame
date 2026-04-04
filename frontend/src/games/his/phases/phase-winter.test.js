@@ -129,14 +129,22 @@ describe('executeWinter', () => {
     const state = winterState();
     const helpers = createMockHelpers();
 
-    // Brussels is a fortress capital — units stay during land return (step 4)
-    const brussels = state.spaces['Brussels'];
-    const hapStack = brussels.units.find(u => u.owner === 'hapsburg');
-    const before = hapStack ? hapStack.regulars : 0;
+    // Vienna is a Hapsburg capital — gets +1 regular from step 6 replacements
+    const vienna = state.spaces['Vienna'];
+    vienna.controller = 'hapsburg';
+    vienna.unrest = false;
+    vienna.besieged = false;
+    let hapStack = vienna.units.find(u => u.owner === 'hapsburg');
+    if (!hapStack) {
+      hapStack = { owner: 'hapsburg', regulars: 0, mercenaries: 0,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: [] };
+      vienna.units.push(hapStack);
+    }
+    const before = hapStack.regulars;
 
     executeWinter(state, helpers);
 
-    const after = brussels.units.find(u => u.owner === 'hapsburg');
+    const after = vienna.units.find(u => u.owner === 'hapsburg');
     expect(after.regulars).toBeGreaterThanOrEqual(before + 1);
   });
 
@@ -341,9 +349,9 @@ describe('executeWinter', () => {
 
   it('moves units from unfortified spaces', () => {
     const state = winterState();
-    // Place ottoman units in an unfortified space
+    // Place ottoman units in a truly unfortified space (not fortress or key)
     const testSpace = Object.entries(state.spaces).find(
-      ([name, sp]) => !sp.isFortress && sp.controller === 'ottoman'
+      ([name, sp]) => !sp.isFortress && !sp.isKey && sp.controller === 'ottoman'
     );
     if (testSpace) {
       const [name, sp] = testSpace;
@@ -386,12 +394,11 @@ describe('executeWinter — attrition edge cases', () => {
       cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
     });
 
-    // Ensure no nearby fortified space is reachable
-    // Block all adjacent spaces' controllers
-    const blockedSpaces = ['Belgrade', 'Sofia', 'Szegedin', 'Edirne'];
-    for (const name of blockedSpaces) {
-      if (state.spaces[name]) {
-        state.spaces[name].controller = 'france';
+    // Ensure no nearby fortified space (fortress or key) is reachable
+    // Block all Ottoman fortresses and key spaces
+    for (const [name, sp] of Object.entries(state.spaces)) {
+      if ((sp.isFortress || sp.isKey) && sp.controller === 'ottoman' && name !== 'Nicopolis') {
+        sp.controller = 'france';
       }
     }
     state.spaces['Istanbul'].controller = 'france';
@@ -413,10 +420,9 @@ describe('executeWinter — attrition edge cases', () => {
       cavalry: 2, squadrons: 0, corsairs: 0, leaders: []
     }];
 
-    // Block all paths to friendly fortresses so attrition triggers
-    // Make surrounding fortresses non-friendly
+    // Block all paths to friendly fortified spaces (fortresses + keys) so attrition triggers
     for (const [name, sp] of Object.entries(state.spaces)) {
-      if (sp.isFortress && sp.controller === 'ottoman' && name !== 'Edirne') {
+      if ((sp.isFortress || sp.isKey) && sp.controller === 'ottoman' && name !== 'Edirne') {
         sp.controller = 'france';
       }
     }

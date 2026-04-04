@@ -105,7 +105,15 @@ export const SCENARIO_1517 = {
   // Spaces with Square Control Markers (political control) by power
   controlMarkers: {
     ottoman:  ['Istanbul', 'Edirne', 'Salonika', 'Athens'],
-    hapsburg: ['Valladolid', 'Seville', 'Barcelona', 'Navarre', 'Tunis', 'Naples', 'Vienna', 'Antwerp'],
+    // Hapsburg controls both its own key spaces AND all 21 Protestant home spaces via
+    // Catholic hexagonal markers (face up = Catholic, face down = Protestant after reformation)
+    hapsburg: [
+      'Valladolid', 'Seville', 'Barcelona', 'Navarre', 'Tunis', 'Naples', 'Vienna', 'Antwerp',
+      'Augsburg', 'Brandenburg', 'Bremen', 'Brunswick', 'Cologne', 'Erfurt',
+      'Hamburg', 'Kassel', 'Leipzig', 'Lübeck', 'Magdeburg', 'Mainz',
+      'Münster', 'Nuremberg', 'Regensburg', 'Salzburg', 'Stettin',
+      'Strasburg', 'Trier', 'Wittenberg', 'Worms'
+    ],
     england:  ['London', 'Calais', 'York', 'Bristol'],
     france:   ['Paris', 'Rouen', 'Bordeaux', 'Lyon', 'Marseille', 'Milan', 'Turin'],
     papacy:   ['Rome', 'Ravenna']

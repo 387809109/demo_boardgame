@@ -387,7 +387,7 @@ export function registerAppReconnectMethods(App, deps) {
         this.currentRoom.maxPlayers = Number.isFinite(snapshotMaxPlayers) && snapshotMaxPlayers > 0
           ? snapshotMaxPlayers
           : (this.currentRoom.maxPlayers || gameConfig.maxPlayers);
-        this.currentRoom.supportsAI = !!gameConfig.supportsAI;
+        this.currentRoom.supportsAI = !!(gameConfig.onlineSupportsAI ?? gameConfig.supportsAI);
         if (snapshotSettings || fallbackSettings) {
           this.currentRoom.gameSettings = snapshotSettings || fallbackSettings;
         }

@@ -134,7 +134,7 @@ export function registerAppOnlineRoomMethods(App, deps) {
         // Store settings and config for when game starts
         this._pendingGameSettings = settings;
         this._pendingGameConfig = gameConfig;
-        const supportsAI = gameConfig.supportsAI !== false;
+        const supportsAI = (gameConfig.onlineSupportsAI ?? gameConfig.supportsAI) !== false;
         await this._connectAndCreateRoom(serverUrl, roomId, nickname, gameType, maxPlayers, supportsAI);
       });
     },
@@ -469,7 +469,7 @@ export function registerAppOnlineRoomMethods(App, deps) {
             this.currentRoom.maxPlayers = metaMaxPlayers
               || this.currentRoom.gameConfig.maxPlayers;
             this.currentRoom.supportsAI =
-              !!this.currentRoom.gameConfig.supportsAI;
+              !!(this.currentRoom.gameConfig.onlineSupportsAI ?? this.currentRoom.gameConfig.supportsAI);
 
             // Re-create waiting room with full data
             if (this.currentView instanceof WaitingRoom) {

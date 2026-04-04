@@ -12,6 +12,7 @@ import { MAJOR_POWERS, IMPULSE_ORDER } from '../constants.js';
 import { PHASES } from '../phases/phase-manager.js';
 import { ACTION_TYPES } from '../actions/action-types.js';
 import { getPowerForPlayer, getPowersForPlayer } from '../state/state-helpers.js';
+import { canActInSegment } from '../phases/phase-diplomacy.js';
 import {
   BEHAVIOR_CARDS, CARD_BY_ID, BOT_EXTRA_UNITS,
   initBotDeck, revealBehaviorCard, getActiveBehaviorCard
@@ -193,14 +194,17 @@ function decideLuther95(state, power) {
   if (power !== 'protestant') return null;
   if (state.phase !== PHASES.LUTHER_95) return null;
 
-  // Check if there are remaining attempts
-  const pending = state.luther95;
-  if (!pending || pending.remaining <= 0) {
+  const pending = state.pendingLuther95;
+  if (!pending) return { actionType: ACTION_TYPES.PHASE_ADVANCE, actionData: {} };
+
+  // All attempts used or no valid targets left
+  if (pending.attemptNumber >= pending.attemptsTotal ||
+      (pending.validTargets || []).length === 0) {
     return { actionType: ACTION_TYPES.PHASE_ADVANCE, actionData: {} };
   }
 
-  // Pick first available target (stub — Phase B will add smart targeting)
-  const targets = pending.targets || [];
+  // Pick first available target
+  const targets = pending.validTargets || [];
   if (targets.length > 0) {
     return {
       actionType: ACTION_TYPES.SELECT_LUTHER95_TARGET,
@@ -365,7 +369,10 @@ function decideAction(state, power) {
 
   // In CP mode: execute next goal from behavior card
   if (state.cpRemaining > 0) {
-    return decideGoalAction(state, power);
+    const goalAction = decideGoalAction(state, power);
+    if (goalAction) return goalAction;
+    // No goals to execute — end impulse to discard remaining CP
+    return { actionType: ACTION_TYPES.END_IMPULSE, actionData: {} };
   }
 
   // Not in CP mode: play next card
@@ -540,8 +547,28 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
     const currentState = game.getState();
     if (!currentState) return;
 
-    const action = decideBotAction(currentState, nextPower);
-    if (action) {
+    let action = decideBotAction(currentState, nextPower);
+
+    // SET_ASIDE_CARD is bot-internal: move card from hand to botSetAside,
+    // then re-decide the next card to play.
+    let setAsideLoops = 0;
+    while (action?.actionType === 'SET_ASIDE_CARD' && setAsideLoops++ < 10) {
+      const cardNumber = action.actionData?.cardNumber;
+      if (cardNumber != null) {
+        const hand = currentState.hands?.[nextPower];
+        if (hand) {
+          const idx = hand.indexOf(cardNumber);
+          if (idx !== -1) hand.splice(idx, 1);
+        }
+        if (!currentState.botSetAside) currentState.botSetAside = {};
+        if (!currentState.botSetAside[nextPower]) currentState.botSetAside[nextPower] = [];
+        currentState.botSetAside[nextPower].push(cardNumber);
+      }
+      // Re-decide with the updated state (next card in hand)
+      action = decideBotAction(currentState, nextPower);
+    }
+
+    if (action && action.actionType !== 'SET_ASIDE_CARD') {
       executeMove({
         ...action,
         playerId: botPlayerId(nextPower)
@@ -562,17 +589,19 @@ function getNextActingBotPower(state) {
     return isBotPower(state, rp) ? rp : null;
   }
 
-  // Phases with activePower (action, spring deployment)
-  if (state.activePower && isBotPower(state, state.activePower)) {
+  // Phases with activePower — only ACTION and SPRING_DEPLOYMENT use sequential turns
+  if (state.activePower && isBotPower(state, state.activePower) &&
+      (state.phase === PHASES.ACTION || state.phase === PHASES.SPRING_DEPLOYMENT)) {
     return state.activePower;
   }
 
   // Simultaneous phases (diplomacy, diet)
   if (state.phase === PHASES.DIPLOMACY) {
-    // Find first Bot that hasn't acted in current segment
+    // Find first Bot that hasn't acted and can act in current segment
     for (const power of IMPULSE_ORDER) {
-      if (isBotPower(state, power)) {
-        // Check if this Bot can still act (stub — needs segment tracking)
+      if (isBotPower(state, power) &&
+          !state.diplomacyActed?.[power] &&
+          canActInSegment(state, power)) {
         return power;
       }
     }

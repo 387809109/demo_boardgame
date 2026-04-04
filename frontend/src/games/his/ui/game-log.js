@@ -49,7 +49,7 @@ export class GameLog {
     this._el.style.cssText = `
       display: flex;
       flex-direction: column;
-      height: 100%;
+      min-height: 0;
     `;
 
     // Header

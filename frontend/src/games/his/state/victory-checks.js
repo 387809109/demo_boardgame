@@ -14,7 +14,13 @@ import {
 } from '../constants.js';
 
 /**
- * Count keys controlled by each power.
+ * Count key spaces (isKey squares) controlled by each power.
+ *
+ * Only square key spaces (isKey: true) count toward the VP/auto-win track.
+ * German electorates (isElectorate: true) are a separate mechanic for
+ * the Diet of Worms and Schmalkaldic League — they do NOT count toward
+ * military auto-win thresholds.
+ *
  * @param {Object} state
  * @returns {Object} { [power]: number }
  */
@@ -24,9 +30,9 @@ export function countKeysByPower(state) {
     counts[power] = 0;
   }
   for (const sp of Object.values(state.spaces)) {
-    if ((sp.isKey || sp.isElectorate) && sp.controller) {
-      counts[sp.controller] = (counts[sp.controller] || 0) + 1;
-    }
+    if (!sp.isKey) continue;
+    if (!sp.controller) continue;
+    counts[sp.controller] = (counts[sp.controller] || 0) + 1;
   }
   return counts;
 }
@@ -55,12 +61,22 @@ export function countProtestantSpaces(state) {
  */
 export function checkImmediateVictory(state) {
   // 1. Military auto-win — check each non-Protestant power
+  //    Per rules: keys in unrest cover VP track boxes, reducing effective count.
+  //    Auto-win only triggers if effective keys (total - unrest) >= threshold.
   const keyCounts = countKeysByPower(state);
+  const unrestCounts = {};
+  for (const power of MAJOR_POWERS) unrestCounts[power] = 0;
+  for (const sp of Object.values(state.spaces)) {
+    if (sp.isKey && sp.controller && sp.unrest) {
+      unrestCounts[sp.controller] = (unrestCounts[sp.controller] || 0) + 1;
+    }
+  }
   for (const power of MAJOR_POWERS) {
     if (power === 'protestant') continue; // Protestant doesn't have key auto-win
     const track = KEY_VP_TRACK[power];
     if (!track) continue;
-    if (keyCounts[power] >= track.autoWin) {
+    const effectiveKeys = keyCounts[power] - (unrestCounts[power] || 0);
+    if (effectiveKeys >= track.autoWin) {
       return { victory: true, winner: power, type: 'military_auto_win' };
     }
   }

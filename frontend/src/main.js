@@ -662,13 +662,28 @@ class App {
    */
   _startOfflineGame(gameType, settings = {}, aiCount = 1) {
     const nickname = this.config.game.defaultNickname || '玩家1';
+    const gameConfig = this._getGameConfig(gameType);
 
-    // Create player list with human and AI players
-    const players = [
-      { id: this.playerId, nickname, isHost: true }
-    ];
+    // Power-based games (HIS): human selects one power, rest are bot-controlled
+    if (gameConfig.powers && settings.selectedPower) {
+      const allPowers = Object.keys(gameConfig.powers);
+      const selectedPower = settings.selectedPower;
+      const botPowers = allPowers.filter(p => p !== selectedPower);
 
-    // Add AI players based on count
+      const players = [{ id: this.playerId, nickname, isHost: true }];
+      const options = {
+        ...settings,
+        powerAssignment: [[selectedPower]],
+        botPowers
+      };
+      delete options.selectedPower;
+
+      this._startGame(gameType, players, 'offline', options);
+      return;
+    }
+
+    // Generic AI players
+    const players = [{ id: this.playerId, nickname, isHost: true }];
     for (let i = 1; i <= aiCount; i++) {
       players.push({
         id: `ai-${i}`,
@@ -1122,10 +1137,9 @@ class App {
     const state = game.getState();
     const currentPlayer = state.currentPlayer;
     const isUnoGame = this._activeGameType === 'uno' || game?.config?.gameType === 'uno';
-    const rules = isUnoGame ? this._getUnoRules() : null;
-    if (isUnoGame && !rules?.canPlayCard) {
-      return;
-    }
+    if (!isUnoGame) return;
+    const rules = this._getUnoRules();
+    if (!rules?.canPlayCard) return;
 
     // Skip if it's a human player's turn (not AI)
     const isAI = this._isAIPlayer(currentPlayer);

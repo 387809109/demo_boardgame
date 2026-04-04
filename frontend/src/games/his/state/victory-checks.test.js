@@ -269,11 +269,13 @@ describe('Victory Checks', () => {
   });
 
   describe('checkImmediateVictory — boundary conditions', () => {
-    // Helper: assign exactly N key/electorate spaces to a power
+    // Helper: assign exactly N key spaces (isKey only) to a power.
+    // Electorates (isElectorate without isKey) are excluded because they
+    // are Diet/Schmalkaldic mechanics, not VP/auto-win key squares.
     function assignKeys(state, power, count) {
       let assigned = 0;
       for (const sp of Object.values(state.spaces)) {
-        if ((sp.isKey || sp.isElectorate) && assigned < count) {
+        if (sp.isKey && assigned < count) {
           sp.controller = power;
           assigned++;
         }
@@ -302,7 +304,7 @@ describe('Victory Checks', () => {
       const state = victoryState();
       // Clear all controllers first to avoid interference
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'ottoman', 10);
       const result = checkImmediateVictory(state);
@@ -312,7 +314,7 @@ describe('Victory Checks', () => {
     it('Ottoman auto-win at exactly 11 keys (threshold)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'ottoman', 11);
       const result = checkImmediateVictory(state);
@@ -324,7 +326,7 @@ describe('Victory Checks', () => {
     it('Ottoman auto-win at 12 keys (threshold + 1)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'ottoman', 12);
       const result = checkImmediateVictory(state);
@@ -337,7 +339,7 @@ describe('Victory Checks', () => {
     it('no Hapsburg auto-win at 13 keys (threshold - 1)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'hapsburg', 13);
       const result = checkImmediateVictory(state);
@@ -347,7 +349,7 @@ describe('Victory Checks', () => {
     it('Hapsburg auto-win at exactly 14 keys (threshold)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'hapsburg', 14);
       const result = checkImmediateVictory(state);
@@ -360,7 +362,7 @@ describe('Victory Checks', () => {
     it('no England auto-win at 8 keys (threshold - 1)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'england', 8);
       const result = checkImmediateVictory(state);
@@ -370,7 +372,7 @@ describe('Victory Checks', () => {
     it('England auto-win at exactly 9 keys (threshold)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'england', 9);
       const result = checkImmediateVictory(state);
@@ -382,7 +384,7 @@ describe('Victory Checks', () => {
     it('England auto-win at 10 keys (threshold + 1)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'england', 10);
       const result = checkImmediateVictory(state);
@@ -395,7 +397,7 @@ describe('Victory Checks', () => {
     it('no France auto-win at 12 keys (threshold - 1)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'france', 12);
       const result = checkImmediateVictory(state);
@@ -405,7 +407,7 @@ describe('Victory Checks', () => {
     it('France auto-win at exactly 13 keys (threshold)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'france', 13);
       const result = checkImmediateVictory(state);
@@ -419,7 +421,7 @@ describe('Victory Checks', () => {
     it('no Papacy auto-win at 6 keys (threshold - 1)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'papacy', 6);
       const result = checkImmediateVictory(state);
@@ -429,7 +431,7 @@ describe('Victory Checks', () => {
     it('Papacy auto-win at exactly 7 keys (threshold)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'papacy', 7);
       const result = checkImmediateVictory(state);
@@ -441,7 +443,7 @@ describe('Victory Checks', () => {
     it('Papacy auto-win at 8 keys (threshold + 1)', () => {
       const state = victoryState();
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
       assignKeys(state, 'papacy', 8);
       const result = checkImmediateVictory(state);
@@ -476,40 +478,27 @@ describe('Victory Checks', () => {
       expect(result.type).toBe('religious_victory');
     });
 
-    // ── Electorates count as key spaces for military auto-win ──
+    // ── Electorates are NOT key squares for military auto-win ──
+    // German electorates (isElectorate without isKey) track the Diet of Worms
+    // and Schmalkaldic League, not the VP/auto-win key count.
 
-    it('electorates count toward military auto-win threshold', () => {
+    it('electorates (isElectorate only) do not count toward military auto-win', () => {
       const state = victoryState();
-      // Clear all controllers
+      // Clear all key controllers so Papacy has 0 keys
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isKey || sp.isElectorate) sp.controller = null;
+        if (sp.isKey) sp.controller = null;
       }
-      // Assign only electorates to papacy (need 7 for auto-win)
-      let electorateCount = 0;
-      let keyCount = 0;
+      // Assign all electorates to Papacy — should NOT add to key count
       for (const sp of Object.values(state.spaces)) {
-        if (sp.isElectorate && electorateCount < 7) {
+        if (sp.isElectorate && !sp.isKey) {
           sp.controller = 'papacy';
-          electorateCount++;
-        }
-      }
-      // If electorates alone are enough (6 electorates exist), top up
-      // with key spaces
-      const remaining = 7 - electorateCount;
-      if (remaining > 0) {
-        for (const sp of Object.values(state.spaces)) {
-          if (sp.isKey && !sp.isElectorate &&
-            sp.controller !== 'papacy' && keyCount < remaining) {
-            sp.controller = 'papacy';
-            keyCount++;
-          }
         }
       }
       const counts = countKeysByPower(state);
-      expect(counts.papacy).toBeGreaterThanOrEqual(7);
+      // Papacy should still have 0 keys (electorates don't count)
+      expect(counts.papacy).toBe(0);
       const result = checkImmediateVictory(state);
-      expect(result.victory).toBe(true);
-      expect(result.winner).toBe('papacy');
+      expect(result.victory).toBe(false);
     });
 
     // ── Military auto-win takes priority over religious victory ──
@@ -517,10 +506,10 @@ describe('Victory Checks', () => {
     it('military auto-win checked before religious victory', () => {
       const state = victoryState();
       // Set up both conditions simultaneously
-      // Give Ottoman 11 keys
+      // Give Ottoman 11 key spaces (isKey only, not electorates)
       let keyCount = 0;
       for (const sp of Object.values(state.spaces)) {
-        if ((sp.isKey || sp.isElectorate) && keyCount < 11) {
+        if (sp.isKey && keyCount < 11) {
           sp.controller = 'ottoman';
           keyCount++;
         }

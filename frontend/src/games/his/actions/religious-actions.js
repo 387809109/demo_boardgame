@@ -130,7 +130,9 @@ export function burnBooks(state, power, actionData, helpers) {
 export function validateReformationAttempt(state, power, actionData) {
   const pending = state.pendingReformation;
   if (!pending) return { valid: false, error: 'No pending reformation' };
-  if (pending.attemptsLeft <= 0) {
+  // Support both field name conventions: attemptsLeft (religious-actions) and attemptsRemaining (event-actions)
+  const attemptsLeft = pending.attemptsLeft ?? pending.attemptsRemaining ?? 0;
+  if (attemptsLeft <= 0) {
     return { valid: false, error: 'No attempts remaining' };
   }
 
@@ -140,14 +142,16 @@ export function validateReformationAttempt(state, power, actionData) {
     return { valid: false, error: `Space "${targetSpace}" not found` };
   }
 
-  // Zone check
+  // Zone check — support both 'zone' (singular) and 'zones' (plural) field names
   const sp = state.spaces[targetSpace];
-  if (pending.zone && sp.languageZone !== pending.zone) {
-    return { valid: false, error: `Target must be in ${pending.zone} zone` };
+  const zone = pending.zone || (pending.zones !== 'all' ? pending.zones : null);
+  if (zone && sp.languageZone !== zone) {
+    return { valid: false, error: `Target must be in ${zone} zone` };
   }
 
-  // Target validity
-  if (pending.type === 'reformation') {
+  // Target validity — event-created pending has no 'type'; treat as reformation
+  const isReformation = !pending.type || pending.type === 'reformation';
+  if (isReformation) {
     if (!isValidReformationTarget(state, targetSpace)) {
       return { valid: false, error: 'Invalid reformation target' };
     }
@@ -176,13 +180,16 @@ export function resolveReformationAttempt(state, power, actionData, helpers) {
   const pending = state.pendingReformation;
   const { targetSpace } = actionData;
 
-  const isReformation = pending.type === 'reformation';
+  // Support both 'type' conventions: explicit 'reformation'/'counter_reformation',
+  // or no type (event-created) treated as reformation, or 'playedBy' protestant
+  const isReformation = !pending.type || pending.type === 'reformation';
   const diceCalc = isReformation
     ? calcReformationDice(state, targetSpace)
     : calcCounterReformationDice(state, targetSpace);
 
   const sp = state.spaces[targetSpace];
-  const inZone = sp.languageZone === pending.zone;
+  const zone = pending.zone || (pending.zones !== 'all' ? pending.zones : null);
+  const inZone = !zone || sp.languageZone === zone;
 
   // Apply dice modifier from Full Bible (+1 to each Protestant die)
   const diceModifier = pending.diceModifier || 0;
@@ -224,8 +231,10 @@ export function resolveReformationAttempt(state, power, actionData, helpers) {
       papalDice: papalRolls, protestantMax, papalMax, autoSuccess
     });
 
-    pending.attemptsLeft--;
-    if (pending.attemptsLeft <= 0) state.pendingReformation = null;
+    if (pending.attemptsLeft != null) pending.attemptsLeft--;
+    else if (pending.attemptsRemaining != null) pending.attemptsRemaining--;
+    const left = pending.attemptsLeft ?? pending.attemptsRemaining ?? 0;
+    if (left <= 0) state.pendingReformation = null;
 
     return { success, protestantDice: protestantRolls, papalDice: papalRolls, autoSuccess };
   } else {
@@ -268,8 +277,10 @@ export function resolveReformationAttempt(state, power, actionData, helpers) {
       papalDice: papalRolls, papalMax, protestantMax, autoSuccess
     });
 
-    pending.attemptsLeft--;
-    if (pending.attemptsLeft <= 0) state.pendingReformation = null;
+    if (pending.attemptsLeft != null) pending.attemptsLeft--;
+    else if (pending.attemptsRemaining != null) pending.attemptsRemaining--;
+    const leftCR = pending.attemptsLeft ?? pending.attemptsRemaining ?? 0;
+    if (leftCR <= 0) state.pendingReformation = null;
 
     return { success, protestantDice: protestantRolls, papalDice: papalRolls, autoSuccess };
   }

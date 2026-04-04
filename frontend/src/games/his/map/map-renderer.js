@@ -140,6 +140,8 @@ export class MapRenderer {
   constructor() {
     this._svg = null;
     this._spaceNodes = {};
+    this._controlRings = {}; // Secondary rings showing current controller (when differs from home)
+    this._spaceCoords = {}; // cx,cy,r per space for ring creation
     this._seaZoneNodes = {};
     this._newWorldNodes = {};
     this._overlayGroup = null;
@@ -228,17 +230,56 @@ export class MapRenderer {
       const node = this._spaceNodes[name];
       if (!node) continue;
 
+      // Home territory = permanent map color (from static map data)
+      const mapData = SPACE_BY_NAME[name];
+      const homePower = mapData?.controller || 'independent';
+      const homeColor = POWER_COLORS[homePower] || POWER_COLORS.independent;
+
+      // Current controller = who has their control marker here
       const controller = spaceState.controller || 'independent';
-      const color = POWER_COLORS[controller] || POWER_COLORS.independent;
-      node.setAttribute('stroke', color);
+      const controlColor = POWER_COLORS[controller] || POWER_COLORS.independent;
+
+      // Religion-based interior fill
+      let fill;
+      if (spaceState.religion === 'protestant') {
+        fill = '#1a1a1a';
+      } else if (spaceState.religion === 'catholic') {
+        fill = '#fff';
+      } else {
+        fill = '#e0d5c5';
+      }
+      node.setAttribute('fill', fill);
+
+      // Stroke = home territory color (permanent map background)
+      node.setAttribute('stroke', homeColor);
       node.setAttribute('stroke-width', '2.5');
 
-      if (spaceState.religion === 'protestant') {
-        node.setAttribute('fill', '#1a1a1a');
-      } else if (spaceState.religion === 'catholic') {
-        node.setAttribute('fill', '#fff');
+      // If current controller differs from home territory, show a dashed inner ring
+      if (controller !== homePower) {
+        let ring = this._controlRings[name];
+        if (!ring) {
+          const coords = this._spaceCoords[name];
+          if (coords) {
+            ring = svgEl('circle', {
+              cx: coords.cx,
+              cy: coords.cy,
+              r: Math.max(1, coords.r - 2),
+              fill: 'none',
+              'stroke-width': '1.5',
+              'stroke-dasharray': '2,1.5',
+              'pointer-events': 'none',
+            });
+            node.parentElement?.appendChild(ring);
+            this._controlRings[name] = ring;
+          }
+        }
+        if (ring) {
+          ring.setAttribute('stroke', controlColor);
+          ring.setAttribute('visibility', 'visible');
+        }
       } else {
-        node.setAttribute('fill', '#e0d5c5');
+        const ring = this._controlRings[name];
+        if (ring) ring.setAttribute('visibility', 'hidden');
       }
     }
 
@@ -676,6 +717,10 @@ export class MapRenderer {
 
       group.appendChild(shapeEl);
       this._spaceNodes[space.name] = shapeEl;
+      // Store coordinates for later control ring creation
+      this._spaceCoords[space.name] = {
+        cx, cy, r: space.isKey ? KEY_SPACE_R : SPACE_R
+      };
     }
   }
 

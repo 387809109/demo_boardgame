@@ -381,13 +381,16 @@ export class ActionPanel {
 
   _renderReformationPanel(state) {
     const ref = state.pendingReformation;
-    const isReform = ref.type === 'reformation';
+    // Support both schemas: type-based (religious-actions.js) and playedBy-based (event-actions.js)
+    const isReform = !ref.type || ref.type === 'reformation';
+    const attemptsLeft = ref.attemptsLeft ?? ref.attemptsRemaining ?? 0;
+    const zone = ref.zone || (ref.zones && ref.zones !== 'all' ? ref.zones : null);
     this._el.appendChild(this._sectionHeader(
       isReform ? '宗教改革' : '反宗教改革'
     ));
     this._el.appendChild(this._infoText(
-      `剩余尝试: ${ref.attemptsLeft}` +
-      (ref.zone ? ` | 区域: ${ref.zone}` : ' | 任意区域')
+      `剩余尝试: ${attemptsLeft}` +
+      (zone ? ` | 区域: ${zone}` : ' | 任意区域')
     ));
 
     if (ref.autoFlip) {

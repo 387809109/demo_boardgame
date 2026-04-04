@@ -607,8 +607,8 @@ cd frontend && npx vitest run src/games/his/
 | `data/cards.js` | `his_ref/img/processed/all_cards_classified.json` (135 cards) |
 | `data/map-data.js` | `his_ref/img/processed/his_vmod_map_data.corrected.json` (134 spaces, 15 sea zones, 223 edges) |
 | `data/leaders.js` | `his_ref/img/processed/leaders_and_explorers.json` (38 leaders/explorers) |
-| `data/setup-1517.js` | `his_ref/rulebook_extraction/SCENARIO_1517_SETUP.md` |
-| `constants.js` | `his_ref/rulebook_extraction/RULEBOOK_FOR_DEVELOPMENT.md` + `POWER_CARDS.md` |
+| `data/setup-1517.js` | `docs/games/his/SCENARIO_1517_SETUP.md` |
+| `constants.js` | `docs/games/his/RULES.md` + `docs/games/his/POWER_CARDS.md` |
 
 ---
 
