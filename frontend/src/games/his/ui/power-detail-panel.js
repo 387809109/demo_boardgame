@@ -72,9 +72,17 @@ const MARITAL_LABELS = {
   katherine_parr: { name: '凯瑟琳·帕尔', note: '最终配偶' },
 };
 
+/** All powers in impulse order for the selector */
+const ALL_POWERS = ['ottoman', 'hapsburg', 'england', 'france', 'papacy', 'protestant'];
+
 export class PowerDetailPanel {
   constructor() {
     this._el = null;
+    this._selectorRow = null;
+    this._contentEl = null;
+    this._state = null;
+    this._playerPower = null;
+    this._viewPower = null;
   }
 
   render() {
@@ -89,17 +97,67 @@ export class PowerDetailPanel {
       overflow-y: auto;
       max-height: 400px;
     `;
+
+    // Power selector row
+    this._selectorRow = document.createElement('div');
+    this._selectorRow.style.cssText =
+      'display:flex;gap:2px;margin-bottom:6px;flex-wrap:wrap;';
+    this._el.appendChild(this._selectorRow);
+
+    // Content area
+    this._contentEl = document.createElement('div');
+    this._el.appendChild(this._contentEl);
+
     return this._el;
   }
 
   /**
    * @param {Object} state
-   * @param {string} power
+   * @param {string} power - the player's own power
    */
   update(state, power) {
     if (!this._el || !power) return;
-    this._el.innerHTML = '';
+    this._state = state;
+    this._playerPower = power;
+    if (!this._viewPower) this._viewPower = power;
 
+    this._renderSelector();
+    this._renderContent();
+  }
+
+  /** Render the 6-power selector buttons */
+  _renderSelector() {
+    this._selectorRow.innerHTML = '';
+    for (const p of ALL_POWERS) {
+      const btn = document.createElement('button');
+      const color = POWER_COLORS[p] || '#666';
+      const isActive = p === this._viewPower;
+      btn.style.cssText = `
+        flex:1;min-width:0;padding:3px 2px;font-size:9px;font-weight:600;
+        border:2px solid ${color};border-radius:4px;cursor:pointer;
+        background:${isActive ? color : 'transparent'};
+        color:${isActive ? contrastText(color) : color};
+        opacity:${isActive ? 1 : 0.7};
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      `;
+      btn.textContent = POWER_LABELS[p] || p;
+      btn.title = POWER_LABELS[p] || p;
+      btn.addEventListener('click', () => {
+        this._viewPower = p;
+        this._renderSelector();
+        this._renderContent();
+      });
+      this._selectorRow.appendChild(btn);
+    }
+  }
+
+  /** Render detail content for _viewPower */
+  _renderContent() {
+    if (!this._contentEl) return;
+    this._contentEl.innerHTML = '';
+
+    const power = this._viewPower;
+    const state = this._state;
     const color = POWER_COLORS[power] || '#666';
 
     // Title
@@ -109,7 +167,7 @@ export class PowerDetailPanel {
       background:${color};color:${contrastText(color)};border-radius:4px;
     `;
     header.textContent = `${POWER_LABELS[power] || power} — 势力详情`;
-    this._el.appendChild(header);
+    this._contentEl.appendChild(header);
 
     // Ruler info
     this._renderRuler(power, state);
@@ -143,7 +201,7 @@ export class PowerDetailPanel {
     this._gridRow(grid, '摸牌奖励', ruler.cardBonus > 0 ? `+${ruler.cardBonus}摸牌` : '无');
 
     section.appendChild(grid);
-    this._el.appendChild(section);
+    this._contentEl.appendChild(section);
   }
 
   _renderActionCosts(power) {
@@ -170,7 +228,7 @@ export class PowerDetailPanel {
     }
 
     section.appendChild(table);
-    this._el.appendChild(section);
+    this._contentEl.appendChild(section);
   }
 
   _renderVpTrack(power, state) {
@@ -232,7 +290,7 @@ export class PowerDetailPanel {
     table.appendChild(autoTr);
 
     section.appendChild(table);
-    this._el.appendChild(section);
+    this._contentEl.appendChild(section);
   }
 
   /** Protestant has fixed card draw, not key-based */
@@ -252,7 +310,7 @@ export class PowerDetailPanel {
       当前: 控制 ${electorateCount} 个选帝侯 → <b>${currentDraw}张</b>
     `;
     section.appendChild(note);
-    this._el.appendChild(section);
+    this._contentEl.appendChild(section);
   }
 
   _renderPowerSpecific(power, state) {
@@ -289,7 +347,7 @@ export class PowerDetailPanel {
     note.style.cssText = 'font-size:9px;color:#666;margin-top:4px;';
     note.textContent = `每次成功海盗+1VP (最高${max}VP)`;
     section.appendChild(note);
-    this._el.appendChild(section);
+    this._contentEl.appendChild(section);
   }
 
   _renderHapsburgSL(state) {
@@ -301,7 +359,7 @@ export class PowerDetailPanel {
       ? '已成立 — 每控制一个选帝侯+1VP'
       : '未成立';
     section.appendChild(status);
-    this._el.appendChild(section);
+    this._contentEl.appendChild(section);
   }
 
   _renderEnglandMarital(state) {
@@ -323,7 +381,7 @@ export class PowerDetailPanel {
       list.appendChild(chip);
     }
     section.appendChild(list);
-    this._el.appendChild(section);
+    this._contentEl.appendChild(section);
   }
 
   _renderEnglandBonusVp(state) {
@@ -338,7 +396,7 @@ export class PowerDetailPanel {
       每2个英格兰本土新教地点 +1VP
     `;
     section.appendChild(notes);
-    this._el.appendChild(section);
+    this._contentEl.appendChild(section);
   }
 
   _renderFranceChateau(state) {
@@ -357,7 +415,7 @@ export class PowerDetailPanel {
       8+: 摸2弃1(+1VP) | 5-7: 摸1(+1VP) | 3-4: 摸1弃1(+1VP) | ≤2: 摸2弃1(无VP)
     `;
     section.appendChild(modifiers);
-    this._el.appendChild(section);
+    this._contentEl.appendChild(section);
   }
 
   _renderPapacyTracks(state) {
@@ -371,7 +429,7 @@ export class PowerDetailPanel {
     vpNote.style.cssText = 'font-size:9px;color:#666;margin-top:2px;';
     vpNote.textContent = `建造VP: ${stVp}/${ST_PETERS.maxVp} | 每${ST_PETERS.cpPerVp}CP = +1VP`;
     section1.appendChild(vpNote);
-    this._el.appendChild(section1);
+    this._contentEl.appendChild(section1);
 
     // Excommunication
     const section2 = this._section('绝罚');
@@ -384,7 +442,7 @@ export class PowerDetailPanel {
       note.textContent = '当前无绝罚';
     }
     section2.appendChild(note);
-    this._el.appendChild(section2);
+    this._contentEl.appendChild(section2);
 
     // Religious struggle VP
     const section3 = this._section('宗教斗争VP');
@@ -393,7 +451,7 @@ export class PowerDetailPanel {
     rsVpNote.style.cssText = 'font-size:9px;color:#666;';
     rsVpNote.textContent = `新教地点: ${protSpaces} → Religious Struggle VP根据轨道确定`;
     section3.appendChild(rsVpNote);
-    this._el.appendChild(section3);
+    this._contentEl.appendChild(section3);
   }
 
   _renderProtestantTracks(state) {
@@ -421,7 +479,7 @@ export class PowerDetailPanel {
       }
       section1.appendChild(row);
     }
-    this._el.appendChild(section1);
+    this._contentEl.appendChild(section1);
 
     // Special VP
     const section2 = this._section('新教特殊VP');
@@ -433,7 +491,7 @@ export class PowerDetailPanel {
       ${PROTESTANT_CARD_DRAW.electorateThreshold}+选帝侯控制时每回合摸${PROTESTANT_CARD_DRAW.withElectorates}张 (否则${PROTESTANT_CARD_DRAW.base}张)
     `;
     section2.appendChild(note);
-    this._el.appendChild(section2);
+    this._contentEl.appendChild(section2);
   }
 
   // ── Helpers ──────────────────────────────────────────────────

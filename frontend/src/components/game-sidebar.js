@@ -39,6 +39,37 @@ export class GameSidebar {
    * @private
    */
   _create() {
+    // Wrapper holds the toggle button + the collapsible sidebar
+    this.wrapper = document.createElement('div');
+    this.wrapper.style.cssText = `
+      display: flex;
+      flex-shrink: 0;
+      position: relative;
+    `;
+
+    // Collapse toggle button (always visible)
+    this._toggleBtn = document.createElement('button');
+    this._toggleBtn.className = 'sidebar-collapse-toggle';
+    this._toggleBtn.title = '展开/收起侧栏';
+    this._toggleBtn.style.cssText = `
+      width: 20px;
+      background: var(--bg-secondary, #f1f5f9);
+      border: none;
+      border-left: 1px solid var(--border-light, #e2e8f0);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--text-secondary, #64748b);
+      padding: 0;
+      flex-shrink: 0;
+      z-index: 1;
+    `;
+    this._toggleBtn.addEventListener('click', () => this.toggleCollapse());
+    this.wrapper.appendChild(this._toggleBtn);
+
+    // The actual sidebar element
     this.element = document.createElement('aside');
     this.element.className = 'game-sidebar right-sidebar';
     this.element.style.cssText = `
@@ -48,9 +79,39 @@ export class GameSidebar {
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      transition: width 0.2s ease;
     `;
+    this.wrapper.appendChild(this.element);
+
+    // Restore collapsed state from localStorage (default: collapsed)
+    this._collapsed = localStorage.getItem('sidebar-collapsed') !== 'false';
+    this._applyCollapseState();
 
     this._render();
+  }
+
+  /**
+   * Toggle sidebar collapsed state.
+   */
+  toggleCollapse() {
+    this._collapsed = !this._collapsed;
+    localStorage.setItem('sidebar-collapsed', this._collapsed);
+    this._applyCollapseState();
+  }
+
+  /** @private */
+  _applyCollapseState() {
+    if (this._collapsed) {
+      this.element.style.width = '0';
+      this.element.style.borderLeft = 'none';
+      this._toggleBtn.textContent = '◀';
+      this._toggleBtn.title = '展开侧栏';
+    } else {
+      this.element.style.width = '240px';
+      this.element.style.borderLeft = '1px solid var(--border-light)';
+      this._toggleBtn.textContent = '▶';
+      this._toggleBtn.title = '收起侧栏';
+    }
   }
 
   /**
@@ -742,7 +803,7 @@ export class GameSidebar {
    * @returns {HTMLElement}
    */
   getElement() {
-    return this.element;
+    return this.wrapper || this.element;
   }
 
   /**
@@ -757,7 +818,8 @@ export class GameSidebar {
       this.roleSetupPanel.destroy();
       this.roleSetupPanel = null;
     }
-    this.element?.remove();
+    this.wrapper?.remove();
+    this.wrapper = null;
     this.element = null;
   }
 }

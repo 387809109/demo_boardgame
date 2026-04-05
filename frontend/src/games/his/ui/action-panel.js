@@ -10,6 +10,7 @@
 
 import { ACTION_COSTS } from '../constants.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
+import { canActInSegment } from '../phases/phase-diplomacy.js';
 import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
 
 // ── Action Definitions ──────────────────────────────────────────
@@ -119,13 +120,19 @@ export class ActionPanel {
       return;
     }
 
-    const isActive = state.activePower === playerPower;
+    const phase = state.phase;
+
+    // Simultaneous phases: player can act if they haven't acted yet
+    const isSimultaneous = phase === 'diplomacy' || phase === 'diet_of_worms';
+    const isActive = isSimultaneous
+      ? (phase === 'diplomacy'
+        ? canActInSegment(state, playerPower)
+        : state.pendingDietOfWorms?.cards[playerPower] == null)
+      : state.activePower === playerPower;
     if (!isActive) {
       this._el.appendChild(this._infoText('等待对手行动...'));
       return;
     }
-
-    const phase = state.phase;
 
     // Pending sub-interactions take priority
     if (state.pendingReformation) {
