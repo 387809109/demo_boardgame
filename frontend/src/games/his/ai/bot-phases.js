@@ -516,12 +516,17 @@ function decideSpringDeploymentAtWar(state, power) {
   const dest = findSpringDeploymentDest(state, power);
   if (!dest) return null;
 
+  // Build proper units object from spare units in stack
+  const stack = getUnitsInSpace(state, bestCap, power);
+  const garrison = getGarrisonRequirement(state, bestCap, power);
+  const deployUnits = buildDeployUnits(stack, bestSpare);
+
   return {
     actionType: ACTION_TYPES.SPRING_DEPLOY,
     actionData: {
-      origin: bestCap,
-      destination: dest,
-      units: bestSpare,
+      from: bestCap,
+      to: dest,
+      units: deployUnits,
       forPower: power
     }
   };
@@ -573,15 +578,38 @@ function decideSpringDeploymentAtPeace(state, power) {
 
   if (!bestKey) return null;
 
+  // Build units object: deploy 1 regular (or mercenary if no regulars)
+  const stack = getUnitsInSpace(state, sourceCap, power);
+  const deployUnits = buildDeployUnits(stack, 1);
+
   return {
     actionType: ACTION_TYPES.SPRING_DEPLOY,
     actionData: {
-      origin: sourceCap,
-      destination: bestKey,
-      units: 1,
+      from: sourceCap,
+      to: bestKey,
+      units: deployUnits,
       forPower: power
     }
   };
+}
+
+/**
+ * Build a units object { regulars, mercenaries, cavalry, leaders } from a stack,
+ * taking up to `count` land units (regulars first, then mercenaries, then cavalry).
+ */
+function buildDeployUnits(stack, count) {
+  const units = { regulars: 0, mercenaries: 0, cavalry: 0, leaders: [] };
+  if (!stack) return units;
+  let remaining = count;
+  const takeRegs = Math.min(remaining, stack.regulars || 0);
+  units.regulars = takeRegs;
+  remaining -= takeRegs;
+  const takeMercs = Math.min(remaining, stack.mercenaries || 0);
+  units.mercenaries = takeMercs;
+  remaining -= takeMercs;
+  const takeCav = Math.min(remaining, stack.cavalry || 0);
+  units.cavalry = takeCav;
+  return units;
 }
 
 /**

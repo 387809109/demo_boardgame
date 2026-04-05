@@ -1240,12 +1240,13 @@ class App {
     if (!game || !game.isRunning) return;
 
     this._hisBotTimer = scheduleBotAction(game, (move) => {
-      if (!game.isRunning) return;
+      if (!game.isRunning) return { success: false };
       const result = game.executeMove(move);
       if (result.success) {
         // Chain: schedule next bot action after this one
         this._scheduleHisBotAction();
       }
+      return result;
     });
   }
 

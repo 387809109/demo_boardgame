@@ -80,6 +80,7 @@ export class HisUI {
     this._pickerOverlayEl = null;
     this._mapContainer = null;
     this._lastEventLogLength = 0;
+    this._actionPanelContainer = null;
 
     // Simple event listeners for save/load
     this._listeners = {};
@@ -118,12 +119,13 @@ export class HisUI {
     this._container = document.createElement('div');
     this._container.className = 'his-game-ui';
     this._container.style.cssText = `
-      width: 100%;
+      width: 100%; height: 100%;
       display: flex;
       flex-direction: column;
       gap: 8px;
       padding: 8px;
       box-sizing: border-box;
+      overflow: hidden;
     `;
 
     // 1. Status bar
@@ -208,6 +210,7 @@ export class HisUI {
     sidebar.style.cssText = `
       display: flex; flex-direction: column; gap: 0;
       min-width: 220px; max-width: 280px;
+      overflow: hidden;
     `;
 
     // Tab bar
@@ -276,6 +279,7 @@ export class HisUI {
     const handEl = this._handPanel.render((action) => {
       if (action.type === 'SELECT_CARD') {
         this._selectedCard = action.data?.card?.number ?? null;
+        this._refreshActionPanel();
         return; // UI-only, don't propagate to game engine
       }
       if (action.type === 'PREVIEW_CARD' && action.data?.card) {
@@ -421,22 +425,9 @@ export class HisUI {
     wrapper.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
 
     // Action panel — passes startSelection callback
-    const panelEl = this._actionPanel.render(
-      stateWithUI,
-      this._playerPower,
-      (action) => {
-        // Direct actions (PASS, PLAY_CARD_CP, etc.)
-        if (action.actionType === 'PLAY_CARD_CP' || action.actionType === 'PLAY_CARD_EVENT') {
-          this._selectedCard = null;
-        }
-        if (onAction) onAction(action);
-      },
-      (actionType) => {
-        // Start a selection flow
-        this._startSelectionFlow(actionType);
-      }
-    );
-    wrapper.appendChild(panelEl);
+    this._actionPanelContainer = document.createElement('div');
+    this._renderActionPanelInto(this._actionPanelContainer, stateWithUI);
+    wrapper.appendChild(this._actionPanelContainer);
 
     // Utility buttons row
     const utilRow = document.createElement('div');
@@ -457,6 +448,30 @@ export class HisUI {
     wrapper.appendChild(utilRow);
 
     return wrapper;
+  }
+
+  _renderActionPanelInto(container, stateWithUI) {
+    container.innerHTML = '';
+    const panelEl = this._actionPanel.render(
+      stateWithUI,
+      this._playerPower,
+      (action) => {
+        if (action.actionType === 'PLAY_CARD_CP' || action.actionType === 'PLAY_CARD_EVENT') {
+          this._selectedCard = null;
+        }
+        if (this.onAction) this.onAction(action);
+      },
+      (actionType) => {
+        this._startSelectionFlow(actionType);
+      }
+    );
+    container.appendChild(panelEl);
+  }
+
+  _refreshActionPanel() {
+    if (!this._actionPanelContainer || !this.state) return;
+    const stateWithUI = { ...this.state, _uiSelectedCard: this._selectedCard };
+    this._renderActionPanelInto(this._actionPanelContainer, stateWithUI);
   }
 
   // ── Selection Flow Integration ─────────────────────────────

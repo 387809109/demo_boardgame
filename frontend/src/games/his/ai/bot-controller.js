@@ -569,10 +569,16 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
     }
 
     if (action && action.actionType !== 'SET_ASIDE_CARD') {
-      executeMove({
-        ...action,
-        playerId: botPlayerId(nextPower)
-      });
+      const move = { ...action, playerId: botPlayerId(nextPower) };
+      const result = executeMove(move);
+      // If the chosen action was rejected, fall back to PASS
+      if (result && !result.success && action.actionType !== ACTION_TYPES.PASS) {
+        executeMove({
+          actionType: ACTION_TYPES.PASS,
+          actionData: {},
+          playerId: botPlayerId(nextPower)
+        });
+      }
     }
   }, delay);
 }

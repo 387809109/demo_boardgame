@@ -420,8 +420,9 @@ describe('decideSpringDeployment', () => {
     }
     const result = decideSpringDeployment(state, 'ottoman');
     if (result && result.actionType !== 'PASS') {
-      expect(result.actionData.origin).toBe('Istanbul');
-      expect(result.actionData.destination).toBeDefined();
+      expect(result.actionData.from).toBe('Istanbul');
+      expect(result.actionData.to).toBeDefined();
+      expect(result.actionData.units).toHaveProperty('regulars');
     }
   });
 });
