@@ -376,12 +376,18 @@ export class ActionPanel {
 
   _renderDietPanel(state) {
     this._el.appendChild(this._sectionHeader('沃尔姆斯帝国会议'));
+    const selectedCard = state._uiSelectedCard;
     this._el.appendChild(this._infoText(
-      '提交一张卡牌进行帝国会议裁决'
+      selectedCard != null
+        ? `已选择卡牌 #${selectedCard} — 点击提交`
+        : '请先从手牌中选择一张卡牌'
     ));
-    this._el.appendChild(this._actionButton('提交卡牌', () => {
-      this._emit({ type: 'SUBMIT_DIET_CARD', data: { _needCard: true } });
-    }, 'primary'));
+    const btn = this._actionButton('提交卡牌', () => {
+      if (selectedCard == null) return;
+      this._emit({ type: 'SUBMIT_DIET_CARD', data: { cardNumber: selectedCard } });
+    }, 'primary');
+    if (selectedCard == null) btn.disabled = true;
+    this._el.appendChild(btn);
   }
 
   // ── Pending Sub-Interactions ────────────────────────────────
