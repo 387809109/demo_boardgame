@@ -433,11 +433,6 @@ export class HisUI {
     const utilRow = document.createElement('div');
     utilRow.style.cssText = 'display:flex;gap:4px;flex-direction:column;';
 
-    const resetBtn = this._actionBtn('重置地图', () => {
-      if (this._mapInteraction) this._mapInteraction.resetView();
-    }, true);
-    utilRow.appendChild(resetBtn);
-
     // Save/Load/Export buttons
     const saveBtn = this._actionBtn('存档', () => this._emit('saveRequested'), true);
     const loadBtn = this._actionBtn('读档', () => this._emit('loadRequested'), true);

@@ -173,6 +173,11 @@ export class GameResult {
             <button class="btn btn-secondary back-btn">返回大厅</button>
             <button class="btn btn-primary play-again-btn">${this._escapeHtml(this.playAgainLabel)}</button>
           </div>
+          <button class="btn btn-ghost btn-sm view-board-btn" style="
+            margin-top: var(--spacing-3);
+            color: var(--text-tertiary);
+            font-size: var(--text-sm);
+          ">查看对局</button>
         </div>
       </div>
     `;
@@ -234,11 +239,14 @@ export class GameResult {
       this.options.onPlayAgain?.();
     });
 
-    // Click outside closes
+    this.element.querySelector('.view-board-btn')?.addEventListener('click', () => {
+      this.hide();
+    });
+
+    // Click outside hides (view board)
     this.element.addEventListener('click', (e) => {
       if (e.target === this.element) {
-        this.close();
-        this.options.onBackToLobby?.();
+        this.hide();
       }
     });
   }
@@ -251,7 +259,29 @@ export class GameResult {
   }
 
   /**
-   * Close the result screen
+   * Hide the result screen (keep in DOM for re-showing)
+   */
+  hide() {
+    this.element.style.animation = 'fadeOut var(--transition-fast) forwards';
+    setTimeout(() => {
+      this.element.style.display = 'none';
+      this.options.onHide?.();
+    }, 150);
+  }
+
+  /**
+   * Re-show the hidden result screen
+   */
+  reshow() {
+    if (!this.element.parentNode) {
+      document.body.appendChild(this.element);
+    }
+    this.element.style.display = 'flex';
+    this.element.style.animation = 'fadeIn var(--transition-fast) forwards';
+  }
+
+  /**
+   * Close the result screen (remove from DOM)
    */
   close() {
     this.element.style.animation = 'fadeOut var(--transition-fast) forwards';

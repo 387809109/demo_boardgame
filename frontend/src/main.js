@@ -807,12 +807,17 @@ class App {
       gameSettings: options,
       onAction: (action) => this._handleGameAction(action),
       onLeave: () => this._handleLeaveGame(),
+      onShowResult: () => {
+        this.gameBoard?.setResultButtonVisible(false);
+        this._resultScreen?.reshow();
+      },
       onSendChat: (message) => {
         if (this.network?.isConnected()) {
           this.network.sendChat(message);
         }
       }
     });
+    this.gameBoard = this.currentView;
 
     this.currentView.mount(this.root);
     this.currentView.updateState(visibleState);
@@ -1321,6 +1326,7 @@ class App {
       this._cancelReconnectTimers();
       this._clearReconnectContext();
       this.currentRoom = null;
+      this.gameBoard = null;
       this.showLobby();
     }
   }
@@ -1430,6 +1436,7 @@ class App {
       playAgainLabel: isOnlineRound ? '回到房间' : '再来一局',
       onPlayAgain: () => {
         this._resultScreen = null;
+        this.gameBoard?.setResultButtonVisible(false);
         if (isOnlineRound) {
           this._returnToRoomFromResult();
           return;
@@ -1446,13 +1453,18 @@ class App {
       },
       onBackToLobby: () => {
         this._resultScreen = null;
+        this.gameBoard?.setResultButtonVisible(false);
         this.currentGame = null;
         this._gameStartAt = null;
         this.showLobby();
+      },
+      onHide: () => {
+        this.gameBoard?.setResultButtonVisible(true);
       }
     });
 
     this._resultScreen = resultScreen;
+    this.gameBoard?.setResultButtonVisible(false);
     resultScreen.show();
   }
 

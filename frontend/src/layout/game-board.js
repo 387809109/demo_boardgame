@@ -113,6 +113,7 @@ export class GameBoard {
           <button class="btn btn-ghost btn-sm query-btn" title="游戏查询">🔍</button>
           <button class="btn btn-ghost btn-sm chat-btn" title="规则问答">💬</button>
           <button class="btn btn-ghost btn-sm rules-btn" title="查看规则">📖 规则</button>
+          <button class="btn btn-primary btn-sm show-result-btn" style="display:none;" title="查看结算">查看结算</button>
           <button class="btn btn-secondary btn-sm leave-btn">退出游戏</button>
         </div>
       </header>
@@ -395,6 +396,11 @@ export class GameBoard {
     this.element.querySelector('.leave-btn')?.addEventListener('click', () => {
       this._closeMobileSidebar();
       this.options.onLeave?.();
+    });
+
+    this.element.querySelector('.show-result-btn')?.addEventListener('click', () => {
+      this._closeMobileSidebar();
+      this.options.onShowResult?.();
     });
 
     this.element.querySelector('.query-btn')?.addEventListener('click', () => {
@@ -848,6 +854,15 @@ export class GameBoard {
    * Get element
    * @returns {HTMLElement}
    */
+  /**
+   * Show or hide the "查看结算" header button
+   * @param {boolean} visible
+   */
+  setResultButtonVisible(visible) {
+    const btn = this.element.querySelector('.show-result-btn');
+    if (btn) btn.style.display = visible ? '' : 'none';
+  }
+
   getElement() {
     return this.element;
   }
