@@ -378,13 +378,15 @@ function decideAction(state, power) {
   // Not in CP mode: play next card
   const cardAction = decideCardPlay(state, power);
 
-  // If card play says PASS → check final autumn assaults before ending
-  if (cardAction && cardAction.actionType === ACTION_TYPES.PASS) {
+  // If card play is null or PASS → check final autumn assaults before ending
+  if (!cardAction || cardAction.actionType === ACTION_TYPES.PASS) {
     const assault = getNextAutumnAssault(state, power);
     if (assault) {
       markAutumnAssaultDone(state, power, assault.actionData.target);
       return assault;
     }
+    // Ensure we always return a valid action so the bot chain continues
+    return cardAction || { actionType: ACTION_TYPES.PASS, actionData: {} };
   }
 
   return cardAction;
@@ -568,17 +570,66 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
       action = decideBotAction(currentState, nextPower);
     }
 
-    if (action && action.actionType !== 'SET_ASIDE_CARD') {
-      const move = { ...action, playerId: botPlayerId(nextPower) };
-      const result = executeMove(move);
-      // If the chosen action was rejected, fall back to PASS
-      if (result && !result.success && action.actionType !== ACTION_TYPES.PASS) {
-        executeMove({
-          actionType: ACTION_TYPES.PASS,
-          actionData: {},
-          playerId: botPlayerId(nextPower)
-        });
+    // If no action decided, fall back to PASS to keep the chain alive
+    if (!action || action.actionType === 'SET_ASIDE_CARD') {
+      action = { actionType: ACTION_TYPES.PASS, actionData: {} };
+    }
+
+    // If playing from set-aside, move card back to hand so engine validation passes
+    if (action.actionData?.fromSetAside) {
+      const cardNumber = action.actionData.cardNumber;
+      const setAside = currentState.botSetAside?.[nextPower];
+      if (setAside && cardNumber != null) {
+        const idx = setAside.indexOf(cardNumber);
+        if (idx !== -1) setAside.splice(idx, 1);
+        if (!currentState.hands[nextPower]) currentState.hands[nextPower] = [];
+        currentState.hands[nextPower].push(cardNumber);
       }
+      // Remove the fromSetAside flag — engine doesn't know about it
+      delete action.actionData.fromSetAside;
+    }
+
+    const pid = botPlayerId(nextPower);
+    const move = { ...action, playerId: pid };
+    const result = executeMove(move);
+    if (result?.success) return;
+    console.warn('[BOT STUCK]', nextPower, action.actionType, JSON.stringify(action.actionData).substring(0, 100), '→', result?.error);
+
+    // Primary action failed — try fallback chain
+    const cardNum = action.actionData?.cardNumber;
+
+    // 1) Event failed → try as CP
+    if (action.actionType === ACTION_TYPES.PLAY_CARD_EVENT && cardNum != null) {
+      const r = executeMove({ actionType: ACTION_TYPES.PLAY_CARD_CP, actionData: { cardNumber: cardNum }, playerId: pid });
+      if (r?.success) return;
+      console.warn('[BOT STUCK] CP fallback failed:', r?.error);
+    }
+
+    // 2) CP failed → try as Event
+    if (action.actionType === ACTION_TYPES.PLAY_CARD_CP && cardNum != null) {
+      const r = executeMove({ actionType: ACTION_TYPES.PLAY_CARD_EVENT, actionData: { cardNumber: cardNum }, playerId: pid });
+      if (r?.success) return;
+      console.warn('[BOT STUCK] Event fallback failed:', r?.error);
+    }
+
+    // 3) Try any card in hand (including set-aside) as CP
+    const hand = currentState.hands?.[nextPower] || [];
+    const setAsideCards = currentState.botSetAside?.[nextPower] || [];
+    // Move all set-aside cards back to hand for fallback attempts
+    if (setAsideCards.length > 0 && hand.length === 0) {
+      hand.push(...setAsideCards);
+      setAsideCards.length = 0;
+    }
+    for (const cn of hand) {
+      if (cn === cardNum) continue; // Already tried
+      const r = executeMove({ actionType: ACTION_TYPES.PLAY_CARD_CP, actionData: { cardNumber: cn }, playerId: pid });
+      if (r?.success) return;
+    }
+
+    // 4) Last resort: PASS
+    if (action.actionType !== ACTION_TYPES.PASS) {
+      const pr = executeMove({ actionType: ACTION_TYPES.PASS, actionData: {}, playerId: pid });
+      if (!pr?.success) console.warn('[BOT STUCK] PASS also failed:', pr?.error, 'hand:', JSON.stringify(hand));
     }
   }, delay);
 }

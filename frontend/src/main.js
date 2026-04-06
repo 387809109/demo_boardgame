@@ -970,8 +970,50 @@ class App {
     } catch (_) {
       // Validation module not available — skip validation
     }
+    // Remap saved human playerId → current session playerId
+    this._remapSavePlayerId(save);
     this.currentGame.importSave(save);
     showToast(`读档成功：${save.label || '存档'}`);
+    // Restart bot chain after loading save
+    if (this._activeGameType === 'his') {
+      this._scheduleHisBotAction();
+    }
+  }
+
+  /**
+   * Remap saved human playerId to current session playerId.
+   * @param {Object} save - Save data (mutated in place)
+   * @private
+   */
+  _remapSavePlayerId(save) {
+    const st = save?.state;
+    if (!st?.playerByPower || !this.playerId) return;
+    // Find the old human playerId (any non-bot player)
+    const oldHumanId = Object.values(st.playerByPower)
+      .find(id => id && !id.startsWith('bot_'));
+    if (!oldHumanId || oldHumanId === this.playerId) return;
+    // Remap playerByPower
+    for (const power of Object.keys(st.playerByPower)) {
+      if (st.playerByPower[power] === oldHumanId) {
+        st.playerByPower[power] = this.playerId;
+      }
+    }
+    // Remap powersForPlayer
+    if (st.powersForPlayer?.[oldHumanId]) {
+      st.powersForPlayer[this.playerId] = st.powersForPlayer[oldHumanId];
+      delete st.powersForPlayer[oldHumanId];
+    }
+    // Remap powerByPlayer (legacy/alias)
+    if (st.powerByPlayer?.[oldHumanId]) {
+      st.powerByPlayer[this.playerId] = st.powerByPlayer[oldHumanId];
+      delete st.powerByPlayer[oldHumanId];
+    }
+    // Remap players array
+    if (Array.isArray(st.players)) {
+      for (const p of st.players) {
+        if (p.id === oldHumanId) p.id = this.playerId;
+      }
+    }
   }
 
   /**
