@@ -45,11 +45,13 @@ window.app._takeOverPower('hapsburg')   // Claude 接管哈布斯堡
 每轮到 Claude 控制的势力行动时：
 
 1. **读取游戏状态**：通过 Playwright 截图或 `window.app.currentGame.getState()` 获取当前状态
-1. **根据 HISBOT 逻辑决策**：按照 HISBOT 规则（行为牌目标优先级、事件牌判断表等）决定本次行动
+1. **根据 HISBOT 逻辑决策**：按照 HISBOT 规则（行为牌目标优先级、事件牌判断表等）决定本次行动，但卡牌打法见下方覆盖说明
 1. **通过 Playwright 模拟点击执行**：找到对应 UI 元素并点击，走真实的 UI 输入路径
 1. **验证结果**：确认 UI 正确响应后继续
 
-Claude 的决策结果应与 HISBOT 在相同局面下的决策一致——**决策逻辑用 HISBOT，执行方式用 Playwright 点击**。
+Claude 的决策以 HISBOT 为基础，但对**卡牌打法**做如下覆盖：
+
+> 每张手牌**优先尝试打出事件效果**；只有当事件效果对当前势力无益（例如敌方事件、当前条件不满足）时，才改为用作 CP。目标选择、外交、战斗等其余决策仍遵循 HISBOT 规则。执行方式一律用 Playwright 点击。
 
 ---
 
