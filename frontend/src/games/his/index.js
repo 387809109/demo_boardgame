@@ -1337,6 +1337,7 @@ export class HISGame extends GameEngine {
         power,
         playerId: state.playerByPower[power],
         vp: vpTotals[power],
+        score: vpTotals[power],
         rank: 0
       }))
       .sort((a, b) => b.vp - a.vp)

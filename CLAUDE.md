@@ -85,9 +85,14 @@ demo_boardgame/
 │   ├── games/             # Game rule documentation (AI-facing)
 │   │   ├── TEMPLATE.md    # Template for new game rules
 │   │   ├── uno/RULES.md   # UNO technical rules
-│   │   └── werewolf/      # Werewolf (P0/P1 complete, P2/P3 in development)
-│   │       ├── RULES.md   # Technical rules (template)
-│   │       └── PLAN.md    # Development plan
+│   │   ├── werewolf/      # Werewolf (P0/P1 complete, P2/P3 in development)
+│   │   │   ├── RULES.md   # Technical rules (template)
+│   │   │   └── PLAN.md    # Development plan
+│   │   └── his/           # Here I Stand
+│   │       ├── RULES.md, PLAN.md, AI_PLAN.md, ...  # Rules & dev docs
+│   │       └── test/      # Live testing requirements
+│   │           ├── TEST_REQUIREMENTS.md             # Full-bot engine regression test
+│   │           └── TEST_REQUIREMENTS_PLAYWRIGHT.md  # Playwright UI interaction test
 │   └── prd/
 │       ├── PRD.md         # Product requirements
 │       ├── frontend/      # Frontend PRD + task list
@@ -317,6 +322,8 @@ Example: `docs/games/werewolf/PLAN.md`
 | `docs/games/TEMPLATE.md` | **Template for new game rule docs** |
 | `docs/games/[game]/RULES.md` | Game-specific AI rule documentation |
 | `docs/games/[game]/PLAN.md` | Game development plan (optional) |
+| `docs/games/his/test/TEST_REQUIREMENTS.md` | **HIS 全-Bot 引擎回归测试要求** |
+| `docs/games/his/test/TEST_REQUIREMENTS_PLAYWRIGHT.md` | **HIS Playwright UI 交互测试要求** |
 | `frontend/public/rules/[game].html` | User-facing rule books |
 
 ## Implementation Notes

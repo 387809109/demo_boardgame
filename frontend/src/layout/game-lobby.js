@@ -19,6 +19,7 @@ export class GameLobby {
    * @param {Function} [options.onPreloadGame] - Called when game card is hovered for preload
    * @param {Function} options.onJoinRoom - Called when joining online room
    * @param {Function} options.onSettings - Called when settings is clicked
+   * @param {Function} [options.onLoadSave] - Called when load save is clicked
    * @param {boolean} [options.cloudAvailable] - Whether cloud backend is configured
    * @param {'local'|'cloud'} [options.serverMode] - Current server mode
    * @param {Object} [options.authService] - AuthService instance
@@ -155,6 +156,9 @@ export class GameLobby {
           </button>
           <button class="btn btn-secondary chat-btn">
             <span>💬</span> 规则问答
+          </button>
+          <button class="btn btn-secondary load-save-btn">
+            <span>📂</span> 读档
           </button>
           <button class="btn btn-secondary join-room-btn">
             <span>🌐</span> 加入房间
@@ -451,6 +455,11 @@ export class GameLobby {
     // Chat panel
     this.element.querySelector('.chat-btn')?.addEventListener('click', () => {
       showChatPanel();
+    });
+
+    // Load save
+    this.element.querySelector('.load-save-btn')?.addEventListener('click', () => {
+      this.options.onLoadSave?.();
     });
 
     // Join room

@@ -46,7 +46,7 @@ import { CloudNetworkClient } from './cloud/cloud-network.js';
 import unoConfig from './games/uno/config.json';
 import werewolfConfig from './games/werewolf/config.json';
 import hisConfig from './games/his/config.json';
-import { scheduleBotAction } from './games/his/ai/bot-controller.js';
+import { scheduleBotAction, initBotDecks, botPlayerId } from './games/his/ai/bot-controller.js';
 
 const GAME_REGISTRY = {
   uno: {
@@ -524,6 +524,7 @@ class App {
     this.currentView = new GameLobby({
       onSelectGame: (gameId, mode) => this._handleGameSelect(gameId, mode),
       onPreloadGame: (gameId) => this._preloadGame(gameId),
+      onLoadSave: () => this._showLobbyLoadDialog(),
       onJoinRoom: () => this._showJoinRoomDialog(),
       onSettings: () => this._showSettings(),
       cloudAvailable: isCloudAvailable(),
@@ -937,6 +938,111 @@ class App {
   }
 
   /**
+   * Show save picker from the lobby (no active game required).
+   * Scans all saves across all games, shows a modal, and starts+loads the chosen save.
+   * @private
+   */
+  _showLobbyLoadDialog() {
+    const SAVE_PREFIX = 'boardgame_save_';
+    const saves = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(SAVE_PREFIX)) continue;
+      try {
+        const save = JSON.parse(localStorage.getItem(key));
+        saves.push({
+          slotKey: key.slice(SAVE_PREFIX.length),
+          gameId: save.gameId,
+          label: save.label || key.slice(SAVE_PREFIX.length),
+          savedAt: save.savedAt || 0,
+          metadata: save.metadata || {},
+          save
+        });
+      } catch (_) { /* skip corrupt entries */ }
+    }
+    saves.sort((a, b) => b.savedAt - a.savedAt);
+
+    if (saves.length === 0) {
+      showToast('没有可用的存档');
+      return;
+    }
+
+    const modal = getModal();
+    const rowsHtml = saves.map(s => {
+      const date = s.savedAt ? new Date(s.savedAt).toLocaleString('zh-CN') : '—';
+      const gameLabel = s.gameId || '未知游戏';
+      const meta = s.metadata;
+      const detail = meta.turn ? `第 ${meta.turn} 回合 · ${meta.phase || ''}` : '';
+      return `
+        <div class="save-slot-row" data-slot-key="${s.slotKey}" style="
+          display: flex; align-items: center; justify-content: space-between;
+          padding: var(--spacing-3) var(--spacing-4);
+          border: 1px solid var(--border-light);
+          border-radius: var(--radius-base);
+          cursor: pointer;
+          margin-bottom: var(--spacing-2);
+          transition: background var(--transition-fast);
+        ">
+          <div>
+            <div style="font-weight: var(--font-semibold); margin-bottom: 2px;">${s.label}</div>
+            <div style="font-size: var(--text-xs); color: var(--text-secondary);">${gameLabel}${detail ? ' · ' + detail : ''} · ${date}</div>
+          </div>
+          <span style="color: var(--primary-500); font-size: var(--text-xl);">▶</span>
+        </div>
+      `;
+    }).join('');
+
+    modal.show(`<div>${rowsHtml}</div>`, { title: '选择存档', width: '500px' });
+
+    modal._content.querySelectorAll('.save-slot-row').forEach(row => {
+      row.addEventListener('mouseenter', () => { row.style.background = 'var(--bg-secondary)'; });
+      row.addEventListener('mouseleave', () => { row.style.background = ''; });
+      row.addEventListener('click', () => {
+        const entry = saves.find(s => s.slotKey === row.dataset.slotKey);
+        if (!entry) return;
+        modal.hide();
+        this._loadFromLobby(entry.save);
+      });
+    });
+  }
+
+  /**
+   * Start a game and immediately load a save into it.
+   * Used when loading a save from the lobby (no active game).
+   * @param {Object} save - Save data
+   * @private
+   */
+  async _loadFromLobby(save) {
+    const gameId = save.gameId;
+    if (!gameId || !hasGame(gameId)) {
+      showToast(`未知游戏类型: ${gameId}`);
+      return;
+    }
+
+    const gameConfig = this._getGameConfig(gameId);
+    const state = save.state;
+
+    // Detect the human player's power (non-bot entry in playerByPower)
+    const savedPower = state?.playerByPower
+      ? Object.entries(state.playerByPower).find(([, id]) => id && !id.startsWith('bot_'))?.[0]
+      : null;
+
+    // Ensure game bundle is loaded (dynamic import), then start synchronously
+    await this._ensureGameBundleLoaded(gameId);
+
+    const nickname = this.config.game?.defaultNickname || '玩家';
+    const players = [{ id: this.playerId, nickname, isHost: true }];
+    let options = {};
+    if (gameConfig.powers && savedPower) {
+      const botPowers = Object.keys(gameConfig.powers).filter(p => p !== savedPower);
+      options = { powerAssignment: [[savedPower]], botPowers };
+    }
+
+    this._startGameNow({ gameType: gameId, players, mode: 'offline', options });
+    await this._loadSave(save);
+  }
+
+  /**
    * Show load dialog with available saves.
    * @private
    */
@@ -1295,6 +1401,137 @@ class App {
       }
       return result;
     });
+  }
+
+  /**
+   * Convert a human-controlled power to a Bot for testing.
+   * Call from browser console: window.app._addBotPower('protestant')
+   *
+   * This initialises the bot deck, remaps playerByPower to the bot ID,
+   * runs processBotTurnStart so the bot has a valid behavior card for the
+   * current turn, then kicks the bot action chain.
+   *
+   * @param {string} power - Power id to convert (e.g. 'protestant')
+   * @returns {Promise<void>}
+   */
+  async _addBotPower(power) {
+    const game = this.currentGame;
+    if (!game) { console.error('[addBotPower] No active game'); return; }
+    const state = game.getState();
+    if (!state) { console.error('[addBotPower] No game state'); return; }
+
+    // Mark as bot and initialize deck
+    initBotDecks(state, [power]);
+
+    // Remap player → bot in all three reverse-lookup maps
+    const botId = botPlayerId(power);
+    if (state.playerByPower?.[power] && !state.playerByPower[power].startsWith('bot_')) {
+      const oldId = state.playerByPower[power];
+      state.playerByPower[power] = botId;
+      // powerByPlayer: bot_protestant → protestant
+      if (state.powerByPlayer) {
+        delete state.powerByPlayer[oldId];
+        state.powerByPlayer[botId] = power;
+      }
+      // powersForPlayer: bot_protestant → ['protestant']
+      if (state.powersForPlayer) {
+        delete state.powersForPlayer[oldId];
+        state.powersForPlayer[botId] = [power];
+      }
+    }
+
+    // Run processBotTurnStart so behavior card is revealed for this turn
+    try {
+      const { processBotTurnStart } = await import('./games/his/ai/bot-rules.js');
+      processBotTurnStart(state);
+    } catch (e) {
+      console.warn('[addBotPower] processBotTurnStart failed:', e.message);
+    }
+
+    // Apply the mutated state back through the engine
+    game.state = state;
+    game.emit?.('stateUpdated', state);
+
+    console.log(`[addBotPower] ${power} is now a bot. Kicking action chain.`);
+    this._scheduleHisBotAction();
+  }
+
+  /**
+   * Start a new HIS game for testing.
+   * If humanPower is given, the current user controls that power and the rest
+   * are HISBOT. If omitted, all 6 powers are bots (spectator/watch mode).
+   *
+   * All bot powers go through the full initBotGame flow at initialize() time
+   * (initBotDecks + placeBotExtraUnits), so no post-hoc patching is needed.
+   *
+   * Call from browser console:
+   *   window.app._startHisGame()               // all 6 bots
+   *   window.app._startHisGame('hapsburg')      // you play Hapsburg
+   *   window.app._startHisGame('protestant')    // you play Protestant
+   *
+   * @param {string|null} [humanPower] - Power the human controls, or null for all-bot
+   * @returns {Promise<void>}
+   */
+  async _startHisGame(humanPower = null) {
+    const allPowers = ['ottoman', 'hapsburg', 'england', 'france', 'papacy', 'protestant'];
+    if (humanPower && !allPowers.includes(humanPower)) {
+      console.error('[startHisGame] Unknown power:', humanPower);
+      return;
+    }
+    await this._ensureGameBundleLoaded('his');
+    const nickname = this.config.game?.defaultNickname || '玩家';
+    const players = [{ id: this.playerId, nickname, isHost: true }];
+    const botPowers = humanPower ? allPowers.filter(p => p !== humanPower) : allPowers;
+    const powerAssignment = humanPower ? [[humanPower]] : [[]];
+    const options = { powerAssignment, botPowers };
+    this._startGameNow({ gameType: 'his', players, mode: 'offline', options });
+    const desc = humanPower ? `You play ${humanPower}` : 'All 6 powers are HISBOT';
+    console.log(`[startHisGame] ${desc}. Kicking action chain.`);
+    this._scheduleHisBotAction();
+  }
+
+  /**
+   * Convert a Bot-controlled power to the current human player.
+   * Reverse of _addBotPower(). Use after loading a save to switch which
+   * power you control.
+   *
+   * Call from browser console: window.app._takeOverPower('ottoman')
+   *
+   * @param {string} power - Power id to take over (e.g. 'ottoman')
+   */
+  _takeOverPower(power) {
+    const game = this.currentGame;
+    if (!game) { console.error('[takeOverPower] No active game'); return; }
+    const state = game.getState();
+    if (!state) { console.error('[takeOverPower] No game state'); return; }
+
+    if (!state.botPowers?.[power]) {
+      console.warn(`[takeOverPower] ${power} is not a bot — nothing to do`);
+      return;
+    }
+
+    const botId = botPlayerId(power);
+    const humanId = this.playerId;
+
+    // Remove from bot registry
+    delete state.botPowers[power];
+
+    // Remap all three player↔power lookups
+    state.playerByPower[power] = humanId;
+    if (state.powerByPlayer) {
+      delete state.powerByPlayer[botId];
+      state.powerByPlayer[humanId] = power;
+    }
+    if (state.powersForPlayer) {
+      delete state.powersForPlayer[botId];
+      state.powersForPlayer[humanId] = [power];
+    }
+
+    game.state = state;
+    game.emit?.('stateUpdated', state);
+    console.log(`[takeOverPower] You now control ${power}. Bot chain will skip this power.`);
+    // Re-kick bot chain so remaining bots keep moving
+    this._scheduleHisBotAction();
   }
 
   /**

@@ -549,25 +549,33 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
     const currentState = game.getState();
     if (!currentState) return;
 
-    let action = decideBotAction(currentState, nextPower);
+    const pid = botPlayerId(nextPower);
 
-    // SET_ASIDE_CARD is bot-internal: move card from hand to botSetAside,
-    // then re-decide the next card to play.
-    let setAsideLoops = 0;
-    while (action?.actionType === 'SET_ASIDE_CARD' && setAsideLoops++ < 10) {
-      const cardNumber = action.actionData?.cardNumber;
-      if (cardNumber != null) {
-        const hand = currentState.hands?.[nextPower];
-        if (hand) {
-          const idx = hand.indexOf(cardNumber);
-          if (idx !== -1) hand.splice(idx, 1);
-        }
-        if (!currentState.botSetAside) currentState.botSetAside = {};
-        if (!currentState.botSetAside[nextPower]) currentState.botSetAside[nextPower] = [];
-        currentState.botSetAside[nextPower].push(cardNumber);
-      }
-      // Re-decide with the updated state (next card in hand)
+    // Decide action — wrap in try/catch so a crash in AI logic never kills the chain.
+    let action;
+    try {
       action = decideBotAction(currentState, nextPower);
+
+      // SET_ASIDE_CARD is bot-internal: move card from hand to botSetAside,
+      // then re-decide the next card to play.
+      let setAsideLoops = 0;
+      while (action?.actionType === 'SET_ASIDE_CARD' && setAsideLoops++ < 10) {
+        const cardNumber = action.actionData?.cardNumber;
+        if (cardNumber != null) {
+          const hand = currentState.hands?.[nextPower];
+          if (hand) {
+            const idx = hand.indexOf(cardNumber);
+            if (idx !== -1) hand.splice(idx, 1);
+          }
+          if (!currentState.botSetAside) currentState.botSetAside = {};
+          if (!currentState.botSetAside[nextPower]) currentState.botSetAside[nextPower] = [];
+          currentState.botSetAside[nextPower].push(cardNumber);
+        }
+        action = decideBotAction(currentState, nextPower);
+      }
+    } catch (err) {
+      console.error('[BOT CRASH]', nextPower, err.message, err.stack?.split('\n')[1] || '');
+      action = null;
     }
 
     // If no action decided, fall back to PASS to keep the chain alive
@@ -589,11 +597,11 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
       delete action.actionData.fromSetAside;
     }
 
-    const pid = botPlayerId(nextPower);
     const move = { ...action, playerId: pid };
     const result = executeMove(move);
     if (result?.success) return;
-    console.warn('[BOT STUCK]', nextPower, action.actionType, JSON.stringify(action.actionData).substring(0, 100), '→', result?.error);
+    console.warn('[BOT STUCK]', nextPower, action.actionType,
+      JSON.stringify(action.actionData).substring(0, 100), '→', result?.error);
 
     // Primary action failed — try fallback chain
     const cardNum = action.actionData?.cardNumber;
@@ -626,11 +634,35 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
       if (r?.success) return;
     }
 
-    // 4) Last resort: PASS
+    // 4) Try END_IMPULSE to escape CP mode
+    if (currentState.cpRemaining > 0 || currentState.activeCardNumber != null) {
+      const r = executeMove({ actionType: ACTION_TYPES.END_IMPULSE, actionData: {}, playerId: pid });
+      if (r?.success) return;
+      console.warn('[BOT STUCK] END_IMPULSE failed:', r?.error);
+    }
+
+    // 5) Last resort: PASS
     if (action.actionType !== ACTION_TYPES.PASS) {
       const pr = executeMove({ actionType: ACTION_TYPES.PASS, actionData: {}, playerId: pid });
-      if (!pr?.success) console.warn('[BOT STUCK] PASS also failed:', pr?.error, 'hand:', JSON.stringify(hand));
+      if (pr?.success) return;
+      console.warn('[BOT STUCK] PASS also failed:', pr?.error, 'hand:', JSON.stringify(hand));
     }
+
+    // All fallbacks exhausted — the chain is broken. Log a clear error so the bug
+    // can be identified and fixed. Re-kick with a longer delay to avoid tight loops.
+    console.error('[BOT CHAIN BROKEN]', nextPower,
+      'phase:', currentState.phase,
+      'cpRemaining:', currentState.cpRemaining,
+      'hand:', JSON.stringify(hand),
+      'pending:', JSON.stringify({
+        response: !!currentState.pendingResponse,
+        battle: !!currentState.pendingBattle,
+        reformation: !!currentState.pendingReformation,
+        debate: !!currentState.pendingDebate,
+      })
+    );
+    // Force-kick chain with delay so the player can observe the stuck state
+    setTimeout(() => executeMove({ actionType: ACTION_TYPES.PASS, actionData: {}, playerId: pid }), delay * 3);
   }, delay);
 }
 

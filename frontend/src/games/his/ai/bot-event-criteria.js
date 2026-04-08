@@ -130,7 +130,7 @@ function countConvertibleProtestantSpaces(state) {
   let n = 0;
   for (const [name, sp] of Object.entries(state.spaces || {})) {
     if (sp.religion === 'protestant' && !sp.is_electorate) {
-      const units = getUnitsInSpace(state, name);
+      const units = sp.units || [];
       const occupied = units.some(u => u.owner && countLandUnits(u) > 0);
       if (!occupied) n++;
     }

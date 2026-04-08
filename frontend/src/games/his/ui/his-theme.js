@@ -20,7 +20,7 @@ export const POWER_COLORS = {
 export const MINOR_COLORS = {
   independent: '#9e9e9e',
   hungary:     '#8d6e63',
-  scotland:    '#0d47a1',
+  scotland:    '#42a5f5',
   venice:      '#00838f',
   genoa:       '#d84315',
 };
