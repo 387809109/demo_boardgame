@@ -95,7 +95,6 @@ export class PowerDetailPanel {
       border: 1px solid var(--border-light, #e2e8f0);
       font-size: 11px;
       overflow-y: auto;
-      max-height: 400px;
     `;
 
     // Power selector row

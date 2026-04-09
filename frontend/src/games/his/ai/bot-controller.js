@@ -11,7 +11,10 @@
 import { MAJOR_POWERS, IMPULSE_ORDER } from '../constants.js';
 import { PHASES } from '../phases/phase-manager.js';
 import { ACTION_TYPES } from '../actions/action-types.js';
-import { getPowerForPlayer, getPowersForPlayer } from '../state/state-helpers.js';
+import {
+  getPowerForPlayer, getPowersForPlayer,
+  isValidReformationTarget, isValidCounterReformTarget
+} from '../state/state-helpers.js';
 import { canActInSegment } from '../phases/phase-diplomacy.js';
 import {
   BEHAVIOR_CARDS, CARD_BY_ID, BOT_EXTRA_UNITS,
@@ -466,16 +469,33 @@ function decideInterception(state, power) {
 
 /**
  * Reformation attempt target selection.
+ * Picks the first valid target space respecting zone and type constraints.
  * @param {Object} state
  * @param {string} power
  * @returns {Object|null}
  */
 function decideReformation(state, power) {
-  // Stub: auto-resolve
-  return {
-    actionType: ACTION_TYPES.RESOLVE_REFORMATION_ATTEMPT,
-    actionData: {}
-  };
+  const pending = state.pendingReformation;
+  if (!pending) return null;
+
+  const isCounterRef = pending.type === 'counter_reformation';
+  const zoneFilter = (pending.zone || (pending.zones !== 'all' ? pending.zones : null));
+
+  // Find a valid target using engine's adjacency validator
+  for (const [name, sp] of Object.entries(state.spaces)) {
+    if (zoneFilter && sp.languageZone !== zoneFilter) continue;
+    const valid = isCounterRef
+      ? isValidCounterReformTarget(state, name)
+      : isValidReformationTarget(state, name);
+    if (!valid) continue;
+    return {
+      actionType: ACTION_TYPES.RESOLVE_REFORMATION_ATTEMPT,
+      actionData: { targetSpace: name }
+    };
+  }
+
+  // No valid targets remain — clear pending and end impulse
+  return { actionType: ACTION_TYPES.END_IMPULSE, actionData: {} };
 }
 
 /**

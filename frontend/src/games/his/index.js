@@ -852,8 +852,10 @@ export class HISGame extends GameEngine {
     // If event grants CP, enter CP spending mode
     if (result?.grantCp) {
       startCpSpending(state, cardNumber, result.grantCp);
-    } else {
-      // Event-only card — end impulse
+    } else if (!hasPendingInteraction(state)) {
+      // Event-only card with no pending sub-interactions — advance impulse.
+      // If the event created a pendingReformation/pendingDebate/etc., stay on
+      // the current power so they can resolve it before the impulse advances.
       advanceImpulse(state);
     }
   }

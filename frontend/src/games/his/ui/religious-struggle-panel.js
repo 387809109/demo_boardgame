@@ -46,7 +46,6 @@ export class ReligiousStrugglePanel {
       border: 1px solid var(--border-light, #e2e8f0);
       font-size: 11px;
       overflow-y: auto;
-      max-height: 350px;
     `;
     return this._el;
   }
