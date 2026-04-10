@@ -116,7 +116,11 @@ function evaluateOttomanHome(state) {
   if (total < 12) {
     return {
       actionType: ACTION_TYPES.PLAY_CARD_EVENT,
-      actionData: { cardNumber: HOME_CARDS.ottoman, homeEffect: 'build_regulars' }
+      actionData: {
+        cardNumber: HOME_CARDS.ottoman,
+        mode: 'recruit',
+        placements: [{ space: 'Istanbul', count: 4 }]
+      }
     };
   }
   return null; // Play for CPs

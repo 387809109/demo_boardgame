@@ -1006,12 +1006,14 @@ export function revealBehaviorCard(deck, rng) {
   const card = CARD_BY_ID[cardId];
 
   if (card.isContinue) {
-    if (deck.faceUp.length > 0) {
+    // Only "tuck" if there is already a non-Continue active card in faceUp
+    const hasActiveCard = deck.faceUp.some(id => !CARD_BY_ID[id]?.isContinue);
+    if (hasActiveCard) {
       // Tuck Continue under current face-up card, use same card
       deck.faceUp.push(cardId);
-      return deck.faceUp[0]; // Return top face-up (the active card)
+      return deck.faceUp.find(id => !CARD_BY_ID[id]?.isContinue); // Return the active card id
     }
-    // No face-up cards: place Continue face-up, ignore, draw again
+    // No active non-Continue card yet: place Continue in faceUp and draw again
     deck.faceUp.push(cardId);
     return revealBehaviorCard(deck, rng);
   }

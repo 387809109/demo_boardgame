@@ -1285,7 +1285,7 @@ export class HISGame extends GameEngine {
       return this._buildEndResult(state, highest[0], 'standard_victory');
     }
 
-    if (state.turn >= VICTORY.dominationMinTurn) {
+    if (state.dominationVictoryEnabled !== false && state.turn >= VICTORY.dominationMinTurn) {
       const second = sorted[1];
       if (highest[1] - second[1] >= VICTORY.dominationGap) {
         state.status = 'ended';

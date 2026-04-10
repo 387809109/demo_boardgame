@@ -222,6 +222,9 @@ export function buildInitialState(players, options = {}) {
       navalUnits: []
     },
 
+    // Game settings (stored in state so they survive save/load)
+    dominationVictoryEnabled: options.dominationVictoryEnabled !== false,
+
     // Meta
     eventLog: []
   };

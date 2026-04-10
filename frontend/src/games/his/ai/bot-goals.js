@@ -20,7 +20,7 @@
 import { ACTION_TYPES } from '../actions/action-types.js';
 import {
   ACTION_COSTS, CAPITALS, MAJOR_POWERS, RELIGION,
-  DEBATERS, NEW_WORLD_POWERS
+  DEBATERS, NEW_WORLD_POWERS, TRANSLATION
 } from '../constants.js';
 import { GOAL_TYPES } from './behavior-cards.js';
 import { getActiveBehaviorCard } from './behavior-cards.js';
@@ -31,9 +31,10 @@ import {
   countKeysForPower, getActiveRuler,
   isValidReformationTarget, isValidCounterReformTarget,
   calcReformationDice, calcCounterReformationDice,
-  getAvailableDebaters
+  getAvailableDebaters, getFormationCap
 } from '../state/state-helpers.js';
 import { areAtWar } from '../state/war-helpers.js';
+import { hasLineOfCommunicationForControl } from '../actions/military-actions.js';
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -183,9 +184,9 @@ export function chooseLandUnitPlacement(state, power) {
     if (capSp && capSp.controller === power) return cap;
   }
 
-  // Protestant has no capital — place at a controlled space
+  // Fall back to any controlled home space (units can only be built in home spaces)
   for (const [name, sp] of Object.entries(state.spaces)) {
-    if (sp.controller === power && isFortified(sp)) return name;
+    if (sp.controller === power && isHomeSpace(name, power)) return name;
   }
   return null;
 }
@@ -427,8 +428,10 @@ export function executeAdvance(state, power, cp) {
             actionType: ACTION_TYPES.MOVE_FORMATION,
             actionData: {
               from: cand.space, to: dest,
-              units: { regulars: cand.regulars, mercenaries: cand.mercenaries,
-                cavalry: cand.cavalry },
+              units: capUnitsToFormation(
+                { regulars: cand.regulars, mercenaries: cand.mercenaries, cavalry: cand.cavalry },
+                cand.leaders
+              ),
               leaders: cand.leaders
             }
           },
@@ -742,7 +745,7 @@ export function executeTranslate(state, power, cp) {
   return {
     action: {
       actionType: ACTION_TYPES.TRANSLATE_SCRIPTURE,
-      actionData: { language }
+      actionData: { zone: language }
     },
     cpCost: cost
   };
@@ -919,6 +922,7 @@ export function executeExplore(state, power, cp) {
   // Check if explorers available and unclaimed discoveries exist
   const nw = state.newWorld;
   if (!nw) return null;
+  if (nw.exploredThisTurn?.[power]) return null; // Already explored this turn
   const usedExplorers = [...(nw.placedExplorers || []), ...(nw.deadExplorers || [])];
   const availableExplorers = getExplorersForPower(power)
     .filter(e => !usedExplorers.includes(e));
@@ -1084,6 +1088,28 @@ export function dispatchGoalAction(state, power) {
 // ═══════════════════════════════════════════════════════════════════════
 
 // ── Military Movement Helpers ────────────────────────────────────────
+
+/**
+ * Cap a units object to the formation cap determined by the leaders list.
+ * Removes units proportionally: regulars first, then cavalry, then mercenaries.
+ * @param {{regulars:number, mercenaries:number, cavalry:number}} units
+ * @param {string[]} leaders
+ * @returns {{regulars:number, mercenaries:number, cavalry:number}}
+ */
+function capUnitsToFormation(units, leaders) {
+  const cap = getFormationCap(leaders || []);
+  const total = (units.regulars || 0) + (units.mercenaries || 0) + (units.cavalry || 0);
+  if (total <= cap) return units;
+  // Remove surplus from regulars first (most plentiful), then cavalry, then mercs
+  let surplus = total - cap;
+  let r = units.regulars || 0;
+  let c = units.cavalry || 0;
+  let m = units.mercenaries || 0;
+  const trimR = Math.min(r, surplus); r -= trimR; surplus -= trimR;
+  const trimC = Math.min(c, surplus); c -= trimC; surplus -= trimC;
+  const trimM = Math.min(m, surplus); m -= trimM;
+  return { regulars: r, mercenaries: m, cavalry: c };
+}
 
 /**
  * Find spaces with movable formations (units above garrison).
@@ -1368,6 +1394,8 @@ function findControlTarget(state, power) {
     const stack = getUnitsInSpace(state, name, power);
     if (!stack || countLandUnits(stack) === 0) continue;
 
+    if (!hasLineOfCommunicationForControl(state, power, name)) continue;
+
     if (isHomeSpace(name, power)) {
       homeTargets.push(name);
     } else {
@@ -1384,29 +1412,18 @@ function findControlTarget(state, power) {
 
 /**
  * Choose translation language (§3.16).
- * Priority: complete full bible if possible → NT in German → French → English
- *   → Full Bible in German → French → English.
+ * Priority: German → French → English. Skip if full bible complete.
+ * tracks[lang] is a number (0..fullBibleCp) tracking cumulative CP spent.
  * @param {Object} state
- * @param {Object} tracks - { german: { nt, full }, french: {...}, english: {...} }
+ * @param {Object} tracks - { german: number, french: number, english: number }
  * @returns {string|null} 'german'|'french'|'english'
  */
 function chooseTranslationLanguage(state, tracks) {
   const langs = ['german', 'french', 'english'];
 
-  // Check each language — skip if full bible complete
   for (const lang of langs) {
-    const t = tracks[lang];
-    if (!t) continue;
-    if (t.full >= 6) continue; // Full bible complete (6 segments)
-
-    // Skip French NT if Calvin not placed, English NT if Cranmer not placed
-    if (lang === 'french' && (t.nt || 0) < 3) {
-      if (!state.calvinPlaced) continue;
-    }
-    if (lang === 'english' && (t.nt || 0) < 3) {
-      if (!state.cranmerPlaced) continue;
-    }
-
+    const progress = tracks[lang] || 0;
+    if (progress >= TRANSLATION.fullBibleCp) continue; // Full bible complete
     return lang;
   }
   return null;

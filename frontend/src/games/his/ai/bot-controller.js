@@ -571,6 +571,24 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
 
     const pid = botPlayerId(nextPower);
 
+    // ── Behavior card reveal + hand stacking (once per turn, at action phase) ─
+    // HISBOT §2.10: At the start of each turn's action phase, each Bot reveals
+    // the next card from their behavior card deck. Also re-stacks the hand.
+    if (currentState.phase === PHASES.ACTION) {
+      const deck = currentState.botDecks?.[nextPower];
+      if (deck) {
+        const revealedTurn = currentState.botBehaviorCardRevealedTurn?.[nextPower] || 0;
+        if (revealedTurn < (currentState.turn || 1)) {
+          revealBehaviorCard(deck);
+          if (currentState.hands?.[nextPower]) {
+            stackBotHand(currentState.hands[nextPower], nextPower);
+          }
+          if (!currentState.botBehaviorCardRevealedTurn) currentState.botBehaviorCardRevealedTurn = {};
+          currentState.botBehaviorCardRevealedTurn[nextPower] = currentState.turn || 1;
+        }
+      }
+    }
+
     // Decide action — wrap in try/catch so a crash in AI logic never kills the chain.
     let action;
     try {
@@ -601,6 +619,21 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
     // If no action decided, fall back to PASS to keep the chain alive
     if (!action || action.actionType === 'SET_ASIDE_CARD') {
       action = { actionType: ACTION_TYPES.PASS, actionData: {} };
+    }
+
+    // ── Goal count tracking ─────────────────────────────────────────
+    // Playing a card starts a new CP impulse — reset goal execution counts.
+    if (action.actionType === ACTION_TYPES.PLAY_CARD_CP ||
+        action.actionType === ACTION_TYPES.PLAY_CARD_EVENT) {
+      if (!currentState.botGoalCounts) currentState.botGoalCounts = {};
+      currentState.botGoalCounts[nextPower] = {};
+    }
+    // Executing a goal — increment count so max-caps are respected.
+    if (action.goalId) {
+      if (!currentState.botGoalCounts) currentState.botGoalCounts = {};
+      if (!currentState.botGoalCounts[nextPower]) currentState.botGoalCounts[nextPower] = {};
+      currentState.botGoalCounts[nextPower][action.goalId] =
+        (currentState.botGoalCounts[nextPower][action.goalId] || 0) + 1;
     }
 
     // If playing from set-aside, move card back to hand so engine validation passes

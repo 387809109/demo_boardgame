@@ -30,10 +30,18 @@
         { "value": "1517", "label": "1517 完整剧本（9回合）" }
       ],
       "group": "basic"
+    },
+    "dominationVictoryEnabled": {
+      "type": "boolean",
+      "label": "统治胜利",
+      "description": "T4 起，领先第二名 5 VP 以上时立即获胜。关闭后仅通过标准胜利（25VP）或回合上限判定胜负",
+      "default": true,
+      "group": "victory"
     }
   },
 
   "settingsGroups": [
-    { "id": "basic", "label": "基础设置" }
+    { "id": "basic", "label": "基础设置" },
+    { "id": "victory", "label": "胜利条件" }
   ]
 }

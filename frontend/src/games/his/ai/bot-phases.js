@@ -28,6 +28,7 @@ import {
   getUnitsInSpace, isHomeSpace, getAdjacentSpaces
 } from '../state/state-helpers.js';
 import { isBotPower, getBotPowers } from './bot-controller.js';
+import { validateSpringDeployment } from '../phases/phase-spring-deployment.js';
 
 // ── §2.2 Card Draw — Hand Deck Stacking ──────────────────────────
 
@@ -492,44 +493,33 @@ function decideSpringDeploymentAtWar(state, power) {
   const caps = CAPITALS[power] || [];
   if (caps.length === 0) return null;
 
-  // Find capital with most spare units
-  let bestCap = null;
-  let bestSpare = 0;
-
-  for (const cap of caps) {
-    const sp = state.spaces[cap];
-    if (!sp || sp.controller !== power) continue;
-    const stack = getUnitsInSpace(state, cap, power);
-    if (!stack) continue;
-    const total = countLandUnits(stack);
-    const garrison = getGarrisonRequirement(state, cap, power);
-    const spare = total - garrison;
-    if (spare > bestSpare) {
-      bestSpare = spare;
-      bestCap = cap;
-    }
-  }
-
-  if (!bestCap || bestSpare <= 0) return null;
-
   // Find destination: controlled space closest to enemy key, ≤4 spaces away
   const dest = findSpringDeploymentDest(state, power);
   if (!dest) return null;
 
-  // Build proper units object from spare units in stack
-  const stack = getUnitsInSpace(state, bestCap, power);
-  const garrison = getGarrisonRequirement(state, bestCap, power);
-  const deployUnits = buildDeployUnits(stack, bestSpare);
+  // Try each capital in order of spare units, validate path before returning
+  const capCandidates = caps
+    .map(cap => {
+      const sp = state.spaces[cap];
+      if (!sp || sp.controller !== power) return null;
+      const stack = getUnitsInSpace(state, cap, power);
+      if (!stack) return null;
+      const total = countLandUnits(stack);
+      const garrison = getGarrisonRequirement(state, cap, power);
+      const spare = total - garrison;
+      return spare > 0 ? { cap, spare, stack } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.spare - a.spare);
 
-  return {
-    actionType: ACTION_TYPES.SPRING_DEPLOY,
-    actionData: {
-      from: bestCap,
-      to: dest,
-      units: deployUnits,
-      forPower: power
+  for (const { cap, spare, stack } of capCandidates) {
+    const deployUnits = buildDeployUnits(stack, spare);
+    const actionData = { from: cap, to: dest, units: deployUnits, forPower: power };
+    if (validateSpringDeployment(state, power, actionData).valid) {
+      return { actionType: ACTION_TYPES.SPRING_DEPLOY, actionData };
     }
-  };
+  }
+  return null;
 }
 
 /**

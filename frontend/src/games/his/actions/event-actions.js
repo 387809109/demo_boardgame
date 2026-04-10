@@ -121,7 +121,7 @@ EVENT_HANDLERS[4] = {
     if (state.rulers.france !== 'francis_i') {
       return { valid: false, error: 'Francis I must be ruler' };
     }
-    if (state.capturedLeaders?.includes('francis_i')) {
+    if (Object.values(state.capturedLeaders || {}).some(arr => Array.isArray(arr) && arr.includes('francis_i'))) {
       return { valid: false, error: 'Francis I is captured' };
     }
     return { valid: true };
