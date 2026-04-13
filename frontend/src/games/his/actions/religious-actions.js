@@ -234,7 +234,9 @@ export function resolveReformationAttempt(state, power, actionData, helpers) {
     if (pending.attemptsLeft != null) pending.attemptsLeft--;
     else if (pending.attemptsRemaining != null) pending.attemptsRemaining--;
     const left = pending.attemptsLeft ?? pending.attemptsRemaining ?? 0;
-    if (left <= 0) state.pendingReformation = null;
+    if (left <= 0 || !hasAnyReformationTargets(state, pending)) {
+      state.pendingReformation = null;
+    }
 
     return { success, protestantDice: protestantRolls, papalDice: papalRolls, autoSuccess };
   } else {
@@ -280,10 +282,30 @@ export function resolveReformationAttempt(state, power, actionData, helpers) {
     if (pending.attemptsLeft != null) pending.attemptsLeft--;
     else if (pending.attemptsRemaining != null) pending.attemptsRemaining--;
     const leftCR = pending.attemptsLeft ?? pending.attemptsRemaining ?? 0;
-    if (leftCR <= 0) state.pendingReformation = null;
+    if (leftCR <= 0 || !hasAnyReformationTargets(state, pending)) {
+      state.pendingReformation = null;
+    }
 
     return { success, protestantDice: protestantRolls, papalDice: papalRolls, autoSuccess };
   }
+}
+
+/**
+ * Check if any valid reformation/counter-reformation targets remain.
+ * @param {Object} state
+ * @param {Object} pending - pendingReformation object
+ * @returns {boolean}
+ */
+export function hasAnyReformationTargets(state, pending) {
+  const isRef = !pending.type || pending.type === 'reformation';
+  const zone = pending.zone || (pending.zones !== 'all' ? pending.zones : null);
+  for (const [name, sp] of Object.entries(state.spaces)) {
+    if (zone && sp.languageZone !== zone) continue;
+    if (isRef ? isValidReformationTarget(state, name) : isValidCounterReformTarget(state, name)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // ── Translate Scripture ───────────────────────────────────────────

@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildInitialState } from './state-init.js';
 import { MAJOR_POWERS, IMPULSE_ORDER } from '../constants.js';
+import { getAllVpTotals } from './state-helpers.js';
 import { TEST_PLAYERS } from '../test-helpers.js';
 
 describe('buildInitialState', () => {
@@ -129,13 +130,20 @@ describe('buildInitialState', () => {
   // ── VP ──────────────────────────────────────────────────────────
 
   describe('victory points', () => {
-    it('has correct starting VP', () => {
-      expect(state.vp.ottoman).toBe(8);
-      expect(state.vp.hapsburg).toBe(9);
-      expect(state.vp.england).toBe(9);
-      expect(state.vp.france).toBe(12);
-      expect(state.vp.papacy).toBe(19);
-      expect(state.vp.protestant).toBe(0);
+    it('state.vp (bonus VP) starts at zero for all powers', () => {
+      for (const power of MAJOR_POWERS) {
+        expect(state.vp[power]).toBe(0);
+      }
+    });
+
+    it('total VP matches expected starting values', () => {
+      const totals = getAllVpTotals(state);
+      expect(totals.ottoman).toBe(8);
+      expect(totals.hapsburg).toBe(9);
+      expect(totals.england).toBe(9);
+      expect(totals.france).toBe(12);
+      expect(totals.papacy).toBe(19);
+      expect(totals.protestant).toBe(0);
     });
 
     it('bonusVp all zero', () => {

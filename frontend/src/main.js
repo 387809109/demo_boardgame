@@ -1465,14 +1465,15 @@ class App {
    * (initBotDecks + placeBotExtraUnits), so no post-hoc patching is needed.
    *
    * Call from browser console:
-   *   window.app._startHisGame()               // all 6 bots
-   *   window.app._startHisGame('hapsburg')      // you play Hapsburg
-   *   window.app._startHisGame('protestant')    // you play Protestant
+   *   window.app._startHisGame()                                    // all 6 bots
+   *   window.app._startHisGame('hapsburg')                          // you play Hapsburg
+   *   window.app._startHisGame(null, { dominationVictoryEnabled: false }) // disable domination
    *
    * @param {string|null} [humanPower] - Power the human controls, or null for all-bot
+   * @param {Object} [extraOptions] - Additional game settings (e.g. dominationVictoryEnabled)
    * @returns {Promise<void>}
    */
-  async _startHisGame(humanPower = null) {
+  async _startHisGame(humanPower = null, extraOptions = {}) {
     const allPowers = ['ottoman', 'hapsburg', 'england', 'france', 'papacy', 'protestant'];
     if (humanPower && !allPowers.includes(humanPower)) {
       console.error('[startHisGame] Unknown power:', humanPower);
@@ -1483,7 +1484,7 @@ class App {
     const players = [{ id: this.playerId, nickname, isHost: true }];
     const botPowers = humanPower ? allPowers.filter(p => p !== humanPower) : allPowers;
     const powerAssignment = humanPower ? [[humanPower]] : [[]];
-    const options = { powerAssignment, botPowers };
+    const options = { powerAssignment, botPowers, ...extraOptions };
     this._startGameNow({ gameType: 'his', players, mode: 'offline', options });
     const desc = humanPower ? `You play ${humanPower}` : 'All 6 powers are HISBOT';
     console.log(`[startHisGame] ${desc}. Kicking action chain.`);

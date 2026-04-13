@@ -111,7 +111,7 @@ describe('evaluateHomeCard', () => {
     };
     const result = evaluateHomeCard(state, 'ottoman');
     expect(result).not.toBeNull();
-    expect(result.actionData.homeEffect).toBe('build_regulars');
+    expect(result.actionData.mode).toBe('recruit');
   });
 
   it('Ottoman: returns null if behavior card Home=No', () => {
@@ -152,8 +152,8 @@ describe('evaluateHomeCard', () => {
     state.englandHomeCardWar = 'france';
     const result = evaluateHomeCard(state, 'england');
     expect(result).not.toBeNull();
-    expect(result.actionData.homeEffect).toBe('declare_war');
-    expect(result.actionData.target).toBe('france');
+    expect(result.actionData.mode).toBe('war');
+    expect(result.actionData.targetPower).toBe('france');
   });
 
   it('England: advances marital status if Turn >= 2 and Henry alive', () => {
@@ -164,7 +164,7 @@ describe('evaluateHomeCard', () => {
     state.rulers.england = { id: 'henry_viii', name: 'Henry VIII', admin: 1 };
     const result = evaluateHomeCard(state, 'england');
     expect(result).not.toBeNull();
-    expect(result.actionData.homeEffect).toBe('marital_status');
+    expect(result.actionData.mode).toBe('marital');
   });
 
   it('France: plays Chateau roll if modifier > -3', () => {
@@ -232,7 +232,7 @@ describe('decideCardPlay', () => {
     // Ottoman Home card with Home=Yes should try to build regulars
     expect(result).not.toBeNull();
     expect(result.actionType).toBe('PLAY_CARD_EVENT');
-    expect(result.actionData.homeEffect).toBe('build_regulars');
+    expect(result.actionData.mode).toBe('recruit');
   });
 
   it('routes Mandatory event: always play event', () => {
@@ -336,7 +336,10 @@ describe('checkTreatyObligation', () => {
 describe('getGangingUpTargets', () => {
   it('returns powers at >= 21 VP and higher than Bot', () => {
     const state = createBotState(['ottoman']);
-    state.vp = { ottoman: 10, france: 22, hapsburg: 15, england: 21 };
+    // Track VP: ottoman=8, france=12, hapsburg=9, england=9
+    // Total = track + bonus. Set bonus so:
+    // ottoman total=10, france total=22, hapsburg total=19, england total=21
+    state.vp = { ottoman: 2, france: 10, hapsburg: 10, england: 12 };
     const targets = getGangingUpTargets(state, 'ottoman');
     expect(targets).toContain('france');
     expect(targets).toContain('england');
@@ -346,7 +349,9 @@ describe('getGangingUpTargets', () => {
   it('uses 20 VP threshold in tournament mode', () => {
     const state = createBotState(['ottoman']);
     state.tournament = true;
-    state.vp = { ottoman: 10, france: 20, hapsburg: 19 };
+    // Track VP: ottoman=8, france=12, hapsburg=9
+    // Total: ottoman=10, france=20, hapsburg=19
+    state.vp = { ottoman: 2, france: 8, hapsburg: 10 };
     const targets = getGangingUpTargets(state, 'ottoman');
     expect(targets).toContain('france');
     expect(targets).not.toContain('hapsburg');
@@ -354,7 +359,9 @@ describe('getGangingUpTargets', () => {
 
   it('returns empty if no powers meet threshold', () => {
     const state = createBotState(['ottoman']);
-    state.vp = { ottoman: 10, france: 15, hapsburg: 18 };
+    // Track VP: ottoman=8, france=12, hapsburg=9
+    // Total: ottoman=10, france=15, hapsburg=18
+    state.vp = { ottoman: 2, france: 3, hapsburg: 9 };
     expect(getGangingUpTargets(state, 'ottoman')).toEqual([]);
   });
 });
@@ -576,7 +583,7 @@ describe('evaluateHomeCard edge cases', () => {
     const result = evaluateHomeCard(state, 'england');
     // Should play marital status or null depending on behavior card home flag
     if (result) {
-      expect(result.actionData.homeEffect).toBe('marital_status');
+      expect(result.actionData.mode).toBe('marital');
     }
   });
 
@@ -650,13 +657,17 @@ describe('checkTreatyObligation edge cases', () => {
 describe('getGangingUpTargets edge cases', () => {
   it('returns empty when no power >= 21 VP', () => {
     const state = createBotState(['ottoman']);
-    state.vp = { ottoman: 10, hapsburg: 15, england: 12 };
+    // Track VP: ottoman=8, hapsburg=9, england=9
+    // Set bonus so totals: ottoman=10, hapsburg=15, england=12
+    state.vp = { ottoman: 2, hapsburg: 6, england: 3 };
     expect(getGangingUpTargets(state, 'ottoman')).toEqual([]);
   });
 
   it('returns powers at >= 21 VP above Bot VP', () => {
     const state = createBotState(['ottoman']);
-    state.vp = { ottoman: 10, hapsburg: 22, england: 12, france: 21 };
+    // Track VP: ottoman=8, hapsburg=9, england=9, france=12
+    // Totals: ottoman=10, hapsburg=22, england=12, france=21
+    state.vp = { ottoman: 2, hapsburg: 13, england: 3, france: 9 };
     const targets = getGangingUpTargets(state, 'ottoman');
     expect(targets).toContain('hapsburg');
     expect(targets).toContain('france');
@@ -665,7 +676,9 @@ describe('getGangingUpTargets edge cases', () => {
 
   it('does not include self or lower-VP powers', () => {
     const state = createBotState(['hapsburg']);
-    state.vp = { hapsburg: 23, ottoman: 21 };
+    // Track VP: hapsburg=9, ottoman=8
+    // Totals: hapsburg=23, ottoman=21
+    state.vp = { hapsburg: 14, ottoman: 13 };
     const targets = getGangingUpTargets(state, 'hapsburg');
     expect(targets).not.toContain('hapsburg');
     expect(targets).not.toContain('ottoman');
@@ -674,7 +687,8 @@ describe('getGangingUpTargets edge cases', () => {
   it('tournament mode uses threshold 20', () => {
     const state = createBotState(['ottoman']);
     state.tournament = true;
-    state.vp = { ottoman: 10, hapsburg: 20 };
+    // Track VP: ottoman=8, hapsburg=9 → totals: ottoman=10, hapsburg=20
+    state.vp = { ottoman: 2, hapsburg: 11 };
     expect(getGangingUpTargets(state, 'ottoman')).toContain('hapsburg');
   });
 });

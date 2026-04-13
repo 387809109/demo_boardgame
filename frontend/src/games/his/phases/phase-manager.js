@@ -15,7 +15,7 @@ import { resolveNewWorld } from './phase-new-world.js';
 import { executeWinter } from './phase-winter.js';
 import { checkImmediateVictory } from '../state/victory-checks.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
-import { isHomeSpace } from '../state/state-helpers.js';
+import { isHomeSpace, getAllVpTotals } from '../state/state-helpers.js';
 
 // ── Phase Constants ────────────────────────────────────────────────
 
@@ -304,11 +304,8 @@ function resolveVictoryDetermination(state, helpers) {
     return;
   }
 
-  // 2. Calculate VP totals
-  const vpTotals = {};
-  for (const power of MAJOR_POWERS) {
-    vpTotals[power] = (state.vp[power] || 0) + (state.bonusVp?.[power] || 0);
-  }
+  // 2. Calculate VP totals (track VP + bonus VP)
+  const vpTotals = getAllVpTotals(state);
   const sorted = Object.entries(vpTotals).sort((a, b) => b[1] - a[1]);
   const [topPower, topVp] = sorted[0];
 
@@ -323,8 +320,8 @@ function resolveVictoryDetermination(state, helpers) {
     return;
   }
 
-  // 4. Domination victory: Turn 4+, gap >= 5
-  if (state.turn >= VICTORY.dominationMinTurn) {
+  // 4. Domination victory: Turn 4+, gap >= 5 (if enabled)
+  if (state.dominationVictoryEnabled !== false && state.turn >= VICTORY.dominationMinTurn) {
     const [, secondVp] = sorted[1];
     if (topVp - secondVp >= VICTORY.dominationGap) {
       state.status = 'ended';

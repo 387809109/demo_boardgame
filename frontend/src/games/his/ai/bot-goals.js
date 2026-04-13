@@ -27,13 +27,13 @@ import { getActiveBehaviorCard } from './behavior-cards.js';
 import {
   getUnitsInSpace, countLandUnits, isHomeSpace, isFortified,
   getAdjacentSpaces, getAllAdjacentSpaces, hasEnemyUnits,
-  findFriendlyPath, findNearestFortifiedSpace,
+  getConnectionType, findFriendlyPath, findNearestFortifiedSpace,
   countKeysForPower, getActiveRuler,
   isValidReformationTarget, isValidCounterReformTarget,
   calcReformationDice, calcCounterReformationDice,
   getAvailableDebaters, getFormationCap
 } from '../state/state-helpers.js';
-import { areAtWar } from '../state/war-helpers.js';
+import { areAtWar, canAttack } from '../state/war-helpers.js';
 import { hasLineOfCommunicationForControl } from '../actions/military-actions.js';
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -163,30 +163,32 @@ function findGarrisonDeficits(state, power) {
 export function chooseLandUnitPlacement(state, power) {
   const capitals = CAPITALS[power] || [];
 
-  // 1. Capital if garrison not met
+  // 1. Capital if garrison not met and not enemy-occupied
   for (const cap of capitals) {
+    if (hasEnemyUnits(state, cap, power)) continue;
     const req = getGarrisonRequirement(state, cap, power);
     const stack = getUnitsInSpace(state, cap, power);
     if (countLandUnits(stack) < req) return cap;
   }
 
-  // 2. Fortified space closest to enemy that doesn't meet garrison
-  const deficits = findGarrisonDeficits(state, power);
+  // 2. Fortified home space closest to enemy that doesn't meet garrison
+  // (Non-home spaces can't be used for raising units — must be home spaces)
+  const deficits = findGarrisonDeficits(state, power)
+    .filter(d => isHomeSpace(d.space, power) && !hasEnemyUnits(state, d.space, power));
   if (deficits.length > 0) {
-    // Sort by proximity to enemies (rough: use deficit as priority, then alphabetical)
     return deficits[0].space;
   }
 
   // 3. Space with leader closest to enemy
-  // Simplified: just place at capital if controlled
+  // Simplified: just place at capital if controlled and not enemy-occupied
   for (const cap of capitals) {
     const capSp = state.spaces[cap];
-    if (capSp && capSp.controller === power) return cap;
+    if (capSp && capSp.controller === power && !hasEnemyUnits(state, cap, power)) return cap;
   }
 
-  // Fall back to any controlled home space (units can only be built in home spaces)
+  // Fall back to any controlled home space not enemy-occupied
   for (const [name, sp] of Object.entries(state.spaces)) {
-    if (sp.controller === power && isHomeSpace(name, power)) return name;
+    if (sp.controller === power && isHomeSpace(name, power) && !hasEnemyUnits(state, name, power)) return name;
   }
   return null;
 }
@@ -199,10 +201,10 @@ export function chooseLandUnitPlacement(state, power) {
  * @returns {string|null} Port space name
  */
 export function chooseNavalPlacement(state, power) {
-  // Find all controlled ports
+  // Find all controlled home ports (can only build in home spaces)
   const ports = [];
   for (const [name, sp] of Object.entries(state.spaces)) {
-    if (sp.controller === power && sp.isPort) {
+    if (sp.controller === power && sp.isPort && isHomeSpace(name, power)) {
       ports.push(name);
     }
   }
@@ -249,7 +251,8 @@ function findNearestEnemySpace(state, from, power) {
       const sp = state.spaces[space];
       if (sp) {
         for (const u of sp.units || []) {
-          if (u.owner !== power && countLandUnits(u) > 0) {
+          if (u.owner !== power && u.owner !== 'independent' &&
+              canAttack(state, power, u.owner) && countLandUnits(u) > 0) {
             return { space, distance: dist };
           }
         }
@@ -421,6 +424,14 @@ export function executeAdvance(state, power, cp) {
       if (!destSp) continue;
       // Verify LOC — can't move into enemy-controlled fortification
       if (isFortified(destSp) && destSp.controller !== power) continue;
+      // Skip spaces with units of a power we're not at war with
+      if (hasEnemyUnitsNotAtWar(state, dest, power)) continue;
+      // Check actual movement cost (pass = 2 CP)
+      const connType = getConnectionType(cand.space, dest);
+      const moveCost = connType === 'pass'
+        ? (ACTION_COSTS[power].move_over_pass || 2)
+        : cost;
+      if (cp < moveCost) continue;
       const destDist = bfsDistance(state, dest, nearestEnemy.space);
       if (destDist !== null && destDist < currentDist) {
         return {
@@ -428,14 +439,16 @@ export function executeAdvance(state, power, cp) {
             actionType: ACTION_TYPES.MOVE_FORMATION,
             actionData: {
               from: cand.space, to: dest,
-              units: capUnitsToFormation(
-                { regulars: cand.regulars, mercenaries: cand.mercenaries, cavalry: cand.cavalry },
-                cand.leaders
-              ),
-              leaders: cand.leaders
+              units: {
+                ...capUnitsToFormation(
+                  { regulars: cand.regulars, mercenaries: cand.mercenaries, cavalry: cand.cavalry },
+                  cand.leaders
+                ),
+                leaders: cand.leaders
+              }
             }
           },
-          cpCost: cost
+          cpCost: moveCost
         };
       }
     }
@@ -457,16 +470,21 @@ export function executeLandBattle(state, power, cp) {
   // Priority 1: Relieve a siege on our key/electorate
   const siegeRelief = findSiegeRelief(state, power);
   if (siegeRelief) {
-    return {
-      action: {
-        actionType: ACTION_TYPES.MOVE_FORMATION,
-        actionData: {
-          from: siegeRelief.from, to: siegeRelief.to,
-          units: siegeRelief.units, leaders: siegeRelief.leaders
-        }
-      },
-      cpCost: cost
-    };
+    const reliefConn = getConnectionType(siegeRelief.from, siegeRelief.to);
+    const reliefCost = reliefConn === 'pass'
+      ? (ACTION_COSTS[power].move_over_pass || 2) : cost;
+    if (cp >= reliefCost) {
+      return {
+        action: {
+          actionType: ACTION_TYPES.MOVE_FORMATION,
+          actionData: {
+            from: siegeRelief.from, to: siegeRelief.to,
+            units: { ...siegeRelief.units, leaders: siegeRelief.leaders }
+          }
+        },
+        cpCost: reliefCost
+      };
+    }
   }
 
   // Priority 2: Attack unfortified space with fewer enemy units
@@ -476,27 +494,37 @@ export function executeLandBattle(state, power, cp) {
     for (const dest of adj) {
       const destSp = state.spaces[dest];
       if (!destSp || isFortified(destSp)) continue;
-      // Count enemy units
+      // Count enemy units (only powers we can attack)
       let enemyCount = 0;
+      let hasNonWarEnemy = false;
       for (const u of destSp.units || []) {
-        if (u.owner !== power) enemyCount += countLandUnits(u);
+        if (u.owner === power || u.owner === 'independent') continue;
+        if (!canAttack(state, power, u.owner)) { hasNonWarEnemy = true; continue; }
+        enemyCount += countLandUnits(u);
       }
+      // Skip if space has units of a power we're not at war with
+      if (hasNonWarEnemy) continue;
       if (enemyCount > 0 && enemyCount < cand.totalUnits) {
-        const moveSize = Math.min(cand.totalUnits, enemyCount * 2);
+        // Check pass cost
+        const connType = getConnectionType(cand.space, dest);
+        const moveCost = connType === 'pass'
+          ? (ACTION_COSTS[power].move_over_pass || 2) : cost;
+        if (cp < moveCost) continue;
         return {
           action: {
             actionType: ACTION_TYPES.MOVE_FORMATION,
             actionData: {
               from: cand.space, to: dest,
               units: {
-                regulars: Math.min(cand.regulars, moveSize),
-                mercenaries: cand.mercenaries,
-                cavalry: cand.cavalry
-              },
-              leaders: cand.leaders
+                ...capUnitsToFormation(
+                  { regulars: cand.regulars, mercenaries: cand.mercenaries, cavalry: cand.cavalry },
+                  cand.leaders
+                ),
+                leaders: cand.leaders
+              }
             }
           },
-          cpCost: cost
+          cpCost: moveCost
         };
       }
     }
@@ -537,16 +565,21 @@ export function executeSiege(state, power, cp) {
 
   const siegeMove = findSiegeTarget(state, power);
   if (siegeMove) {
-    return {
-      action: {
-        actionType: ACTION_TYPES.MOVE_FORMATION,
-        actionData: {
-          from: siegeMove.from, to: siegeMove.to,
-          units: siegeMove.units, leaders: siegeMove.leaders
-        }
-      },
-      cpCost: moveCost
-    };
+    const connType = getConnectionType(siegeMove.from, siegeMove.to);
+    const siegeMoveCost = connType === 'pass'
+      ? (ACTION_COSTS[power].move_over_pass || 2) : moveCost;
+    if (cp >= siegeMoveCost) {
+      return {
+        action: {
+          actionType: ACTION_TYPES.MOVE_FORMATION,
+          actionData: {
+            from: siegeMove.from, to: siegeMove.to,
+            units: { ...siegeMove.units, leaders: siegeMove.leaders }
+          }
+        },
+        cpCost: siegeMoveCost
+      };
+    }
   }
 
   return null;
@@ -862,13 +895,18 @@ export function executeBurn(state, power, cp) {
   const target = chooseCounterReformTarget(state);
   if (!target) return null;
 
+  // BURN_BOOKS needs a language zone, not a space name
+  const targetSp = state.spaces[target];
+  const zone = targetSp?.languageZone;
+  if (!zone) return null;
+
   // Choose debater to commit: Cajetan → Tetzel → Caraffa
   const debater = chooseBurnDebater(state);
 
   return {
     action: {
       actionType: ACTION_TYPES.BURN_BOOKS,
-      actionData: { space: target, debater: debater?.id || null }
+      actionData: { zone, debater: debater?.id || null }
     },
     cpCost: cost
   };
@@ -948,6 +986,9 @@ export function executeColonize(state, power, cp) {
   if (!NEW_WORLD_POWERS.includes(power)) return null;
   const cost = ACTION_COSTS[power].colonize;
   if (!cost || cp < cost) return null;
+
+  // Only one colonize action per impulse
+  if (state.newWorld?.colonizedThisTurn?.[power]) return null;
 
   // Check colony slots available
   const nw = state.newWorld;
@@ -1112,6 +1153,23 @@ function capUnitsToFormation(units, leaders) {
 }
 
 /**
+ * Check if a space has enemy units belonging to a power we're NOT at war with.
+ * @param {Object} state
+ * @param {string} spaceName
+ * @param {string} power
+ * @returns {boolean}
+ */
+function hasEnemyUnitsNotAtWar(state, spaceName, power) {
+  const sp = state.spaces[spaceName];
+  if (!sp) return false;
+  for (const u of sp.units || []) {
+    if (u.owner === power || u.owner === 'independent') continue;
+    if (countLandUnits(u) > 0 && !canAttack(state, power, u.owner)) return true;
+  }
+  return false;
+}
+
+/**
  * Find spaces with movable formations (units above garrison).
  * @param {Object} state
  * @param {string} power
@@ -1191,8 +1249,10 @@ function findSiegeRelief(state, power) {
       if (adj.includes(siege)) {
         return {
           from: form.space, to: siege,
-          units: { regulars: form.regulars, mercenaries: form.mercenaries,
-            cavalry: form.cavalry },
+          units: capUnitsToFormation(
+            { regulars: form.regulars, mercenaries: form.mercenaries, cavalry: form.cavalry },
+            form.leaders
+          ),
           leaders: form.leaders
         };
       }
@@ -1212,7 +1272,7 @@ function checkForeignWar(state, power, cp) {
   const fwCost = ACTION_COSTS[power].fight_foreign_war;
   if (!fwCost || cp < fwCost) return null;
 
-  const foreignWars = state.foreignWars || [];
+  const foreignWars = Array.isArray(state.foreignWars) ? state.foreignWars : [];
   for (const fw of foreignWars) {
     if (fw.targetPower !== power) continue;
     const friendly = fw.friendlyUnits || 0;
@@ -1271,12 +1331,18 @@ function findSiegeTarget(state, power) {
       const sp = state.spaces[dest];
       if (!sp || !isFortified(sp)) continue;
       if (sp.controller === power) continue;
+      // Must be at war with the controller
+      if (sp.controller && !canAttack(state, power, sp.controller)) continue;
       // Don't re-siege if already under siege by us
       if (sp.siege?.besieger === power) continue;
+      // Skip if space has units of a power we can't attack
+      if (hasEnemyUnitsNotAtWar(state, dest, power)) continue;
       targets.push({
         from: form.space, to: dest,
-        units: { regulars: form.regulars, mercenaries: form.mercenaries,
-          cavalry: form.cavalry },
+        units: capUnitsToFormation(
+          { regulars: form.regulars, mercenaries: form.mercenaries, cavalry: form.cavalry },
+          form.leaders
+        ),
         leaders: form.leaders,
         isKey: sp.isKey || false,
         formSize: form.totalUnits
@@ -1424,6 +1490,9 @@ function chooseTranslationLanguage(state, tracks) {
   for (const lang of langs) {
     const progress = tracks[lang] || 0;
     if (progress >= TRANSLATION.fullBibleCp) continue; // Full bible complete
+    // French requires Calvin placed; English requires Cranmer placed
+    if (lang === 'french' && !state.calvinPlaced) continue;
+    if (lang === 'english' && !state.cranmerPlaced) continue;
     return lang;
   }
   return null;

@@ -70,7 +70,7 @@ EVENT_HANDLERS[2] = {
       return { valid: false, error: 'Only Hapsburg can play Holy Roman Emperor as event' };
     }
     // Charles V must not be captured or under siege
-    if (state.capturedLeaders?.includes('charles_v')) {
+    if (Object.values(state.capturedLeaders || {}).some(arr => Array.isArray(arr) && arr.includes('charles_v'))) {
       return { valid: false, error: 'Charles V is captured' };
     }
     return { valid: true };
@@ -369,7 +369,7 @@ EVENT_HANDLERS[3] = {
       if (state.rulers.england !== 'henry_viii') {
         return { valid: false, error: 'Henry VIII must be ruler' };
       }
-      if (state.capturedLeaders?.includes('henry_viii')) {
+      if (Object.values(state.capturedLeaders || {}).some(arr => Array.isArray(arr) && arr.includes('henry_viii'))) {
         return { valid: false, error: 'Henry VIII is captured' };
       }
       const idx = MARITAL_STATUS.indexOf(state.henryMaritalStatus);

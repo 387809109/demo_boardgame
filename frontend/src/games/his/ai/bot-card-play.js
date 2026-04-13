@@ -15,7 +15,7 @@ import { ACTION_TYPES } from '../actions/action-types.js';
 import { CAPITALS, RULERS } from '../constants.js';
 import { getActiveBehaviorCard } from './behavior-cards.js';
 import { areAtWar, getWarsOf } from '../state/war-helpers.js';
-import { getActiveRuler, countLandUnits, getUnitsInSpace } from '../state/state-helpers.js';
+import { getActiveRuler, countLandUnits, getUnitsInSpace, getAllVpTotals } from '../state/state-helpers.js';
 import {
   shouldPlayEvent, satisfiesTreaty, shouldPlayResponse,
   satisfiesResponseTreaty, hasEventCriteria, hasResponseCriteria
@@ -168,8 +168,8 @@ function evaluateEnglandHome(state) {
       actionType: ACTION_TYPES.PLAY_CARD_EVENT,
       actionData: {
         cardNumber: HOME_CARDS.england,
-        homeEffect: 'declare_war',
-        target: state.englandHomeCardWar
+        mode: 'war',
+        targetPower: state.englandHomeCardWar
       }
     };
   }
@@ -182,7 +182,7 @@ function evaluateEnglandHome(state) {
         actionType: ACTION_TYPES.PLAY_CARD_EVENT,
         actionData: {
           cardNumber: HOME_CARDS.england,
-          homeEffect: 'marital_status'
+          mode: 'marital'
         }
       };
     }
@@ -350,10 +350,11 @@ export function checkTreatyObligation(state, power, cardNumber) {
  */
 export function getGangingUpTargets(state, power) {
   const threshold = state.tournament ? 20 : 21;
-  const myVp = state.vp?.[power] || 0;
+  const vpTotals = getAllVpTotals(state);
+  const myVp = vpTotals[power] || 0;
   const targets = [];
 
-  for (const [p, vp] of Object.entries(state.vp || {})) {
+  for (const [p, vp] of Object.entries(vpTotals)) {
     if (p !== power && vp >= threshold && vp > myVp) {
       targets.push(p);
     }
@@ -402,7 +403,8 @@ export function shouldPlayEventGangingUp(state, power, cardNumber, gangTargets) 
 export function shouldSaveCards(state, power) {
   // Check VP threshold — no saving in endgame
   const vpThreshold = state.tournament ? 23 : 25;
-  for (const vp of Object.values(state.vp || {})) {
+  const vpTotals = getAllVpTotals(state);
+  for (const vp of Object.values(vpTotals)) {
     if (vp >= vpThreshold) return false;
   }
 
@@ -662,14 +664,16 @@ function handleEmptyHand(state, power) {
  */
 export function decideResponsePlay(state, power) {
   const setAside = state.botSetAside?.[power] || [];
+  // Only play cards the engine will accept in this response window
+  const validCards = state.pendingResponse?.validCards || [];
 
   for (const cardNumber of setAside) {
+    // Skip cards not allowed in the current response window
+    if (validCards.length > 0 && !validCards.includes(cardNumber)) continue;
     if (shouldPlayResponse(state, power, cardNumber)) {
-      // Check if playing this card could change the state of the game
-      // (HISBOT rule: only play if it could change state)
       return {
         actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
-        actionData: { cardNumber }
+        actionData: { cardNumber, fromSetAside: true }
       };
     }
   }
@@ -678,12 +682,13 @@ export function decideResponsePlay(state, power) {
   const tokens = state.treatyTokens?.[power] || [];
   for (const tokenPower of tokens) {
     for (const cardNumber of setAside) {
+      if (validCards.length > 0 && !validCards.includes(cardNumber)) continue;
       // Check both event criteria treaty and response criteria treaty
       if (satisfiesTreaty(state, power, cardNumber, tokenPower) ||
           satisfiesResponseTreaty(state, power, cardNumber, tokenPower)) {
         return {
           actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
-          actionData: { cardNumber, forTreaty: true, tokenPower }
+          actionData: { cardNumber, fromSetAside: true, forTreaty: true, tokenPower }
         };
       }
     }

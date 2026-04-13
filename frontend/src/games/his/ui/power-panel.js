@@ -10,6 +10,7 @@
  */
 
 import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
+import { getAllVpTotals } from '../state/state-helpers.js';
 
 export class PowerPanel {
   constructor() {
@@ -94,8 +95,9 @@ export class PowerPanel {
       this._el.appendChild(tabs);
     }
 
-    // VP
-    const vp = state.vp ? (state.vp[playerPower] || 0) : 0;
+    // VP (track VP + bonus VP)
+    const vpTotals = state.vp ? getAllVpTotals(state) : {};
+    const vp = vpTotals[playerPower] || 0;
     this._addRow('胜利点', `${vp} VP`, '#5c6bc0');
 
     // Hand size

@@ -12,12 +12,15 @@ export const SCENARIO_1517 = {
   startTurn: 1,
 
   // ── Starting VP ────────────────────────────────────────────────
+  // Track-based VP (keys, Protestant spaces, piracy, St. Peter's) is
+  // calculated dynamically by getTrackVp(). state.vp holds only
+  // incremental VP from events, debates, conclaves, and peace treaties.
   vp: {
-    ottoman: 8,
-    hapsburg: 9,
-    england: 9,
-    france: 12,
-    papacy: 19,
+    ottoman: 0,
+    hapsburg: 0,
+    england: 0,
+    france: 0,
+    papacy: 0,
     protestant: 0
   },
 

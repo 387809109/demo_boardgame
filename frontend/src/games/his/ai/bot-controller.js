@@ -659,6 +659,13 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
     // Primary action failed — try fallback chain
     const cardNum = action.actionData?.cardNumber;
 
+    // 0) If stuck inside a response window, decline and let the active power continue
+    if (currentState.pendingResponse?.respondingPower === nextPower) {
+      const dr = executeMove({ actionType: ACTION_TYPES.DECLINE_RESPONSE, actionData: {}, playerId: pid });
+      if (dr?.success) return;
+      console.warn('[BOT STUCK] DECLINE_RESPONSE failed:', dr?.error);
+    }
+
     // 1) Event failed → try as CP
     if (action.actionType === ACTION_TYPES.PLAY_CARD_EVENT && cardNum != null) {
       const r = executeMove({ actionType: ACTION_TYPES.PLAY_CARD_CP, actionData: { cardNumber: cardNum }, playerId: pid });

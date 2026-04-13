@@ -13,7 +13,7 @@ import {
 import { getVisibleState } from './state/state-visible.js';
 import {
   getPowerForPlayer, getPowersForPlayer, playerControlsPower,
-  canPass, isFortified
+  canPass, isFortified, getAllVpTotals
 } from './state/state-helpers.js';
 import {
   PHASES, transitionPhase, advancePhase, advanceImpulse
@@ -41,7 +41,7 @@ import {
 import {
   validatePublishTreatise, publishTreatise,
   validateBurnBooks, burnBooks,
-  validateReformationAttempt, resolveReformationAttempt,
+  validateReformationAttempt, resolveReformationAttempt, hasAnyReformationTargets,
   validateTranslateScripture, translateScripture,
   validateBuildStPeters, buildStPeters,
   validateFoundJesuit, foundJesuit
@@ -501,6 +501,15 @@ export class HISGame extends GameEngine {
           return { valid: false, error: 'Cannot withdraw into fortification' };
         }
         return { valid: true };
+      }
+
+      // Auto-clear pendingReformation when no valid targets remain
+      if (state.pendingReformation) {
+        const pr = state.pendingReformation;
+        const left = pr.attemptsLeft ?? pr.attemptsRemaining ?? 0;
+        if (left <= 0 || !hasAnyReformationTargets(state, pr)) {
+          state.pendingReformation = null;
+        }
       }
 
       // If pending interaction, block other actions
@@ -1311,15 +1320,11 @@ export class HISGame extends GameEngine {
   }
 
   /**
-   * Calculate total VP for all powers.
+   * Calculate total VP for all powers (track VP + bonus VP).
    * @private
    */
   _calculateVpTotals(state) {
-    const totals = {};
-    for (const power of MAJOR_POWERS) {
-      totals[power] = (state.vp[power] || 0) + (state.bonusVp[power] || 0);
-    }
-    return totals;
+    return getAllVpTotals(state);
   }
 
   /**

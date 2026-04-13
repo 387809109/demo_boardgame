@@ -432,9 +432,10 @@ describe('executeControl', () => {
 
   it('takes political control of unfortified space', () => {
     const state = createBotState(['ottoman']);
-    state.spaces['TestSpace'] = {
-      controller: 'hapsburg', isKey: false, isFortress: false,
-      isElectorate: false, isPort: false,
+    // Sofia: non-key, non-fortress, adjacent to Edirne (Ottoman)
+    state.spaces['Sofia'] = {
+      ...state.spaces['Sofia'],
+      controller: 'hapsburg',
       units: [{ owner: 'ottoman', regulars: 1, mercenaries: 0, cavalry: 0,
         squadrons: 0, corsairs: 0, leaders: [] }]
     };
@@ -477,34 +478,34 @@ describe('executeTranslate', () => {
     const result = executeTranslate(state, 'protestant', 3);
     expect(result).not.toBeNull();
     expect(result.action.actionType).toBe(ACTION_TYPES.TRANSLATE_SCRIPTURE);
-    expect(result.action.actionData.language).toBe('german');
+    expect(result.action.actionData.zone).toBe('german');
     expect(result.cpCost).toBe(1);
   });
 
   it('skips completed language zones', () => {
     const state = createBotState(['protestant']);
     state.translationTracks = {
-      german: { nt: 3, full: 6 },  // Complete
-      french: { nt: 0, full: 0 },
-      english: { nt: 0, full: 0 }
+      german: 10,  // Complete (>= fullBibleCp)
+      french: 0,
+      english: 0
     };
     state.calvinPlaced = true;
     const result = executeTranslate(state, 'protestant', 3);
     expect(result).not.toBeNull();
-    expect(result.action.actionData.language).toBe('french');
+    expect(result.action.actionData.zone).toBe('french');
   });
 
   it('skips French if Calvin not placed', () => {
     const state = createBotState(['protestant']);
     state.translationTracks = {
-      german: { nt: 3, full: 6 },
-      french: { nt: 0, full: 0 },
-      english: { nt: 0, full: 0 }
+      german: 10,  // Complete
+      french: 0,
+      english: 0
     };
     state.calvinPlaced = false;
     state.cranmerPlaced = true;
     const result = executeTranslate(state, 'protestant', 3);
-    expect(result.action.actionData.language).toBe('english');
+    expect(result.action.actionData.zone).toBe('english');
   });
 });
 
@@ -1162,10 +1163,11 @@ describe('executeControl edge cases', () => {
 
   it('takes political control when no unrest targets', () => {
     const state = createBotState(['france']);
-    // Create unfortified enemy space with french unit present
-    state.spaces['TestTown'] = {
-      controller: 'independent', homeSpace: 'france', unrest: false,
-      isKey: false, isElectorate: false, isFortress: false, isPort: false,
+    // Use a real map space adjacent to French territory (Grenoble ↔ Lyon)
+    state.spaces['Grenoble'] = {
+      ...state.spaces['Grenoble'],
+      controller: 'independent', unrest: false,
+      isFortress: false,
       units: [{ owner: 'france', regulars: 1, mercenaries: 0, cavalry: 0,
         squadrons: 0, corsairs: 0, leaders: [] }]
     };

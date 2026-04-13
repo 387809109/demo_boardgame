@@ -6,7 +6,8 @@
 
 import {
   MAJOR_POWERS, IMPULSE_ORDER, RULERS,
-  KEY_VP_TRACK, PROTESTANT_CARD_DRAW,
+  KEY_VP_TRACK, PROTESTANT_CARD_DRAW, PROTESTANT_SPACES_TRACK,
+  PIRACY_VP_TRACK,
   CARD_TYPE, FORMATION, DEBATERS, RELIGION,
   MARITAL_STATUS
 } from '../constants.js';
@@ -162,6 +163,62 @@ export function getKeyVp(state, power) {
   const effectiveKeys = Math.max(0, keys - unrestKeys);
   const clamped = Math.min(effectiveKeys, track.vp.length - 1);
   return track.vp[clamped];
+}
+
+/**
+ * Get VP from dynamic tracks for a power (keys, Protestant spaces, piracy, St. Peter's).
+ * This is the "base" VP that changes as the board state changes.
+ * @param {Object} state
+ * @param {string} power
+ * @returns {number}
+ */
+export function getTrackVp(state, power) {
+  let vp = 0;
+
+  // Key-space VP (all powers except Protestant)
+  vp += getKeyVp(state, power);
+
+  // Protestant Spaces Track — gives VP to both Protestant and Papacy
+  const protSpaces = Math.min(
+    state.protestantSpaces || 0,
+    PROTESTANT_SPACES_TRACK.length - 1
+  );
+  if (power === 'protestant') {
+    vp += PROTESTANT_SPACES_TRACK[protSpaces][1];
+  } else if (power === 'papacy') {
+    vp += PROTESTANT_SPACES_TRACK[protSpaces][0];
+  }
+
+  // Piracy track — Ottoman only
+  if (power === 'ottoman') {
+    const piracy = Math.min(
+      state.piracyTrack || 0,
+      PIRACY_VP_TRACK.length - 1
+    );
+    vp += PIRACY_VP_TRACK[piracy];
+  }
+
+  // St. Peter's — Papacy only
+  if (power === 'papacy') {
+    vp += state.stPetersVp || 0;
+  }
+
+  return vp;
+}
+
+/**
+ * Calculate total VP for all powers (track VP + bonus VP from events/actions).
+ * @param {Object} state
+ * @returns {Object} { [power]: number }
+ */
+export function getAllVpTotals(state) {
+  const totals = {};
+  for (const power of MAJOR_POWERS) {
+    totals[power] = getTrackVp(state, power)
+      + (state.vp[power] || 0)
+      + (state.bonusVp[power] || 0);
+  }
+  return totals;
 }
 
 /**

@@ -276,13 +276,12 @@ describe('HISGame', () => {
       const state = game.getState();
       state.phase = PHASES.VICTORY_DETERMINATION;
       state.turn = 4;
-      // Set ottoman to 20, all others to 14 or less
-      state.vp.ottoman = 20;
-      state.vp.hapsburg = 14;
-      state.vp.england = 14;
-      state.vp.france = 14;
-      state.vp.papacy = 15;
-      state.vp.protestant = 10;
+      // state.vp = bonus VP only; track VP is added automatically
+      // Track VP: ottoman=8, hapsburg=9, england=9, france=12, papacy=19, protestant=0
+      // Set bonus VP so ottoman total=24 (< 25), papacy total=19, gap >= 5
+      state.vp.ottoman = 16; // total: 8+16=24
+      // All others keep vp=0, so totals = track VP only (max 19 for papacy)
+      // Gap: 24-19=5 → domination victory
       const result = game.checkGameEnd(state);
       expect(result.ended).toBe(true);
       expect(result.reason).toBe('domination_victory');
@@ -293,12 +292,8 @@ describe('HISGame', () => {
       const state = game.getState();
       state.phase = PHASES.VICTORY_DETERMINATION;
       state.turn = 3;
-      state.vp.ottoman = 20;
-      state.vp.hapsburg = 10;
-      state.vp.england = 10;
-      state.vp.france = 10;
-      state.vp.papacy = 10;
-      state.vp.protestant = 10;
+      // Ottoman total=24, papacy total=19, gap=5 but turn < 4
+      state.vp.ottoman = 16;
       const result = game.checkGameEnd(state);
       expect(result.ended).toBe(false);
     });
@@ -308,8 +303,11 @@ describe('HISGame', () => {
       const state = game.getState();
       state.phase = PHASES.VICTORY_DETERMINATION;
       state.turn = 9;
-      state.vp.ottoman = 20;
-      state.vp.papacy = 19;
+      // Track VP: papacy=19 (highest), france=12, hapsburg=9, england=9, ottoman=8
+      // Need gap < 5 to avoid domination: give france bonus so gap narrows
+      // papacy total=19, france bonus=5 → total=17, gap=19-17=2 < 5
+      state.vp.france = 5;
+      state.vp.hapsburg = 6; // total=15
       const result = game.checkGameEnd(state);
       expect(result.ended).toBe(true);
       expect(result.reason).toBe('time_limit');
@@ -431,12 +429,12 @@ describe('HISGame', () => {
       const state = game.getState();
       state.phase = PHASES.VICTORY_DETERMINATION;
       state.turn = 9;
-      state.vp.ottoman = 20;
-      state.vp.hapsburg = 20;
-      state.vp.england = 15;
-      state.vp.france = 15;
-      state.vp.papacy = 15;
-      state.vp.protestant = 10;
+      // Track VP: ottoman=8, hapsburg=9. Set bonus so both total 22
+      state.vp.ottoman = 14; // total: 8+14=22
+      state.vp.hapsburg = 13; // total: 9+13=22
+      // papacy track=19, give bonus 2 → total=21 (below tied pair)
+      state.vp.papacy = 2;
+      // All others stay at track VP (france=12, england=9, protestant=0)
       const result = game.checkGameEnd(state);
       expect(result.ended).toBe(true);
       expect(result.reason).toBe('time_limit');

@@ -17,6 +17,7 @@ const PHASE_LABELS = {
 };
 
 import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
+import { getAllVpTotals } from '../state/state-helpers.js';
 
 export class StatusBar {
   constructor() {
@@ -76,9 +77,10 @@ export class StatusBar {
     sep.style.cssText = 'flex: 1;';
     this._el.appendChild(sep);
 
-    // VP scores
+    // VP scores (dynamic: track VP + bonus VP)
     if (state.vp) {
-      for (const [power, score] of Object.entries(state.vp)) {
+      const vpTotals = getAllVpTotals(state);
+      for (const [power, score] of Object.entries(vpTotals)) {
         const color = POWER_COLORS[power] || '#666';
         const isBot = !!state.botPowers?.[power];
         const vpLabel = isBot ? `${score}VP*` : `${score}VP`;

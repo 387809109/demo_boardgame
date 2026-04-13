@@ -34,7 +34,7 @@ describe('EVENT_HANDLERS', () => {
     });
 
     it('validates Charles V not captured', () => {
-      const state = eventState({ capturedLeaders: ['charles_v'] });
+      const state = eventState({ capturedLeaders: { france: ['charles_v'] } });
       const result = validateEvent(state, 'hapsburg', 2, {});
       expect(result.valid).toBe(false);
     });
