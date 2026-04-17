@@ -13,6 +13,8 @@ import {
 } from '../state/state-helpers.js';
 import { canAttack, getAlliesOf } from '../state/war-helpers.js';
 import { SEA_EDGES, SEA_ZONES, PORTS_BY_SEA_ZONE } from '../data/map-data.js';
+import { rollDice } from './religious-actions.js';
+import { LEADER_BY_ID } from '../data/leaders.js';
 
 const SEA_ADJACENCY = (() => {
   const adj = {};
@@ -615,4 +617,105 @@ export function controlUnfortified(state, power, actionData, helpers) {
   helpers.logEvent(state, 'control_unfortified', {
     power, space: actionData.space, removedUnrest
   });
+}
+
+// ── Fight Foreign War (§21.7) ──────────────────────────────────
+
+/**
+ * Validate a Fight Foreign War action.
+ * Requires active foreign war for this power and 1 CP.
+ */
+export function validateFightForeignWar(state, power) {
+  const fw = state.foreignWars?.[power];
+  if (!fw || !fw.active) {
+    return { valid: false, error: 'No active foreign war' };
+  }
+  const cost = ACTION_COSTS[power]?.fight_foreign_war;
+  if (cost == null) {
+    return { valid: false, error: 'Cannot fight foreign war' };
+  }
+  if (state.cpRemaining < cost) {
+    return { valid: false, error: `Not enough CP (need ${cost})` };
+  }
+  return { valid: true };
+}
+
+/**
+ * Execute a Fight Foreign War attempt.
+ * Field battle on the foreign war card: no defender bonus die, no retreat.
+ * §21.7: attacker = power's units on card; defender = foreign enemy units.
+ */
+export function fightForeignWar(state, power, actionData, helpers) {
+  const cost = ACTION_COSTS[power].fight_foreign_war;
+  spendCp(state, cost);
+
+  const fw = state.foreignWars[power];
+  const ownUnits = fw.units || { regulars: 0, mercenaries: 0, cavalry: 0 };
+  const enemyUnits = fw.enemyStrength || 0;
+
+  // Own leader battle rating
+  let leaderBonus = 0;
+  if (fw.leader) {
+    const leader = LEADER_BY_ID[fw.leader];
+    if (leader) leaderBonus = leader.battle || 0;
+  }
+
+  // Attacker: 1 die per own land unit + leader battle rating
+  const ownCount = ownUnits.regulars + ownUnits.mercenaries +
+    (ownUnits.cavalry || 0);
+  const attackerDiceCount = ownCount + leaderBonus;
+  const attackerDice = rollDice(attackerDiceCount);
+  const attackerHits = attackerDice.filter(d => d >= 5).length;
+
+  // Defender: 1 die per enemy unit (no defender bonus die for foreign war)
+  const defenderDice = rollDice(enemyUnits);
+  const defenderHits = defenderDice.filter(d => d >= 5).length;
+
+  // Apply casualties
+  const enemyRemaining = Math.max(0, enemyUnits - attackerHits);
+  const ownLosses = Math.min(defenderHits, ownCount);
+
+  // Remove own losses (mercs first for non-Ottoman, cavalry first for Ottoman)
+  let remaining = ownLosses;
+  if (power === 'ottoman') {
+    const cavLoss = Math.min(remaining, ownUnits.cavalry || 0);
+    ownUnits.cavalry -= cavLoss;
+    remaining -= cavLoss;
+  }
+  const mercLoss = Math.min(remaining, ownUnits.mercenaries);
+  ownUnits.mercenaries -= mercLoss;
+  remaining -= mercLoss;
+  const regLoss = Math.min(remaining, ownUnits.regulars);
+  ownUnits.regulars -= regLoss;
+
+  fw.enemyStrength = enemyRemaining;
+  const result = {
+    power, attackerDice, defenderDice,
+    attackerHits, defenderHits,
+    enemyRemaining, ownLosses
+  };
+
+  if (enemyRemaining === 0) {
+    // Foreign war resolved — return units to home capital
+    fw.active = false;
+    const capital = CAPITALS[power];
+    if (capital && state.spaces[capital]) {
+      let stack = getUnitsInSpace(state, capital, power);
+      if (!stack) {
+        stack = {
+          owner: power, regulars: 0, mercenaries: 0,
+          cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+        };
+        state.spaces[capital].units.push(stack);
+      }
+      stack.regulars += ownUnits.regulars;
+      stack.mercenaries += ownUnits.mercenaries;
+      if (power === 'ottoman') stack.cavalry += (ownUnits.cavalry || 0);
+      if (fw.leader) stack.leaders.push(fw.leader);
+    }
+    result.resolved = true;
+    helpers.logEvent(state, 'foreign_war_resolved', result);
+  } else {
+    helpers.logEvent(state, 'foreign_war_attempt', result);
+  }
 }

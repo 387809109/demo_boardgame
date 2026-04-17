@@ -630,6 +630,29 @@ export const RICHES_RESULTS = {
   DEPLETE: 'deplete',
   CARD: 'card',
   GALLEON: 'galleon',
-  NONE: 'none',
-  ELIMINATED: 'eliminated'
+  NO_EFFECT: 'ne',
+  ELIMINATED: 'elim'
+};
+
+/**
+ * New World Riches Table — lookup by 2d6 roll.
+ * Each row: { inca, aztec, maya, potosi, colony }
+ * Values: 'deplete' | 'card' | 'galleon' | 'elim' | 'ne' (no effect)
+ *
+ * Colony column: 'elim' = colony eliminated, 'ne' = no effect.
+ * Conquest columns: 'deplete' = draw card + conquest depleted (VP kept),
+ * 'galleon' = draw card only if Galleons marker present, 'card' = draw card.
+ */
+export const NEW_WORLD_RICHES_TABLE = {
+  2:  { inca: 'deplete', aztec: 'deplete', maya: 'deplete', potosi: 'elim',    colony: 'elim' },
+  3:  { inca: 'deplete', aztec: 'deplete', maya: 'deplete', potosi: 'elim',    colony: 'elim' },
+  4:  { inca: 'deplete', aztec: 'deplete', maya: 'deplete', potosi: 'ne',      colony: 'elim' },
+  5:  { inca: 'deplete', aztec: 'deplete', maya: 'deplete', potosi: 'ne',      colony: 'ne' },
+  6:  { inca: 'card',    aztec: 'ne',      maya: 'ne',      potosi: 'ne',      colony: 'ne' },
+  7:  { inca: 'galleon', aztec: 'galleon', maya: 'galleon', potosi: 'galleon', colony: 'ne' },
+  8:  { inca: 'card',    aztec: 'card',    maya: 'card',    potosi: 'card',    colony: 'galleon' },
+  9:  { inca: 'card',    aztec: 'card',    maya: 'card',    potosi: 'card',    colony: 'card' },
+  10: { inca: 'card',    aztec: 'card',    maya: 'card',    potosi: 'card',    colony: 'card' },
+  11: { inca: 'card',    aztec: 'card',    maya: 'card',    potosi: 'card',    colony: 'card' },
+  12: { inca: 'card',    aztec: 'card',    maya: 'card',    potosi: 'card',    colony: 'card' },
 };

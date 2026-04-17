@@ -422,8 +422,9 @@ export function executeAdvance(state, power, cp) {
     for (const dest of adj) {
       const destSp = state.spaces[dest];
       if (!destSp) continue;
-      // Verify LOC — can't move into enemy-controlled fortification
-      if (isFortified(destSp) && destSp.controller !== power) continue;
+      // Can't march through enemy fortification unless at war (siege/battle)
+      if (isFortified(destSp) && destSp.controller !== power &&
+          (!destSp.controller || !canAttack(state, power, destSp.controller))) continue;
       // Skip spaces with units of a power we're not at war with
       if (hasEnemyUnitsNotAtWar(state, dest, power)) continue;
       // Check actual movement cost (pass = 2 CP)
@@ -487,13 +488,17 @@ export function executeLandBattle(state, power, cp) {
     }
   }
 
-  // Priority 2: Attack unfortified space with fewer enemy units
+  // Priority 2: Attack space with enemy units (fortified or not) where we outnumber
   const candidates = findMovableFormations(state, power, 2);
   for (const cand of candidates) {
     const adj = getAllAdjacentSpaces(cand.space);
     for (const dest of adj) {
       const destSp = state.spaces[dest];
-      if (!destSp || isFortified(destSp)) continue;
+      if (!destSp) continue;
+      // For fortified spaces, must be at war with controller
+      if (isFortified(destSp) && destSp.controller && destSp.controller !== power) {
+        if (!canAttack(state, power, destSp.controller)) continue;
+      }
       // Count enemy units (only powers we can attack)
       let enemyCount = 0;
       let hasNonWarEnemy = false;
@@ -504,7 +509,10 @@ export function executeLandBattle(state, power, cp) {
       }
       // Skip if space has units of a power we're not at war with
       if (hasNonWarEnemy) continue;
-      if (enemyCount > 0 && enemyCount < cand.totalUnits) {
+      // Attack if we outnumber, OR if enemy-controlled fortified space (to siege)
+      const isEnemyFort = isFortified(destSp) && destSp.controller !== power;
+      if ((enemyCount > 0 && enemyCount < cand.totalUnits) ||
+          (isEnemyFort && cand.totalUnits >= 2)) {
         // Check pass cost
         const connType = getConnectionType(cand.space, dest);
         const moveCost = connType === 'pass'
@@ -529,6 +537,11 @@ export function executeLandBattle(state, power, cp) {
       }
     }
   }
+
+  // Fallback: Advance toward nearest enemy units (implicit advance)
+  const advanceToBattle = advanceTowardTarget(state, power, cp, 'enemy_units');
+  if (advanceToBattle) return advanceToBattle;
+
   return null;
 }
 
@@ -582,6 +595,10 @@ export function executeSiege(state, power, cp) {
     }
   }
 
+  // Sub-priority 4: Advance toward nearest enemy fortification (implicit advance)
+  const advanceToSiege = advanceTowardTarget(state, power, cp, 'fortification');
+  if (advanceToSiege) return advanceToSiege;
+
   return null;
 }
 
@@ -607,7 +624,7 @@ export function executeSetSail(state, power, cp) {
   return {
     action: {
       actionType: ACTION_TYPES.NAVAL_MOVE,
-      actionData: { from: move.from, to: move.to, squadrons: move.squadrons }
+      actionData: { movements: [{ from: move.from, to: move.to }] }
     },
     cpCost: cost
   };
@@ -631,7 +648,7 @@ export function executeNavalBattle(state, power, cp) {
   return {
     action: {
       actionType: ACTION_TYPES.NAVAL_MOVE,
-      actionData: { from: battle.from, to: battle.to, squadrons: battle.squadrons }
+      actionData: { movements: [{ from: battle.from, to: battle.to }] }
     },
     cpCost: cost
   };
@@ -1226,6 +1243,107 @@ function bfsDistance(state, from, to) {
 }
 
 /**
+ * Advance a formation toward a distant target when no adjacent target exists.
+ * Used as fallback by executeSiege and executeLandBattle so that behavior
+ * cards without an explicit ADVANCE goal can still move troops toward enemies.
+ *
+ * @param {Object} state
+ * @param {string} power
+ * @param {number} cp - Remaining CPs
+ * @param {'fortification'|'enemy_units'} targetType
+ * @returns {{action: Object, cpCost: number}|null}
+ */
+function advanceTowardTarget(state, power, cp, targetType) {
+  const cost = ACTION_COSTS[power].move_formation;
+  if (!cost || cp < cost) return null;
+
+  const formations = findMovableFormations(state, power, 2);
+  if (formations.length === 0) return null;
+
+  for (const cand of formations) {
+    // BFS from formation to find nearest target
+    let target = null;
+    if (targetType === 'enemy_units') {
+      target = findNearestEnemySpace(state, cand.space, power);
+    } else {
+      // 'fortification' — BFS for nearest enemy-controlled fortification we're at war with
+      target = findNearestEnemyFortification(state, cand.space, power);
+    }
+    if (!target) continue;
+
+    const currentDist = target.distance;
+    if (currentDist <= 1) continue; // Already adjacent — siege/battle should handle directly
+
+    // Find adjacent space that moves us closer
+    const adj = getAllAdjacentSpaces(cand.space);
+    for (const dest of adj) {
+      const destSp = state.spaces[dest];
+      if (!destSp) continue;
+      // Can't march through enemy fortification unless at war
+      if (isFortified(destSp) && destSp.controller !== power &&
+          (!destSp.controller || !canAttack(state, power, destSp.controller))) continue;
+      // Skip spaces with units of a power we're not at war with
+      if (hasEnemyUnitsNotAtWar(state, dest, power)) continue;
+      // Check pass cost
+      const connType = getConnectionType(cand.space, dest);
+      const moveCost = connType === 'pass'
+        ? (ACTION_COSTS[power].move_over_pass || 2) : cost;
+      if (cp < moveCost) continue;
+      const destDist = bfsDistance(state, dest, target.space);
+      if (destDist !== null && destDist < currentDist) {
+        return {
+          action: {
+            actionType: ACTION_TYPES.MOVE_FORMATION,
+            actionData: {
+              from: cand.space, to: dest,
+              units: {
+                ...capUnitsToFormation(
+                  { regulars: cand.regulars, mercenaries: cand.mercenaries, cavalry: cand.cavalry },
+                  cand.leaders
+                ),
+                leaders: cand.leaders
+              }
+            }
+          },
+          cpCost: moveCost
+        };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * BFS to find nearest enemy-controlled fortification we are at war with.
+ * @param {Object} state
+ * @param {string} from
+ * @param {string} power
+ * @returns {{space: string, distance: number}|null}
+ */
+function findNearestEnemyFortification(state, from, power) {
+  const visited = new Set([from]);
+  const queue = [{ space: from, dist: 0 }];
+
+  while (queue.length > 0) {
+    const { space, dist } = queue.shift();
+    if (dist > 0) {
+      const sp = state.spaces[space];
+      if (sp && isFortified(sp) && sp.controller && sp.controller !== power &&
+          canAttack(state, power, sp.controller)) {
+        return { space, distance: dist };
+      }
+    }
+    const adj = getAllAdjacentSpaces(space);
+    for (const n of adj) {
+      if (visited.has(n)) continue;
+      visited.add(n);
+      queue.push({ space: n, dist: dist + 1 });
+    }
+  }
+  return null;
+}
+
+/**
  * Find a siege to relieve (Bot's key/electorate under siege).
  * @param {Object} state
  * @param {string} power
@@ -1371,33 +1489,55 @@ function findSiegeTarget(state, power) {
  * @returns {{from, to, squadrons}|null}
  */
 function findNavalMove(state, power) {
-  // Find ports with our squadrons
+  // Find ports with our squadrons or corsairs
   for (const [name, sp] of Object.entries(state.spaces)) {
     if (!sp.isPort || sp.controller !== power) continue;
     const stack = getUnitsInSpace(state, name, power);
-    if (!stack || (stack.squadrons || 0) === 0) continue;
+    if (!stack) continue;
+    const hasNaval = (stack.squadrons || 0) > 0 || (stack.corsairs || 0) > 0;
+    if (!hasNaval) continue;
 
     // Find connected sea zone
     const seaZones = sp.connectedSeaZones || [];
     for (const sz of seaZones) {
-      return {
-        from: name, to: sz,
-        squadrons: stack.squadrons || 1
-      };
+      return { from: name, to: sz };
     }
   }
   return null;
 }
 
 /**
- * Find naval battle target.
+ * Find naval battle target — sea zone with enemy ships reachable from our port.
  * @param {Object} state
  * @param {string} power
- * @returns {{from, to, squadrons}|null}
+ * @returns {{from, to}|null}
  */
 function findNavalBattleTarget(state, power) {
-  // Simplified: find sea zone with enemy ships reachable from our port
-  // Full implementation in Phase E
+  // Find ports/sea zones with our naval assets
+  for (const [name, sp] of Object.entries(state.spaces)) {
+    const stack = getUnitsInSpace(state, name, power);
+    if (!stack) continue;
+    const ourNaval = (stack.squadrons || 0) + (stack.corsairs || 0);
+    if (ourNaval === 0) continue;
+
+    // Check adjacent sea zones for enemy fleets
+    const adj = sp.isPort ? (sp.connectedSeaZones || []) : getAllAdjacentSpaces(name);
+    for (const sz of adj) {
+      const szSp = state.spaces[sz];
+      if (!szSp || szSp.type !== 'sea_zone') continue;
+      // Count enemy naval assets in this sea zone
+      let enemyNaval = 0;
+      for (const u of szSp.units || []) {
+        if (u.owner === power || u.owner === 'independent') continue;
+        if (!canAttack(state, power, u.owner)) continue;
+        enemyNaval += (u.squadrons || 0) + (u.corsairs || 0);
+      }
+      // Engage if we have advantage or at least equal
+      if (enemyNaval > 0 && ourNaval >= enemyNaval) {
+        return { from: name, to: sz };
+      }
+    }
+  }
   return null;
 }
 
@@ -1675,13 +1815,12 @@ function findPiracyTarget(state) {
     const stack = getUnitsInSpace(state, name, 'ottoman');
     if (!stack || (stack.corsairs || 0) === 0) continue;
 
-    // Find adjacent port controlled by non-ally
-    // Simplified: pick first valid target
+    // Find adjacent port controlled by any non-Ottoman power
+    // Piracy does NOT require being at war (§13.5)
     const adj = getAllAdjacentSpaces(name);
     for (const n of adj) {
       const nSp = state.spaces[n];
       if (nSp && nSp.isPort && nSp.controller && nSp.controller !== 'ottoman') {
-        if (!areAtWar(state, 'ottoman', nSp.controller)) continue;
         return { seaZone: name, targetPower: nSp.controller };
       }
     }

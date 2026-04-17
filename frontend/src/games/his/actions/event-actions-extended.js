@@ -4,6 +4,8 @@
  */
 import { RULERS } from '../constants.js';
 import { areAllied } from '../state/war-helpers.js';
+import { rollDice } from './religious-actions.js';
+import { getUnitsInSpace } from '../state/state-helpers.js';
 
 export const EXTENDED_EVENT_HANDLERS = {};
 
@@ -974,18 +976,129 @@ EXTENDED_EVENT_HANDLERS[94] = {
 };
 
 // #95 Sack of Rome
+// §21.5: Move qualifying stack to Rome, field battle (modified rules),
+// then resolve consequences based on winner.
 EXTENDED_EVENT_HANDLERS[95] = {
-  execute(state, power, actionData, helpers) {
+  validate(state, power, actionData) {
+    // Must specify the source space with the qualifying mercenary stack
+    const fromSpace = actionData?.fromSpace;
+    if (!fromSpace) {
+      return { valid: false, error: 'Must specify source space for attacking stack' };
+    }
+    const sp = state.spaces[fromSpace];
+    if (!sp) return { valid: false, error: `Space "${fromSpace}" not found` };
+
+    // Find a stack in Italian zone with more mercs than Papal regs in Rome
     const rome = state.spaces['Rome'];
-    const papalRegs =
-      rome?.units.find(u => u.owner === 'papacy')?.regulars || 0;
-    state.pendingSackOfRome = {
-      papalRegulars: papalRegs,
-      triggered: true
-    };
-    helpers.logEvent(
-      state, 'event_sack_of_rome', { power, papalRegs }
+    const papalRegs = rome?.units?.find(u => u.owner === 'papacy')?.regulars || 0;
+    const stack = sp.units?.find(u =>
+      u.owner !== 'papacy' && u.mercenaries > papalRegs
     );
+    if (!stack) {
+      return { valid: false, error: 'No qualifying stack (need more mercs than Papal regs in Rome)' };
+    }
+    return { valid: true };
+  },
+  execute(state, power, actionData, helpers) {
+    const fromSpace = actionData.fromSpace;
+    const rome = state.spaces['Rome'];
+    const sp = state.spaces[fromSpace];
+    if (!rome || !sp) return;
+
+    const papalStack = rome.units?.find(u => u.owner === 'papacy') || {
+      owner: 'papacy', regulars: 0, mercenaries: 0, cavalry: 0,
+      squadrons: 0, corsairs: 0, leaders: []
+    };
+
+    // Find the attacking stack (non-Papacy with most mercs)
+    const attackerStack = sp.units?.find(u =>
+      u.owner !== 'papacy' && u.mercenaries > 0
+    );
+    if (!attackerStack) return;
+    const attackerPower = attackerStack.owner;
+
+    // Attacker dice: 1 per unit
+    const attackerUnits = attackerStack.regulars + attackerStack.mercenaries +
+      (attackerStack.cavalry || 0);
+    const attackerDice = rollDice(attackerUnits);
+    const attackerHits = attackerDice.filter(d => d >= 5).length;
+
+    // Defender: 1 per Papal regular + 1 defender die (minimum 1 die)
+    const defenderDiceCount = Math.max(1, papalStack.regulars + 1);
+    const defenderDice = rollDice(defenderDiceCount);
+    const defenderHits = defenderDice.filter(d => d >= 5).length;
+
+    // Determine winner (tie = defender wins)
+    const papalWins = defenderHits >= attackerHits;
+
+    // Apply casualties
+    // Hits against Papacy: regulars first, then mercs
+    let papalRegLoss = Math.min(defenderHits > 0 ? attackerHits : 0, papalStack.regulars);
+    let remainingHits = attackerHits - papalRegLoss;
+    let papalMercLoss = Math.min(remainingHits, papalStack.mercenaries);
+    papalStack.regulars -= papalRegLoss;
+    papalStack.mercenaries -= papalMercLoss;
+
+    // Hits against attacker: split evenly between regs and mercs
+    if (defenderHits > 0) {
+      const half = Math.floor(defenderHits / 2);
+      const regLoss = Math.min(half, attackerStack.regulars);
+      const mercLoss = Math.min(defenderHits - regLoss, attackerStack.mercenaries);
+      attackerStack.regulars -= regLoss;
+      attackerStack.mercenaries -= mercLoss;
+    }
+
+    const result = {
+      attackerPower, fromSpace,
+      attackerDice, defenderDice,
+      attackerHits, defenderHits,
+      papalWins
+    };
+
+    if (papalWins) {
+      // Papacy wins: event ends, card goes to discard (not removed)
+      result.outcome = 'papacy_wins';
+    } else {
+      // Papacy loses: St. Peter's -5, sacker draws 2 cards from Papacy hand
+      state.stPetersProgress = Math.max(0, (state.stPetersProgress || 0) - 5);
+      result.stPetersReduced = true;
+
+      // Draw 2 random cards from Papacy hand (exclude home cards)
+      const drawableCards = state.hands.papacy.filter(c => c !== 5 && c !== 6);
+      const drawn = [];
+      for (let i = 0; i < Math.min(2, drawableCards.length); i++) {
+        const idx = Math.floor(Math.random() * drawableCards.length);
+        drawn.push(drawableCards.splice(idx, 1)[0]);
+      }
+      if (drawn.length === 1) {
+        // Only 1 drawable card: sacker keeps it
+        const cardIdx = state.hands.papacy.indexOf(drawn[0]);
+        if (cardIdx >= 0) state.hands.papacy.splice(cardIdx, 1);
+        state.hands[attackerPower].push(drawn[0]);
+        result.cardsKept = [drawn[0]];
+      } else if (drawn.length === 2) {
+        // Keep 1, discard 1 (auto: keep higher CP)
+        const kept = drawn[0];
+        const discarded = drawn[1];
+        const keptIdx = state.hands.papacy.indexOf(kept);
+        if (keptIdx >= 0) state.hands.papacy.splice(keptIdx, 1);
+        state.hands[attackerPower].push(kept);
+        const discIdx = state.hands.papacy.indexOf(discarded);
+        if (discIdx >= 0) state.hands.papacy.splice(discIdx, 1);
+        state.discard.push(discarded);
+        result.cardsKept = [kept];
+        result.cardsDiscarded = [discarded];
+      }
+
+      // Sack of Rome permanently removed from game
+      state.removedCards = state.removedCards || [];
+      if (!state.removedCards.includes(95)) {
+        state.removedCards.push(95);
+      }
+      result.outcome = 'papacy_loses';
+    }
+
+    helpers.logEvent(state, 'sack_of_rome_battle', result);
   }
 };
 

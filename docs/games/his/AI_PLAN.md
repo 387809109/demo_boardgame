@@ -169,3 +169,21 @@ frontend/src/games/his/ai/
 | 谈判复杂度 | 先实现 Bot-Bot 自动交易；人类-Bot 谈判在 Phase B2 |
 | 135 张事件卡判定 | 大部分是简单条件判断；表驱动，非过程式 |
 | 战斗中的多步响应窗口 | Bot 在 W1-W7 窗口直接按事件卡判定表决策 |
+
+---
+
+## Bug 修复记录 (2026-04-17)
+
+全 Bot 对局测试发现并修复 7 个关键 Bug，所有修改位于 `bot-goals.js`:
+
+| # | Bug 描述 | 原因 | 修复 |
+|---|----------|------|------|
+| 1 | 海军移动格式不匹配，引擎收到空 `movements: []` | Bot 发送 `{from, to, squadrons}`，引擎期望 `{movements: [{from, to}]}` | 包装为 movements 数组 |
+| 2 | `executeLandBattle` 跳过所有堡垒空间 | `if (isFortified(destSp)) continue` 无差别跳过 | 添加 `canAttack` 判断，允许对交战方堡垒进攻 |
+| 3 | `executeAdvance` 阻止进入敌方堡垒 | 硬编码 `controller !== power → continue` | 添加 `canAttack` 条件，交战时允许通过 |
+| 4 | `findNavalMove` 忽略海盗船 (corsairs) | 仅检查 `stack.squadrons`，未检查 `stack.corsairs` | 添加 corsairs 检查 |
+| 5 | `findPiracyTarget` 错误要求宣战 | 使用了 `areAtWar` 检查 | 移除战争检查 (§13.5 海盗不需宣战) |
+| 6 | `findNavalBattleTarget` 为空桩 | 直接 `return null` | 完整实现 BFS 海战目标搜索 |
+| 7 | 行为卡缺少 ADVANCE 目标时无法推进 | 5 张奥斯曼行为卡中 3 张无 ADVANCE 目标 | 新增 `advanceTowardTarget` + `findNearestEnemyFortification` 辅助函数，作为 siege/land_battle 的后备 |
+
+**验证**: Game 4 — 506 轮, 0 错误, 法国 T4 统治胜利。奥斯曼: 10 次编队移动 + 6 次海军行动 + 1 次宣战 (修复前: 0 次编队移动, 海军全空)。

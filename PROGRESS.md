@@ -1,6 +1,6 @@
 # 项目进度报告
 
-> 最后更新: 2026-04-06
+> 最后更新: 2026-04-17
 
 ---
 
@@ -103,21 +103,30 @@
 | 地图指示器 | 围城红圈/S标记、叛乱橙色!标记 | ✅ |
 | 行动面板 | 阶段感知、CP行动、外交/部署/路德/沃尔姆斯/子交互面板 | ✅ |
 | 交互选择系统 | SelectionManager多步选择、空间高亮、区域/势力/部队选择器 | ✅ |
-| AI 对手 (HISBOT) | 6势力Bot策略；Bot行为卡、set-aside卡修复、fallback链 | ✅ |
+| AI 对手 (HISBOT) | 6势力Bot策略；行为卡/set-aside修复；军事移动+海军+战斗修复 | ✅ |
 | 存档/读档 | localStorage存档槽、导出/导入JSON、自动存档(sessionStorage) | ✅ |
 | 结算UI改进 | "查看对局"按钮、游戏头部"查看结算"按钮、删除重复重置按钮 | ✅ |
 | 事件卡牌 | 卡牌事件处理逻辑 | 🔶 |
 | 端到端实机测试 | Playwright UI 交互测试（Claude 扮演指定势力，其余 HISBOT） | 🔶 |
 | 单元测试 | 1549 tests passing | ✅ |
 
-> **HIS 当前进度** (2026-04-06): HISBOT 已实现并完成自动测试对局 (T1-T4 共368轮，零"Card not in hand"错误)。存档/读档系统完整。实机测试 (新教) 进行至 Diet of Worms 阶段，发现并修复沃尔姆斯面板未传递 cardNumber 的 bug。事件卡牌处理部分完成；完整端到端人工对局测试待继续。
+> **HIS 当前进度** (2026-04-17): HISBOT 军事/海军系统大修完成。全Bot对局 Game 4 通过 (T1-T4, 506轮, 0错误)。修复7个关键Bug: 海军移动格式、陆战跳过堡垒、推进阻塞敌方堡垒、海盗船处理、海盗不需宣战、海战目标寻找、行为卡缺少ADVANCE的后备推进。奥斯曼从零军事行动提升到10次编队移动+6次海军行动+1次宣战。存档/读档系统完整。事件卡牌处理部分完成；完整端到端人工对局测试待继续。
 
 **已知待修复/改进**:
 - 沃尔姆斯帝国会议 (Diet of Worms): `提交卡牌` 按钮未传卡牌编号 → **已修复** (commit `0293ae1`)
 - 结算界面: `查看对局` / `查看结算` 按钮 → **已实现** (commit `2627398`)
 - Bot set-aside 卡验证失败 → **已修复** (commit `97310a4`)
+- Bot 海军移动格式不匹配 (`{from,to}` vs `{movements:[{from,to}]}`) → **已修复** (2026-04-17)
+- Bot `executeLandBattle` 跳过所有堡垒空间 → **已修复** (2026-04-17)
+- Bot `executeAdvance` 阻止进入敌方堡垒 → **已修复** (2026-04-17)
+- Bot `findNavalMove` 忽略海盗船 (corsairs) → **已修复** (2026-04-17)
+- Bot `findPiracyTarget` 错误要求宣战 (§13.5 海盗不需宣战) → **已修复** (2026-04-17)
+- Bot `findNavalBattleTarget` 为空桩 → **已实现** (2026-04-17)
+- Bot 行为卡缺少 ADVANCE 目标时无法推进 → **已修复** (`advanceTowardTarget` fallback, 2026-04-17)
 - 地图空间点击: 需使用 `[data-name]` 选择器 (非 `[data-space]` overlay) → **已记录**
 - 路德95条选择流程: 每次选择前需点击"选择目标空间"按钮 → **设计如此**
+- Bot BUILD_CORSAIR 错误 (Barbary Pirates 未出场时尝试建造) → **待修复**
+- Bot RAISE_REGULAR 在敌占区/非本土 → **待修复**
 
 ### Phase 4: 联机功能 ✅ 完成
 

@@ -33,6 +33,7 @@ import { EventDisplay } from './ui/event-display.js';
 import { CombatDisplay } from './ui/combat-display.js';
 import { ReligiousDisplay } from './ui/religious-display.js';
 import { NewWorldDisplay } from './ui/new-world-display.js';
+import { NewWorldPanel } from './ui/new-world-panel.js';
 import { GameLog } from './ui/game-log.js';
 import { SpaceDetail } from './ui/space-detail.js';
 import { CARD_BY_NUMBER } from './data/cards.js';
@@ -69,6 +70,7 @@ export class HisUI {
     this._combatDisplay = new CombatDisplay();
     this._religiousDisplay = new ReligiousDisplay();
     this._newWorldDisplay = new NewWorldDisplay();
+    this._newWorldPanel = new NewWorldPanel();
     this._gameLog = new GameLog();
     this._spaceDetail = new SpaceDetail();
 
@@ -228,17 +230,19 @@ export class HisUI {
     const diploEl = this._diplomacyPanel.render();
     const detailEl = this._powerDetailPanel.render();
     const rsEl = this._religiousStrugglePanel.render();
+    const nwEl = this._newWorldPanel.render();
     const logEl = this._gameLog.render();
 
     this._sidebarPanels = {
       power: powerEl, diplomacy: diploEl,
-      detail: detailEl, religious: rsEl, log: logEl,
+      detail: detailEl, religious: rsEl, newworld: nwEl, log: logEl,
     };
     const tabDefs = [
       { key: 'power', label: '势力' },
       { key: 'diplomacy', label: '外交' },
       { key: 'detail', label: '详情' },
       { key: 'religious', label: '宗教' },
+      { key: 'newworld', label: '新世界' },
       { key: 'log', label: '日志' },
     ];
     this._activeTab = 'power';
@@ -262,6 +266,7 @@ export class HisUI {
     this._diplomacyPanel.update(state);
     this._powerDetailPanel.update(state, this._playerPower);
     this._religiousStrugglePanel.update(state);
+    this._newWorldPanel.update(state);
 
     // Game log: clicking a card event entry opens the event modal
     this._gameLog.setOnCardClick((cardNumber, power) => {
@@ -343,6 +348,7 @@ export class HisUI {
     this._diplomacyPanel.update(state);
     this._powerDetailPanel.update(state, this._playerPower);
     this._religiousStrugglePanel.update(state);
+    this._newWorldPanel.update(state);
 
     const hand = this._resolveHandCards(state);
     const respPower = state.pendingResponse?.respondingPower;
@@ -401,7 +407,7 @@ export class HisUI {
 
     if (this._sidebarTabs) {
       const tabs = this._sidebarTabs.children;
-      const keys = ['power', 'diplomacy', 'detail', 'religious', 'log'];
+      const keys = ['power', 'diplomacy', 'detail', 'religious', 'newworld', 'log'];
       for (let i = 0; i < tabs.length; i++) {
         const isActive = keys[i] === key;
         tabs[i].style.borderBottomColor = isActive ? '#5c6bc0' : 'transparent';

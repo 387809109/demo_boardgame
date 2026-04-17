@@ -1187,3 +1187,236 @@ export function executePiracy(state, power, actionData, helpers) {
 
   return result;
 }
+
+// ── Naval Transport ────────────────────────────────────────────
+
+const NAVAL_TRANSPORT_CAP = 5;
+
+/**
+ * Validate a naval transport action (§15.3).
+ * Moves land units from one port through sea zones to another port,
+ * using the power's own squadrons in the sea zones traversed.
+ *
+ * @param {Object} state
+ * @param {string} power
+ * @param {Object} actionData - { from, to, units, legs }
+ *   from: source port name
+ *   to: destination port name
+ *   units: { regulars, mercenaries, cavalry, leaders[] } to transport
+ *   legs: [{ from, to }] ordered sea/port legs of the route
+ * @returns {{ valid: boolean, error?: string }}
+ */
+export function validateNavalTransport(state, power, actionData = {}) {
+  const cost = ACTION_COSTS[power]?.naval_move;
+  if (cost === null || cost === undefined) {
+    return { valid: false, error: 'Cannot perform naval transport' };
+  }
+
+  const { from, to, units, legs } = actionData;
+  if (!from || !to) {
+    return { valid: false, error: 'Must specify source and destination ports' };
+  }
+  if (from === to) {
+    return { valid: false, error: 'Source and destination must differ' };
+  }
+
+  // Source and destination must be ports
+  if (!isPortLocation(state, from)) {
+    return { valid: false, error: `${from} is not a port` };
+  }
+  if (!isPortLocation(state, to)) {
+    return { valid: false, error: `${to} is not a port` };
+  }
+
+  // Validate legs
+  if (!Array.isArray(legs) || legs.length < 2) {
+    return {
+      valid: false,
+      error: 'Naval transport requires at least 2 legs (port→sea, sea→port)'
+    };
+  }
+
+  // Total cost = 1 CP per leg; need at least 2 CP
+  const totalCost = legs.length * cost;
+  if (state.cpRemaining < totalCost) {
+    return {
+      valid: false,
+      error: `Not enough CP (need ${totalCost} for ${legs.length} legs)`
+    };
+  }
+
+  // First leg must start from source port, last leg must end at destination port
+  if (legs[0].from !== from) {
+    return { valid: false, error: 'First leg must start at source port' };
+  }
+  if (legs[legs.length - 1].to !== to) {
+    return { valid: false, error: 'Last leg must end at destination port' };
+  }
+
+  // Legs must be contiguous
+  for (let i = 1; i < legs.length; i++) {
+    if (legs[i].from !== legs[i - 1].to) {
+      return { valid: false, error: 'Legs must be contiguous' };
+    }
+  }
+
+  // Each leg must be a valid naval leg
+  for (const leg of legs) {
+    const legCheck = validateNavalLeg(state, leg.from, leg.to);
+    if (!legCheck.valid) return legCheck;
+  }
+
+  // Validate units to transport
+  if (!units) {
+    return { valid: false, error: 'Must specify units to transport' };
+  }
+  const moveRegs = units.regulars || 0;
+  const moveMercs = units.mercenaries || 0;
+  const moveCav = units.cavalry || 0;
+  const moveLeaders = units.leaders || [];
+  const totalLandUnits = moveRegs + moveMercs + moveCav;
+
+  if (totalLandUnits === 0 && moveLeaders.length === 0) {
+    return { valid: false, error: 'No units selected for transport' };
+  }
+
+  // Formation cap: 5 land units
+  if (totalLandUnits > NAVAL_TRANSPORT_CAP) {
+    return {
+      valid: false,
+      error: `Exceeds naval transport cap (${totalLandUnits} > ${NAVAL_TRANSPORT_CAP})`
+    };
+  }
+
+  // Check source has the units
+  const srcStack = getUnitsInSpace(state, from, power);
+  if (!srcStack) {
+    return { valid: false, error: `No units in ${from}` };
+  }
+  if (moveRegs > (srcStack.regulars || 0)) {
+    return { valid: false, error: 'Not enough regulars' };
+  }
+  if (moveMercs > (srcStack.mercenaries || 0)) {
+    return { valid: false, error: 'Not enough mercenaries' };
+  }
+  if (moveCav > (srcStack.cavalry || 0)) {
+    return { valid: false, error: 'Not enough cavalry' };
+  }
+  for (const lid of moveLeaders) {
+    if (!(srcStack.leaders || []).includes(lid)) {
+      return { valid: false, error: `Leader ${lid} not in ${from}` };
+    }
+  }
+
+  // Must have own squadrons in each sea zone traversed
+  const seaZonesTraversed = new Set();
+  for (const leg of legs) {
+    if (isSeaZoneLocation(leg.from)) seaZonesTraversed.add(leg.from);
+    if (isSeaZoneLocation(leg.to)) seaZonesTraversed.add(leg.to);
+  }
+  for (const sz of seaZonesTraversed) {
+    const navalStack = getUnitsInSpace(state, sz, power);
+    if (!navalStack || (navalStack.squadrons || 0) === 0) {
+      return {
+        valid: false,
+        error: `No friendly squadrons in ${sz} for naval transport`
+      };
+    }
+  }
+
+  return { valid: true, totalCost };
+}
+
+/**
+ * Execute naval transport — move land units from one port to another
+ * through sea zones with friendly squadrons (§15.3).
+ *
+ * @param {Object} state
+ * @param {string} power
+ * @param {Object} actionData - { from, to, units, legs }
+ * @param {Object} helpers
+ */
+export function executeNavalTransport(state, power, actionData, helpers) {
+  const { from, to, units, legs } = actionData;
+  const costPerLeg = ACTION_COSTS[power].naval_move;
+  const totalCost = legs.length * costPerLeg;
+  spendCp(state, totalCost);
+
+  // Remove land units from source port
+  const srcStack = getUnitsInSpace(state, from, power);
+  srcStack.regulars -= (units.regulars || 0);
+  srcStack.mercenaries -= (units.mercenaries || 0);
+  srcStack.cavalry -= (units.cavalry || 0);
+  for (const lid of (units.leaders || [])) {
+    const idx = srcStack.leaders.indexOf(lid);
+    if (idx !== -1) srcStack.leaders.splice(idx, 1);
+  }
+
+  // Remove empty source stack
+  if ((srcStack.regulars || 0) === 0 && (srcStack.mercenaries || 0) === 0 &&
+      (srcStack.cavalry || 0) === 0 && (srcStack.squadrons || 0) === 0 &&
+      (srcStack.corsairs || 0) === 0 && (srcStack.leaders || []).length === 0) {
+    const srcSpace = state.spaces[from];
+    srcSpace.units = srcSpace.units.filter(u => u !== srcStack);
+  }
+
+  // Place land units at destination port
+  ensureSpaceRecord(state, to);
+  let dstStack = getUnitsInSpace(state, to, power);
+  if (!dstStack) {
+    dstStack = {
+      owner: power, regulars: 0, mercenaries: 0,
+      cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+    };
+    state.spaces[to].units.push(dstStack);
+  }
+  dstStack.regulars += (units.regulars || 0);
+  dstStack.mercenaries += (units.mercenaries || 0);
+  dstStack.cavalry += (units.cavalry || 0);
+  for (const lid of (units.leaders || [])) {
+    dstStack.leaders.push(lid);
+  }
+
+  // Mark as naval transport for arrival field battle special rule
+  state.pendingNavalTransportArrival = {
+    power,
+    destination: to,
+    units: { ...units }
+  };
+
+  // Check if enemy land units at destination → arrival field battle
+  const destSpace = state.spaces[to];
+  const enemyLand = (destSpace.units || []).some(u =>
+    u.owner !== power &&
+    ((u.regulars || 0) + (u.mercenaries || 0) + (u.cavalry || 0)) > 0 &&
+    canAttack(state, power, u.owner)
+  );
+
+  if (enemyLand) {
+    // Set up pending battle — transported units eliminated if they lose
+    state.pendingBattle = {
+      type: 'field_battle',
+      space: to,
+      attacker: power,
+      defender: (destSpace.units || []).find(u =>
+        u.owner !== power &&
+        ((u.regulars || 0) + (u.mercenaries || 0) + (u.cavalry || 0)) > 0 &&
+        canAttack(state, power, u.owner)
+      )?.owner,
+      navalTransport: true
+    };
+    helpers.logEvent(state, 'naval_transport_arrival_battle', {
+      power, destination: to
+    });
+  } else {
+    // No battle — clear arrival marker
+    delete state.pendingNavalTransportArrival;
+  }
+
+  state.impulseActions.push({
+    type: 'naval_transport', from, to, units, legs
+  });
+  helpers.logEvent(state, 'naval_transport', {
+    power, from, to, units, legs: legs.length
+  });
+}

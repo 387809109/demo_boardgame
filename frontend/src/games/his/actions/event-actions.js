@@ -21,6 +21,10 @@ import { areAllied } from '../state/war-helpers.js';
 import { isHomeSpace } from '../state/state-helpers.js';
 import { EXTENDED_EVENT_HANDLERS } from './event-actions-extended.js';
 import { DIPLOMACY_EVENT_HANDLERS } from './event-actions-diplomacy.js';
+import {
+  validateExcommunicateReformer, excommunicateReformer,
+  validateExcommunicateRuler, excommunicateRuler
+} from './excommunication-actions.js';
 
 // ── Italian Keys (Master of Italy) ─────────────────────────────────
 
@@ -159,30 +163,24 @@ EVENT_HANDLERS[4] = {
 // ── Card #5: Papal Bull (Papacy Home Card) ─────────────────────────
 // Excommunicate a reformer OR excommunicate a ruler
 EVENT_HANDLERS[5] = {
-  validate(state, power) {
+  validate(state, power, actionData) {
     if (power !== 'papacy') {
       return { valid: false, error: 'Only Papacy can play Papal Bull' };
+    }
+    const mode = actionData?.mode;
+    if (mode === 'reformer') {
+      return validateExcommunicateReformer(state, power, actionData);
+    } else if (mode === 'ruler') {
+      return validateExcommunicateRuler(state, power, actionData);
     }
     return { valid: true };
   },
   execute(state, power, actionData, helpers) {
     const mode = actionData.mode; // 'reformer' or 'ruler'
     if (mode === 'reformer') {
-      const reformerId = actionData.reformerId;
-      if (reformerId && !state.excommunicatedReformers.includes(reformerId)) {
-        state.excommunicatedReformers.push(reformerId);
-      }
-      helpers.logEvent(state, 'event_papal_bull_reformer', {
-        reformerId
-      });
+      excommunicateReformer(state, power, actionData, helpers);
     } else if (mode === 'ruler') {
-      const targetPower = actionData.targetPower;
-      if (targetPower) {
-        state.excommunicatedRulers[targetPower] = true;
-      }
-      helpers.logEvent(state, 'event_papal_bull_ruler', {
-        targetPower
-      });
+      excommunicateRuler(state, power, actionData, helpers);
     }
   }
 };
@@ -537,9 +535,9 @@ EVENT_HANDLERS[13] = {
       }
     }
 
-    // Add Schmalkaldic League diplomacy cards to deck
+    // Add Schmalkaldic League diplomacy cards to deck (213-219)
     if (state.diplomacyDeck) {
-      const slCards = [/* diplomacy_sl cards would be added here */];
+      const slCards = [213, 214, 215, 216, 217, 218, 219];
       state.diplomacyDeck.push(...slCards);
     }
     helpers.logEvent(state, 'event_schmalkaldic_league', {

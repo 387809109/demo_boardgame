@@ -100,6 +100,9 @@ export function validateExcommunicateReformer(state, power, actionData) {
 export function excommunicateReformer(state, power, actionData, helpers) {
   const { reformerId } = actionData;
 
+  // Guard against duplicate excommunication
+  if (state.excommunicatedReformers.includes(reformerId)) return;
+
   state.excommunicatedReformers.push(reformerId);
 
   // Remove reformer from map

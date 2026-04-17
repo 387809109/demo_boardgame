@@ -8,12 +8,14 @@
 import { ACTION_COSTS, COMBAT } from '../constants.js';
 import { spendCp } from './cp-manager.js';
 import {
-  getUnitsInSpace, countLandUnits, getAllAdjacentSpaces
+  getUnitsInSpace, countLandUnits, getAllAdjacentSpaces, isFortified
 } from '../state/state-helpers.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
+import { SPACE_BY_NAME } from '../data/map-data.js';
 import { rollDice } from './religious-actions.js';
 import { applyCasualties } from './combat-actions.js';
 import { hasLineOfCommunicationForControl } from './military-actions.js';
+import { canAttack } from '../state/war-helpers.js';
 
 // ── Line of Communication ───────────────────────────────────────
 
@@ -105,6 +107,24 @@ export function validateAssault(state, power, actionData) {
   // LOC check: must have a path to a friendly fortified home space
   if (!hasLineOfCommunication(state, space, power)) {
     return { valid: false, error: 'No line of communication to a friendly fortified space' };
+  }
+
+  // §14 Naval checks for port spaces
+  const mapSpace = SPACE_BY_NAME[space];
+  if (sp.isPort && mapSpace?.connectedSeaZones?.length > 0) {
+    for (const sz of mapSpace.connectedSeaZones) {
+      // Check for enemy naval in adjacent sea zone
+      const seaState = state.spaces[sz];
+      if (seaState?.units) {
+        const enemyNaval = seaState.units.find(u =>
+          u.owner !== power && canAttack(state, power, u.owner) &&
+          (u.squadrons > 0 || u.corsairs > 0)
+        );
+        if (enemyNaval) {
+          return { valid: false, error: 'Enemy naval forces in adjacent sea zone' };
+        }
+      }
+    }
   }
 
   return { valid: true };

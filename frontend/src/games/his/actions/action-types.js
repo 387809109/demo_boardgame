@@ -24,7 +24,9 @@ export const MILITARY_ACTIONS = {
   CONTROL_UNFORTIFIED: 'CONTROL_UNFORTIFIED',
   ASSAULT: 'ASSAULT',
   NAVAL_MOVE: 'NAVAL_MOVE',
-  PIRACY: 'PIRACY'
+  PIRACY: 'PIRACY',
+  NAVAL_TRANSPORT: 'NAVAL_TRANSPORT',
+  FIGHT_FOREIGN_WAR: 'FIGHT_FOREIGN_WAR'
 };
 
 // ── CP Sub-Actions (Religious) ────────────────────────────────────
@@ -117,6 +119,8 @@ export const ACTION_COST_KEY = {
   ASSAULT: 'assault',
   NAVAL_MOVE: 'naval_move',
   PIRACY: 'initiate_piracy',
+  NAVAL_TRANSPORT: 'naval_move',
+  FIGHT_FOREIGN_WAR: 'fight_foreign_war',
   PUBLISH_TREATISE: 'publish_treatise',
   TRANSLATE_SCRIPTURE: 'translate_scripture',
   CALL_DEBATE: 'call_debate',

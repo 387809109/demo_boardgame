@@ -477,6 +477,24 @@ function handlePostBattle(state, space, battleResult, helpers) {
   const { loserPower, winnerPower } = battleResult;
   const loserStack = getUnitsInSpace(state, space, loserPower);
 
+  // Naval transport arrival: losing attacker is eliminated (§15.3)
+  const nta = state.pendingNavalTransportArrival;
+  if (nta && nta.destination === space && nta.power === loserPower) {
+    delete state.pendingNavalTransportArrival;
+    if (loserStack && countLandUnits(loserStack) > 0) {
+      eliminateFormation(state, space, loserPower, winnerPower, helpers);
+      helpers.logEvent(state, 'naval_transport_eliminated', {
+        power: loserPower, space
+      });
+    }
+    checkSiegeInitiation(state, space, winnerPower, helpers);
+    return;
+  }
+  // Clear naval transport marker if attacker won
+  if (nta && nta.destination === space) {
+    delete state.pendingNavalTransportArrival;
+  }
+
   if (!loserStack || countLandUnits(loserStack) === 0) {
     // Loser fully eliminated — check siege initiation
     checkSiegeInitiation(state, space, winnerPower, helpers);

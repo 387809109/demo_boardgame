@@ -34,7 +34,8 @@ import {
   validateRaiseCavalry, raiseCavalry,
   validateBuildSquadron, buildSquadron,
   validateBuildCorsair, buildCorsair,
-  validateControlUnfortified, controlUnfortified
+  validateControlUnfortified, controlUnfortified,
+  validateFightForeignWar, fightForeignWar
 } from './actions/military-actions.js';
 
 // Religious actions
@@ -44,7 +45,8 @@ import {
   validateReformationAttempt, resolveReformationAttempt, hasAnyReformationTargets,
   validateTranslateScripture, translateScripture,
   validateBuildStPeters, buildStPeters,
-  validateFoundJesuit, foundJesuit
+  validateFoundJesuit, foundJesuit,
+  rollDice
 } from './actions/religious-actions.js';
 
 // Debate actions
@@ -64,12 +66,20 @@ import {
 } from './actions/siege-actions.js';
 import {
   validateNavalMove, executeNavalMove,
-  validatePiracy, executePiracy
+  validatePiracy, executePiracy,
+  validateNavalTransport, executeNavalTransport
 } from './actions/naval-actions.js';
 import { resolveInterception } from './actions/interception.js';
 import {
-  executeRetreat, eliminateFormation
+  findLegalRetreats, executeRetreat, eliminateFormation
 } from './actions/retreat.js';
+
+// Excommunication actions
+import {
+  validateExcommunicateReformer, excommunicateReformer,
+  validateExcommunicateRuler, excommunicateRuler,
+  validateRemoveExcommunication, removeExcommunication
+} from './actions/excommunication-actions.js';
 
 // Diplomacy actions
 import {
@@ -151,6 +161,12 @@ const CP_ACTION_HANDLERS = {
   },
   [ACTION_TYPES.PIRACY]: {
     validate: validatePiracy, execute: executePiracy
+  },
+  [ACTION_TYPES.NAVAL_TRANSPORT]: {
+    validate: validateNavalTransport, execute: executeNavalTransport
+  },
+  [ACTION_TYPES.FIGHT_FOREIGN_WAR]: {
+    validate: validateFightForeignWar, execute: fightForeignWar
   },
   // Religious
   [ACTION_TYPES.PUBLISH_TREATISE]: {
@@ -376,6 +392,11 @@ export class HISGame extends GameEngine {
             return { valid: false, error: 'Not in ransom segment' };
           }
           return validateRansom(state, power, actionData);
+        case ACTION_TYPES.REMOVE_EXCOMMUNICATION:
+          if (state.diplomacySegment !== 'remove_excommunication') {
+            return { valid: false, error: 'Not in remove excommunication segment' };
+          }
+          return validateRemoveExcommunication(state, power, actionData);
         case ACTION_TYPES.PASS:
           return { valid: true };
         default:
@@ -499,6 +520,12 @@ export class HISGame extends GameEngine {
       if (actionType === ACTION_TYPES.WITHDRAW_INTO_FORTIFICATION) {
         if (!state.pendingBattle || !state.pendingBattle.canWithdraw) {
           return { valid: false, error: 'Cannot withdraw into fortification' };
+        }
+        return { valid: true };
+      }
+      if (actionType === ACTION_TYPES.AVOID_BATTLE) {
+        if (!state.pendingBattle) {
+          return { valid: false, error: 'No pending battle to avoid' };
         }
         return { valid: true };
       }
@@ -699,6 +726,11 @@ export class HISGame extends GameEngine {
         this._checkAutoEndImpulse(newState, helpers);
         break;
 
+      case ACTION_TYPES.AVOID_BATTLE:
+        this._handleAvoidBattle(newState, actPower, actionData, helpers);
+        this._checkAutoEndImpulse(newState, helpers);
+        break;
+
       case ACTION_TYPES.PLAY_RESPONSE_CARD: {
         const respPower = newState.pendingResponse?.respondingPower || actPower;
         this._handlePlayResponseCard(newState, respPower, actionData, helpers);
@@ -757,11 +789,28 @@ export class HISGame extends GameEngine {
 
     if (cardIndex === -1) return;
 
+    // §21.3 Mary I impulse check — if England under Mary I plays a
+    // non-mandatory card, d6 1-3 means Papacy hijacks the impulse.
+    const card = CARD_BY_NUMBER[cardNumber];
+    if (power === 'england' && this._isMaryIHijack(state, card, helpers)) {
+      // Card consumed, impulse ends (Papacy already acted)
+      hand.splice(cardIndex, 1);
+      if (card?.deck === 'home') {
+        state.homeCardPlayed[power] = true;
+      } else if (card?.removeAfterPlay) {
+        state.removedCards.push(cardNumber);
+      } else {
+        state.discard.push(cardNumber);
+      }
+      state.consecutivePasses = 0;
+      this._handleEndImpulse(state, power, helpers);
+      return;
+    }
+
     // Remove card from hand
     hand.splice(cardIndex, 1);
 
     // Determine where the card goes
-    const card = CARD_BY_NUMBER[cardNumber];
     if (card && card.deck === 'home') {
       state.homeCardPlayed[power] = true;
     } else if (card && card.removeAfterPlay) {
@@ -799,11 +848,26 @@ export class HISGame extends GameEngine {
 
     if (cardIndex === -1) return;
 
+    // §21.3 Mary I impulse check — same as CP play
+    const card = CARD_BY_NUMBER[cardNumber];
+    if (power === 'england' && this._isMaryIHijack(state, card, helpers)) {
+      hand.splice(cardIndex, 1);
+      if (card?.deck === 'home') {
+        state.homeCardPlayed[power] = true;
+      } else if (card?.removeAfterPlay) {
+        state.removedCards.push(cardNumber);
+      } else {
+        state.discard.push(cardNumber);
+      }
+      state.consecutivePasses = 0;
+      this._handleEndImpulse(state, power, helpers);
+      return;
+    }
+
     // Remove card from hand
     hand.splice(cardIndex, 1);
 
     // Determine where the card goes
-    const card = CARD_BY_NUMBER[cardNumber];
     if (card && card.deck === 'home') {
       state.homeCardPlayed[power] = true;
     } else if (card && card.removeAfterPlay) {
@@ -873,6 +937,58 @@ export class HISGame extends GameEngine {
    * Handle END_IMPULSE — clean up CP state and advance.
    * @private
    */
+  /**
+   * §21.3 Mary I impulse check.
+   * Under Mary I, England rolls d6 for non-mandatory cards.
+   * 1-3: Papacy hijacks the impulse for religious action.
+   * 4-6: England proceeds normally.
+   * Skip if all English home spaces are already Catholic.
+   * @returns {boolean} true if Papacy hijacked the impulse
+   * @private
+   */
+  _isMaryIHijack(state, card, helpers) {
+    if (state.rulers?.england !== 'mary_i') return false;
+
+    // Mandatory events always proceed normally
+    if (card && card.category === 'MANDATORY') return false;
+
+    // If all English home spaces are Catholic, skip check
+    const englishHomeSpaces = Object.values(state.spaces).filter(
+      sp => sp.homePower === 'england'
+    );
+    const allCatholic = englishHomeSpaces.every(
+      sp => sp.religion === 'catholic'
+    );
+    if (allCatholic) return false;
+
+    const die = rollDice(1)[0];
+    helpers.logEvent(state, 'mary_i_check', {
+      die, card: card?.number, title: card?.title
+    });
+
+    if (die >= 4) return false; // England proceeds normally
+
+    // d6 1-3: Papacy takes religious action with the card's CP.
+    // Papacy performs counter-reformation attempts in English zone
+    // (the CP is from the hijacked card, not Papacy's own pool).
+    const cp = card?.cp || 0;
+    if (cp >= 1) {
+      // Set up counter-reformation attempts directly (bypass spendCp)
+      const attempts = Math.min(cp, 2); // burn books = 2 attempts max
+      state.pendingReformation = {
+        type: 'counter_reformation',
+        zone: 'english',
+        attemptsLeft: attempts,
+        initiator: 'papacy'
+      };
+      helpers.logEvent(state, 'mary_i_hijack', {
+        action: cp >= 3 ? 'burn_books_and_debate' : 'burn_books',
+        cp, zone: 'english', attempts
+      });
+    }
+    return true;
+  }
+
   _handleEndImpulse(state, power, helpers) {
     endCpSpending(state);
     advanceImpulse(state);
@@ -887,6 +1003,8 @@ export class HISGame extends GameEngine {
     const result = checkImmediateVictory(state);
     if (result.victory) {
       state.status = 'ended';
+      state.winner = result.winner;
+      state.winReason = result.type;
       helpers.logEvent(state, 'immediate_victory', {
         winner: result.winner, type: result.type
       });
@@ -1213,6 +1331,46 @@ export class HISGame extends GameEngine {
   }
 
   /**
+   * Handle avoid battle — defender retreats before field battle.
+   * §12: defender may evade/avoid battle instead of fighting.
+   * @private
+   */
+  _handleAvoidBattle(state, power, actionData, helpers) {
+    const battle = state.pendingBattle;
+    if (!battle) return;
+
+    const { space, defenderPower, attackerPower } = battle;
+    const destination = actionData?.destination;
+
+    // Validate retreat destination
+    if (destination) {
+      const legalRetreats = findLegalRetreats(state, space, defenderPower || power);
+      const isLegal = legalRetreats.some(r => r.space === destination);
+      if (!isLegal) {
+        helpers.logEvent(state, 'avoid_battle_failed', {
+          power: defenderPower || power, space, destination,
+          reason: 'illegal_retreat'
+        });
+        return;
+      }
+      executeRetreat(state, space, defenderPower || power, destination, helpers);
+    } else {
+      // No destination — eliminate if no legal retreats
+      const retreats = findLegalRetreats(state, space, defenderPower || power);
+      if (retreats.length > 0) {
+        executeRetreat(state, space, defenderPower || power, retreats[0].space, helpers);
+      } else {
+        eliminateFormation(state, space, defenderPower || power, helpers);
+      }
+    }
+
+    state.pendingBattle = null;
+    helpers.logEvent(state, 'avoid_battle', {
+      power: defenderPower || power, space, destination
+    });
+  }
+
+  /**
    * Handle a diplomacy phase action.
    * @private
    */
@@ -1232,6 +1390,10 @@ export class HISGame extends GameEngine {
         break;
       case ACTION_TYPES.RANSOM_LEADER:
         executeRansom(state, power, actionData, helpers);
+        markActed(state, power);
+        break;
+      case ACTION_TYPES.REMOVE_EXCOMMUNICATION:
+        removeExcommunication(state, power, actionData, helpers);
         markActed(state, power);
         break;
       case ACTION_TYPES.PASS:
