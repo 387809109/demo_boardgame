@@ -433,7 +433,7 @@ export function getFinalAutumnAssaults(state, power) {
 
   // Free assault on each active siege
   for (const [spaceName, space] of Object.entries(state.spaces || {})) {
-    if (space.siege?.besieger === power) {
+    if (space.besieged && space.besiegedBy === power) {
       actions.push({
         actionType: ACTION_TYPES.ASSAULT,
         actionData: { target: spaceName, free: true }

@@ -272,7 +272,10 @@ function decideDiplomacy(state, power) {
 
     case 'declarations_of_war': {
       const { shouldDeclare, target, isEnglandHomeCard } = decideWarDeclaration(state, power);
-      // England exception: delays to Action Phase first impulse
+      // England exception: delays to Action Phase first impulse via home card
+      if (shouldDeclare && isEnglandHomeCard && target) {
+        state.englandHomeCardWar = target;
+      }
       if (shouldDeclare && !isEnglandHomeCard && target) {
         return {
           actionType: ACTION_TYPES.DECLARE_WAR,

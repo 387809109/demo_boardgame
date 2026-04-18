@@ -35,6 +35,7 @@ import {
 } from '../state/state-helpers.js';
 import { areAtWar, canAttack } from '../state/war-helpers.js';
 import { hasLineOfCommunicationForControl } from '../actions/military-actions.js';
+import { SEA_ZONES, PORTS_BY_SEA_ZONE } from '../data/map-data.js';
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -205,12 +206,15 @@ export function chooseLandUnitPlacement(state, power) {
  * @returns {string|null} Port space name
  */
 export function chooseNavalPlacement(state, power) {
-  // Find all controlled home ports (can only build in home spaces)
+  // Find all buildable home ports (must also be clear of enemies + unrest)
   const ports = [];
   for (const [name, sp] of Object.entries(state.spaces)) {
-    if (sp.controller === power && sp.isPort && isHomeSpace(name, power)) {
-      ports.push(name);
-    }
+    if (!sp.isPort) continue;
+    if (sp.controller !== power) continue;
+    if (!isHomeSpace(name, power)) continue;
+    if (hasEnemyUnits(state, name, power)) continue;
+    if (sp.unrest) continue;
+    ports.push(name);
   }
   if (ports.length === 0) return null;
 
@@ -367,7 +371,9 @@ export function executeMercenaries(state, power, cp) {
   const cost = ACTION_COSTS[power].buy_mercenary;
   if (!cost || cp < cost) return null;
 
-  const target = chooseLandUnitPlacement(state, power);
+  // Only buy when there's a real need — avoid capital hoarding.
+  // Need = garrison deficit OR forward army below formation cap with leader.
+  const target = findMercenaryTarget(state, power);
   if (!target) return null;
 
   return {
@@ -377,6 +383,40 @@ export function executeMercenaries(state, power, cp) {
     },
     cpCost: cost
   };
+}
+
+/**
+ * Pick a space that actually benefits from another mercenary.
+ * Priority: garrison deficit → leader stack below formation cap → null.
+ */
+function findMercenaryTarget(state, power) {
+  const buildable = (space) => {
+    const sp = state.spaces[space];
+    if (!sp || sp.controller !== power) return false;
+    if (!isHomeSpace(space, power)) return false;
+    if (hasEnemyUnits(state, space, power)) return false;
+    if (sp.unrest) return false;
+    return true;
+  };
+
+  // 1. Garrison deficit in home
+  const deficits = findGarrisonDeficits(state, power).filter(d => buildable(d.space));
+  if (deficits.length > 0) return deficits[0].space;
+
+  // 2. Leader stack below formation cap — reinforce a fighting army
+  for (const [name, sp] of Object.entries(state.spaces)) {
+    if (!buildable(name)) continue;
+    const stack = getUnitsInSpace(state, name, power);
+    if (!stack) continue;
+    const leaders = stack.leaders || [];
+    if (leaders.length === 0) continue;
+    const cap = getFormationCap(leaders);
+    if (!cap || cap === Infinity) continue;
+    if (countLandUnits(stack) >= cap) continue;
+    return name;
+  }
+
+  return null;
 }
 
 /**
@@ -892,9 +932,9 @@ export function executeStPeters(state, power, cp) {
   const cost = ACTION_COSTS.papacy.build_st_peters;
   if (!cost || cp < cost) return null;
 
-  // Check if St. Peter's is already complete (5 stages)
-  const progress = state.stPetersProgress || 0;
-  if (progress >= 5) return null;
+  // Check if St. Peter's is already complete (max 5 VP @ 5 CP per VP = 25 progress)
+  const stVp = state.stPetersVp || 0;
+  if (stVp >= 5) return null;
 
   return {
     action: {
@@ -1430,7 +1470,7 @@ function findAssaultTarget(state, power) {
   let bestSize = 0;
 
   for (const [name, sp] of Object.entries(state.spaces)) {
-    if (!sp.siege || sp.siege.besieger !== power) continue;
+    if (!sp.besieged || sp.besiegedBy !== power) continue;
     const stack = getUnitsInSpace(state, name, power);
     const size = countLandUnits(stack);
     if (size > bestSize) {
@@ -1463,7 +1503,7 @@ function findSiegeTarget(state, power) {
       // Must be at war with the controller
       if (sp.controller && !canAttack(state, power, sp.controller)) continue;
       // Don't re-siege if already under siege by us
-      if (sp.siege?.besieger === power) continue;
+      if (sp.besieged && sp.besiegedBy === power) continue;
       // Skip if space has units of a power we can't attack
       if (hasEnemyUnitsNotAtWar(state, dest, power)) continue;
       targets.push({
@@ -1821,19 +1861,22 @@ function chooseJesuitPlacement(state) {
  * @returns {{seaZone: string, targetPower: string}|null}
  */
 function findPiracyTarget(state) {
-  // Find sea zones with corsairs
-  for (const [name, sp] of Object.entries(state.spaces)) {
-    const stack = getUnitsInSpace(state, name, 'ottoman');
+  // Iterate actual sea zones — corsairs must be IN a sea zone to initiate piracy.
+  // Ports holding corsairs need a separate NAVAL_MOVE first.
+  for (const seaZone of SEA_ZONES) {
+    const stack = getUnitsInSpace(state, seaZone, 'ottoman');
     if (!stack || (stack.corsairs || 0) === 0) continue;
+    if (state.piracyUsed?.[seaZone]) continue;
 
-    // Find adjacent port controlled by any non-Ottoman power
-    // Piracy does NOT require being at war (§13.5)
-    const adj = getAllAdjacentSpaces(name);
-    for (const n of adj) {
-      const nSp = state.spaces[n];
-      if (nSp && nSp.isPort && nSp.controller && nSp.controller !== 'ottoman') {
-        return { seaZone: name, targetPower: nSp.controller };
-      }
+    // Any non-Ottoman major power controlling a port on this sea zone is a target.
+    // Piracy does NOT require being at war (§13.5).
+    for (const portName of PORTS_BY_SEA_ZONE[seaZone] || []) {
+      const portSp = state.spaces[portName];
+      if (!portSp) continue;
+      const ctrl = portSp.controller;
+      if (!ctrl || ctrl === 'ottoman') continue;
+      if (!MAJOR_POWERS.includes(ctrl)) continue;
+      return { seaZone, targetPower: ctrl };
     }
   }
   return null;

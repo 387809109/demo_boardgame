@@ -113,7 +113,7 @@ function hasCapturedLeader(state, power) {
 
 function hasActiveSiege(state, power) {
   for (const sp of Object.values(state.spaces || {})) {
-    if (sp.siege?.besieger === power) return true;
+    if (sp.besieged && sp.besiegedBy === power) return true;
   }
   return false;
 }

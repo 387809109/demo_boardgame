@@ -390,6 +390,8 @@ EVENT_HANDLERS[3] = {
       )) {
         state.wars.push({ a: 'england', b: target });
       }
+      // Clear bot-side intent flag so it doesn't leak to future turns
+      state.englandHomeCardWar = null;
       helpers.logEvent(state, 'event_six_wives_war', { power, target });
       return { grantCp: 5 };
     }
