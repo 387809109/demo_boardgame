@@ -1471,6 +1471,15 @@ function findAssaultTarget(state, power) {
 
   for (const [name, sp] of Object.entries(state.spaces)) {
     if (!sp.besieged || sp.besiegedBy !== power) continue;
+    // Cannot assault in same impulse as siege establishment (validateAssault rule)
+    if (sp.siegeEstablishedImpulse === state.turnNumber) continue;
+    if (
+      sp.siegeEstablishedCardNumber != null &&
+      state.activeCardNumber != null &&
+      sp.siegeEstablishedTurn === state.turn &&
+      sp.siegeEstablishedBy === power &&
+      sp.siegeEstablishedCardNumber === state.activeCardNumber
+    ) continue;
     const stack = getUnitsInSpace(state, name, power);
     const size = countLandUnits(stack);
     if (size > bestSize) {
