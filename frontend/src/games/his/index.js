@@ -1440,7 +1440,7 @@ export class HISGame extends GameEngine {
    */
   checkGameEnd(state) {
     if (state.status === 'ended') {
-      return this._buildEndResult(state);
+      return this._buildEndResult(state, state.winner || null, state.winReason || null);
     }
 
     if (state.phase !== PHASES.VICTORY_DETERMINATION) {
