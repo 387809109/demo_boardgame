@@ -162,33 +162,37 @@ function findGarrisonDeficits(state, power) {
  */
 export function chooseLandUnitPlacement(state, power) {
   const capitals = CAPITALS[power] || [];
+  const buildable = (space) => {
+    const sp = state.spaces[space];
+    if (!sp || sp.controller !== power) return false;
+    if (!isHomeSpace(space, power)) return false;
+    if (hasEnemyUnits(state, space, power)) return false;
+    if (sp.unrest) return false;
+    return true;
+  };
 
-  // 1. Capital if garrison not met and not enemy-occupied
+  // 1. Capital if garrison not met and buildable
   for (const cap of capitals) {
-    if (hasEnemyUnits(state, cap, power)) continue;
+    if (!buildable(cap)) continue;
     const req = getGarrisonRequirement(state, cap, power);
     const stack = getUnitsInSpace(state, cap, power);
     if (countLandUnits(stack) < req) return cap;
   }
 
-  // 2. Fortified home space closest to enemy that doesn't meet garrison
-  // (Non-home spaces can't be used for raising units — must be home spaces)
-  const deficits = findGarrisonDeficits(state, power)
-    .filter(d => isHomeSpace(d.space, power) && !hasEnemyUnits(state, d.space, power));
+  // 2. Home space below garrison that is buildable
+  const deficits = findGarrisonDeficits(state, power).filter(d => buildable(d.space));
   if (deficits.length > 0) {
     return deficits[0].space;
   }
 
-  // 3. Space with leader closest to enemy
-  // Simplified: just place at capital if controlled and not enemy-occupied
+  // 3. Capital fallback
   for (const cap of capitals) {
-    const capSp = state.spaces[cap];
-    if (capSp && capSp.controller === power && !hasEnemyUnits(state, cap, power)) return cap;
+    if (buildable(cap)) return cap;
   }
 
-  // Fall back to any controlled home space not enemy-occupied
-  for (const [name, sp] of Object.entries(state.spaces)) {
-    if (sp.controller === power && isHomeSpace(name, power) && !hasEnemyUnits(state, name, power)) return name;
+  // 4. Any buildable home space
+  for (const name of Object.keys(state.spaces)) {
+    if (buildable(name)) return name;
   }
   return null;
 }
@@ -281,7 +285,13 @@ function findNearestEnemySpace(state, from, power) {
  * @returns {{action: Object, cpCost: number}|null}
  */
 export function executeGarrison(state, power, cp) {
-  const deficits = findGarrisonDeficits(state, power);
+  // Must build in home, controlled, no enemy, no unrest space (§4.17 validation rules)
+  const deficits = findGarrisonDeficits(state, power).filter(d => {
+    const sp = state.spaces[d.space];
+    return isHomeSpace(d.space, power) &&
+           !hasEnemyUnits(state, d.space, power) &&
+           !sp.unrest;
+  });
   if (deficits.length === 0) return null;
 
   const target = deficits[0].space;
@@ -663,8 +673,8 @@ export function executeNavalBattle(state, power, cp) {
  * @returns {{action: Object, cpCost: number}|null}
  */
 export function executeShipbuilding(state, power, cp) {
-  // Ottoman corsair special logic
-  if (power === 'ottoman') {
+  // Ottoman corsair special logic — requires Barbary Pirates event in play
+  if (power === 'ottoman' && state.piracyEnabled) {
     const corsairCost = ACTION_COSTS.ottoman.build_corsair;
     const deck = state.botDecks?.ottoman;
     const card = deck ? getActiveBehaviorCard(deck) : null;
@@ -709,6 +719,7 @@ export function executeShipbuilding(state, power, cp) {
  */
 export function executePiracy(state, power, cp) {
   if (power !== 'ottoman') return null;
+  if (!state.piracyEnabled) return null;
   const cost = ACTION_COSTS.ottoman.initiate_piracy;
   if (!cost || cp < cost) return null;
 
