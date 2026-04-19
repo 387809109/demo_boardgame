@@ -1878,6 +1878,41 @@ These are rules that Bots break compared to human players:
 
 ---
 
+## §8.5 实现偏离记录 (Implementation Deviations)
+
+> 以下条目是本项目在实现 HISBOT 时，对原始规范做出的受控偏离。每条记录形式、动机、触发条件和范围，便于后续回归或移除。
+
+### 8.5.1 Papacy 防御目标压力覆写
+
+**位置**：[`frontend/src/games/his/ai/bot-goals.js` — `dispatchGoalAction`](../../../frontend/src/games/his/ai/bot-goals.js)
+
+**偏离内容**：当 `state.protestantSpaces >= 25` 时，教廷 Bot 本次 `dispatchGoalAction` 调用内将行为卡 `goals` 列表中 `BURN` 与 `DEBATE` 两类目标临时提升至最前，其他目标按原顺序依次在其后。仅影响遍历顺序，不修改 `max` 次数、不增加目标、不修改底层行为卡数据。
+
+**原 HISBOT 行为**：§3 规定目标严格按行为卡列出的顺序依次尝试。部分教廷卡（如 Rebuilding）的 `BURN` 位于 `SET_SAIL / MERCENARIES / SHIPBUILDING` 之后，在低 CP 卡上会被这些早位目标吃光 CP。
+
+**动机**：全 Bot 回归测试（T1-T9）中，教廷 40 次出牌仅出现 1 次 `BURN_BOOKS`、0 次 `CALL_DEBATE`、0 次 `EXCOMMUNICATE`，而新教地点增至 50 导致 T9 宗教胜利。原规范假定"每张卡上 BURN 偶尔能轮到"，但实际按卡顺序 BURN 系统性被挤掉。
+
+**触发范围**：
+
+- 仅限 `power === 'papacy'`
+- 仅当 `protestantSpaces >= 25`（距离宗教胜利 50 地点约一半，已处于危险区间）
+- 仅当当前行为卡的 `goals` 中存在 `BURN` 或 `DEBATE`（即 `Worldly Things` 等无防御目标的卡仍按原顺序运行）
+
+**副作用**：
+
+- 教廷在新教改革推进到危险阈值后，会优先反改革而非造舰/征佣兵
+- 不影响其他五势力
+- 不影响教廷在新教地点 < 25 时的行为
+
+**回归方式**：
+
+- 单元测试：`src/games/his/ai/bot-goals.test.js` 的 108 个测试全部通过，包括 Papacy 相关 dispatch 测试
+- 回归测试：应使用全 Bot Playwright 引擎测试（详见 `docs/games/his/test/TEST_REQUIREMENTS.md`）观察新教胜率变化
+
+**移除方式**：若未来希望完全贴合原规范，删除 `dispatchGoalAction` 中 `// Papacy defensive override` 代码块即可，`goalsToIterate` 回退为 `card.goals`。
+
+---
+
 ## §9 Gameplay Notes
 
 ### Spring Deployment Considerations

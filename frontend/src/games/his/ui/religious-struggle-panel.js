@@ -193,8 +193,14 @@ export class ReligiousStrugglePanel {
       // Status indicator
       if (isCommitted) {
         const st = document.createElement('span');
-        st.style.cssText = 'font-size:8px;color:#e65100;';
-        st.textContent = '已用';
+        st.style.cssText = 'font-size:8px;color:#e65100;font-weight:600;';
+        st.textContent = '本回合已出场';
+        chip.appendChild(st);
+      }
+      if (isBurned) {
+        const st = document.createElement('span');
+        st.style.cssText = 'font-size:8px;color:#b71c1c;font-weight:600;';
+        st.textContent = '已烧毁';
         chip.appendChild(st);
       }
       if (!isAvailable) {
@@ -204,8 +210,17 @@ export class ReligiousStrugglePanel {
         chip.appendChild(st);
       }
 
-      // Tooltip
-      chip.title = `${d.name} (辩论值${d.value}) — ${d.zone || '全区域'}, T${d.entryTurn}进场`;
+      // Tooltip — name, stats, zone, ability, status
+      const tooltipLines = [
+        `${d.name}（辩论值 ${d.value}）`,
+        `区域: ${d.zone || '全区域'} · 第${d.entryTurn}回合进场`,
+      ];
+      if (d.ability) tooltipLines.push(`技能: ${d.ability}`);
+      if (isBurned) tooltipLines.push('状态: 已烧毁（移出游戏）');
+      else if (isCommitted) tooltipLines.push('状态: 本回合已出场（冬季结束时重置）');
+      else if (isInPlay) tooltipLines.push('状态: 在场，本回合尚未出场');
+      else if (!isAvailable) tooltipLines.push(`状态: 未到进场回合（第${d.entryTurn}回合进场）`);
+      chip.title = tooltipLines.join('\n');
 
       grid.appendChild(chip);
     }

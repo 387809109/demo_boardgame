@@ -419,41 +419,41 @@ export const VICTORY = {
 
 export const DEBATERS = [
   // Protestant — Lutheran
-  { id: 'luther',          name: 'Luther',          faction: 'lutheran',  value: 4, entryTurn: 1, zone: 'german' },
-  { id: 'melanchthon',     name: 'Melanchthon',     faction: 'lutheran',  value: 3, entryTurn: 1, zone: 'german' },
-  { id: 'bucer',           name: 'Bucer',           faction: 'lutheran',  value: 2, entryTurn: 1, zone: 'german' },
-  { id: 'carlstadt',       name: 'Carlstadt',       faction: 'lutheran',  value: 1, entryTurn: 1, zone: 'german' },
-  { id: 'zwingli',         name: 'Zwingli',         faction: 'lutheran',  value: 3, entryTurn: 2, zone: 'german' },
-  { id: 'oekolampadius',   name: 'Oekolampadius',   faction: 'lutheran',  value: 2, entryTurn: 2, zone: 'german' },
-  { id: 'bullinger',       name: 'Bullinger',       faction: 'lutheran',  value: 2, entryTurn: 3, zone: 'german' },
+  { id: 'luther',          name: 'Luther',          faction: 'lutheran',  value: 4, entryTurn: 1, zone: 'german', ability: '德语区翻译圣经时额外获得CP' },
+  { id: 'melanchthon',     name: 'Melanchthon',     faction: 'lutheran',  value: 3, entryTurn: 1, zone: 'german', ability: '德语区翻译圣经时额外获得CP' },
+  { id: 'bucer',           name: 'Bucer',           faction: 'lutheran',  value: 2, entryTurn: 1, zone: 'german', ability: '斯特拉斯堡2格内的宗教改革+1骰' },
+  { id: 'carlstadt',       name: 'Carlstadt',       faction: 'lutheran',  value: 1, entryTurn: 1, zone: 'german', ability: '可用论文同时尝试改革3个德语区地点；失败会引发骚乱' },
+  { id: 'zwingli',         name: 'Zwingli',         faction: 'lutheran',  value: 3, entryTurn: 2, zone: 'german', ability: '苏黎世2格内的宗教改革+1骰' },
+  { id: 'oekolampadius',   name: 'Oekolampadius',   faction: 'lutheran',  value: 2, entryTurn: 2, zone: 'german', ability: '巴塞尔2格内的宗教改革+1骰' },
+  { id: 'bullinger',       name: 'Bullinger',       faction: 'lutheran',  value: 2, entryTurn: 3, zone: 'german', ability: '任意区域辩论第二轮可介入' },
 
   // Protestant — Calvinist
-  { id: 'calvin',          name: 'Calvin',          faction: 'calvinist',  value: 4, entryTurn: 4, zone: 'french' },
-  { id: 'farel',           name: 'Farel',           faction: 'calvinist',  value: 2, entryTurn: 4, zone: 'french' },
-  { id: 'cop',             name: 'Cop',             faction: 'calvinist',  value: 2, entryTurn: 4, zone: 'french' },
-  { id: 'olivetan',        name: 'Olivetan',        faction: 'calvinist',  value: 1, entryTurn: 4, zone: 'french' },
+  { id: 'calvin',          name: 'Calvin',          faction: 'calvinist',  value: 4, entryTurn: 4, zone: 'french', ability: '可用论文同时尝试改革3个法语区地点' },
+  { id: 'farel',           name: 'Farel',           faction: 'calvinist',  value: 2, entryTurn: 4, zone: 'french', ability: '日内瓦2格内的宗教改革+1骰' },
+  { id: 'cop',             name: 'Cop',             faction: 'calvinist',  value: 2, entryTurn: 4, zone: 'french', ability: '巴黎2格内的宗教改革+1骰' },
+  { id: 'olivetan',        name: 'Olivetan',        faction: 'calvinist',  value: 1, entryTurn: 4, zone: 'french', ability: '法语区翻译圣经时额外获得CP' },
 
   // Protestant — Anglican
-  { id: 'tyndale',         name: 'Tyndale',         faction: 'anglican',  value: 2, entryTurn: 2, zone: 'english' },
-  { id: 'cranmer',         name: 'Cranmer',         faction: 'anglican',  value: 3, entryTurn: 4, zone: 'english', conditional: true },
-  { id: 'coverdale',       name: 'Coverdale',       faction: 'anglican',  value: 2, entryTurn: 4, zone: 'english', conditional: true },
-  { id: 'latimer',         name: 'Latimer',         faction: 'anglican',  value: 1, entryTurn: 4, zone: 'english', conditional: true },
-  { id: 'wishart',         name: 'Wishart',         faction: 'anglican',  value: 1, entryTurn: 6, zone: 'english' },
-  { id: 'knox',            name: 'Knox',            faction: 'anglican',  value: 3, entryTurn: 6, zone: 'english' },
+  { id: 'tyndale',         name: 'Tyndale',         faction: 'anglican',  value: 2, entryTurn: 2, zone: 'english', ability: '英语区翻译圣经时额外获得CP' },
+  { id: 'cranmer',         name: 'Cranmer',         faction: 'anglican',  value: 3, entryTurn: 4, zone: 'english', conditional: true, ability: '伦敦2格内的宗教改革+1骰（须亨利八世娶安妮·博林后进场）' },
+  { id: 'coverdale',       name: 'Coverdale',       faction: 'anglican',  value: 2, entryTurn: 4, zone: 'english', conditional: true, ability: '英语区翻译圣经时额外获得CP（Cranmer进场后出现）' },
+  { id: 'latimer',         name: 'Latimer',         faction: 'anglican',  value: 1, entryTurn: 4, zone: 'english', conditional: true, ability: '英格兰境内宗教改革+1骰（Cranmer进场后出现）' },
+  { id: 'wishart',         name: 'Wishart',         faction: 'anglican',  value: 1, entryTurn: 6, zone: 'english', ability: '苏格兰境内宗教改革+1骰' },
+  { id: 'knox',            name: 'Knox',            faction: 'anglican',  value: 3, entryTurn: 6, zone: 'english', ability: '英格兰或苏格兰境内宗教改革+1骰' },
 
   // Papal
-  { id: 'eck',             name: 'Eck',             faction: 'papal',     value: 3, entryTurn: 1, zone: null },
-  { id: 'campeggio',       name: 'Campeggio',       faction: 'papal',     value: 2, entryTurn: 1, zone: null },
-  { id: 'aleander',        name: 'Aleander',        faction: 'papal',     value: 2, entryTurn: 1, zone: null },
-  { id: 'tetzel',          name: 'Tetzel',          faction: 'papal',     value: 1, entryTurn: 1, zone: null },
-  { id: 'cajetan',         name: 'Cajetan',         faction: 'papal',     value: 1, entryTurn: 1, zone: null },
-  { id: 'contarini',       name: 'Contarini',       faction: 'papal',     value: 2, entryTurn: 2, zone: null },
-  { id: 'pole',            name: 'Pole',            faction: 'papal',     value: 3, entryTurn: 5, zone: null },
-  { id: 'caraffa',         name: 'Caraffa',         faction: 'papal',     value: 2, entryTurn: 5, zone: null },
-  { id: 'loyola',          name: 'Loyola',          faction: 'papal',     value: 4, entryTurn: 6, zone: null },
-  { id: 'faber',           name: 'Faber',           faction: 'papal',     value: 3, entryTurn: 6, zone: null },
-  { id: 'canisius',        name: 'Canisius',        faction: 'papal',     value: 3, entryTurn: 6, zone: null },
-  { id: 'gardiner',        name: 'Gardiner',        faction: 'papal',     value: 3, entryTurn: 7, zone: null }
+  { id: 'eck',             name: 'Eck',             faction: 'papal',     value: 3, entryTurn: 1, zone: null, ability: '作为攻方发起辩论时+1骰' },
+  { id: 'campeggio',       name: 'Campeggio',       faction: 'papal',     value: 2, entryTurn: 1, zone: null, ability: '辩论失败后可掷1骰；5或6则无视失败结果' },
+  { id: 'aleander',        name: 'Aleander',        faction: 'papal',     value: 2, entryTurn: 1, zone: null, ability: '终结辩论时，胜方额外翻转1格' },
+  { id: 'tetzel',          name: 'Tetzel',          faction: 'papal',     value: 1, entryTurn: 1, zone: null, ability: '烧书行动花费1CP向圣彼得大教堂献礼' },
+  { id: 'cajetan',         name: 'Cajetan',         faction: 'papal',     value: 1, entryTurn: 1, zone: null, ability: '可用烧书同时目标3格' },
+  { id: 'contarini',       name: 'Contarini',       faction: 'papal',     value: 2, entryTurn: 2, zone: null, ability: '查理五世2格内反宗教改革+1骰' },
+  { id: 'pole',            name: 'Pole',            faction: 'papal',     value: 3, entryTurn: 5, zone: null, ability: '特伦特会议期间教廷+1骰' },
+  { id: 'caraffa',         name: 'Caraffa',         faction: 'papal',     value: 2, entryTurn: 5, zone: null, ability: '任意区域烧书时可同时目标3格' },
+  { id: 'loyola',          name: 'Loyola',          faction: 'papal',     value: 4, entryTurn: 6, zone: null, ability: '建立耶稣会大学仅需2CP' },
+  { id: 'faber',           name: 'Faber',           faction: 'papal',     value: 3, entryTurn: 6, zone: null, ability: '对选帝侯进行反宗教改革+2骰' },
+  { id: 'canisius',        name: 'Canisius',        faction: 'papal',     value: 3, entryTurn: 6, zone: null, ability: '雷根斯堡2格内反宗教改革+1骰' },
+  { id: 'gardiner',        name: 'Gardiner',        faction: 'papal',     value: 3, entryTurn: 7, zone: null, ability: '作为攻方在英语区辩论时+1骰' }
 ];
 
 // ── Theological Debate ─────────────────────────────────────────────

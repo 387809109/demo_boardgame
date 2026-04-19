@@ -1158,8 +1158,21 @@ export function dispatchGoalAction(state, power) {
   // Execution counts for this impulse (reset by controller between impulses)
   const counts = state.botGoalCounts?.[power] || {};
 
+  // Papacy defensive override: when Protestant reformation is runaway,
+  // promote BURN/DEBATE ahead of naval/mercenary goals so they are not
+  // crowded out by early-slot CP consumers on low-CP cards.
+  let goalsToIterate = card.goals;
+  if (power === 'papacy' && (state.protestantSpaces || 0) >= 25) {
+    const DEFENSIVE = new Set([GOAL_TYPES.BURN, GOAL_TYPES.DEBATE]);
+    const defensive = card.goals.filter(g => DEFENSIVE.has(g.type));
+    if (defensive.length > 0) {
+      const others = card.goals.filter(g => !DEFENSIVE.has(g.type));
+      goalsToIterate = [...defensive, ...others];
+    }
+  }
+
   // Iterate priority list
-  for (const goal of card.goals) {
+  for (const goal of goalsToIterate) {
     const { type, max } = goal;
     const executor = GOAL_EXECUTORS[type];
     if (!executor) continue;

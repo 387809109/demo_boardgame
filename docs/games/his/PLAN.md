@@ -311,12 +311,16 @@ frontend/src/games/his/
 
 ---
 
-### Phase 12: AI（HISBOT）✅ 完成
+### Phase 12: AI（HISBOT）✅ 完成（🔶 行为调优进行中）
 
 > **详细计划**：[`docs/games/his/AI_PLAN.md`](AI_PLAN.md)
 >
 > 基于 Russ Brown 的 HISBOT v1.1 非官方 AI 系统，实现卡驱动行为卡 Bot，支持 1-5 人 + Bot 补位模式。
 > 参考来源：`his_ref/HISBOT.md`（原始扫描文档）
+>
+> **行为调优待办**：[`docs/games/his/BOT_PENDING_ANOMALIES.md`](BOT_PENDING_ANOMALIES.md)（7 条从 2026-04-19 全 Bot 回归测试识别的未定位异常）
+>
+> **规范偏离记录**：[`docs/games/his/HISBOT_REF.md §8.5`](HISBOT_REF.md#85-实现偏离记录-implementation-deviations)（教廷防御目标压力覆写）
 
 | # | 任务 | 状态 | 优先级 |
 |---|------|------|--------|
