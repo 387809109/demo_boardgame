@@ -13,7 +13,7 @@
  * Card numbers reference CARDS[] in data/cards.js.
  */
 
-import { areAtWar, getWarsOf, getAlliesOf } from '../state/war-helpers.js';
+import { areAtWar, areAllied, getWarsOf, getAlliesOf } from '../state/war-helpers.js';
 import {
   getActiveRuler, isHomeSpace, getUnitsInSpace, countLandUnits
 } from '../state/state-helpers.js';
@@ -690,10 +690,11 @@ export const EVENT_CRITERIA = {
     treaty: (s, p, tp) =>
       tp === 'england' && isInDiscard(s, 63) // Dissolution = card 63
   },
-  // 116: Rough Wooing — England
+  // 116: Rough Wooing — England (requires Edward VI born + Scotland allied to France)
   116: {
     title: 'Rough Wooing',
-    shouldPlay: (s, p) => p === 'england',
+    shouldPlay: (s, p) =>
+      p === 'england' && !!s.edwardBorn && areAllied(s, 'scotland', 'france'),
     treaty: (s, p, tp) => tp === 'england'
   }
 };

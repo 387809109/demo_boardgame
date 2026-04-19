@@ -290,7 +290,7 @@ describe('executeSiege', () => {
       isElectorate: false, isPort: false,
       units: [{ owner: 'ottoman', regulars: 4, mercenaries: 0, cavalry: 0,
         squadrons: 0, corsairs: 0, leaders: [] }],
-      siege: { besieger: 'ottoman' }
+      besieged: true, besiegedBy: 'ottoman'
     };
     const result = executeSiege(state, 'ottoman', 3);
     expect(result).not.toBeNull();
@@ -363,6 +363,7 @@ describe('executeShipbuilding', () => {
 
   it('builds corsair for Ottoman with 1 CP remaining', () => {
     const state = createBotState(['ottoman']);
+    state.piracyEnabled = true;
     state.spaces['Algiers'] = {
       controller: 'ottoman', isKey: false, isFortress: false,
       isElectorate: false, isPort: true,
@@ -378,6 +379,7 @@ describe('executeShipbuilding', () => {
 
   it('builds corsair with Barbary Pirates card', () => {
     const state = createBotState(['ottoman']);
+    state.piracyEnabled = true;
     state.spaces['Algiers'] = {
       controller: 'ottoman', isKey: false, isFortress: false,
       isElectorate: false, isPort: true,
@@ -584,7 +586,7 @@ describe('executeStPeters', () => {
 
   it('returns null when St Peters complete', () => {
     const state = createBotState(['papacy']);
-    state.stPetersProgress = 5;
+    state.stPetersVp = 5;
     const result = executeStPeters(state, 'papacy', 3);
     expect(result).toBeNull();
   });
@@ -1051,7 +1053,7 @@ describe('executeSiege edge cases', () => {
     state.spaces['Vienna'] = {
       controller: 'hapsburg', isKey: true, isFortress: true,
       isElectorate: false, isPort: false,
-      siege: { besieger: 'ottoman', defenders: 2 },
+      besieged: true, besiegedBy: 'ottoman', defenders: 2,
       units: [
         { owner: 'ottoman', regulars: 4, mercenaries: 0, cavalry: 0,
           squadrons: 0, corsairs: 0, leaders: [] }
@@ -1086,6 +1088,7 @@ describe('executeSiege edge cases', () => {
 describe('executeShipbuilding edge cases', () => {
   it('Ottoman builds corsair when cp=1', () => {
     const state = createBotState(['ottoman']);
+    state.piracyEnabled = true;
     state.spaces['Algiers'] = {
       controller: 'ottoman', isKey: false, isFortress: false,
       isElectorate: false, isPort: true, units: []
@@ -1098,6 +1101,7 @@ describe('executeShipbuilding edge cases', () => {
 
   it('Ottoman builds corsair with Barbary Pirates card active', () => {
     const state = createBotState(['ottoman']);
+    state.piracyEnabled = true;
     state.spaces['Algiers'] = {
       controller: 'ottoman', isKey: false, isFortress: false,
       isElectorate: false, isPort: true, units: []
@@ -1207,7 +1211,7 @@ describe('religious goal edge cases', () => {
 
   it('executeStPeters returns null when St Peters complete', () => {
     const state = createBotState(['papacy']);
-    state.stPetersProgress = 5;
+    state.stPetersVp = 5;
     expect(executeStPeters(state, 'papacy', 5)).toBeNull();
   });
 

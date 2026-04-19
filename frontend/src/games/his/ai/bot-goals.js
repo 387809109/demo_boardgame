@@ -1480,6 +1480,20 @@ function findAssaultTarget(state, power) {
       sp.siegeEstablishedBy === power &&
       sp.siegeEstablishedCardNumber === state.activeCardNumber
     ) continue;
+    // §14 port: enemy naval in adjacent sea zone blocks assault
+    if (sp.isPort && (sp.connectedSeaZones || []).length > 0) {
+      let blocked = false;
+      for (const sz of sp.connectedSeaZones) {
+        const seaState = state.spaces[sz];
+        if (!seaState?.units) continue;
+        const enemyNaval = seaState.units.find(u =>
+          u.owner !== power && canAttack(state, power, u.owner) &&
+          ((u.squadrons || 0) > 0 || (u.corsairs || 0) > 0)
+        );
+        if (enemyNaval) { blocked = true; break; }
+      }
+      if (blocked) continue;
+    }
     const stack = getUnitsInSpace(state, name, power);
     const size = countLandUnits(stack);
     if (size > bestSize) {

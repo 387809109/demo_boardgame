@@ -14,7 +14,7 @@ import { CARD_BY_NUMBER } from '../data/cards.js';
 import { ACTION_TYPES } from '../actions/action-types.js';
 import { CAPITALS, RULERS } from '../constants.js';
 import { getActiveBehaviorCard } from './behavior-cards.js';
-import { areAtWar, getWarsOf } from '../state/war-helpers.js';
+import { areAtWar, canAttack, getWarsOf } from '../state/war-helpers.js';
 import { getActiveRuler, countLandUnits, getUnitsInSpace, getAllVpTotals } from '../state/state-helpers.js';
 import {
   shouldPlayEvent, satisfiesTreaty, shouldPlayResponse,
@@ -433,12 +433,27 @@ export function getFinalAutumnAssaults(state, power) {
 
   // Free assault on each active siege
   for (const [spaceName, space] of Object.entries(state.spaces || {})) {
-    if (space.besieged && space.besiegedBy === power) {
-      actions.push({
-        actionType: ACTION_TYPES.ASSAULT,
-        actionData: { target: spaceName, free: true }
-      });
+    if (!(space.besieged && space.besiegedBy === power)) continue;
+    // Same-impulse siege cannot be assaulted
+    if (space.siegeEstablishedImpulse === state.turnNumber) continue;
+    // §14 port: enemy naval in adjacent sea zone blocks assault
+    if (space.isPort && (space.connectedSeaZones || []).length > 0) {
+      let blocked = false;
+      for (const sz of space.connectedSeaZones) {
+        const seaState = state.spaces[sz];
+        if (!seaState?.units) continue;
+        const enemyNaval = seaState.units.find(u =>
+          u.owner !== power && canAttack(state, power, u.owner) &&
+          ((u.squadrons || 0) > 0 || (u.corsairs || 0) > 0)
+        );
+        if (enemyNaval) { blocked = true; break; }
+      }
+      if (blocked) continue;
     }
+    actions.push({
+      actionType: ACTION_TYPES.ASSAULT,
+      actionData: { target: spaceName, free: true }
+    });
   }
 
   // Free foreign war actions

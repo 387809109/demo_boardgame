@@ -185,7 +185,7 @@ describe('shouldPlayEvent — condition-dependent cards', () => {
     state.spaces = state.spaces || {};
     state.spaces['Vienna'] = {
       controller: 'hapsburg',
-      siege: { besieger: 'ottoman' }
+      besieged: true, besiegedBy: 'ottoman'
     };
     expect(shouldPlayEvent(state, 'ottoman', 105)).toBe(true);
   });
@@ -321,7 +321,7 @@ describe('shouldPlayResponse', () => {
     state.spaces = state.spaces || {};
     state.spaces['Vienna'] = {
       controller: 'hapsburg',
-      siege: { besieger: 'ottoman' }
+      besieged: true, besiegedBy: 'ottoman'
     };
     expect(shouldPlayResponse(state, 'ottoman', 35)).toBe(true);
   });

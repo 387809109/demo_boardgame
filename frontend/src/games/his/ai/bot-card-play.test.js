@@ -436,11 +436,11 @@ describe('getFinalAutumnAssaults', () => {
     state.spaces = state.spaces || {};
     state.spaces['Vienna'] = {
       controller: 'hapsburg',
-      siege: { besieger: 'ottoman', defenders: 3 }
+      besieged: true, besiegedBy: 'ottoman', defenders: 3
     };
     state.spaces['Buda'] = {
       controller: 'ottoman',
-      siege: { besieger: 'ottoman', defenders: 1 }
+      besieged: true, besiegedBy: 'ottoman', defenders: 1
     };
     const assaults = getFinalAutumnAssaults(state, 'ottoman');
     expect(assaults.length).toBe(2);
@@ -499,7 +499,7 @@ describe('decideResponsePlay', () => {
     state.spaces = state.spaces || {};
     state.spaces['Metz'] = {
       controller: 'france',
-      siege: { besieger: 'hapsburg', defenders: 2 }
+      besieged: true, besiegedBy: 'hapsburg', defenders: 2
     };
     const result = decideResponsePlay(state, 'ottoman');
     expect(result.actionType).toBe('PLAY_RESPONSE_CARD');

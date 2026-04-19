@@ -551,7 +551,10 @@ export class HISGame extends GameEngine {
 
       // CP sub-actions
       if (isCpAction(actionType)) {
-        if (!isInCpMode(state)) {
+        // §2.10.3 Final Autumn Assaults: free ASSAULT allowed outside CP mode
+        const isFreeAutumnAssault =
+          actionType === ACTION_TYPES.ASSAULT && actionData?.free === true;
+        if (!isInCpMode(state) && !isFreeAutumnAssault) {
           return { valid: false, error: 'Not in CP spending mode' };
         }
         const handler = CP_ACTION_HANDLERS[actionType];

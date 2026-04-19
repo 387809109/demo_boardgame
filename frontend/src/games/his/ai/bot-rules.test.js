@@ -279,9 +279,7 @@ describe('isExemptFromPhonyWar', () => {
 describe('autumn assault tracking', () => {
   it('getNextAutumnAssault returns siege assaults', () => {
     const state = createBotState(['ottoman']);
-    state.spaces['Vienna'] = {
-      siege: { besieger: 'ottoman' }
-    };
+    state.spaces['Vienna'] = { besieged: true, besiegedBy: 'ottoman' };
     const assault = getNextAutumnAssault(state, 'ottoman');
     expect(assault).not.toBeNull();
     expect(assault.actionType).toBe('ASSAULT');
@@ -291,7 +289,7 @@ describe('autumn assault tracking', () => {
 
   it('getNextAutumnAssault skips already-done assaults', () => {
     const state = createBotState(['ottoman']);
-    state.spaces['Vienna'] = { siege: { besieger: 'ottoman' } };
+    state.spaces['Vienna'] = { besieged: true, besiegedBy: 'ottoman' };
 
     markAutumnAssaultDone(state, 'ottoman', 'Vienna');
     const assault = getNextAutumnAssault(state, 'ottoman');
@@ -484,7 +482,7 @@ describe('decideBotAction — autumn assaults', () => {
     state.activePower = 'ottoman';
     state.cpRemaining = 0;
     state.hands.ottoman = [];
-    state.spaces['Vienna'] = { siege: { besieger: 'ottoman' } };
+    state.spaces['Vienna'] = { besieged: true, besiegedBy: 'ottoman' };
 
     const action = decideBotAction(state, 'ottoman');
     expect(action.actionType).toBe('ASSAULT');

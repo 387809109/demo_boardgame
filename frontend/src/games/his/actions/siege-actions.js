@@ -67,7 +67,8 @@ export function establishSiege(state, space, besiegingPower, helpers) {
  * @returns {{ valid: boolean, error?: string }}
  */
 export function validateAssault(state, power, actionData) {
-  const { space } = actionData;
+  const space = actionData?.space ?? actionData?.target;
+  const isFree = actionData?.free === true;
   if (!space) return { valid: false, error: 'Missing space' };
 
   const sp = state.spaces[space];
@@ -89,12 +90,12 @@ export function validateAssault(state, power, actionData) {
     return { valid: false, error: 'Cannot assault in same impulse as siege establishment' };
   }
 
-  // Check CP
+  // Check CP (skipped for free autumn assaults)
   const cost = ACTION_COSTS[power]?.assault;
   if (cost === null || cost === undefined) {
     return { valid: false, error: 'Cannot perform assault' };
   }
-  if (state.cpRemaining < cost) {
+  if (!isFree && state.cpRemaining < cost) {
     return { valid: false, error: `Not enough CP (need ${cost})` };
   }
 
@@ -141,9 +142,10 @@ export function validateAssault(state, power, actionData) {
  * @returns {Object} Assault result
  */
 export function executeAssault(state, power, actionData, helpers) {
-  const { space } = actionData;
+  const space = actionData?.space ?? actionData?.target;
+  const isFree = actionData?.free === true;
   const cost = ACTION_COSTS[power].assault;
-  spendCp(state, cost);
+  if (!isFree) spendCp(state, cost);
 
   const sp = state.spaces[space];
   const attackerStack = getUnitsInSpace(state, space, power);

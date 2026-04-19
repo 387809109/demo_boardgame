@@ -374,10 +374,13 @@ function decideAction(state, power) {
   }
 
   // In CP mode: execute next goal from behavior card
-  if (state.cpRemaining > 0) {
-    const goalAction = decideGoalAction(state, power);
-    if (goalAction) return goalAction;
-    // No goals to execute — end impulse to discard remaining CP
+  // isInCpMode === cpRemaining > 0 || activeCardNumber !== null
+  if (state.cpRemaining > 0 || state.activeCardNumber != null) {
+    if (state.cpRemaining > 0) {
+      const goalAction = decideGoalAction(state, power);
+      if (goalAction) return goalAction;
+    }
+    // No goals to execute (or cpRemaining === 0 but card still active) — end impulse
     return { actionType: ACTION_TYPES.END_IMPULSE, actionData: {} };
   }
 

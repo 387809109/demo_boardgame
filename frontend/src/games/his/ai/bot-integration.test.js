@@ -218,7 +218,7 @@ describe('autumn assaults in action phase', () => {
     state.activePower = 'ottoman';
     state.cpRemaining = 0;
     state.hands.ottoman = [];
-    state.spaces['Vienna'] = { siege: { besieger: 'ottoman' } };
+    state.spaces['Vienna'] = { besieged: true, besiegedBy: 'ottoman' };
 
     const action = decideBotAction(state, 'ottoman');
     expect(action.actionType).toBe('ASSAULT');
@@ -232,8 +232,8 @@ describe('autumn assaults in action phase', () => {
     state.activePower = 'ottoman';
     state.cpRemaining = 0;
     state.hands.ottoman = [];
-    state.spaces['Vienna'] = { siege: { besieger: 'ottoman' } };
-    state.spaces['Prague'] = { siege: { besieger: 'ottoman' } };
+    state.spaces['Vienna'] = { besieged: true, besiegedBy: 'ottoman' };
+    state.spaces['Prague'] = { besieged: true, besiegedBy: 'ottoman' };
 
     // First call returns one assault
     const action1 = decideBotAction(state, 'ottoman');
