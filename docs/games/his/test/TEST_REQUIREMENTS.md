@@ -91,3 +91,80 @@ window.app._takeOverPower('france')     // 从 bot 接管法兰西
 | 外交阶段 force-pass | 无宣战 → 无战争状态 → 全程零战斗 |
 | bot 卡住时手动执行动作 | 掩盖 bug |
 | 重开新局而非读档 | 丢失测试进度 |
+
+---
+
+## 测试执行与异常归档流程
+
+每次全 Bot 回归测试的标准流程如下。最终产物是 `docs/games/his/bot_anomalies/YYYY-MM-DD_<标签>.md`，
+用于驱动下一轮 HISBOT 行为调优。
+
+### Step 1 — 执行全 Bot 对局
+
+通过 Playwright MCP 直接驱动浏览器（非脚本化测试），便于实时观察：
+
+```javascript
+browser_navigate('http://localhost:5173')
+browser_evaluate(() => window.app._startHisGame())   // 6 势力全部为 HISBOT
+// 或：window.app._startHisGame('hapsburg') 观察单一势力
+```
+
+在每回合 `victory_determination` 结束后存档。发现阻塞性 bug 时**立即停止**、修复、从最近存档继续。
+
+### Step 2 — 实时记录观察
+
+观察以下信号并原始记录到草稿笔记：
+
+- **控制台警告 / 错误**：尤其 `[BOT CHAIN BROKEN]`、非法 action、单位/空间不一致告警
+- **势力 action 分布**：某势力是否反复触发同一 goal 却无产出（如多次宣战零攻击、反复造舰零突击）
+- **宗教压力曲线**：新教 / 天主教空间数按回合推进
+- **胜负终局指标**：胜方、胜利类型、回合数、VP、宗教空间数
+
+### Step 3 — 定位与修复（当局内）
+
+对于**阻塞性** bug（卡住不动、异常报错）：必须当场修复后继续，否则后续观察失真。
+对于**行为偏差**（非阻塞，但策略不合理）：**只记录，不在测试中途修复**，避免污染本次样本。
+
+若测试中修改了原版 HISBOT 行为（如添加压力触发、覆写优先级等），**必须**在 [`HISBOT_REF.md`](../HISBOT_REF.md) 的 "实现偏离记录"
+章节写明：偏离点、原版行为、触发条件、动机、回归验证方式、还原路径。
+
+### Step 4 — 产出异常清单文档
+
+测试结束后，基于 [`../BOT_PENDING_ANOMALIES.md`](../BOT_PENDING_ANOMALIES.md) 模板，在 [`../bot_anomalies/`](../bot_anomalies/) 下新建：
+
+```text
+docs/games/his/bot_anomalies/YYYY-MM-DD_<标签>.md
+```
+
+文件名示例：`2026-04-19_full-bot-9turns.md`、`2026-05-03_protestant-only.md`。
+
+每条异常按「现象 / 推测 / 复现分析方式 / 相关代码位置」四段结构书写，并在文末给出
+"整体修复建议顺序" 和 "数据归档" 两节。
+
+### Step 5 — 更新索引指针
+
+- 在 [`../PLAN.md`](../PLAN.md) "行为调优待办" 处更新指向最新的 `bot_anomalies/` 文档
+- 若本次产生了 HISBOT 偏离，同步更新 [`../HISBOT_REF.md`](../HISBOT_REF.md) 对应章节
+- 如有已修复的历史条目，保留链接但标注 "✅ 已修复 (commit XXXXXXX)"
+
+### Step 6 — 提交
+
+提交信息格式：`fix(his): <本次核心修复> + <文档更新>`，例如：
+
+```text
+fix(his): papacy defensive override + debater ability tooltip + anomaly docs
+```
+
+若本次仅为观察测试（无代码改动），提交信息改为：`docs(his): record 20YY-MM-DD full-bot test anomalies`。
+
+---
+
+## 数据归档建议
+
+`bot_anomalies/` 下的文档可附带下列原始数据（文件命名保持同一日期前缀）：
+
+- `YYYY-MM-DD_*.history.json` — `state.history` 完整行动序列
+- `YYYY-MM-DD_*.actions.csv` — 按势力 × action 类型统计
+- `YYYY-MM-DD_*.console.log` — 控制台原始日志（过滤 `[BOT]` / `[WARN]`）
+
+便于后续跨轮回归对比与回归脚本提取。
