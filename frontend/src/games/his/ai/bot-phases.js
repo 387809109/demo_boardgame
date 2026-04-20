@@ -16,7 +16,7 @@
  * {actionType, actionData} moves — they do NOT mutate state.
  */
 
-import { CAPITALS, DOW_COSTS, RULERS } from '../constants.js';
+import { CAPITALS, DOW_COSTS, RULERS, FORMATION } from '../constants.js';
 import { ACTION_TYPES } from '../actions/action-types.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import { getActiveBehaviorCard, revealBehaviorCard, CARD_BY_ID } from './behavior-cards.js';
@@ -493,9 +493,11 @@ function decideSpringDeploymentAtWar(state, power) {
   const caps = CAPITALS[power] || [];
   if (caps.length === 0) return null;
 
-  // Find destination: controlled space closest to enemy key, ≤4 spaces away
-  const dest = findSpringDeploymentDest(state, power);
-  if (!dest) return null;
+  // Candidate destinations: all controlled spaces within 4 land-hops of any
+  // enemy key, sorted by distance ascending. Fall back through the list when
+  // the closest target cannot be reached from any eligible capital.
+  const dests = findSpringDeploymentDests(state, power);
+  if (dests.length === 0) return null;
 
   // Try each capital in order of spare units, validate path before returning
   const capCandidates = caps
@@ -512,11 +514,17 @@ function decideSpringDeploymentAtWar(state, power) {
     .filter(Boolean)
     .sort((a, b) => b.spare - a.spare);
 
-  for (const { cap, spare, stack } of capCandidates) {
-    const deployUnits = buildDeployUnits(stack, spare);
-    const actionData = { from: cap, to: dest, units: deployUnits, forPower: power };
-    if (validateSpringDeployment(state, power, actionData).valid) {
-      return { actionType: ACTION_TYPES.SPRING_DEPLOY, actionData };
+  for (const { space: dest } of dests) {
+    for (const { cap, spare, stack } of capCandidates) {
+      // Cap deployment at formation max (no leader moved) to avoid triggering
+      // the "Exceeds formation cap" validator failure when capitals stockpile
+      // more than 4 spare regulars.
+      const deployCount = Math.min(spare, FORMATION.noLeaderMax);
+      const deployUnits = buildDeployUnits(stack, deployCount);
+      const actionData = { from: cap, to: dest, units: deployUnits, forPower: power };
+      if (validateSpringDeployment(state, power, actionData).valid) {
+        return { actionType: ACTION_TYPES.SPRING_DEPLOY, actionData };
+      }
     }
   }
   return null;
@@ -603,15 +611,17 @@ function buildDeployUnits(stack, count) {
 }
 
 /**
- * Find spring deployment destination (closest controlled space to enemy key, ≤4 away).
- * Simplified BFS-based approach.
+ * Find spring deployment destinations — all controlled spaces within 4 land
+ * hops of any enemy key, ranked by distance ascending. Multiple candidates
+ * are returned so the caller can fall back when the closest target is
+ * unreachable from any eligible capital.
  * @param {Object} state
  * @param {string} power
- * @returns {string|null}
+ * @returns {Array<{space: string, dist: number}>}
  */
-function findSpringDeploymentDest(state, power) {
+function findSpringDeploymentDests(state, power) {
   const enemies = getWarsOf(state, power);
-  if (enemies.length === 0) return null;
+  if (enemies.length === 0) return [];
 
   // Collect enemy key spaces
   const enemyKeys = [];
@@ -624,14 +634,12 @@ function findSpringDeploymentDest(state, power) {
       }
     }
   }
-  if (enemyKeys.length === 0) return null;
+  if (enemyKeys.length === 0) return [];
 
-  // For each enemy key, find closest controlled space within 4 moves
-  let bestDest = null;
-  let bestDist = Infinity;
+  // Track best (shortest) distance seen for each controlled candidate space
+  const bestByName = new Map();
 
   for (const ek of enemyKeys) {
-    // BFS from enemy key outward, looking for controlled spaces
     const visited = new Set([ek]);
     const queue = [{ space: ek, dist: 0 }];
 
@@ -640,9 +648,9 @@ function findSpringDeploymentDest(state, power) {
       if (dist > 4) continue;
 
       const sp = state.spaces[space];
-      if (sp && sp.controller === power && dist > 0 && dist < bestDist) {
-        bestDist = dist;
-        bestDest = space;
+      if (sp && sp.controller === power && dist > 0) {
+        const prev = bestByName.get(space);
+        if (prev === undefined || dist < prev) bestByName.set(space, dist);
       }
 
       const adj = getAdjacentSpaces(space);
@@ -657,7 +665,9 @@ function findSpringDeploymentDest(state, power) {
     }
   }
 
-  return bestDest;
+  return Array.from(bestByName.entries())
+    .map(([space, dist]) => ({ space, dist }))
+    .sort((a, b) => a.dist - b.dist);
 }
 
 // ── §2.11 Winter Phase ───────────────────────────────────────────

@@ -15,7 +15,7 @@ import { ACTION_TYPES } from '../actions/action-types.js';
 import { CAPITALS, RULERS } from '../constants.js';
 import { getActiveBehaviorCard } from './behavior-cards.js';
 import { areAtWar, canAttack, getWarsOf } from '../state/war-helpers.js';
-import { getActiveRuler, countLandUnits, getUnitsInSpace, getAllVpTotals } from '../state/state-helpers.js';
+import { getActiveRuler, countLandUnits, getUnitsInSpace, getAllVpTotals, isHomeSpace } from '../state/state-helpers.js';
 import {
   shouldPlayEvent, satisfiesTreaty, shouldPlayResponse,
   satisfiesResponseTreaty, hasEventCriteria, hasResponseCriteria
@@ -136,25 +136,56 @@ function evaluateHapsburgHome(state) {
 
   if (!atWarOttoman && !atWarProt) return null;
 
-  // Check if Charles V is already in German zone or Hungary
   const charlesLocation = findLeaderLocation(state, 'charles_v');
   if (!charlesLocation) return null; // Captured or not on map
 
-  const space = state.spaces?.[charlesLocation];
-  const inGermanZone = space?.language_zone === 'german';
-  // Hungary home spaces are a subset — simplified check
-  const inHungary = charlesLocation === 'Buda' || charlesLocation === 'Pressburg' ||
-                    charlesLocation === 'Mohacs' || charlesLocation === 'Agram';
+  if (isInGermanOrHungaryHome(state, charlesLocation)) return null;
 
-  if (inGermanZone || inHungary) return null; // Already there
+  // Per HISBOT §6: locate a German-zone or Hungary-home space controlled by
+  // Hapsburg (or a minor ally) with the most friendly land units (≥ 2).
+  const target = pickCharlesVTargetSpace(state);
+  if (!target) return null;  // No viable destination → play for CPs
 
   return {
     actionType: ACTION_TYPES.PLAY_CARD_EVENT,
     actionData: {
       cardNumber: HOME_CARDS.hapsburg,
-      homeEffect: 'move_charles'
+      homeEffect: 'move_charles',
+      targetSpace: target
     }
   };
+}
+
+function isInGermanOrHungaryHome(state, spaceName) {
+  const space = state.spaces?.[spaceName];
+  if (space?.languageZone === 'german') return true;
+  return isHomeSpace(spaceName, 'hungary');
+}
+
+function pickCharlesVTargetSpace(state) {
+  let best = null;
+  let bestUnits = 1;  // require ≥ 2 units
+  for (const [spaceName, space] of Object.entries(state.spaces || {})) {
+    const inScope = space?.languageZone === 'german' || isHomeSpace(spaceName, 'hungary');
+    if (!inScope) continue;
+    // Must be controlled by Hapsburg or a minor ally (Hungary counts here)
+    const controlledByAlly =
+      space.controller === 'hapsburg' ||
+      space.controller === 'hungary' ||
+      space.controller === 'genoa';
+    if (!controlledByAlly) continue;
+    const friendly = (space.units || []).reduce((sum, u) => {
+      if (u.owner === 'hapsburg' || u.owner === 'hungary' || u.owner === 'genoa') {
+        return sum + countLandUnits(u);
+      }
+      return sum;
+    }, 0);
+    if (friendly > bestUnits) {
+      bestUnits = friendly;
+      best = spaceName;
+    }
+  }
+  return best;
 }
 
 /**
@@ -174,10 +205,10 @@ function evaluateEnglandHome(state) {
     };
   }
 
-  // Otherwise: advance Marital Status if Turn 2+ and Henry alive
+  // Otherwise: advance Marital Status if Turn 2+ and Henry alive + not captured
   if ((state.turn || 1) >= 2) {
     const ruler = getActiveRuler(state, 'england');
-    if (ruler?.id === 'henry_viii') {
+    if (ruler?.id === 'henry_viii' && !isLeaderCaptured(state, 'henry_viii')) {
       return {
         actionType: ACTION_TYPES.PLAY_CARD_EVENT,
         actionData: {
@@ -189,6 +220,17 @@ function evaluateEnglandHome(state) {
   }
 
   return null;
+}
+
+/**
+ * Check if a leader (by id) is currently captured by any power.
+ * Mirrors the engine's validation in EVENT_HANDLERS[3].validate.
+ */
+function isLeaderCaptured(state, leaderId) {
+  const captured = state.capturedLeaders || {};
+  return Object.values(captured).some(
+    arr => Array.isArray(arr) && arr.includes(leaderId)
+  );
 }
 
 /**
@@ -436,6 +478,12 @@ export function getFinalAutumnAssaults(state, power) {
     if (!(space.besieged && space.besiegedBy === power)) continue;
     // Same-impulse siege cannot be assaulted
     if (space.siegeEstablishedImpulse === state.turnNumber) continue;
+    // Besieger units may have been removed mid-turn (retreat/death) without
+    // clearing the besieged flag. Skip stale sieges with no attacker presence.
+    if (space.units !== undefined) {
+      const besieger = getUnitsInSpace(state, spaceName, power);
+      if (!besieger || countLandUnits(besieger) === 0) continue;
+    }
     // §14 port: enemy naval in adjacent sea zone blocks assault
     if (space.isPort && (space.connectedSeaZones || []).length > 0) {
       let blocked = false;

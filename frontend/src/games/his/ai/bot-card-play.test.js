@@ -137,6 +137,51 @@ describe('evaluateHomeCard', () => {
     expect(result.actionData.homeEffect).toBe('move_charles');
   });
 
+  it('Hapsburg: includes a German/Hungary-home targetSpace with ≥2 Hapsburg units', () => {
+    // Engine EVENT_HANDLERS[2] uses actionData.targetSpace to resolve
+    // the Charles V move; omitting it results in the 5CP fallback with
+    // no movement. The 1517 setup seeds Vienna with 4 Hapsburg regulars.
+    const state = createBotState(['hapsburg']);
+    setActiveBehaviorCard(state, 'hapsburg', 'hapsburg_holy_roman_empire');
+    addWar(state, 'hapsburg', 'ottoman');
+    state.spaces = state.spaces || {};
+    state.spaces['Valladolid'] = {
+      controller: 'hapsburg', languageZone: 'spanish',
+      units: [{ owner: 'hapsburg', regulars: 2, leaders: ['charles_v'] }]
+    };
+    const result = evaluateHomeCard(state, 'hapsburg');
+    expect(result).not.toBeNull();
+    expect(result.actionData.targetSpace).toBeTruthy();
+    const target = result.actionData.targetSpace;
+    const targetSpace = state.spaces[target];
+    const inScope =
+      targetSpace?.languageZone === 'german' ||
+      ['Agram','Belgrade','Breslau','Brunn','Buda','Mohacs','Prague','Pressburg','Szegedin'].includes(target);
+    expect(inScope).toBe(true);
+  });
+
+  it('Hapsburg: returns null if no viable Charles V target (no ally-controlled stack ≥2)', () => {
+    const state = createBotState(['hapsburg']);
+    setActiveBehaviorCard(state, 'hapsburg', 'hapsburg_holy_roman_empire');
+    addWar(state, 'hapsburg', 'ottoman');
+    // Wipe Hapsburg/ally units from every German/Hungary-home space
+    for (const [name, sp] of Object.entries(state.spaces || {})) {
+      const inScope =
+        sp?.languageZone === 'german' ||
+        ['Agram','Belgrade','Breslau','Brunn','Buda','Mohacs','Prague','Pressburg','Szegedin'].includes(name);
+      if (!inScope) continue;
+      sp.units = (sp.units || []).filter(
+        u => u.owner !== 'hapsburg' && u.owner !== 'hungary' && u.owner !== 'genoa'
+      );
+    }
+    state.spaces['Valladolid'] = {
+      controller: 'hapsburg', languageZone: 'spanish',
+      units: [{ owner: 'hapsburg', regulars: 2, leaders: ['charles_v'] }]
+    };
+    const result = evaluateHomeCard(state, 'hapsburg');
+    expect(result).toBeNull();
+  });
+
   it('Hapsburg: returns null if not at war with Ottoman/Protestant', () => {
     const state = createBotState(['hapsburg']);
     setActiveBehaviorCard(state, 'hapsburg', 'hapsburg_holy_roman_empire');
@@ -165,6 +210,19 @@ describe('evaluateHomeCard', () => {
     const result = evaluateHomeCard(state, 'england');
     expect(result).not.toBeNull();
     expect(result.actionData.mode).toBe('marital');
+  });
+
+  it('England: skips marital mode when Henry VIII is captured', () => {
+    // Engine validator rejects Marital when Henry is captured; Bot must
+    // not keep re-submitting the same card every impulse.
+    const state = createBotState(['england']);
+    setActiveBehaviorCard(state, 'england', 'england_expedition');
+    state.turn = 3;
+    state.rulers = state.rulers || {};
+    state.rulers.england = { id: 'henry_viii', name: 'Henry VIII', admin: 1 };
+    state.capturedLeaders = { france: ['henry_viii'] };
+    const result = evaluateHomeCard(state, 'england');
+    expect(result).toBeNull();
   });
 
   it('France: plays Chateau roll if modifier > -3', () => {
@@ -467,6 +525,46 @@ describe('getFinalAutumnAssaults', () => {
     state.spaces = {};
     state.activeForeignWars = {};
     expect(getFinalAutumnAssaults(state, 'ottoman')).toEqual([]);
+  });
+
+  it('skips siege when besieger has no units in space', () => {
+    // Stale siege: besieged flag was set but attacker units were wiped
+    // earlier in the same turn (retreat/death). Defensive guard.
+    const state = createBotState(['ottoman']);
+    state.spaces = state.spaces || {};
+    state.spaces['Vienna'] = {
+      controller: 'hapsburg',
+      besieged: true, besiegedBy: 'ottoman', defenders: 3,
+      units: []  // Attacker units gone
+    };
+    state.spaces['Buda'] = {
+      controller: 'ottoman',
+      besieged: true, besiegedBy: 'ottoman', defenders: 1,
+      units: [
+        { owner: 'ottoman', regulars: 2, mercenaries: 0, cavalry: 0,
+          squadrons: 0, corsairs: 0, leaders: [] }
+      ]
+    };
+    const assaults = getFinalAutumnAssaults(state, 'ottoman');
+    expect(assaults.length).toBe(1);
+    expect(assaults[0].actionData.target).toBe('Buda');
+  });
+
+  it('skips siege when besieger stack has zero land units', () => {
+    // Naval-only besieger stack (edge case): squadrons without land units
+    // cannot assault a fortress.
+    const state = createBotState(['ottoman']);
+    state.spaces = state.spaces || {};
+    state.spaces['Rhodes'] = {
+      controller: 'hapsburg',
+      besieged: true, besiegedBy: 'ottoman', defenders: 2,
+      units: [
+        { owner: 'ottoman', regulars: 0, mercenaries: 0, cavalry: 0,
+          squadrons: 2, corsairs: 0, leaders: [] }
+      ]
+    };
+    const assaults = getFinalAutumnAssaults(state, 'ottoman');
+    expect(assaults.length).toBe(0);
   });
 });
 

@@ -318,7 +318,7 @@ frontend/src/games/his/
 > 基于 Russ Brown 的 HISBOT v1.1 非官方 AI 系统，实现卡驱动行为卡 Bot，支持 1-5 人 + Bot 补位模式。
 > 参考来源：`his_ref/HISBOT.md`（原始扫描文档）
 >
-> **行为调优待办**：[`docs/games/his/bot_anomalies/2026-04-19_full-bot-9turns.md`](bot_anomalies/2026-04-19_full-bot-9turns.md)（7 条从 2026-04-19 全 Bot 回归测试识别的未定位异常）
+> **行为调优待办**：[`docs/games/his/bot_anomalies/2026-04-19_full-bot-9turns.md`](bot_anomalies/2026-04-19_full-bot-9turns.md)（7 条从 2026-04-19 全 Bot 回归测试识别的异常；#3/#5/#6/#7 已修复，#1/#2/#4 待下一轮全 Bot 回归重跑基线后分析）
 >
 > **异常记录流程**：模板 [`BOT_PENDING_ANOMALIES.md`](BOT_PENDING_ANOMALIES.md) + 执行流程 [`test/TEST_REQUIREMENTS.md`](test/TEST_REQUIREMENTS.md)
 >

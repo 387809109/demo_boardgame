@@ -3,7 +3,13 @@
 > 测试日期: 2026-04-19
 > 测试形式: Playwright MCP 全 Bot 9 回合引擎回归测试（`window.app._startHisGame()`）
 > 结果: 新教在 T9 以 50 宗教空间达成宗教胜利
-> 已修复: #0 教廷防御目标压力覆写（见 [../HISBOT_REF.md §8.5.1](../HISBOT_REF.md)）
+> 已修复:
+>
+> - #0 教廷防御目标压力覆写（见 [../HISBOT_REF.md §8.5.1](../HISBOT_REF.md)）
+> - #3 秋季免费突击空单位守卫（bot-card-play.js `getFinalAutumnAssaults`）
+> - #5 英格兰 Marital 在亨利被俘后跳过（bot-card-play.js `evaluateEnglandHome`）
+> - #6 哈布斯堡春季部署兜底：formation cap + 多目标回退（bot-phases.js `decideSpringDeploymentAtWar`）
+> - #7 哈布斯堡 Charles V Home 卡：languageZone 字段名修正 + targetSpace 计算（bot-card-play.js `evaluateHapsburgHome`）
 
 本文档记录本次全 Bot 回归测试中观察到但尚未定位根因的行为异常。每条注明：
 
@@ -85,7 +91,7 @@ browser_evaluate(() => window.app._startHisGame())  // 6 Bot 对局
 
 ---
 
-## #3 秋季免费突击：围城方单位不存在仍尝试突击（中优先级）
+## #3 秋季免费突击：围城方单位不存在仍尝试突击（中优先级）✅ 已修复
 
 **现象**：
 
@@ -134,7 +140,7 @@ browser_evaluate(() => window.app._startHisGame())  // 6 Bot 对局
 
 ---
 
-## #5 英格兰在亨利八世被俘后仍重试出 Card #3 (Marital)（低优先级）
+## #5 英格兰在亨利八世被俘后仍重试出 Card #3 (Marital)（低优先级）✅ 已修复
 
 **现象**：
 
@@ -157,7 +163,7 @@ browser_evaluate(() => window.app._startHisGame())  // 6 Bot 对局
 
 ---
 
-## #6 哈布斯堡 SPRING_DEPLOY 目标断联（Vienna→Tunis 案例）（中优先级）
+## #6 哈布斯堡 SPRING_DEPLOY 目标断联（Vienna→Tunis 案例）（中优先级）✅ 已修复
 
 **现象**：
 
@@ -182,7 +188,7 @@ browser_evaluate(() => window.app._startHisGame())  // 6 Bot 对局
 
 ---
 
-## #7 哈布斯堡强制 Card #13 触发条件（低优先级）
+## #7 哈布斯堡强制 Card #13 触发条件（低优先级）✅ 已修复
 
 **现象**：
 

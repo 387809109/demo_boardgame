@@ -579,6 +579,40 @@ describe('decideSpringDeployment — edge cases', () => {
     const action = decideSpringDeployment(state, 'france');
     expect(action).toBeNull();
   });
+
+  it('caps deploy units at formation max (4) when capital has >4 spare', () => {
+    // Regression for BOT anomaly #6: the old code called buildDeployUnits(stack, spare)
+    // where spare could be 6+, which then tripped the validator's "Exceeds
+    // formation cap (6 > 4)" and made the bot silently pass spring deployment.
+    const state = createBotState(['hapsburg']);
+    addWar(state, 'hapsburg', 'ottoman');
+    // Stack Vienna with 8 regulars (spare after garrison = 6)
+    const viennaStack = state.spaces['Vienna']?.units?.find(u => u.owner === 'hapsburg');
+    if (viennaStack) {
+      viennaStack.regulars = 8;
+      viennaStack.mercenaries = 0;
+      viennaStack.cavalry = 0;
+      viennaStack.leaders = [];
+    }
+    // Drain Valladolid so Vienna is the only capital with spare units
+    const valStack = state.spaces['Valladolid']?.units?.find(u => u.owner === 'hapsburg');
+    if (valStack) {
+      valStack.regulars = 2;  // exactly garrison
+      valStack.mercenaries = 0;
+      valStack.cavalry = 0;
+      valStack.leaders = [];
+    }
+    const action = decideSpringDeployment(state, 'hapsburg');
+    expect(action).not.toBeNull();
+    expect(action.actionType).toBe('SPRING_DEPLOY');
+    expect(action.actionData.from).toBe('Vienna');
+    const total =
+      (action.actionData.units.regulars || 0) +
+      (action.actionData.units.mercenaries || 0) +
+      (action.actionData.units.cavalry || 0);
+    expect(total).toBeLessThanOrEqual(4);
+    expect(total).toBeGreaterThan(0);
+  });
 });
 
 describe('pickExplorationChoice — edge cases', () => {
