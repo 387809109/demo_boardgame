@@ -283,7 +283,7 @@ function buildSpaces(scenario) {
 
   // Ottoman-controlled spaces are 'other' religion
   for (const sp of LAND_SPACES) {
-    if (sp.controller === 'ottoman' || sp.controller === 'hungary') {
+    if (sp.controller === 'ottoman' || sp.controller === 'hungary_bohemia') {
       if (spaces[sp.name]) {
         spaces[sp.name].religion = RELIGION.OTHER;
       }

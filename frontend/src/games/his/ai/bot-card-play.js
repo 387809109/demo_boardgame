@@ -159,23 +159,23 @@ function evaluateHapsburgHome(state) {
 function isInGermanOrHungaryHome(state, spaceName) {
   const space = state.spaces?.[spaceName];
   if (space?.languageZone === 'german') return true;
-  return isHomeSpace(spaceName, 'hungary');
+  return isHomeSpace(spaceName, 'hungary_bohemia');
 }
 
 function pickCharlesVTargetSpace(state) {
   let best = null;
   let bestUnits = 1;  // require ≥ 2 units
   for (const [spaceName, space] of Object.entries(state.spaces || {})) {
-    const inScope = space?.languageZone === 'german' || isHomeSpace(spaceName, 'hungary');
+    const inScope = space?.languageZone === 'german' || isHomeSpace(spaceName, 'hungary_bohemia');
     if (!inScope) continue;
     // Must be controlled by Hapsburg or a minor ally (Hungary counts here)
     const controlledByAlly =
       space.controller === 'hapsburg' ||
-      space.controller === 'hungary' ||
+      space.controller === 'hungary_bohemia' ||
       space.controller === 'genoa';
     if (!controlledByAlly) continue;
     const friendly = (space.units || []).reduce((sum, u) => {
-      if (u.owner === 'hapsburg' || u.owner === 'hungary' || u.owner === 'genoa') {
+      if (u.owner === 'hapsburg' || u.owner === 'hungary_bohemia' || u.owner === 'genoa') {
         return sum + countLandUnits(u);
       }
       return sum;

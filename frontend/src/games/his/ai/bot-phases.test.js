@@ -152,6 +152,32 @@ describe('shouldSueForPeace', () => {
     state.spaces['Rouen'].controller = 'hapsburg';
     expect(shouldSueForPeace(state, 'france', 'hapsburg')).toBe(true);
   });
+
+  it('returns false when the specific enemy has taken nothing from power', () => {
+    // Regression for BOT anomaly #4: France lost Paris to Hapsburg but is
+    // also at war with England. Bot must NOT sue England for peace because
+    // the engine validator rejects (England has captured no French leader
+    // and controls no French home space), causing a noisy retry loop.
+    const state = createBotState(['france']);
+    addWar(state, 'france', 'hapsburg');
+    addWar(state, 'france', 'england');
+    setActiveBehaviorCard(state, 'france', 'france_field_of_cloth_gold');
+    state.spaces['Paris'].controller = 'hapsburg';  // capital lost to Hapsburg
+    expect(shouldSueForPeace(state, 'france', 'hapsburg')).toBe(true);
+    expect(shouldSueForPeace(state, 'france', 'england')).toBe(false);
+  });
+
+  it('returns false when lost keys belong to third-party attacker only', () => {
+    // Same pattern at the "home key balance" branch: France lost 2 keys to
+    // Hapsburg but nothing to Ottoman. Do not sue Ottoman.
+    const state = createBotState(['france']);
+    addWar(state, 'france', 'hapsburg');
+    addWar(state, 'france', 'ottoman');
+    setActiveBehaviorCard(state, 'france', 'france_field_of_cloth_gold');
+    state.spaces['Lyon'].controller = 'hapsburg';
+    state.spaces['Rouen'].controller = 'hapsburg';
+    expect(shouldSueForPeace(state, 'france', 'ottoman')).toBe(false);
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════

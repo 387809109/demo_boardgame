@@ -171,7 +171,7 @@ describe('evaluateHomeCard', () => {
         ['Agram','Belgrade','Breslau','Brunn','Buda','Mohacs','Prague','Pressburg','Szegedin'].includes(name);
       if (!inScope) continue;
       sp.units = (sp.units || []).filter(
-        u => u.owner !== 'hapsburg' && u.owner !== 'hungary' && u.owner !== 'genoa'
+        u => u.owner !== 'hapsburg' && u.owner !== 'hungary_bohemia' && u.owner !== 'genoa'
       );
     }
     state.spaces['Valladolid'] = {

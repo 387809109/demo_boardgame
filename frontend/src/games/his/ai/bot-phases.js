@@ -124,19 +124,56 @@ export function shouldSueForPeace(state, power, enemy) {
     }
   }
 
-  // Check if capital is lost
+  // The engine's validateSueForPeace requires that the SPECIFIC target has
+  // either captured a leader of `power` or controls at least one of `power`'s
+  // home spaces. Before returning true we gate on this to avoid churning
+  // invalid SUE_FOR_PEACE attempts (anomaly #4: France looped on the sue
+  // segment because it had lost a key to a third power but not to `enemy`).
+  const eligibleVsTarget = hasPeaceEligibleLossTo(state, power, enemy);
+
+  // Check if capital is lost (strategic trigger: sue aggressively)
   const caps = CAPITALS[power] || [];
   for (const cap of caps) {
     const sp = state.spaces[cap];
-    if (sp && sp.controller !== power) return true;
+    if (sp && sp.controller !== power) {
+      return eligibleVsTarget;
+    }
   }
 
-  // Check home key balance
-  const myLostKeys = countLostHomeKeys(state, power);
-  const enemyLostKeys = countLostHomeKeys(state, enemy);
-  if (myLostKeys > enemyLostKeys) return true;
+  // Check home key balance (only counts keys lost to THIS enemy)
+  const myLostKeysToTarget = countLostHomeKeysTo(state, power, enemy);
+  const enemyLostKeysToMe = countLostHomeKeysTo(state, enemy, power);
+  if (myLostKeysToTarget > enemyLostKeysToMe && eligibleVsTarget) return true;
 
   return false;
+}
+
+/**
+ * Whether `target` has taken something from `power` that makes the engine's
+ * SUE_FOR_PEACE eligibility check pass: captured a leader or controls a home
+ * space of `power`.
+ */
+function hasPeaceEligibleLossTo(state, power, target) {
+  const captured = state.capturedLeaders?.[target] || [];
+  for (const leaderId of captured) {
+    if (isLeaderOfPower(leaderId, power)) return true;
+  }
+  for (const [spaceName, sp] of Object.entries(state.spaces)) {
+    if (!isHomeSpace(spaceName, power)) continue;
+    if (sp.controller === target) return true;
+  }
+  return false;
+}
+
+/** Home keys of `power` currently controlled by `target`. */
+function countLostHomeKeysTo(state, power, target) {
+  let lost = 0;
+  for (const [name, sp] of Object.entries(state.spaces)) {
+    if (sp.isKey && isHomeSpace(name, power) && sp.controller === target) {
+      lost++;
+    }
+  }
+  return lost;
 }
 
 /**

@@ -212,12 +212,15 @@ describe('decideBotAction', () => {
     expect(action).toBeNull();
   });
 
-  it('returns PASS for spring_deployment (stub)', () => {
+  it('returns SPRING_DEPLOY for ottoman at war when targets reachable', () => {
     const state = createBotState(['ottoman']);
     state.phase = 'spring_deployment';
     state.activePower = 'ottoman';
+    // Ottoman is at war with hungary_bohemia from the 1517 setup; Buda is now a
+    // valid attackable target, so decideSpringDeploy should return an actual move
+    // rather than falling back to the PASS stub.
     const action = decideBotAction(state, 'ottoman');
-    expect(action.actionType).toBe('PASS');
+    expect(action.actionType).toBe('SPRING_DEPLOY');
   });
 
   it('returns null for spring_deployment when not active power', () => {

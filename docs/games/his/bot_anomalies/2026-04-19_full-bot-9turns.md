@@ -6,7 +6,10 @@
 > 已修复:
 >
 > - #0 教廷防御目标压力覆写（见 [../HISBOT_REF.md §8.5.1](../HISBOT_REF.md)）
+> - #1 英格兰大量造舰 + 对苏格兰零突击（bot-goals.js `advanceTowardTarget`：对 fortification 目标放宽到 minUnits=1）
+> - #2 奥斯曼 3 次宣战 → 0 次攻击（数据层修正：map-data.js `controller: "hungary"` → `"hungary_bohemia"`，统一匈牙利次要国命名）
 > - #3 秋季免费突击空单位守卫（bot-card-play.js `getFinalAutumnAssaults`）
+> - #4 法国反复 `SUE_FOR_PEACE` 刷屏（bot-phases.js `shouldSueForPeace`：添加 target-specific eligibility 以匹配引擎校验器）
 > - #5 英格兰 Marital 在亨利被俘后跳过（bot-card-play.js `evaluateEnglandHome`）
 > - #6 哈布斯堡春季部署兜底：formation cap + 多目标回退（bot-phases.js `decideSpringDeploymentAtWar`）
 > - #7 哈布斯堡 Charles V Home 卡：languageZone 字段名修正 + targetSpace 计算（bot-card-play.js `evaluateHapsburgHome`）
@@ -38,7 +41,7 @@ browser_evaluate(() => window.app._startHisGame())  // 6 Bot 对局
 
 ---
 
-## #1 英格兰大量造舰 + 对苏格兰零突击（中优先级）
+## #1 英格兰大量造舰 + 对苏格兰零突击（中优先级）✅ 已修复
 
 **现象**：
 
@@ -65,7 +68,11 @@ browser_evaluate(() => window.app._startHisGame())  // 6 Bot 对局
 
 ---
 
-## #2 奥斯曼 3 次宣战 → 0 次攻击（高优先级）
+## #2 奥斯曼 3 次宣战 → 0 次攻击（高优先级）✅ 已修复
+
+**根因**: `map-data.js` 中 9 个匈牙利控制空间使用了 `controller: "hungary"`，与 `constants.js` / `setup-1517.js` 中的次要国规范名 `hungary_bohemia` 不一致。这导致 `canAttack(ottoman, 'hungary')` 始终返回 `false`（因为 `state.wars` 只包含 `{a: 'ottoman', b: 'hungary_bohemia'}`），奥斯曼进军 BFS 在 `findNearestEnemyFortification` 中忽略 Buda/Belgrade，更无法推进至哈布斯堡钥匙（维也纳等远目标被前置的"不可攻击"匈牙利钥匙之外的 BFS 路径覆盖）。同样的不一致也存在于 `state-init.js` / `bot-card-play.js` 的 "hungary" 字面量处。
+
+**修复**: 全局重命名 `"hungary"` → `"hungary_bohemia"`（map-data.js 9 处 + state-init.js 宗教分配 1 处 + bot-card-play.js `pickCharlesVTargetSpace` 4 处 + bot-card-play.test.js 1 处）。UI 的 `diplomacy-panel.js` 仍保留 `'hungary'` 短名作为显示键（行内有显式转换）。
 
 **现象**：
 
@@ -116,7 +123,7 @@ browser_evaluate(() => window.app._startHisGame())  // 6 Bot 对局
 
 ---
 
-## #4 法国反复 `SUE_FOR_PEACE` 刷屏（低优先级）
+## #4 法国反复 `SUE_FOR_PEACE` 刷屏（低优先级）✅ 已修复
 
 **现象**：
 

@@ -74,7 +74,7 @@ window.app._takeOverPower('france')     // 从 bot 接管法兰西
 - 所有阶段必须按真实规则执行，不得人工跳过或强制推进
 - 外交阶段（宣战、求和、谈判）必须正常执行
 - 战斗必须自然发生（外交宣战 → 行动阶段触发战斗目标）
-- **统治胜利**：若测试任务中没有明确指定是否启用，则使用默认设置（**启用**）；否则按照任务指示选择设置
+- **统治胜利**：默认**禁用**（`{ dominationVictoryEnabled: false }`），以跑满 9 回合获取完整 bot 行为样本；若测试任务明确要求启用，再按任务指示开启
 
 ---
 
@@ -99,14 +99,31 @@ window.app._takeOverPower('france')     // 从 bot 接管法兰西
 每次全 Bot 回归测试的标准流程如下。最终产物是 `docs/games/his/bot_anomalies/YYYY-MM-DD_<标签>.md`，
 用于驱动下一轮 HISBOT 行为调优。
 
+### Step 0 — 回归验证上次测试的修复（强制）
+
+**在本次新测试开始前**，必须先回顾 `docs/games/his/bot_anomalies/` 下最新一份（按日期排序最近）的异常清单，
+对每条标记为 `✅ 已修复` 的异常，在本次对局中**显式验证其不再复现**。
+
+流程：
+
+1. 列出上次清单中所有 `✅ 已修复` 的异常条目（编号、现象摘要、修复位置）
+2. 本次对局开始前，将其列为"回归观察清单"
+3. 测试进行中和结束后的草稿笔记里，针对每条逐一给出**本次观察结果**（场景、关键动作分布、是否复现）
+4. 本次产出的 `YYYY-MM-DD_<标签>.md` 中，**顶部**放置「先前异常已修复（通过实机验证）」小节，用表格形式列出每条异常的 2026-XX-XX 现象 / 本次观察 / 状态（✅ 已验证 / ⚠️ 部分复现 / ❌ 再现）
+5. 若任意条目 ❌ 再现，视为**阻塞性回归**：立即停止测试、回退或重写修复、重新跑，直到全部 ✅
+
+此步骤确保修复不会因后续改动被悄悄破坏，且异常清单的历史状态始终与代码保持同步。
+
 ### Step 1 — 执行全 Bot 对局
 
 通过 Playwright MCP 直接驱动浏览器（非脚本化测试），便于实时观察：
 
 ```javascript
 browser_navigate('http://localhost:5173')
-browser_evaluate(() => window.app._startHisGame())   // 6 势力全部为 HISBOT
-// 或：window.app._startHisGame('hapsburg') 观察单一势力
+// 默认禁用统治胜利，跑满 9 回合
+browser_evaluate(() => window.app._startHisGame(null, { dominationVictoryEnabled: false }))
+// 或：window.app._startHisGame('hapsburg', { dominationVictoryEnabled: false })
+// 仅在任务明确要求时省略 options 使用默认启用
 ```
 
 在每回合 `victory_determination` 结束后存档。发现阻塞性 bug 时**立即停止**、修复、从最近存档继续。

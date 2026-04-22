@@ -33,7 +33,7 @@ import {
   calcReformationDice, calcCounterReformationDice,
   getAvailableDebaters, getFormationCap
 } from '../state/state-helpers.js';
-import { areAtWar, canAttack } from '../state/war-helpers.js';
+import { areAtWar, canAttack, getAlliesOf } from '../state/war-helpers.js';
 import { hasLineOfCommunicationForControl } from '../actions/military-actions.js';
 import { SEA_ZONES, PORTS_BY_SEA_ZONE } from '../data/map-data.js';
 
@@ -1251,6 +1251,22 @@ function hasEnemyUnitsNotAtWar(state, spaceName, power) {
 }
 
 /**
+ * Check if a space has land units belonging to any non-friendly power.
+ * Mirrors engine's validateControlUnfortified — used to filter control candidates.
+ * @param {Object} sp - Space object
+ * @param {Set<string>} friendlyPowers - Set of self + allies
+ * @returns {boolean}
+ */
+function hasNonFriendlyLandUnits(sp, friendlyPowers) {
+  if (!sp || !sp.units) return false;
+  for (const u of sp.units) {
+    if (friendlyPowers.has(u.owner)) continue;
+    if (countLandUnits(u) > 0) return true;
+  }
+  return false;
+}
+
+/**
  * Find spaces with movable formations (units above garrison).
  * @param {Object} state
  * @param {string} power
@@ -1260,11 +1276,14 @@ function hasEnemyUnitsNotAtWar(state, spaceName, power) {
 function findMovableFormations(state, power, minUnits) {
   const formations = [];
   for (const [name, sp] of Object.entries(state.spaces)) {
-    if (sp.controller !== power) continue;
     const stack = getUnitsInSpace(state, name, power);
     if (!stack) continue;
     const total = countLandUnits(stack);
-    const garrison = getGarrisonRequirement(state, name, power);
+    if (total === 0) continue;
+    // Only our own controlled keys/capitals/electorates impose a garrison —
+    // units sitting in a non-controlled space (e.g. freshly advanced into
+    // an independent or enemy space) are all freely movable.
+    const garrison = sp.controller === power ? getGarrisonRequirement(state, name, power) : 0;
     const available = total - garrison;
     if (available >= minUnits) {
       formations.push({
@@ -1321,7 +1340,21 @@ function advanceTowardTarget(state, power, cp, targetType) {
   const cost = ACTION_COSTS[power].move_formation;
   if (!cost || cp < cost) return null;
 
-  const formations = findMovableFormations(state, power, 2);
+  // Try massed (2+) formations first so multi-front powers (Ottoman, Papacy) keep
+  // their main stack together. Only fall back to single-unit advance for
+  // 'fortification' targets — that lets small powers (England's London with 1
+  // spare regular) still creep toward enemy keys without stalling on SIEGE.
+  // 'enemy_units' always requires 2+ to avoid suicidal 1-unit lunges.
+  const thresholds = targetType === 'fortification' ? [2, 1] : [2];
+  for (const minUnits of thresholds) {
+    const result = tryAdvanceWithMinUnits(state, power, cp, targetType, minUnits, cost);
+    if (result) return result;
+  }
+  return null;
+}
+
+function tryAdvanceWithMinUnits(state, power, cp, targetType, minUnits, cost) {
+  const formations = findMovableFormations(state, power, minUnits);
   if (formations.length === 0) return null;
 
   for (const cand of formations) {
@@ -1679,6 +1712,7 @@ function findUnrestTarget(state, power) {
 function findControlTarget(state, power) {
   const homeTargets = [];
   const otherTargets = [];
+  const friendlyPowers = new Set([power, ...getAlliesOf(state, power)]);
 
   for (const [name, sp] of Object.entries(state.spaces)) {
     if (sp.controller === power) continue;
@@ -1686,6 +1720,9 @@ function findControlTarget(state, power) {
     // Must have our unit present
     const stack = getUnitsInSpace(state, name, power);
     if (!stack || countLandUnits(stack) === 0) continue;
+
+    // Mirror validateControlUnfortified: reject spaces with non-allied land units
+    if (hasNonFriendlyLandUnits(sp, friendlyPowers)) continue;
 
     if (!hasLineOfCommunicationForControl(state, power, name)) continue;
 

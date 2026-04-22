@@ -1079,6 +1079,40 @@ describe('executeSiege edge cases', () => {
     const result = executeSiege(state, 'ottoman', 5);
     expect(result).toBeNull();
   });
+
+  // Regression: anomaly #1 — England (1517 setup) at war with Scotland has only
+  // 1 spare regular in London (capital garrison=2). Previously advanceTowardTarget
+  // required 2+ spare units, so England could never start marching to Edinburgh
+  // and cascaded into infinite BUILD_SQUADRON on Rule Britannia's SHIPBUILDING INF.
+  it('advances single-unit formation toward enemy fortification when no 2+ formation qualifies', () => {
+    const state = createBotState(['england']);
+    state.foreignWars = [];
+    state.wars = [{ a: 'england', b: 'scotland' }];
+    // 1517 setup already provides England's 3 regulars in London, so spare=1
+    const result = executeSiege(state, 'england', 2);
+    expect(result).not.toBeNull();
+    expect(result.action.actionType).toBe(ACTION_TYPES.MOVE_FORMATION);
+    expect(result.action.actionData.from).toBe('London');
+    // London→Lincoln is the only direction that strictly reduces BFS distance to Edinburgh
+    expect(result.action.actionData.to).toBe('Lincoln');
+  });
+
+  // Regression: anomaly #2 — Ottoman starts at war with hungary_bohemia in 1517,
+  // but map-data previously had controller "hungary" (mismatched with the
+  // canonical minor-power name). canAttack(ottoman, 'hungary') returned false, so
+  // every Hungarian fortification (Buda, Belgrade) was skipped during BFS and
+  // Ottoman never initiated a siege despite declaring war repeatedly.
+  it('finds attackable hungarian fortification when ottoman has 1517 war with hungary_bohemia', () => {
+    const state = createBotState(['ottoman']);
+    state.foreignWars = [];
+    state.wars = [{ a: 'ottoman', b: 'hungary_bohemia' }];
+    const result = executeSiege(state, 'ottoman', 3);
+    expect(result).not.toBeNull();
+    expect(result.action.actionType).toBe(ACTION_TYPES.MOVE_FORMATION);
+    expect(result.action.actionData.from).toBe('Istanbul');
+    // Istanbul→Edirne strictly reduces BFS distance to Buda
+    expect(result.action.actionData.to).toBe('Edirne');
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════

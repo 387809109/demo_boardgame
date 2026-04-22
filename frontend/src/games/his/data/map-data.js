@@ -8,7 +8,7 @@
 export const LAND_SPACES = [
   {
     name: "Agram",
-    controller: "hungary",
+    controller: "hungary_bohemia",
     languageZone: null,
     isKey: false,
     isElectorate: false,
@@ -118,7 +118,7 @@ export const LAND_SPACES = [
   },
   {
     name: "Belgrade",
-    controller: "hungary",
+    controller: "hungary_bohemia",
     languageZone: null,
     isKey: true,
     isElectorate: false,
@@ -198,7 +198,7 @@ export const LAND_SPACES = [
   },
   {
     name: "Breslau",
-    controller: "hungary",
+    controller: "hungary_bohemia",
     languageZone: null,
     isKey: false,
     isElectorate: false,
@@ -228,7 +228,7 @@ export const LAND_SPACES = [
   },
   {
     name: "Brunn",
-    controller: "hungary",
+    controller: "hungary_bohemia",
     languageZone: null,
     isKey: false,
     isElectorate: false,
@@ -268,7 +268,7 @@ export const LAND_SPACES = [
   },
   {
     name: "Buda",
-    controller: "hungary",
+    controller: "hungary_bohemia",
     languageZone: null,
     isKey: true,
     isElectorate: false,
@@ -748,7 +748,7 @@ export const LAND_SPACES = [
   },
   {
     name: "Mohacs",
-    controller: "hungary",
+    controller: "hungary_bohemia",
     languageZone: null,
     isKey: false,
     isElectorate: false,
@@ -928,7 +928,7 @@ export const LAND_SPACES = [
   },
   {
     name: "Prague",
-    controller: "hungary",
+    controller: "hungary_bohemia",
     languageZone: null,
     isKey: true,
     isElectorate: false,
@@ -938,7 +938,7 @@ export const LAND_SPACES = [
   },
   {
     name: "Pressburg",
-    controller: "hungary",
+    controller: "hungary_bohemia",
     languageZone: null,
     isKey: false,
     isElectorate: false,
@@ -1128,7 +1128,7 @@ export const LAND_SPACES = [
   },
   {
     name: "Szegedin",
-    controller: "hungary",
+    controller: "hungary_bohemia",
     languageZone: null,
     isKey: false,
     isElectorate: false,
