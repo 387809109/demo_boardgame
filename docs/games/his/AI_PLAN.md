@@ -187,3 +187,21 @@ frontend/src/games/his/ai/
 | 7 | 行为卡缺少 ADVANCE 目标时无法推进 | 5 张奥斯曼行为卡中 3 张无 ADVANCE 目标 | 新增 `advanceTowardTarget` + `findNearestEnemyFortification` 辅助函数，作为 siege/land_battle 的后备 |
 
 **验证**: Game 4 — 506 轮, 0 错误, 法国 T4 统治胜利。奥斯曼: 10 次编队移动 + 6 次海军行动 + 1 次宣战 (修复前: 0 次编队移动, 海军全空)。
+
+---
+
+## Phase G: 事件评分化（待开发）
+
+> 把 Bot 的"事件 vs CP"布尔决策升级为 `score(0..1)` 评分驱动；D 方案（随机抽样）保留作未来扩展。
+
+**详细立项文档**：[BOT_EVENT_SCORING_PLAN.md](BOT_EVENT_SCORING_PLAN.md)
+
+| 子阶段 | 工作 | 预估 |
+|---|---|---|
+| G1 | 基础设施：`eventScore` / `cpUtility` / `computeGoalSaturation` + 单测 | 0.5 天 |
+| G2 | `routeEventCard` 切换评分路径（不改 criteria 条目） | 0.5 天 |
+| G3 | Top-20 高频卡 `score` 函数替换布尔 | 1 天 |
+| G4 | 剩余 ~68 张 criteria `score` 迁移（2-3 次 PR） | 2-3 天 |
+| G5 | 文档同步 + 评分决策观测 | 0.5 天 |
+
+**启动条件**：Phase A–F 已完成、2026-04-22/23 回归基线已建立。可随时开工。
