@@ -108,6 +108,11 @@ function stackPapacyHand(hand) {
  * @returns {boolean}
  */
 export function shouldSueForPeace(state, power, enemy) {
+  // Engine rejects SUE_FOR_PEACE on the final turn (diplomacy-actions.js) —
+  // skip to avoid wasting a decision on a guaranteed-invalid action.
+  const finalTurn = state.finalTurn || 9;
+  if (state.turn >= finalTurn) return false;
+
   // Check behavior card war field — won't sue target of intended war
   const deck = state.botDecks?.[power];
   if (deck) {

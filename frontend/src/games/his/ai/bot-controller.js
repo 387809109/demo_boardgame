@@ -656,6 +656,19 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
       delete action.actionData.fromSetAside;
     }
 
+    // Stash the about-to-happen MOVE_FORMATION so advance logic can reject
+    // an immediate reverse (prevents Antwerp↔Liege shuttle). Must be set
+    // BEFORE executeMove: processMove deep-clones state into the new state,
+    // so post-move mutations to `currentState` would be silently dropped.
+    if (action.actionType === ACTION_TYPES.MOVE_FORMATION &&
+        action.actionData?.from && action.actionData?.to) {
+      if (!currentState.botLastMoves) currentState.botLastMoves = {};
+      currentState.botLastMoves[nextPower] = {
+        from: action.actionData.from,
+        to: action.actionData.to
+      };
+    }
+
     const move = { ...action, playerId: pid };
     const result = executeMove(move);
     if (result?.success) return;

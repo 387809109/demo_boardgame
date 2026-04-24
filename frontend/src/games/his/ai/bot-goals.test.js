@@ -285,13 +285,21 @@ describe('executeLandBattle', () => {
 describe('executeSiege', () => {
   it('assaults active siege when available', () => {
     const state = createBotState(['ottoman']);
-    state.spaces['TestFort'] = {
-      controller: 'hapsburg', isKey: true, isFortress: true,
-      isElectorate: false, isPort: false,
-      units: [{ owner: 'ottoman', regulars: 4, mercenaries: 0, cavalry: 0,
-        squadrons: 0, corsairs: 0, leaders: [] }],
-      besieged: true, besiegedBy: 'ottoman'
-    };
+    // Set up a real-map siege with valid LOC (Istanbul → Edirne → Sofia → Nezh
+    // → Belgrade, all ottoman-controlled → Mohacs → Buda besieged by ottoman).
+    // findAssaultTarget now requires LOC to a friendly fortified space per
+    // engine's validateAssault; bridging keys must be ottoman-held.
+    for (const bridge of ['Belgrade', 'Mohacs']) {
+      state.spaces[bridge].controller = 'ottoman';
+      state.spaces[bridge].units = [];
+    }
+    state.spaces['Buda'].besieged = true;
+    state.spaces['Buda'].besiegedBy = 'ottoman';
+    state.spaces['Buda'].units = [{
+      owner: 'ottoman', regulars: 4, mercenaries: 0, cavalry: 0,
+      squadrons: 0, corsairs: 0, leaders: []
+    }];
+    state.wars = [{ a: 'ottoman', b: 'hungary_bohemia' }];
     const result = executeSiege(state, 'ottoman', 3);
     expect(result).not.toBeNull();
     expect(result.action.actionType).toBe(ACTION_TYPES.ASSAULT);
@@ -1050,6 +1058,13 @@ describe('executeSiege edge cases', () => {
   it('returns assault on existing siege', () => {
     const state = createBotState(['ottoman']);
     state.foreignWars = [];
+    // LOC path from Istanbul → Edirne/Sofia/Nezh → Belgrade → Mohacs → Buda
+    // → Pressburg → Vienna. Pressburg must be ottoman-held (Vienna's last
+    // land-neighbor) for validateAssault's LOC check to reach Vienna.
+    for (const bridge of ['Belgrade', 'Mohacs', 'Buda', 'Pressburg']) {
+      state.spaces[bridge].controller = 'ottoman';
+      state.spaces[bridge].units = [];
+    }
     state.spaces['Vienna'] = {
       controller: 'hapsburg', isKey: true, isFortress: true,
       isElectorate: false, isPort: false,
@@ -1059,6 +1074,7 @@ describe('executeSiege edge cases', () => {
           squadrons: 0, corsairs: 0, leaders: [] }
       ]
     };
+    state.wars = [{ a: 'ottoman', b: 'hapsburg' }];
     const result = executeSiege(state, 'ottoman', 5);
     expect(result).not.toBeNull();
     expect(result.action.actionType).toBe(ACTION_TYPES.ASSAULT);

@@ -477,6 +477,8 @@ export function executeAdvance(state, power, cp) {
           (!destSp.controller || !canAttack(state, power, destSp.controller))) continue;
       // Skip spaces with units of a power we're not at war with
       if (hasEnemyUnitsNotAtWar(state, dest, power)) continue;
+      // Anti-oscillation: don't immediately reverse the last MOVE_FORMATION
+      if (isReverseOfLastMove(state, power, cand.space, dest)) continue;
       // Check actual movement cost (pass = 2 CP)
       const connType = getConnectionType(cand.space, dest);
       const moveCost = connType === 'pass'
@@ -1267,6 +1269,23 @@ function hasNonFriendlyLandUnits(sp, friendlyPowers) {
 }
 
 /**
+ * Check if a candidate move would immediately reverse this power's most recent
+ * MOVE_FORMATION. Prevents Antwerp↔Liege style shuttle loops where BFS targets
+ * flip between two adjacent spaces and the bot paces back and forth.
+ *
+ * @param {Object} state
+ * @param {string} power
+ * @param {string} from - Candidate move source (current formation space)
+ * @param {string} to - Candidate move destination
+ * @returns {boolean} True if this move would reverse the last move
+ */
+function isReverseOfLastMove(state, power, from, to) {
+  const last = state.botLastMoves?.[power];
+  if (!last) return false;
+  return last.from === to && last.to === from;
+}
+
+/**
  * Find spaces with movable formations (units above garrison).
  * @param {Object} state
  * @param {string} power
@@ -1381,6 +1400,8 @@ function tryAdvanceWithMinUnits(state, power, cp, targetType, minUnits, cost) {
           (!destSp.controller || !canAttack(state, power, destSp.controller))) continue;
       // Skip spaces with units of a power we're not at war with
       if (hasEnemyUnitsNotAtWar(state, dest, power)) continue;
+      // Anti-oscillation: don't immediately reverse the last MOVE_FORMATION
+      if (isReverseOfLastMove(state, power, cand.space, dest)) continue;
       // Check pass cost
       const connType = getConnectionType(cand.space, dest);
       const moveCost = connType === 'pass'
@@ -1517,6 +1538,12 @@ function findAssaultTarget(state, power) {
 
   for (const [name, sp] of Object.entries(state.spaces)) {
     if (!sp.besieged || sp.besiegedBy !== power) continue;
+    // LOC precheck: engine's validateAssault rejects when the besieger has no
+    // supply line back to a friendly fortification. This happens when our
+    // own LOC nodes (e.g. Belgrade) fall under enemy siege while our vanguard
+    // is still besieging (e.g. Ottoman at Buda). Without this filter the bot
+    // burns an impulse on an ASSAULT that the engine will reject.
+    if (!hasLineOfCommunicationForControl(state, power, name)) continue;
     // Cannot assault in same impulse as siege establishment (validateAssault rule)
     if (sp.siegeEstablishedImpulse === state.turnNumber) continue;
     if (
