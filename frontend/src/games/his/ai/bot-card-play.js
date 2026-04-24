@@ -18,8 +18,84 @@ import { areAtWar, canAttack, getWarsOf } from '../state/war-helpers.js';
 import { getActiveRuler, countLandUnits, getUnitsInSpace, getAllVpTotals, isHomeSpace } from '../state/state-helpers.js';
 import {
   shouldPlayEvent, satisfiesTreaty, shouldPlayResponse,
-  satisfiesResponseTreaty, hasEventCriteria, hasResponseCriteria
+  satisfiesResponseTreaty, hasEventCriteria, hasResponseCriteria,
+  eventScore
 } from './bot-event-criteria.js';
+
+// ── Event Scoring Utilities (Phase G1) ────────────────────────────
+//
+// Phase G migrates the event-vs-CP decision from a boolean `shouldPlay`
+// to a continuous score in [0, 1]. `cpUtility` is the CP-side counterpart
+// to `eventScore`: a rough estimate of how productively the bot can spend
+// this card's CPs on its behavior-card goals right now.
+//
+// The decision (applied in Phase G2) is:
+//     PLAY_CARD_EVENT  iff  eventScore > cpUtility + THRESHOLD
+//
+// See docs/games/his/BOT_EVENT_SCORING_PLAN.md.
+
+/**
+ * Rough saturation of the active behavior card's goal budget for this
+ * power: how much of the card's goal.max capacity has already been spent
+ * this impulse. Returns 0 (untouched) to 1 (fully consumed).
+ *
+ * Reads `state.botGoalCounts[power]` and `getActiveBehaviorCard(deck).goals`
+ * (both already maintained by the bot controller / dispatcher).
+ *
+ * @param {Object} state
+ * @param {string} power
+ * @returns {number} Saturation in [0, 1]
+ */
+export function computeGoalSaturation(state, power) {
+  const deck = state.botDecks?.[power];
+  const card = deck ? getActiveBehaviorCard(deck) : null;
+  const goals = card?.goals;
+  if (!Array.isArray(goals) || goals.length === 0) return 0;
+
+  const counts = state.botGoalCounts?.[power] || {};
+  let totalCapacity = 0;
+  let totalUsed = 0;
+  for (const g of goals) {
+    const max = g.max;
+    // INF-max goals (Number.POSITIVE_INFINITY) never saturate — skip them
+    // from the capacity tally so the ratio stays meaningful.
+    if (!Number.isFinite(max) || max <= 0) continue;
+    const used = Math.min(counts[g.type] || 0, max);
+    totalCapacity += max;
+    totalUsed += used;
+  }
+  if (totalCapacity === 0) return 0;
+  return Math.max(0, Math.min(1, totalUsed / totalCapacity));
+}
+
+/**
+ * Estimate the utility of playing this card for CPs right now, in [0, 1].
+ *
+ *   baseCpValue  = min(card.cp / 5, 1)   — 5 CP roughly equals peak value
+ *   saturation   = computeGoalSaturation — goals already spent reduce upside
+ *   warBonus     = +0.15 if at war (combat CPs are more valuable)
+ *
+ * Intentionally simple for G1; can be refined in G3 once we observe
+ * baseline event-vs-CP behavior live.
+ *
+ * @param {Object} state
+ * @param {string} power
+ * @param {number} cardNumber
+ * @returns {number} CP utility in [0, 1]
+ */
+export function cpUtility(state, power, cardNumber) {
+  const card = CARD_BY_NUMBER[cardNumber];
+  const cp = card?.cp || 0;
+  if (cp <= 0) return 0;
+  const baseCpValue = Math.min(cp / 5, 1);
+  const saturation = computeGoalSaturation(state, power);
+  const warBonus = getWarsOf(state, power).length > 0 ? 0.15 : 0;
+  const raw = baseCpValue * (1 - saturation * 0.6) + warBonus;
+  return Math.max(0, Math.min(1, raw));
+}
+
+// Re-export for consumers that want the scoring pair from a single module.
+export { eventScore };
 
 // ── Home Card Numbers per Power ──────────────────────────────────
 

@@ -802,6 +802,39 @@ export function shouldPlayEvent(state, power, cardNumber) {
 }
 
 /**
+ * Continuous event-utility score in [0, 1] for the event-vs-CP decision.
+ *
+ * Phase G transitions the criteria table from a boolean `shouldPlay` to a
+ * continuous `score(state, power) => 0..1`. During the migration window both
+ * fields may coexist per entry; this helper picks whichever is defined.
+ *
+ * Fallback mapping (no `score` defined):
+ *   shouldPlay === true  → 0.8  (strong canonical play signal)
+ *   shouldPlay === false → 0.0  (never per HISBOT rule table)
+ *   no entry at all      → 0.0
+ *
+ * See docs/games/his/BOT_EVENT_SCORING_PLAN.md (Phase G1).
+ *
+ * @param {Object} state
+ * @param {string} power
+ * @param {number} cardNumber
+ * @returns {number} Score in [0, 1]
+ */
+export function eventScore(state, power, cardNumber) {
+  const c = EVENT_CRITERIA[cardNumber];
+  if (!c) return 0;
+  if (typeof c.score === 'function') {
+    const raw = c.score(state, power);
+    if (typeof raw !== 'number' || Number.isNaN(raw)) return 0;
+    return Math.max(0, Math.min(1, raw));
+  }
+  if (typeof c.shouldPlay === 'function') {
+    return c.shouldPlay(state, power) ? 0.8 : 0;
+  }
+  return 0;
+}
+
+/**
  * Check if playing a card satisfies a Treaty obligation for tokenPower.
  * @param {Object} state
  * @param {string} power - Bot power playing the card

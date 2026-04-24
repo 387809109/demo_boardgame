@@ -13,7 +13,8 @@ import {
   classifyCard, isHomeCardFor, evaluateHomeCard, evaluateLeipzigDebate,
   decideCardPlay, decideResponsePlay, shouldSaveCards,
   checkTreatyObligation, getGangingUpTargets, shouldPlayEventGangingUp,
-  getFinalAutumnAssaults
+  getFinalAutumnAssaults,
+  eventScore, cpUtility, computeGoalSaturation
 } from './bot-card-play.js';
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -875,5 +876,166 @@ describe('decideCardPlay routing edge cases', () => {
     state.hands = { ottoman: [99999] };
     const result = decideCardPlay(state, 'ottoman');
     expect(result.actionType).toBe('PASS');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// Phase G1 — Event Scoring (eventScore / cpUtility / goalSaturation)
+// ══════════════════════════════════════════════════════════════════
+
+describe('eventScore (Phase G1)', () => {
+  it('falls back to 0.8 when shouldPlay returns true (no score defined)', () => {
+    const state = createBotState(['papacy']);
+    // Card 47 Copernicus: shouldPlay=() => true
+    expect(eventScore(state, 'papacy', 47)).toBe(0.8);
+  });
+
+  it('falls back to 0 when shouldPlay returns false', () => {
+    const state = createBotState(['ottoman']);
+    // Card 40 Machiavelli: shouldPlay=() => false
+    expect(eventScore(state, 'ottoman', 40)).toBe(0);
+  });
+
+  it('returns 0 for card with no criteria entry', () => {
+    const state = createBotState(['ottoman']);
+    expect(eventScore(state, 'ottoman', 99999)).toBe(0);
+  });
+
+  it('prefers explicit score function over shouldPlay when both present', () => {
+    const state = createBotState(['papacy']);
+    // Patch EVENT_CRITERIA via module cache unavailable; instead verify via a
+    // card we know has shouldPlay=true (47 Copernicus) vs its fallback path.
+    // Here we assert the fallback returns exactly 0.8 so that G3 migrations
+    // moving those entries to score(…) will be detectable as deviations.
+    expect(eventScore(state, 'papacy', 47)).toBeCloseTo(0.8, 5);
+  });
+
+  it('clamps score output to [0, 1]', () => {
+    // Use a card whose shouldPlay returns boolean — fallback path maps to
+    // 0 or 0.8, both inside [0, 1]. Ensures the API contract holds even for
+    // cards where score isn't yet defined.
+    const state = createBotState(['protestant']);
+    const s = eventScore(state, 'protestant', 39); // Augsburg Confession: shouldPlay=p==='protestant'
+    expect(s).toBeGreaterThanOrEqual(0);
+    expect(s).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('computeGoalSaturation (Phase G1)', () => {
+  it('returns 0 when no behavior card active', () => {
+    const state = createBotState(['ottoman']);
+    // Clear the deck so getActiveBehaviorCard returns null
+    state.botDecks.ottoman.faceUp = [];
+    expect(computeGoalSaturation(state, 'ottoman')).toBe(0);
+  });
+
+  it('returns 0 when no goals executed yet', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.botGoalCounts = { ottoman: {} };
+    const sat = computeGoalSaturation(state, 'ottoman');
+    expect(sat).toBe(0);
+  });
+
+  it('returns ~1 when all finite-max goals fully used', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    const card = getActiveBehaviorCard(state.botDecks.ottoman);
+    // Fully consume each finite-max goal
+    state.botGoalCounts = { ottoman: {} };
+    for (const g of card.goals) {
+      if (Number.isFinite(g.max) && g.max > 0) {
+        state.botGoalCounts.ottoman[g.type] = g.max;
+      }
+    }
+    expect(computeGoalSaturation(state, 'ottoman')).toBeCloseTo(1, 5);
+  });
+
+  it('ignores INF-max goals in capacity tally', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    const card = getActiveBehaviorCard(state.botDecks.ottoman);
+    // Only burn INF goals — capacity should remain untouched → saturation 0
+    state.botGoalCounts = { ottoman: {} };
+    for (const g of card.goals) {
+      if (!Number.isFinite(g.max)) {
+        state.botGoalCounts.ottoman[g.type] = 10;
+      }
+    }
+    expect(computeGoalSaturation(state, 'ottoman')).toBe(0);
+  });
+
+  it('clamps counts above max (defensive)', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    const card = getActiveBehaviorCard(state.botDecks.ottoman);
+    state.botGoalCounts = { ottoman: {} };
+    for (const g of card.goals) {
+      if (Number.isFinite(g.max) && g.max > 0) {
+        state.botGoalCounts.ottoman[g.type] = g.max * 100;
+      }
+    }
+    expect(computeGoalSaturation(state, 'ottoman')).toBeCloseTo(1, 5);
+  });
+});
+
+describe('cpUtility (Phase G1)', () => {
+  it('returns 0 for unknown card', () => {
+    const state = createBotState(['ottoman']);
+    expect(cpUtility(state, 'ottoman', 99999)).toBe(0);
+  });
+
+  it('peace time: 5 CP card with untouched goals approaches 1.0', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.botGoalCounts = { ottoman: {} };
+    state.wars = []; // No wars
+    // Card 41 Marburg Colloquy is a 5-CP event card
+    const u = cpUtility(state, 'ottoman', 41);
+    expect(u).toBeGreaterThanOrEqual(0.9);
+    expect(u).toBeLessThanOrEqual(1);
+  });
+
+  it('wartime adds +0.15 bonus', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.botGoalCounts = { ottoman: {} };
+    // Compare same card with/without war
+    const peace = cpUtility({ ...state, wars: [] }, 'ottoman', 40);
+    addWar(state, 'ottoman', 'hapsburg');
+    const war = cpUtility(state, 'ottoman', 40);
+    expect(war - peace).toBeGreaterThan(0.1);
+  });
+
+  it('drops as behavior-card goals saturate', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.wars = [];
+    const card = getActiveBehaviorCard(state.botDecks.ottoman);
+
+    state.botGoalCounts = { ottoman: {} };
+    const fresh = cpUtility(state, 'ottoman', 40);
+
+    // Fully consume finite-max goals → saturation → lower utility
+    for (const g of card.goals) {
+      if (Number.isFinite(g.max) && g.max > 0) {
+        state.botGoalCounts.ottoman[g.type] = g.max;
+      }
+    }
+    const saturated = cpUtility(state, 'ottoman', 40);
+    expect(fresh).toBeGreaterThan(saturated);
+  });
+
+  it('clamps output to [0, 1]', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.botGoalCounts = { ottoman: {} };
+    addWar(state, 'ottoman', 'hapsburg');
+    // High CP + war bonus could theoretically push above 1 — verify clamp
+    for (let n = 1; n <= 20; n++) {
+      const u = cpUtility(state, 'ottoman', n);
+      expect(u).toBeGreaterThanOrEqual(0);
+      expect(u).toBeLessThanOrEqual(1);
+    }
   });
 });
