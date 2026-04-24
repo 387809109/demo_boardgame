@@ -835,6 +835,21 @@ export function eventScore(state, power, cardNumber) {
 }
 
 /**
+ * Whether a criterion entry has an explicit Phase G `score` function
+ * (as opposed to the legacy `shouldPlay` boolean). Used by
+ * `routeEventCard` to gate the scoring-path comparison: only migrated
+ * cards run through the event-vs-CP score comparison; unmigrated cards
+ * keep the legacy boolean-routing behavior unchanged.
+ *
+ * @param {number} cardNumber
+ * @returns {boolean}
+ */
+export function hasEventScore(cardNumber) {
+  const c = EVENT_CRITERIA[cardNumber];
+  return typeof c?.score === 'function';
+}
+
+/**
  * Check if playing a card satisfies a Treaty obligation for tokenPower.
  * @param {Object} state
  * @param {string} power - Bot power playing the card

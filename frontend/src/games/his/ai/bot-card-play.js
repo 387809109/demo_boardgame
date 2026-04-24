@@ -19,7 +19,7 @@ import { getActiveRuler, countLandUnits, getUnitsInSpace, getAllVpTotals, isHome
 import {
   shouldPlayEvent, satisfiesTreaty, shouldPlayResponse,
   satisfiesResponseTreaty, hasEventCriteria, hasResponseCriteria,
-  eventScore
+  eventScore, hasEventScore
 } from './bot-event-criteria.js';
 
 // ── Event Scoring Utilities (Phase G1) ────────────────────────────
@@ -720,9 +720,32 @@ function routeCombatResponseCard(state, power, cardNumber, card) {
  * Step 3: If not → check Ganging Up (§2.10.2)
  * Step 4: Otherwise → play for CPs
  */
+/**
+ * Threshold for the event-vs-CP comparison. `eventScore` must exceed
+ * `cpUtility` by at least this margin to win — biases toward CP when
+ * scores are close, which preserves the behavior-card goal pipeline.
+ * Calibrated from 2026-04-23 baseline (86/1286 PLAY_CARD_EVENT = 6.7%).
+ * See docs/games/his/BOT_EVENT_SCORING_PLAN.md G2.
+ */
+const EVENT_VS_CP_THRESHOLD = 0.05;
+
 function routeEventCard(state, power, cardNumber, card) {
-  // Step 1: §5 criteria for own benefit
-  if (shouldPlayEvent(state, power, cardNumber)) {
+  // Step 1: §5 criteria for own benefit.
+  // Phase G2 adds a scoring-path gate: only cards that have been migrated
+  // to an explicit `score` function (G3/G4 work) run through the
+  // event-vs-CP score comparison. Unmigrated cards fall through to the
+  // legacy boolean `shouldPlayEvent` check to preserve baseline behavior
+  // until they're migrated.
+  if (hasEventScore(cardNumber)) {
+    const es = eventScore(state, power, cardNumber);
+    const cs = cpUtility(state, power, cardNumber);
+    if (es > cs + EVENT_VS_CP_THRESHOLD) {
+      return {
+        actionType: ACTION_TYPES.PLAY_CARD_EVENT,
+        actionData: { cardNumber }
+      };
+    }
+  } else if (shouldPlayEvent(state, power, cardNumber)) {
     return {
       actionType: ACTION_TYPES.PLAY_CARD_EVENT,
       actionData: { cardNumber }

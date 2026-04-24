@@ -883,6 +883,33 @@ describe('decideCardPlay routing edge cases', () => {
 // Phase G1 — Event Scoring (eventScore / cpUtility / goalSaturation)
 // ══════════════════════════════════════════════════════════════════
 
+describe('Phase G2 — routeEventCard gating', () => {
+  it('legacy shouldPlay=true routes to PLAY_CARD_EVENT (unchanged baseline)', () => {
+    const state = createBotState(['protestant']);
+    setActiveBehaviorCard(state, 'protestant', 'protestant_sola_scriptura');
+    state.hands = { protestant: [65] };
+    const result = decideCardPlay(state, 'protestant');
+    expect(result.actionType).toBe('PLAY_CARD_EVENT');
+  });
+
+  it('legacy shouldPlay=false with no treaty/gang → PLAY_CARD_CP (unchanged)', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.hands = { ottoman: [40] }; // Machiavelli: shouldPlay=() => false
+    state.treatyTokens = { ottoman: [] };
+    state.vp = { ottoman: 0, hapsburg: 0, france: 0, england: 0, papacy: 0, protestant: 0 };
+    const result = decideCardPlay(state, 'ottoman');
+    expect(result.actionType).toBe('PLAY_CARD_CP');
+  });
+
+  it('no migrated cards yet: hasEventScore is false across all EVENT_CRITERIA entries', async () => {
+    const { EVENT_CRITERIA, hasEventScore } = await import('./bot-event-criteria.js');
+    for (const cardNumber of Object.keys(EVENT_CRITERIA)) {
+      expect(hasEventScore(Number(cardNumber))).toBe(false);
+    }
+  });
+});
+
 describe('eventScore (Phase G1)', () => {
   it('falls back to 0.8 when shouldPlay returns true (no score defined)', () => {
     const state = createBotState(['papacy']);
