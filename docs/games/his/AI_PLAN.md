@@ -218,5 +218,24 @@ frontend/src/games/his/ai/
 
 **已知 G4 待优化**（非阻塞，留作后续）：
 
-- Papal Inquisition (56) / Spanish Inquisition (58) score 不考虑 `countConvertibleProtestantSpaces(s) > 0`，会触发空 burn。可参考 67 Anabaptists 的写法补条件因子。
-- D 方案（评分相近时概率抽样）保留作未来扩展，未实现。
+- Papal Inquisition (56) / Spanish Inquisition (58) ✅ 已修复（commit `b7b48c7`）— `countProtestantSpacesInZone` 按 italian / spanish 语言区分级评分（≥2→1.0、=1→0.7、=0→0.3 floor 保留次级效果价值）
+- D 方案（评分相近时概率抽样）→ 见 [Phase H](#phase-h-事件决策随机抽样待开发)
+
+---
+
+## Phase H: 事件决策随机抽样（待开发）
+
+> 在 Phase G 确定性评分基础上，引入受控 threshold-jitter，让真人对战可选启用非确定性 Bot 行为。默认关闭，回归测试基线 100% 保留。
+
+**详细立项文档**：[BOT_EVENT_RANDOMNESS_PLAN.md](BOT_EVENT_RANDOMNESS_PLAN.md)
+
+| 子阶段 | 工作 | 预估 |
+|---|---|---|
+| H1 | `state.botEventRandomness` 字段 + clamp + state-init 单测 | 0.5 天 |
+| H2 | `routeEventCard` jitter + 注入式 RNG + 抽样单测（mulberry32 种子） | 0.5 天 |
+| H3 | `[event-vs-cp]` 遥测扩字段 + HISBOT_REF.md §8.5.3 + 文档同步 | 0.25 天 |
+| H4 | 可选：config.json UI 滑块 | 0.25 天（可推迟） |
+
+**总计 1.25–1.5 天**。
+
+**启动条件**：✅ Phase G G1–G5 完成、✅ Inquisition tier-scoring 完成、✅ 2026-04-23/25 基线已建立。可随时开工。

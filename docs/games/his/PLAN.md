@@ -324,7 +324,10 @@ frontend/src/games/his/
 > - [`docs/games/his/bot_anomalies/2026-04-22_full-bot-verify.md`](bot_anomalies/2026-04-22_full-bot-verify.md) — #B/#C/#D ✅ 已修复，#A 澄清为测试方法论
 > - [`docs/games/his/bot_anomalies/2026-04-23_full-bot-9turns.md`](bot_anomalies/2026-04-23_full-bot-9turns.md) — #F/#G/#H/#J ✅ 已修复，#I 未修复（非阻塞观察）
 >
-> **立项待开发**：[`BOT_EVENT_SCORING_PLAN.md`](BOT_EVENT_SCORING_PLAN.md) — Phase G 事件评分化（✅ 2026-04-25 已完成 G1–G5，D 方案保留作未来扩展）
+> **立项待开发**：
+>
+> - [`BOT_EVENT_SCORING_PLAN.md`](BOT_EVENT_SCORING_PLAN.md) — Phase G 事件评分化（✅ 2026-04-25 已完成 G1–G5 + Inquisition tier-scoring follow-up `b7b48c7`）
+> - [`BOT_EVENT_RANDOMNESS_PLAN.md`](BOT_EVENT_RANDOMNESS_PLAN.md) — Phase H 事件决策随机抽样（D 方案，1.25–1.5 天，2026-04-25 立项，待开发）
 >
 > **异常记录流程**：模板 [`BOT_PENDING_ANOMALIES.md`](BOT_PENDING_ANOMALIES.md) + 执行流程 [`test/TEST_REQUIREMENTS.md`](test/TEST_REQUIREMENTS.md)
 >
