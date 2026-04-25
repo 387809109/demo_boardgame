@@ -1,8 +1,19 @@
 # HISBOT 事件评分化（Phase G）— 立项计划
 
-> **状态**：待开发（2026-04-23 立项）
+> **状态**：✅ 已完成（2026-04-25 G1–G5 全部落地）
 > **所属**：HIS AI 开发 — 接续 [AI_PLAN.md](AI_PLAN.md) Phase A–F 之后的 Phase G
 > **范围**：Bot 事件 vs CP 决策从布尔 `shouldPlay` 升级为 `score(0..1)`；D 方案（随机抽样）作未来扩展保留
+>
+> **完成 commits**：
+> - G1 `30f9794` — eventScore / cpUtility / computeGoalSaturation 基础设施
+> - G2 `3399e7e` — `routeEventCard` 评分路径 + `hasEventScore` 守门
+> - G3 `d4b7d00` — Top-20 高频卡 score 函数 + cpUtility 重校准（cp/8 cap 0.7、warBonus 0.10）
+> - G4 `063303a` — 剩余 56 张 EVENT_CRITERIA 全部迁移（76/76 完成）
+> - G5 `<this commit>` — `[event-vs-cp]` 决策遥测 + HISBOT_REF.md §8.5.2 偏离记录
+>
+> **基线对比**：2026-04-23 baseline `PLAY_CARD_EVENT = 86 / 1286 (6.7%)`，G2 后 87 (+1.2%)、G3 后 89 (+3.5%)、G4 后 85 (-1.2%) — 全部在 ±15% 容忍区间。
+>
+> **已知 G4 待优化**：Papal Inquisition (56) / Spanish Inquisition (58) score 不考虑 `countConvertibleProtestantSpaces > 0`，可能空 burn。后续可加条件因子（参考 67 Anabaptists）。
 
 ---
 

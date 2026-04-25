@@ -1913,6 +1913,73 @@ These are rules that Bots break compared to human players:
 
 ---
 
+### 8.5.2 事件 vs CP 评分化决策（Phase G）
+
+**位置**：
+- [`frontend/src/games/his/ai/bot-event-criteria.js`](../../../frontend/src/games/his/ai/bot-event-criteria.js) — 76 张 `EVENT_CRITERIA` 增加 `score(s,p)→0..1`
+- [`frontend/src/games/his/ai/bot-card-play.js`](../../../frontend/src/games/his/ai/bot-card-play.js) — `routeEventCard` / `cpUtility` / `computeGoalSaturation`
+
+**偏离内容**：原 HISBOT §5 用布尔 `shouldPlay(s,p)` 决策"卡牌打事件 vs CP"——为 true 即打事件。本实现升级为连续评分：
+
+```
+PLAY_CARD_EVENT  iff  eventScore(s,p,c) > cpUtility(s,p,c) + THRESHOLD(0.05)
+```
+
+`eventScore` 来自每张卡的 `score` 函数（0..1），`cpUtility` 估算 CP 在当前行为卡 goal 饱和度 / 战争状态下的边际效用：
+
+```
+baseCpValue = min(card.cp / 8, 0.7)
+cpUtility   = baseCpValue × (1 - goalSaturation × 0.6) + warBonus(0.10)
+```
+
+**原 HISBOT 行为**：§5 决策表是布尔——满足条件即打事件，不满足即 CP。无 CP 侧效用比较。
+
+**动机**：
+
+1. 布尔表无法表达"弱利好"——`shouldPlay=false` 的卡被永久拉黑，包括"本回合略有用"的场景
+2. 布尔表无法表达"CP 更值"——即使 5 CP 行为卡触发链满载，强势件仍强制走事件路径
+3. 评分化让两侧权衡可调、可观测、可单元测试
+
+**触发范围**：
+
+- 仅作用于 `routeEventCard`（普通事件卡的路由）
+- Treaty 义务、Ganging Up、Home / Mandatory / Combat-Response 五个分支保持原状
+- `shouldPlay` 字段在所有 76 张 criteria 上保留，供 `shouldPlayEventGangingUp` 的 virtual-state evaluation 使用
+- RESPONSE_CRITERIA（12 张响应卡）不在迁移范围
+
+**评分约定**：
+
+| 分数 | 语义 |
+|---|---|
+| 1.0 | 永远应打的标志性事件（Copernicus / Augsburg Confession / Pirate Haven 等） |
+| 0.95 | 强条件触达（War in Persia 战时、Erasmus 回合契合） |
+| 0.9 | 标准 owner-or-condition 触达 |
+| 0.85 | 弱通用利好（Shipbuilding / Smallpox / Ransom） |
+| 0 | 不属本势力 / 条件未达 / 显式 never |
+
+**校准依据**：2026-04-23 全 Bot 9 回合基线 `PLAY_CARD_EVENT = 86 / 1286 ≈ 6.7%`。G2 守门后 87 (+1.2%)、G3 后 89 (+3.5%)、G4 后 85 (-1.2%)，均在 ±15% 容忍区间。
+
+**回归方式**：
+
+- 单元测试：`src/games/his/ai/bot-card-play.test.js` 包含 96 个测试，覆盖 `eventScore` / `cpUtility` / `computeGoalSaturation` / hasEventScore 全分支
+- 引擎事件结算验证：所有迁移卡的 `PLAY_CARD_EVENT` 均产生匹配的 `event_*` log entry，确认事件副作用正确触发（例如 Copernicus → `event_copernicus { vp: 2 }`、Schmalkaldic League → `schmalkaldicLeagueFormed: true`）
+- 全 Bot Playwright 9 回合回归：`window.app._startHisGame(null, { dominationVictoryEnabled: false })`，浏览器 DevTools 过滤 `[event-vs-cp]` 即可观察每条决策
+
+**调试可观测性**：每次走评分路径的卡都向控制台打印一行：
+
+```
+[event-vs-cp] {power} {cardNumber} es=0.90 cs=0.62 → event
+```
+
+**已知 G4 待优化点**：Papal Inquisition (56) / Spanish Inquisition (58) 当前 score 不考虑 `countConvertibleProtestantSpaces(s) > 0`，可能导致空 burn。后续可加入条件因子（参考 67 Anabaptists 的写法）。
+
+**移除方式**：
+
+- 整体回退到 HISBOT 布尔规则：在 `routeEventCard` 中将 `if (hasEventScore(...))` 分支改为始终走 `else if (shouldPlayEvent(...))` 分支即可。所有 `score` 字段成为 dead code（不影响行为）但可保留供以后启用。
+- 删除评分化但保留 hasEventScore 守门：把 76 张 criteria 的 `score` 字段全部移除，`hasEventScore` 自然返回 false，路由全部回退到 `shouldPlayEvent`。
+
+---
+
 ## §9 Gameplay Notes
 
 ### Spring Deployment Considerations

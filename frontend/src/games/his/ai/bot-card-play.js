@@ -751,7 +751,15 @@ function routeEventCard(state, power, cardNumber, card) {
   if (hasEventScore(cardNumber)) {
     const es = eventScore(state, power, cardNumber);
     const cs = cpUtility(state, power, cardNumber);
-    if (es > cs + EVENT_VS_CP_THRESHOLD) {
+    const chose = es > cs + EVENT_VS_CP_THRESHOLD ? 'event' : 'cp';
+    // Decision telemetry — emits one line per scored card play. Inspect via
+    // browser DevTools console (filter "[event-vs-cp]") to debug threshold
+    // tuning and per-card score calibration. See HISBOT_REF.md §8.5.
+    if (typeof console !== 'undefined' && console.debug) {
+      console.debug('[event-vs-cp]', power, cardNumber,
+        `es=${es.toFixed(2)} cs=${cs.toFixed(2)} →`, chose);
+    }
+    if (chose === 'event') {
       return {
         actionType: ACTION_TYPES.PLAY_CARD_EVENT,
         actionData: { cardNumber }

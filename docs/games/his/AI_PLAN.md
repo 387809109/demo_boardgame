@@ -190,18 +190,33 @@ frontend/src/games/his/ai/
 
 ---
 
-## Phase G: 事件评分化（待开发）
+## Phase G: 事件评分化（✅ 已完成 2026-04-25）
 
 > 把 Bot 的"事件 vs CP"布尔决策升级为 `score(0..1)` 评分驱动；D 方案（随机抽样）保留作未来扩展。
 
 **详细立项文档**：[BOT_EVENT_SCORING_PLAN.md](BOT_EVENT_SCORING_PLAN.md)
+**实现偏离记录**：[HISBOT_REF.md §8.5.2](HISBOT_REF.md#852-事件-vs-cp-评分化决策phase-g)
 
-| 子阶段 | 工作 | 预估 |
+| 子阶段 | 工作 | 状态 | Commit |
+|---|---|---|---|
+| G1 | 基础设施：`eventScore` / `cpUtility` / `computeGoalSaturation` + 单测 | ✅ | `30f9794` |
+| G2 | `routeEventCard` 切换评分路径（hasEventScore 守门，不改 criteria 条目） | ✅ | `3399e7e` |
+| G3 | Top-20 高频卡 `score` 函数替换布尔 + cpUtility 重校准 | ✅ | `d4b7d00` |
+| G4 | 剩余 56 张 criteria `score` 迁移（76/76 全部完成） | ✅ | `063303a` |
+| G5 | 文档同步 + `[event-vs-cp]` 决策遥测 | ✅ | _this commit_ |
+
+**实测基线对比**（9 回合全 Bot，`dominationVictoryEnabled: false`）：
+
+| Phase | PLAY_CARD_EVENT | Δ vs baseline 86 |
 |---|---|---|
-| G1 | 基础设施：`eventScore` / `cpUtility` / `computeGoalSaturation` + 单测 | 0.5 天 |
-| G2 | `routeEventCard` 切换评分路径（不改 criteria 条目） | 0.5 天 |
-| G3 | Top-20 高频卡 `score` 函数替换布尔 | 1 天 |
-| G4 | 剩余 ~68 张 criteria `score` 迁移（2-3 次 PR） | 2-3 天 |
-| G5 | 文档同步 + 评分决策观测 | 0.5 天 |
+| 2026-04-23 baseline | 86 | — |
+| G2 守门后 | 87 | +1.2% |
+| G3 Top-20 后 | 89 | +3.5% |
+| G4 完整迁移后 | 85 | -1.2% |
 
-**启动条件**：Phase A–F 已完成、2026-04-22/23 回归基线已建立。可随时开工。
+均落在 ±15% 容忍区间，证明评分化迁移未产生行为崩塌。事件结算抽样验证（Copernicus / Michael Servetus / Schmalkaldic League / Auld Alliance / etc.）确认引擎正确触发副作用。
+
+**已知 G4 待优化**（非阻塞，留作后续）：
+
+- Papal Inquisition (56) / Spanish Inquisition (58) score 不考虑 `countConvertibleProtestantSpaces(s) > 0`，会触发空 burn。可参考 67 Anabaptists 的写法补条件因子。
+- D 方案（评分相近时概率抽样）保留作未来扩展，未实现。
