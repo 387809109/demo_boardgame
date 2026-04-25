@@ -151,60 +151,70 @@ export const EVENT_CRITERIA = {
   38: {
     title: "Halley's Comet",
     shouldPlay: (s, p) => isAtWarWithAny(s, p),
+    score: (s, p) => isAtWarWithAny(s, p) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 39: Augsburg Confession — Protestant always
   39: {
     title: 'Augsburg Confession',
     shouldPlay: (s, p) => p === 'protestant',
+    score: (s, p) => p === 'protestant' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'protestant'
   },
   // 40: Machiavelli: The Prince — never
   40: {
     title: 'Machiavelli: The Prince',
     shouldPlay: () => false,
+    score: () => 0,
     treaty: null
   },
   // 41: Marburg Colloquy — Protestant
   41: {
     title: 'Marburg Colloquy',
     shouldPlay: (s, p) => p === 'protestant',
+    score: (s, p) => p === 'protestant' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'protestant'
   },
   // 42: Roxelana — Ottoman
   42: {
     title: 'Roxelana',
     shouldPlay: (s, p) => p === 'ottoman',
+    score: (s, p) => p === 'ottoman' ? 1.0 : 0,
     treaty: (s, p, tp) => atWarWith(s, tp, 'ottoman')
   },
   // 43: Zwingli Dons Armor — Papacy/Hapsburg
   43: {
     title: 'Zwingli Dons Armor',
     shouldPlay: (s, p) => p === 'papacy' || p === 'hapsburg',
+    score: (s, p) => (p === 'papacy' || p === 'hapsburg') ? 0.9 : 0,
     treaty: (s, p, tp) => tp === 'papacy'
   },
   // 44: Affair of the Placards — Protestant
   44: {
     title: 'Affair of the Placards',
     shouldPlay: (s, p) => p === 'protestant',
+    score: (s, p) => p === 'protestant' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'protestant'
   },
   // 45: Calvin Expelled — Papacy
   45: {
     title: 'Calvin Expelled',
     shouldPlay: (s, p) => p === 'papacy',
+    score: (s, p) => p === 'papacy' ? 0.9 : 0,
     treaty: (s, p, tp) => tp === 'papacy'
   },
   // 46: Calvin's Institutes — Protestant
   46: {
     title: "Calvin's Institutes",
     shouldPlay: (s, p) => p === 'protestant',
+    score: (s, p) => p === 'protestant' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'protestant'
   },
   // 47: Copernicus — always for VPs
   47: {
     title: 'Copernicus',
     shouldPlay: () => true,
+    score: () => 1.0,
     treaty: null
   },
   // 48: Galleons — England/France/Hapsburg with colonies
@@ -240,12 +250,17 @@ export const EVENT_CRITERIA = {
   51: {
     title: 'Michael Servetus',
     shouldPlay: () => true,
+    score: () => 1.0,
     treaty: null
   },
   // 52: Michelangelo — Papacy if St. Peter's incomplete
   52: {
     title: 'Michelangelo',
     shouldPlay: (s, p) => p === 'papacy' && isStPetersIncomplete(s),
+    score: (s, p) => {
+      if (p !== 'papacy') return 0;
+      return isStPetersIncomplete(s) ? 1.0 : 0.2;  // residual utility even post-completion
+    },
     treaty: (s, p, tp) => tp === 'papacy'
   },
   // 53: Plantations — with colonies
@@ -265,12 +280,14 @@ export const EVENT_CRITERIA = {
   55: {
     title: 'Jesuit Education',
     shouldPlay: (s, p) => p === 'papacy',
+    score: (s, p) => p === 'papacy' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'papacy'
   },
   // 56: Papal Inquisition — Papacy
   56: {
     title: 'Papal Inquisition',
     shouldPlay: (s, p) => p === 'papacy',
+    score: (s, p) => p === 'papacy' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'papacy'
   },
   // 57: Philip of Hesse's Bigamy — at war with Protestant
@@ -283,6 +300,7 @@ export const EVENT_CRITERIA = {
   58: {
     title: 'Spanish Inquisition',
     shouldPlay: (s, p) => p === 'hapsburg' || p === 'papacy',
+    score: (s, p) => (p === 'hapsburg' || p === 'papacy') ? 0.9 : 0,
     treaty: (s, p, tp) => tp === 'hapsburg' || tp === 'papacy'
   },
   // 59: Lady Jane Grey — Papacy/Protestant
@@ -316,6 +334,10 @@ export const EVENT_CRITERIA = {
       if (p === 'papacy') return false;
       return p === 'england' || p === 'protestant';
     },
+    score: (s, p) => {
+      if (p === 'papacy') return 0;
+      return (p === 'england' || p === 'protestant') ? 1.0 : 0;
+    },
     treaty: (s, p, tp) => tp === 'england' || tp === 'protestant'
   },
   // 64: Pilgrimage of Grace — Papacy if !Mary, or at war with England
@@ -331,12 +353,14 @@ export const EVENT_CRITERIA = {
   65: {
     title: 'A Mighty Fortress',
     shouldPlay: (s, p) => p === 'protestant',
+    score: (s, p) => p === 'protestant' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'protestant'
   },
   // 66: Akinji Raiders — Ottoman
   66: {
     title: 'Akinji Raiders',
     shouldPlay: (s, p) => p === 'ottoman',
+    score: (s, p) => p === 'ottoman' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'ottoman'
   },
   // 67: Anabaptists — Papacy if >= 2 convertible spaces
@@ -365,6 +389,12 @@ export const EVENT_CRITERIA = {
       if (p === 'england' && isScotlandAlly(s, 'france') &&
           atWarWith(s, 'england', 'france')) return true;
       return false;
+    },
+    score: (s, p) => {
+      if (p === 'france') return 1.0;
+      if (p === 'england' && isScotlandAlly(s, 'france') &&
+          atWarWith(s, 'england', 'france')) return 0.9;
+      return 0;
     },
     treaty: null
   },
@@ -426,6 +456,7 @@ export const EVENT_CRITERIA = {
   76: {
     title: 'Foreign Recruits',
     shouldPlay: (s, p) => isAtWarWithAny(s, p),
+    score: (s, p) => isAtWarWithAny(s, p) ? 0.9 : 0,
     treaty: null
   },
   // 78: Frederick the Wise — Protestant if conversion possible + Wartburg in discard

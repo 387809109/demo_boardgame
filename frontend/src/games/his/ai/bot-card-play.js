@@ -71,12 +71,24 @@ export function computeGoalSaturation(state, power) {
 /**
  * Estimate the utility of playing this card for CPs right now, in [0, 1].
  *
- *   baseCpValue  = min(card.cp / 5, 1)   — 5 CP roughly equals peak value
+ *   baseCpValue  = cp / 8                — 5 CP ≈ 0.625 (intentional head-
+ *                                          room: canonical "always play for
+ *                                          owner" events at score 1.0 must
+ *                                          beat even a max-CP card, and
+ *                                          wartime 0.9 events must beat a
+ *                                          wartime full-CP card).
  *   saturation   = computeGoalSaturation — goals already spent reduce upside
- *   warBonus     = +0.15 if at war (combat CPs are more valuable)
+ *   warBonus     = +0.10 if at war       — combat CPs more valuable than
+ *                                          peacetime, but not enough to
+ *                                          dominate a 0.9-score wartime
+ *                                          event at THRESHOLD 0.05
  *
- * Intentionally simple for G1; can be refined in G3 once we observe
- * baseline event-vs-CP behavior live.
+ * Calibration notes:
+ *   Peace max (5 CP, no saturation):  0.625 → score≥0.7 wins
+ *   War   max (5 CP, no saturation):  0.725 → score≥0.78 wins
+ *   Fully-saturated (any cp):         ≈ 0.0 → any positive score wins
+ *
+ * Intentionally simple; refinable once more telemetry lands.
  *
  * @param {Object} state
  * @param {string} power
@@ -87,9 +99,9 @@ export function cpUtility(state, power, cardNumber) {
   const card = CARD_BY_NUMBER[cardNumber];
   const cp = card?.cp || 0;
   if (cp <= 0) return 0;
-  const baseCpValue = Math.min(cp / 5, 1);
+  const baseCpValue = Math.min(cp / 8, 0.7);
   const saturation = computeGoalSaturation(state, power);
-  const warBonus = getWarsOf(state, power).length > 0 ? 0.15 : 0;
+  const warBonus = getWarsOf(state, power).length > 0 ? 0.10 : 0;
   const raw = baseCpValue * (1 - saturation * 0.6) + warBonus;
   return Math.max(0, Math.min(1, raw));
 }

@@ -902,25 +902,31 @@ describe('Phase G2 — routeEventCard gating', () => {
     expect(result.actionType).toBe('PLAY_CARD_CP');
   });
 
-  it('no migrated cards yet: hasEventScore is false across all EVENT_CRITERIA entries', async () => {
-    const { EVENT_CRITERIA, hasEventScore } = await import('./bot-event-criteria.js');
-    for (const cardNumber of Object.keys(EVENT_CRITERIA)) {
-      expect(hasEventScore(Number(cardNumber))).toBe(false);
-    }
+  it('hasEventScore: true for G3-migrated cards, false for unmigrated', async () => {
+    const { hasEventScore } = await import('./bot-event-criteria.js');
+    // Sampled G3 migrations (post-commit set: 38/39/40/41/47/52/55/65/66/76)
+    expect(hasEventScore(38)).toBe(true);  // Halley's Comet
+    expect(hasEventScore(47)).toBe(true);  // Copernicus
+    expect(hasEventScore(65)).toBe(true);  // A Mighty Fortress
+    // Unmigrated sample (still using boolean shouldPlay)
+    expect(hasEventScore(57)).toBe(false); // Philip of Hesse's Bigamy
+    expect(hasEventScore(67)).toBe(false); // Anabaptists
   });
 });
 
 describe('eventScore (Phase G1)', () => {
-  it('falls back to 0.8 when shouldPlay returns true (no score defined)', () => {
+  it('falls back to 0.8 for unmigrated card with shouldPlay true', () => {
     const state = createBotState(['papacy']);
-    // Card 47 Copernicus: shouldPlay=() => true
-    expect(eventScore(state, 'papacy', 47)).toBe(0.8);
+    // Card 57 Philip of Hesse's Bigamy: no score defined; shouldPlay depends
+    // on `atWarWith(protestant)`. Give papacy that war to trigger true.
+    state.wars = [{ a: 'papacy', b: 'protestant' }];
+    expect(eventScore(state, 'papacy', 57)).toBe(0.8);
   });
 
-  it('falls back to 0 when shouldPlay returns false', () => {
-    const state = createBotState(['ottoman']);
-    // Card 40 Machiavelli: shouldPlay=() => false
-    expect(eventScore(state, 'ottoman', 40)).toBe(0);
+  it('falls back to 0 when shouldPlay returns false (unmigrated card)', () => {
+    const state = createBotState(['papacy']);
+    state.wars = []; // no war → shouldPlay false
+    expect(eventScore(state, 'papacy', 57)).toBe(0);
   });
 
   it('returns 0 for card with no criteria entry', () => {
@@ -928,21 +934,15 @@ describe('eventScore (Phase G1)', () => {
     expect(eventScore(state, 'ottoman', 99999)).toBe(0);
   });
 
-  it('prefers explicit score function over shouldPlay when both present', () => {
+  it('explicit score function overrides shouldPlay (G3 migration)', () => {
     const state = createBotState(['papacy']);
-    // Patch EVENT_CRITERIA via module cache unavailable; instead verify via a
-    // card we know has shouldPlay=true (47 Copernicus) vs its fallback path.
-    // Here we assert the fallback returns exactly 0.8 so that G3 migrations
-    // moving those entries to score(…) will be detectable as deviations.
-    expect(eventScore(state, 'papacy', 47)).toBeCloseTo(0.8, 5);
+    // Card 47 Copernicus migrated: score: () => 1.0 (no longer 0.8 fallback)
+    expect(eventScore(state, 'papacy', 47)).toBeCloseTo(1.0, 5);
   });
 
   it('clamps score output to [0, 1]', () => {
-    // Use a card whose shouldPlay returns boolean — fallback path maps to
-    // 0 or 0.8, both inside [0, 1]. Ensures the API contract holds even for
-    // cards where score isn't yet defined.
     const state = createBotState(['protestant']);
-    const s = eventScore(state, 'protestant', 39); // Augsburg Confession: shouldPlay=p==='protestant'
+    const s = eventScore(state, 'protestant', 39); // Augsburg Confession (migrated, score 1.0)
     expect(s).toBeGreaterThanOrEqual(0);
     expect(s).toBeLessThanOrEqual(1);
   });
@@ -1012,18 +1012,18 @@ describe('cpUtility (Phase G1)', () => {
     expect(cpUtility(state, 'ottoman', 99999)).toBe(0);
   });
 
-  it('peace time: 5 CP card with untouched goals approaches 1.0', () => {
+  it('peace time: 5 CP card with untouched goals is ~0.625', () => {
     const state = createBotState(['ottoman']);
     setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
     state.botGoalCounts = { ottoman: {} };
     state.wars = []; // No wars
     // Card 41 Marburg Colloquy is a 5-CP event card
     const u = cpUtility(state, 'ottoman', 41);
-    expect(u).toBeGreaterThanOrEqual(0.9);
-    expect(u).toBeLessThanOrEqual(1);
+    // baseCpValue = min(5/8, 0.7) = 0.625; no saturation; no war
+    expect(u).toBeCloseTo(0.625, 3);
   });
 
-  it('wartime adds +0.15 bonus', () => {
+  it('wartime adds +0.10 bonus', () => {
     const state = createBotState(['ottoman']);
     setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
     state.botGoalCounts = { ottoman: {} };
@@ -1031,7 +1031,7 @@ describe('cpUtility (Phase G1)', () => {
     const peace = cpUtility({ ...state, wars: [] }, 'ottoman', 40);
     addWar(state, 'ottoman', 'hapsburg');
     const war = cpUtility(state, 'ottoman', 40);
-    expect(war - peace).toBeGreaterThan(0.1);
+    expect(war - peace).toBeCloseTo(0.10, 2);
   });
 
   it('drops as behavior-card goals saturate', () => {
