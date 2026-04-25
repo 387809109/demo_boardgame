@@ -953,6 +953,68 @@ describe('eventScore (Phase G1)', () => {
     expect(s).toBeGreaterThanOrEqual(0);
     expect(s).toBeLessThanOrEqual(1);
   });
+
+  describe('Inquisition tiered scoring (G4 follow-up)', () => {
+    function setProtestantInZone(state, zone, count) {
+      // Mark the first `count` matching spaces as protestant
+      let n = 0;
+      for (const sp of Object.values(state.spaces || {})) {
+        if (n >= count) break;
+        if (sp.languageZone === zone && sp.religion !== 'protestant') {
+          sp.religion = 'protestant';
+          n++;
+        }
+      }
+    }
+
+    it('Papal Inquisition (56): full score when ≥2 italian protestant spaces', () => {
+      const state = createBotState(['papacy']);
+      setProtestantInZone(state, 'italian', 2);
+      expect(eventScore(state, 'papacy', 56)).toBeCloseTo(1.0, 5);
+    });
+
+    it('Papal Inquisition (56): mid score with exactly 1 italian protestant', () => {
+      const state = createBotState(['papacy']);
+      // Reset all italian spaces to non-protestant first to control the count
+      for (const sp of Object.values(state.spaces || {})) {
+        if (sp.languageZone === 'italian') sp.religion = 'catholic';
+      }
+      setProtestantInZone(state, 'italian', 1);
+      expect(eventScore(state, 'papacy', 56)).toBeCloseTo(0.7, 5);
+    });
+
+    it('Papal Inquisition (56): floor 0.3 when no italian protestant spaces', () => {
+      const state = createBotState(['papacy']);
+      for (const sp of Object.values(state.spaces || {})) {
+        if (sp.languageZone === 'italian') sp.religion = 'catholic';
+      }
+      expect(eventScore(state, 'papacy', 56)).toBeCloseTo(0.3, 5);
+    });
+
+    it('Papal Inquisition (56): 0 for non-Papacy', () => {
+      const state = createBotState(['hapsburg']);
+      expect(eventScore(state, 'hapsburg', 56)).toBe(0);
+    });
+
+    it('Spanish Inquisition (58): full score when ≥2 spanish protestant spaces', () => {
+      const state = createBotState(['hapsburg']);
+      setProtestantInZone(state, 'spanish', 2);
+      expect(eventScore(state, 'hapsburg', 58)).toBeCloseTo(0.95, 5);
+    });
+
+    it('Spanish Inquisition (58): floor 0.3 when no spanish protestant spaces', () => {
+      const state = createBotState(['hapsburg']);
+      for (const sp of Object.values(state.spaces || {})) {
+        if (sp.languageZone === 'spanish') sp.religion = 'catholic';
+      }
+      expect(eventScore(state, 'hapsburg', 58)).toBeCloseTo(0.3, 5);
+    });
+
+    it('Spanish Inquisition (58): 0 for non-Hapsburg/Papacy', () => {
+      const state = createBotState(['ottoman']);
+      expect(eventScore(state, 'ottoman', 58)).toBe(0);
+    });
+  });
 });
 
 describe('computeGoalSaturation (Phase G1)', () => {

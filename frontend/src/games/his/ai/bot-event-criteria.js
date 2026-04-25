@@ -138,6 +138,24 @@ function countConvertibleProtestantSpaces(state) {
   return n;
 }
 
+/**
+ * Count protestant spaces in a specific language zone — used by Inquisition
+ * cards (Papal #56 = italian, Spanish #58 = spanish). Engine resolution does
+ * NOT require unoccupied (unlike Anabaptists), only language-zone match and
+ * religion === 'protestant'.
+ *
+ * @param {Object} state
+ * @param {string} zone - 'italian' | 'spanish' | 'german' | 'english' | 'french'
+ * @returns {number}
+ */
+function countProtestantSpacesInZone(state, zone) {
+  let n = 0;
+  for (const sp of Object.values(state.spaces || {})) {
+    if (sp.religion === 'protestant' && sp.languageZone === zone) n++;
+  }
+  return n;
+}
+
 // ── Event Card Criteria Table (§5) ───────────────────────────────
 // Key = card number from data/cards.js
 // shouldPlay(state, power) → play event?
@@ -300,7 +318,17 @@ export const EVENT_CRITERIA = {
   56: {
     title: 'Papal Inquisition',
     shouldPlay: (s, p) => p === 'papacy',
-    score: (s, p) => p === 'papacy' ? 1.0 : 0,
+    // Primary effect = burn up to 2 italian-zone protestant spaces. Secondary
+    // effects (Caraffa commit, hand review) retain mild value when there is
+    // nothing to burn — score 0.3 keeps the play viable when CP also has
+    // nothing productive to do, but lets CP win when goals are unsaturated.
+    score: (s, p) => {
+      if (p !== 'papacy') return 0;
+      const n = countProtestantSpacesInZone(s, 'italian');
+      if (n >= 2) return 1.0;
+      if (n === 1) return 0.7;
+      return 0.3;
+    },
     treaty: (s, p, tp) => tp === 'papacy'
   },
   // 57: Philip of Hesse's Bigamy — at war with Protestant
@@ -314,7 +342,17 @@ export const EVENT_CRITERIA = {
   58: {
     title: 'Spanish Inquisition',
     shouldPlay: (s, p) => p === 'hapsburg' || p === 'papacy',
-    score: (s, p) => (p === 'hapsburg' || p === 'papacy') ? 0.9 : 0,
+    // Primary = burn up to 2 spanish-zone protestant spaces. Secondary
+    // effects (hand review, +1 card draw, debate call) keep a non-zero
+    // floor when nothing to burn — but lower than the burn-active case so
+    // the bot prefers CP when the religious side adds no value.
+    score: (s, p) => {
+      if (p !== 'hapsburg' && p !== 'papacy') return 0;
+      const n = countProtestantSpacesInZone(s, 'spanish');
+      if (n >= 2) return 0.95;
+      if (n === 1) return 0.7;
+      return 0.3;
+    },
     treaty: (s, p, tp) => tp === 'hapsburg' || tp === 'papacy'
   },
   // 59: Lady Jane Grey — Papacy/Protestant
