@@ -741,6 +741,32 @@ function routeCombatResponseCard(state, power, cardNumber, card) {
  */
 const EVENT_VS_CP_THRESHOLD = 0.05;
 
+/**
+ * Pure helper: decide whether to play a card as event or for CPs given
+ * pre-computed event/cp scores, the configured randomness, and an RNG.
+ *
+ * Phase H (D approach) introduces threshold-jitter: instead of a fixed
+ * THRESHOLD = 0.05, the actual cutoff is `0.05 + uniform(-r, +r)`. With
+ * `r = 0` the jitter is zero so behavior matches Phase G exactly; with
+ * `r > 0`, only score-pairs whose gap is within ±r of the deterministic
+ * boundary actually flip outcomes — clear-cut decisions stay deterministic.
+ *
+ * @param {number} eventScore - 0..1
+ * @param {number} cpScore - 0..1
+ * @param {number} randomness - 0..0.3 (already clamped in state-init)
+ * @param {Function} [rng] - RNG returning [0, 1); defaults to Math.random
+ * @returns {{ chose: 'event'|'cp', threshold: number }}
+ */
+export function shouldRouteToEvent(eventScore, cpScore, randomness, rng = Math.random) {
+  const r = randomness > 0 ? randomness : 0;
+  const jitter = r > 0 ? (rng() - 0.5) * 2 * r : 0;
+  const threshold = EVENT_VS_CP_THRESHOLD + jitter;
+  return {
+    chose: eventScore > cpScore + threshold ? 'event' : 'cp',
+    threshold
+  };
+}
+
 function routeEventCard(state, power, cardNumber, card) {
   // Step 1: §5 criteria for own benefit.
   // Phase G2 adds a scoring-path gate: only cards that have been migrated
@@ -751,13 +777,15 @@ function routeEventCard(state, power, cardNumber, card) {
   if (hasEventScore(cardNumber)) {
     const es = eventScore(state, power, cardNumber);
     const cs = cpUtility(state, power, cardNumber);
-    const chose = es > cs + EVENT_VS_CP_THRESHOLD ? 'event' : 'cp';
+    const r = state.botEventRandomness || 0;
+    const { chose, threshold } = shouldRouteToEvent(es, cs, r);
     // Decision telemetry — emits one line per scored card play. Inspect via
     // browser DevTools console (filter "[event-vs-cp]") to debug threshold
     // tuning and per-card score calibration. See HISBOT_REF.md §8.5.
     if (typeof console !== 'undefined' && console.debug) {
       console.debug('[event-vs-cp]', power, cardNumber,
-        `es=${es.toFixed(2)} cs=${cs.toFixed(2)} →`, chose);
+        `es=${es.toFixed(2)} cs=${cs.toFixed(2)} threshold=${threshold.toFixed(2)} →`,
+        chose, r > 0 ? `(r=${r.toFixed(2)})` : '');
     }
     if (chose === 'event') {
       return {

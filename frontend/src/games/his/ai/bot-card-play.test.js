@@ -14,7 +14,8 @@ import {
   decideCardPlay, decideResponsePlay, shouldSaveCards,
   checkTreatyObligation, getGangingUpTargets, shouldPlayEventGangingUp,
   getFinalAutumnAssaults,
-  eventScore, cpUtility, computeGoalSaturation
+  eventScore, cpUtility, computeGoalSaturation,
+  shouldRouteToEvent
 } from './bot-card-play.js';
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -1132,6 +1133,192 @@ describe('cpUtility (Phase G1)', () => {
       const u = cpUtility(state, 'ottoman', n);
       expect(u).toBeGreaterThanOrEqual(0);
       expect(u).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// Phase H2 — shouldRouteToEvent (threshold-jitter randomness)
+// ══════════════════════════════════════════════════════════════════
+
+/**
+ * mulberry32 — small deterministic PRNG for reproducible sampling tests.
+ * https://stackoverflow.com/a/47593316
+ */
+function mulberry32(seed) {
+  let s = seed >>> 0;
+  return function() {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+describe('shouldRouteToEvent (Phase H2)', () => {
+  describe('r=0 deterministic mode (Phase G compatibility)', () => {
+    it('event when es > cs + 0.05', () => {
+      const { chose, threshold } = shouldRouteToEvent(0.7, 0.5, 0);
+      expect(chose).toBe('event');
+      expect(threshold).toBeCloseTo(0.05, 5);
+    });
+
+    it('cp when es <= cs + 0.05', () => {
+      expect(shouldRouteToEvent(0.55, 0.5, 0).chose).toBe('cp');
+    });
+
+    it('cp on exact tie at the threshold (strict >)', () => {
+      // 0.55 > 0.50 + 0.05 = 0.55 is FALSE; treat as CP
+      expect(shouldRouteToEvent(0.55, 0.50, 0).chose).toBe('cp');
+    });
+
+    it('returns identical results across calls (RNG never invoked)', () => {
+      let rngCalls = 0;
+      const rng = () => { rngCalls++; return 0.5; };
+      shouldRouteToEvent(0.7, 0.5, 0, rng);
+      shouldRouteToEvent(0.7, 0.5, 0, rng);
+      expect(rngCalls).toBe(0);
+    });
+  });
+
+  describe('r=0.1 randomized mode', () => {
+    it('clear-cut event (gap >> 2*r) always picks event', () => {
+      const rng = mulberry32(42);
+      let events = 0;
+      for (let i = 0; i < 1000; i++) {
+        if (shouldRouteToEvent(1.0, 0.2, 0.1, rng).chose === 'event') events++;
+      }
+      expect(events).toBe(1000);
+    });
+
+    it('clear-cut CP (gap << -2*r) always picks CP', () => {
+      const rng = mulberry32(42);
+      let events = 0;
+      for (let i = 0; i < 1000; i++) {
+        if (shouldRouteToEvent(0.2, 1.0, 0.1, rng).chose === 'event') events++;
+      }
+      expect(events).toBe(0);
+    });
+
+    it('boundary case (es = cs + 0.05) flips ~50/50', () => {
+      // At es=0.55, cs=0.5, deterministic boundary is exactly 0.05.
+      // jitter ∈ [-0.1, +0.1], so threshold ∈ [-0.05, 0.15]; condition
+      // 0.55 > 0.5 + threshold ⇔ threshold < 0.05 ⇔ jitter < 0 → 50%.
+      const rng = mulberry32(42);
+      let events = 0;
+      for (let i = 0; i < 1000; i++) {
+        if (shouldRouteToEvent(0.55, 0.5, 0.1, rng).chose === 'event') events++;
+      }
+      expect(events).toBeGreaterThan(400);
+      expect(events).toBeLessThan(600);
+    });
+
+    it('half-way below boundary (es = cs + 0.025) skews ~37.5% event', () => {
+      // event iff threshold < 0.025 ⇔ jitter < -0.025
+      //   ⇔ (rng - 0.5) * 0.2 < -0.025 ⇔ rng < 0.375
+      // P = 37.5%. Allow ±5pp.
+      const rng = mulberry32(42);
+      let events = 0;
+      for (let i = 0; i < 1000; i++) {
+        if (shouldRouteToEvent(0.525, 0.5, 0.1, rng).chose === 'event') events++;
+      }
+      expect(events).toBeGreaterThan(325);
+      expect(events).toBeLessThan(425);
+    });
+
+    it('above boundary (es = cs + 0.075) skews ~62.5% event', () => {
+      // event iff threshold < 0.075 ⇔ jitter < 0.025 ⇔ rng < 0.625
+      // P = 62.5%. Allow ±5pp.
+      const rng = mulberry32(42);
+      let events = 0;
+      for (let i = 0; i < 1000; i++) {
+        if (shouldRouteToEvent(0.575, 0.5, 0.1, rng).chose === 'event') events++;
+      }
+      expect(events).toBeGreaterThan(575);
+      expect(events).toBeLessThan(675);
+    });
+
+    it('produces reproducible results with the same seed', () => {
+      const rng1 = mulberry32(123);
+      const rng2 = mulberry32(123);
+      const seq1 = [];
+      const seq2 = [];
+      for (let i = 0; i < 50; i++) {
+        seq1.push(shouldRouteToEvent(0.55, 0.5, 0.1, rng1).chose);
+        seq2.push(shouldRouteToEvent(0.55, 0.5, 0.1, rng2).chose);
+      }
+      expect(seq1).toEqual(seq2);
+    });
+  });
+
+  describe('r=0.3 max randomness', () => {
+    it('still preserves clear-cut CP picks (es much less than cs)', () => {
+      const rng = mulberry32(42);
+      let events = 0;
+      for (let i = 0; i < 1000; i++) {
+        if (shouldRouteToEvent(0.1, 0.9, 0.3, rng).chose === 'event') events++;
+      }
+      // gap = -0.8; jitter ∈ [-0.3, 0.3] → threshold ∈ [-0.25, 0.35]
+      // event iff 0.1 > 0.9 + threshold = > [0.65, 1.25] — never
+      expect(events).toBe(0);
+    });
+
+    it('still preserves clear-cut event picks (es much greater than cs)', () => {
+      const rng = mulberry32(42);
+      let events = 0;
+      for (let i = 0; i < 1000; i++) {
+        if (shouldRouteToEvent(1.0, 0.1, 0.3, rng).chose === 'event') events++;
+      }
+      // gap = 0.9; jitter ∈ [-0.3, 0.3] → threshold ∈ [-0.25, 0.35]
+      // event iff 1.0 > 0.1 + threshold = > [-0.15, 0.45] — always
+      expect(events).toBe(1000);
+    });
+  });
+
+  describe('robustness against bad randomness inputs', () => {
+    it('treats negative randomness as 0 (no jitter)', () => {
+      let rngCalls = 0;
+      const rng = () => { rngCalls++; return 0.99; };
+      const a = shouldRouteToEvent(0.7, 0.5, -0.5, rng);
+      const b = shouldRouteToEvent(0.7, 0.5, 0, rng);
+      expect(a).toEqual(b);
+      expect(rngCalls).toBe(0);
+    });
+
+    it('NaN randomness treated as 0', () => {
+      let rngCalls = 0;
+      const rng = () => { rngCalls++; return 0.99; };
+      const a = shouldRouteToEvent(0.7, 0.5, NaN, rng);
+      expect(a.threshold).toBeCloseTo(0.05, 5);
+      expect(rngCalls).toBe(0);
+    });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// Phase H2 — routeEventCard end-to-end with state.botEventRandomness
+// ══════════════════════════════════════════════════════════════════
+
+describe('routeEventCard with botEventRandomness (Phase H2)', () => {
+  it('r=0: identical to Phase G baseline (Roxelana → event for Ottoman)', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.hands = { ottoman: [42] }; // Roxelana: score=1.0 for ottoman
+    state.botEventRandomness = 0;
+    const result = decideCardPlay(state, 'ottoman');
+    expect(result.actionType).toBe('PLAY_CARD_EVENT');
+  });
+
+  it('r>0: clear-cut event still routes to event regardless of jitter', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.hands = { ottoman: [42] };
+    state.botEventRandomness = 0.3;
+    // Run multiple times — Roxelana gap is 1.0 vs ~0.625 → always event
+    for (let i = 0; i < 30; i++) {
+      const result = decideCardPlay(state, 'ottoman');
+      expect(result.actionType).toBe('PLAY_CARD_EVENT');
     }
   });
 });
