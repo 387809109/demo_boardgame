@@ -234,4 +234,49 @@ describe('buildInitialState', () => {
       expect(state.alliances).toEqual([]);
     });
   });
+
+  // ── Phase H: botEventRandomness clamp ───────────────────────────
+
+  describe('botEventRandomness (Phase H1)', () => {
+    it('defaults to 0 when no option supplied', () => {
+      expect(state.botEventRandomness).toBe(0);
+    });
+
+    it('keeps in-range numeric input as-is', () => {
+      const s = buildInitialState(TEST_PLAYERS, { botEventRandomness: 0.1 });
+      expect(s.botEventRandomness).toBeCloseTo(0.1, 5);
+    });
+
+    it('clamps values above 0.3 to 0.3', () => {
+      const s = buildInitialState(TEST_PLAYERS, { botEventRandomness: 0.9 });
+      expect(s.botEventRandomness).toBe(0.3);
+    });
+
+    it('clamps negative values to 0', () => {
+      const s = buildInitialState(TEST_PLAYERS, { botEventRandomness: -1 });
+      expect(s.botEventRandomness).toBe(0);
+    });
+
+    it('clamps non-numeric to 0', () => {
+      const s = buildInitialState(TEST_PLAYERS, { botEventRandomness: 'invalid' });
+      expect(s.botEventRandomness).toBe(0);
+    });
+
+    it('clamps NaN to 0', () => {
+      const s = buildInitialState(TEST_PLAYERS, { botEventRandomness: NaN });
+      expect(s.botEventRandomness).toBe(0);
+    });
+
+    it('clamps null/undefined to 0', () => {
+      const s1 = buildInitialState(TEST_PLAYERS, { botEventRandomness: null });
+      const s2 = buildInitialState(TEST_PLAYERS, { botEventRandomness: undefined });
+      expect(s1.botEventRandomness).toBe(0);
+      expect(s2.botEventRandomness).toBe(0);
+    });
+
+    it('treats exactly 0.3 as the upper bound (inclusive cap)', () => {
+      const s = buildInitialState(TEST_PLAYERS, { botEventRandomness: 0.3 });
+      expect(s.botEventRandomness).toBe(0.3);
+    });
+  });
 });

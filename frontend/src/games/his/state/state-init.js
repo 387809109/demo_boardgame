@@ -21,6 +21,21 @@ const HOME_CARDS = {
   protestant: [7]
 };
 
+/**
+ * Clamp `botEventRandomness` config to the documented [0, 0.3] range.
+ * Default 0 (deterministic) for non-numeric / undefined / out-of-range
+ * values. See [BOT_EVENT_RANDOMNESS_PLAN.md](../../../../docs/games/his/BOT_EVENT_RANDOMNESS_PLAN.md).
+ *
+ * @param {*} value
+ * @returns {number} Clamped value in [0, 0.3]
+ */
+function clampBotEventRandomness(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (n >= 0.3) return 0.3;
+  return n;
+}
+
 /** Initial ruler IDs per power (1517 scenario) */
 const INITIAL_RULERS = {
   ottoman: 'suleiman',
@@ -224,6 +239,7 @@ export function buildInitialState(players, options = {}) {
 
     // Game settings (stored in state so they survive save/load)
     dominationVictoryEnabled: options.dominationVictoryEnabled !== false,
+    botEventRandomness: clampBotEventRandomness(options.botEventRandomness),
 
     // Meta
     eventLog: []
