@@ -222,6 +222,8 @@ export const EVENT_CRITERIA = {
     title: 'Galleons',
     shouldPlay: (s, p) =>
       ['england', 'france', 'hapsburg'].includes(p) && hasColonies(s, p),
+    score: (s, p) =>
+      (['england', 'france', 'hapsburg'].includes(p) && hasColonies(s, p)) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 49: Huguenot Raiders — not Hapsburg, if Hapsburg has colonies
@@ -231,6 +233,11 @@ export const EVENT_CRITERIA = {
       if (p === 'hapsburg') return false;
       return ['england', 'france', 'protestant'].includes(p) &&
              hasColonies(s, 'hapsburg');
+    },
+    score: (s, p) => {
+      if (p === 'hapsburg') return 0;
+      return (['england', 'france', 'protestant'].includes(p) &&
+              hasColonies(s, 'hapsburg')) ? 0.9 : 0;
     },
     treaty: (s, p, tp) =>
       ['england', 'france', 'protestant'].includes(tp) &&
@@ -242,6 +249,9 @@ export const EVENT_CRITERIA = {
     shouldPlay: (s, p) =>
       ['hapsburg', 'england', 'france'].includes(p) &&
       !hasExplorationUnderway(s, p),
+    score: (s, p) =>
+      (['hapsburg', 'england', 'france'].includes(p) &&
+       !hasExplorationUnderway(s, p)) ? 0.9 : 0,
     treaty: (s, p, tp) =>
       ['hapsburg', 'england', 'france'].includes(tp) &&
       !hasExplorationUnderway(s, tp)
@@ -268,12 +278,15 @@ export const EVENT_CRITERIA = {
     title: 'Plantations',
     shouldPlay: (s, p) =>
       ['england', 'france', 'hapsburg'].includes(p) && hasColonies(s, p),
+    score: (s, p) =>
+      (['england', 'france', 'hapsburg'].includes(p) && hasColonies(s, p)) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 54: Potosi Silver Mines
   54: {
     title: 'Potosi Silver Mines',
     shouldPlay: (s, p) => ['england', 'france', 'hapsburg'].includes(p),
+    score: (s, p) => ['england', 'france', 'hapsburg'].includes(p) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 55: Jesuit Education — Papacy always
@@ -294,6 +307,7 @@ export const EVENT_CRITERIA = {
   57: {
     title: "Philip of Hesse's Bigamy",
     shouldPlay: (s, p) => atWarWith(s, p, 'protestant'),
+    score: (s, p) => atWarWith(s, p, 'protestant') ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 58: Spanish Inquisition — Hapsburg/Papacy always
@@ -307,24 +321,28 @@ export const EVENT_CRITERIA = {
   59: {
     title: 'Lady Jane Grey',
     shouldPlay: (s, p) => p === 'papacy' || p === 'protestant',
+    score: (s, p) => (p === 'papacy' || p === 'protestant') ? 0.9 : 0,
     treaty: (s, p, tp) => tp === 'papacy' || tp === 'protestant'
   },
   // 60: Maurice of Saxony — Hapsburg/Protestant
   60: {
     title: 'Maurice of Saxony',
     shouldPlay: (s, p) => p === 'hapsburg' || p === 'protestant',
+    score: (s, p) => (p === 'hapsburg' || p === 'protestant') ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 61: Mary Defies Council — Papacy always
   61: {
     title: 'Mary Defies Council',
     shouldPlay: (s, p) => p === 'papacy',
+    score: (s, p) => p === 'papacy' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'papacy'
   },
   // 62: Book of Common Prayer — Protestant
   62: {
     title: 'Book of Common Prayer',
     shouldPlay: (s, p) => p === 'protestant',
+    score: (s, p) => p === 'protestant' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'protestant'
   },
   // 63: Dissolution of the Monasteries — English/Protestant always, never Papacy
@@ -347,6 +365,10 @@ export const EVENT_CRITERIA = {
       if (p === 'papacy' && !isMaryRuling(s)) return true;
       return atWarWith(s, p, 'england');
     },
+    score: (s, p) => {
+      if (p === 'papacy' && !isMaryRuling(s)) return 0.9;
+      return atWarWith(s, p, 'england') ? 0.9 : 0;
+    },
     treaty: (s, p, tp) => atWarWith(s, tp, 'england')
   },
   // 65: A Mighty Fortress — Protestant always
@@ -368,6 +390,8 @@ export const EVENT_CRITERIA = {
     title: 'Anabaptists',
     shouldPlay: (s, p) =>
       p === 'papacy' && countConvertibleProtestantSpaces(s) >= 2,
+    score: (s, p) =>
+      (p === 'papacy' && countConvertibleProtestantSpaces(s) >= 2) ? 0.95 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 68: Andrea Doria — activate/deactivate Genoa
@@ -378,6 +402,12 @@ export const EVENT_CRITERIA = {
       if ((p === 'hapsburg' || p === 'papacy') &&
           !isGenoaAlly(s, 'hapsburg') && !isGenoaAlly(s, 'papacy')) return true;
       return false;
+    },
+    score: (s, p) => {
+      if (p === 'france' && !isGenoaAlly(s, 'france')) return 0.9;
+      if ((p === 'hapsburg' || p === 'papacy') &&
+          !isGenoaAlly(s, 'hapsburg') && !isGenoaAlly(s, 'papacy')) return 0.9;
+      return 0;
     },
     treaty: null
   },
@@ -403,12 +433,15 @@ export const EVENT_CRITERIA = {
     title: 'Charles Bourbon',
     shouldPlay: (s, p) =>
       atWarWith(s, p, 'france') || isAtWarWithAny(s, p),
+    score: (s, p) =>
+      (atWarWith(s, p, 'france') || isAtWarWithAny(s, p)) ? 0.9 : 0,
     treaty: null
   },
   // 71: City State Rebels — has captured key
   71: {
     title: 'City State Rebels',
     shouldPlay: (s, p) => hasCapturedKey(s, p),
+    score: (s, p) => hasCapturedKey(s, p) ? 0.9 : 0,
     treaty: null
   },
   // 72: Cloth Prices Fluctuate
@@ -423,6 +456,15 @@ export const EVENT_CRITERIA = {
       if (ac && atWarWith(s, p, ac)) return true;
       return false;
     },
+    score: (s, p) => {
+      if ((p === 'england' || p === 'hapsburg') &&
+          controls(s, 'england', 'Calais') &&
+          controls(s, 'hapsburg', 'Antwerp') &&
+          !atWarWith(s, 'england', 'hapsburg')) return 0.9;
+      const ac = s.spaces?.['Antwerp']?.controller;
+      if (ac && atWarWith(s, p, ac)) return 0.85;
+      return 0;
+    },
     treaty: null
   },
   // 73: Diplomatic Marriage — not Ottoman/Protestant
@@ -430,12 +472,14 @@ export const EVENT_CRITERIA = {
     title: 'Diplomatic Marriage',
     shouldPlay: (s, p) =>
       p !== 'ottoman' && p !== 'protestant',
+    score: (s, p) => (p !== 'ottoman' && p !== 'protestant') ? 0.85 : 0,
     treaty: () => true
   },
   // 74: Diplomatic Overture — never by Bots
   74: {
     title: 'Diplomatic Overture',
     shouldPlay: () => false,
+    score: () => 0,
     treaty: () => true
   },
   // 75: Erasmus — Protestant T1-2, Papacy T3+
@@ -446,6 +490,12 @@ export const EVENT_CRITERIA = {
       if (t <= 2 && p === 'protestant') return true;
       if (t >= 3 && p === 'papacy') return true;
       return false;
+    },
+    score: (s, p) => {
+      const t = currentTurn(s);
+      if (t <= 2 && p === 'protestant') return 0.95;
+      if (t >= 3 && p === 'papacy') return 0.95;
+      return 0;
     },
     treaty: (s, p, tp) => {
       const t = currentTurn(s);
@@ -463,48 +513,56 @@ export const EVENT_CRITERIA = {
   78: {
     title: 'Frederick the Wise',
     shouldPlay: (s, p) => p === 'protestant' && isInDiscard(s, 37),
+    score: (s, p) => (p === 'protestant' && isInDiscard(s, 37)) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === 'protestant'
   },
   // 79: Fuggers — if at war
   79: {
     title: 'Fuggers',
     shouldPlay: (s, p) => isAtWarWithAny(s, p),
+    score: (s, p) => isAtWarWithAny(s, p) ? 0.9 : 0,
     treaty: null
   },
   // 80: Gabelle Revolt — at war with France
   80: {
     title: 'Gabelle Revolt',
     shouldPlay: (s, p) => atWarWith(s, p, 'france'),
+    score: (s, p) => atWarWith(s, p, 'france') ? 0.9 : 0,
     treaty: (s, p, tp) => atWarWith(s, tp, 'france')
   },
   // 81: Indulgence Vendor — Papacy if St. Peter's incomplete
   81: {
     title: 'Indulgence Vendor',
     shouldPlay: (s, p) => p === 'papacy' && isStPetersIncomplete(s),
+    score: (s, p) => (p === 'papacy' && isStPetersIncomplete(s)) ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'papacy' && isStPetersIncomplete(s)
   },
   // 82: Janissaries Rebel — at war with Ottoman
   82: {
     title: 'Janissaries Rebel',
     shouldPlay: (s, p) => atWarWith(s, p, 'ottoman'),
+    score: (s, p) => atWarWith(s, p, 'ottoman') ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 83: John Zapolya — controls Buda
   83: {
     title: 'John Zapolya',
     shouldPlay: (s, p) => controls(s, p, 'Buda'),
+    score: (s, p) => controls(s, p, 'Buda') ? 0.9 : 0,
     treaty: (s, p, tp) => controls(s, tp, 'Buda')
   },
   // 84: Julia Gonzaga — Ottoman with >= 2 corsairs
   84: {
     title: 'Julia Gonzaga',
     shouldPlay: (s, p) => p === 'ottoman' && getCorsairCount(s, 'ottoman') >= 2,
+    score: (s, p) => (p === 'ottoman' && getCorsairCount(s, 'ottoman') >= 2) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 85: Katherina Bora — Protestant
   85: {
     title: 'Katherina Bora',
     shouldPlay: (s, p) => p === 'protestant',
+    score: (s, p) => p === 'protestant' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'protestant'
   },
   // 86: Knights of St. John — Papacy (St. Peter's), Hapsburg, never Ottoman
@@ -516,12 +574,19 @@ export const EVENT_CRITERIA = {
       if (p === 'hapsburg') return true;
       return false;
     },
+    score: (s, p) => {
+      if (p === 'ottoman') return 0;
+      if (p === 'papacy' && isStPetersIncomplete(s)) return 0.95;
+      if (p === 'hapsburg') return 0.9;
+      return 0;
+    },
     treaty: (s, p, tp) => tp === 'papacy' || tp === 'hapsburg'
   },
   // 87: Mercenaries Demand Pay — enemy with most mercs >= 3
   87: {
     title: 'Mercenaries Demand Pay',
     shouldPlay: (s, p) => !!powerWithMostMercs(s, p, 3),
+    score: (s, p) => !!powerWithMostMercs(s, p, 3) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 88: Peasants' War — unrest in >= 3 enemy home spaces
@@ -540,36 +605,54 @@ export const EVENT_CRITERIA = {
       }
       return n >= 3;
     },
+    score: (s, p) => {
+      const enemies = getWarsOf(s, p);
+      let n = 0;
+      for (const e of enemies) {
+        for (const [name, sp] of Object.entries(s.spaces || {})) {
+          if (isHomeSpace(s, name, e) && sp.controller === e && !sp.unrest) {
+            const units = getUnitsInSpace(s, name);
+            if (!units.some(u => u.owner === e && countLandUnits(u) > 0)) n++;
+          }
+        }
+      }
+      return n >= 3 ? 0.95 : 0;
+    },
     treaty: (s, p, tp) => tp === p
   },
   // 89: Pirate Haven — Ottoman
   89: {
     title: 'Pirate Haven',
     shouldPlay: (s, p) => p === 'ottoman',
+    score: (s, p) => p === 'ottoman' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'ottoman'
   },
   // 90: Printing Press — Protestant always
   90: {
     title: 'Printing Press',
     shouldPlay: (s, p) => p === 'protestant',
+    score: (s, p) => p === 'protestant' ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'protestant'
   },
   // 91: Ransom — has captured leader
   91: {
     title: 'Ransom',
     shouldPlay: (s, p) => hasCapturedLeader(s, p),
+    score: (s, p) => hasCapturedLeader(s, p) ? 0.85 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 92: Revolt in Egypt — at war with Ottoman
   92: {
     title: 'Revolt in Egypt',
     shouldPlay: (s, p) => atWarWith(s, p, 'ottoman'),
+    score: (s, p) => atWarWith(s, p, 'ottoman') ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 93: Revolt in Ireland — at war with England
   93: {
     title: 'Revolt in Ireland',
     shouldPlay: (s, p) => atWarWith(s, p, 'england'),
+    score: (s, p) => atWarWith(s, p, 'england') ? 0.9 : 0,
     treaty: (s, p, tp) => atWarWith(s, tp, 'england')
   },
   // 94: Revolt of the Communeros — unrest in >= 2 enemy home spaces
@@ -585,24 +668,37 @@ export const EVENT_CRITERIA = {
       }
       return n >= 2;
     },
+    score: (s, p) => {
+      const enemies = getWarsOf(s, p);
+      let n = 0;
+      for (const e of enemies) {
+        for (const [name, sp] of Object.entries(s.spaces || {})) {
+          if (isHomeSpace(s, name, e)) n++;
+        }
+      }
+      return n >= 2 ? 0.9 : 0;
+    },
     treaty: (s, p, tp) => tp === p
   },
   // 95: Sack of Rome — Protestant or at war with Papacy
   95: {
     title: 'Sack of Rome',
     shouldPlay: (s, p) => p === 'protestant' || atWarWith(s, p, 'papacy'),
+    score: (s, p) => (p === 'protestant' || atWarWith(s, p, 'papacy')) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === 'protestant' || atWarWith(s, tp, 'papacy')
   },
   // 96: Sale of Moluccas — has circumnavigation
   96: {
     title: 'Sale of Moluccas',
     shouldPlay: (s, p) => hasCircumnavigation(s, p),
+    score: (s, p) => hasCircumnavigation(s, p) ? 1.0 : 0,
     treaty: (s, p, tp) => hasCircumnavigation(s, tp)
   },
   // 97: Scots Raid — France
   97: {
     title: 'Scots Raid',
     shouldPlay: (s, p) => p === 'france',
+    score: (s, p) => p === 'france' ? 1.0 : 0,
     treaty: null
   },
   // 98: Search for Cibola — cancel enemy exploration
@@ -612,60 +708,73 @@ export const EVENT_CRITERIA = {
       const enemies = getWarsOf(s, p);
       return enemies.some(e => hasExplorationUnderway(s, e));
     },
+    score: (s, p) => {
+      const enemies = getWarsOf(s, p);
+      return enemies.some(e => hasExplorationUnderway(s, e)) ? 0.9 : 0;
+    },
     treaty: (s, p, tp) => tp === p
   },
   // 99: Sebastian Cabot — England/France/Hapsburg
   99: {
     title: 'Sebastian Cabot',
     shouldPlay: (s, p) => ['hapsburg', 'england', 'france'].includes(p),
+    score: (s, p) => ['hapsburg', 'england', 'france'].includes(p) ? 0.9 : 0,
     treaty: null
   },
   // 100: Shipbuilding — always
   100: {
     title: 'Shipbuilding',
     shouldPlay: () => true,
+    score: () => 0.85,  // useful but not always optimal
     treaty: null
   },
   // 101: Smallpox — always
   101: {
     title: 'Smallpox',
     shouldPlay: () => true,
+    score: () => 0.85,
     treaty: null
   },
   // 102: Spring Preparations — never by Bots
   102: {
     title: 'Spring Preparations',
     shouldPlay: () => false,
+    score: () => 0,
     treaty: null
   },
   // 103: Threat to Power — at war
   103: {
     title: 'Threat to Power',
     shouldPlay: (s, p) => isAtWarWithAny(s, p),
+    score: (s, p) => isAtWarWithAny(s, p) ? 0.85 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 104: Trace Italienne — at war with major power
   104: {
     title: 'Trace Italienne',
     shouldPlay: (s, p) => isAtWarWithAny(s, p),
+    score: (s, p) => isAtWarWithAny(s, p) ? 0.85 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 105: Treachery! — has active siege
   105: {
     title: 'Treachery!',
     shouldPlay: (s, p) => hasActiveSiege(s, p),
+    score: (s, p) => hasActiveSiege(s, p) ? 0.95 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 106: Unpaid Mercenaries — enemy with most mercs >= 3
   106: {
     title: 'Unpaid Mercenaries',
     shouldPlay: (s, p) => !!powerWithMostMercs(s, p, 3),
+    score: (s, p) => !!powerWithMostMercs(s, p, 3) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 107: Unsanitary Camp — if would remove enemy units
   107: {
     title: 'Unsanitary Camp',
     shouldPlay: (s, p) => isAtWarWithAny(s, p),
+    score: (s, p) => isAtWarWithAny(s, p) ? 0.85 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 108: Venetian Alliance — Papacy activate, or deactivate enemy Venice
@@ -679,6 +788,14 @@ export const EVENT_CRITERIA = {
       }
       return false;
     },
+    score: (s, p) => {
+      if (p === 'papacy' && !isVeniceAlly(s, 'papacy')) return 0.9;
+      if (p === 'papacy' || p === 'ottoman') {
+        const enemies = getWarsOf(s, p);
+        if (enemies.some(e => isVeniceAlly(s, e))) return 0.85;
+      }
+      return 0;
+    },
     treaty: (s, p, tp) => {
       if (tp === 'papacy' || tp === 'ottoman') {
         const enemies = getWarsOf(s, tp);
@@ -691,12 +808,14 @@ export const EVENT_CRITERIA = {
   109: {
     title: 'Venetian Informant',
     shouldPlay: () => false,
+    score: () => 0,
     treaty: null
   },
   // 110: War in Persia — at war with Ottoman
   110: {
     title: 'War in Persia',
     shouldPlay: (s, p) => atWarWith(s, p, 'ottoman'),
+    score: (s, p) => atWarWith(s, p, 'ottoman') ? 0.95 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 111: Colonial Governor/Native Uprising — has colony or enemy has colony
@@ -706,18 +825,24 @@ export const EVENT_CRITERIA = {
       if (hasColonies(s, p)) return true;
       return getWarsOf(s, p).some(e => hasColonies(s, e));
     },
+    score: (s, p) => {
+      if (hasColonies(s, p)) return 0.9;
+      return getWarsOf(s, p).some(e => hasColonies(s, e)) ? 0.85 : 0;
+    },
     treaty: (s, p, tp) => tp === p
   },
   // 112: Thomas More — Papacy
   112: {
     title: 'Thomas More',
     shouldPlay: (s, p) => p === 'papacy',
+    score: (s, p) => p === 'papacy' ? 0.9 : 0,
     treaty: (s, p, tp) => tp === 'papacy'
   },
   // 115: Thomas Cromwell — Papacy plays immediately; others save as response
   115: {
     title: 'Thomas Cromwell',
     shouldPlay: (s, p) => p === 'papacy',
+    score: (s, p) => p === 'papacy' ? 0.95 : 0,
     treaty: (s, p, tp) =>
       tp === 'england' && isInDiscard(s, 63) // Dissolution = card 63
   },
@@ -726,6 +851,8 @@ export const EVENT_CRITERIA = {
     title: 'Rough Wooing',
     shouldPlay: (s, p) =>
       p === 'england' && !!s.edwardBorn && areAllied(s, 'scotland', 'france'),
+    score: (s, p) =>
+      (p === 'england' && !!s.edwardBorn && areAllied(s, 'scotland', 'france')) ? 0.95 : 0,
     treaty: (s, p, tp) => tp === 'england'
   }
 };

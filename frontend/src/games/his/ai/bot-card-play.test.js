@@ -902,47 +902,54 @@ describe('Phase G2 — routeEventCard gating', () => {
     expect(result.actionType).toBe('PLAY_CARD_CP');
   });
 
-  it('hasEventScore: true for G3-migrated cards, false for unmigrated', async () => {
+  it('hasEventScore: true for all G3/G4-migrated EVENT_CRITERIA entries', async () => {
+    const { EVENT_CRITERIA, hasEventScore } = await import('./bot-event-criteria.js');
+    for (const cardNumber of Object.keys(EVENT_CRITERIA)) {
+      expect(hasEventScore(Number(cardNumber))).toBe(true);
+    }
+  });
+
+  it('hasEventScore: false for non-EVENT_CRITERIA cards', async () => {
     const { hasEventScore } = await import('./bot-event-criteria.js');
-    // Sampled G3 migrations (post-commit set: 38/39/40/41/47/52/55/65/66/76)
-    expect(hasEventScore(38)).toBe(true);  // Halley's Comet
-    expect(hasEventScore(47)).toBe(true);  // Copernicus
-    expect(hasEventScore(65)).toBe(true);  // A Mighty Fortress
-    // Unmigrated sample (still using boolean shouldPlay)
-    expect(hasEventScore(57)).toBe(false); // Philip of Hesse's Bigamy
-    expect(hasEventScore(67)).toBe(false); // Anabaptists
+    expect(hasEventScore(99999)).toBe(false);   // No criteria entry
+    expect(hasEventScore(31)).toBe(false);      // Card 31 lives in RESPONSE_CRITERIA
   });
 });
 
 describe('eventScore (Phase G1)', () => {
-  it('falls back to 0.8 for unmigrated card with shouldPlay true', () => {
-    const state = createBotState(['papacy']);
-    // Card 57 Philip of Hesse's Bigamy: no score defined; shouldPlay depends
-    // on `atWarWith(protestant)`. Give papacy that war to trigger true.
-    state.wars = [{ a: 'papacy', b: 'protestant' }];
-    expect(eventScore(state, 'papacy', 57)).toBe(0.8);
-  });
-
-  it('falls back to 0 when shouldPlay returns false (unmigrated card)', () => {
-    const state = createBotState(['papacy']);
-    state.wars = []; // no war → shouldPlay false
-    expect(eventScore(state, 'papacy', 57)).toBe(0);
-  });
-
   it('returns 0 for card with no criteria entry', () => {
     const state = createBotState(['ottoman']);
     expect(eventScore(state, 'ottoman', 99999)).toBe(0);
   });
 
-  it('explicit score function overrides shouldPlay (G3 migration)', () => {
+  it('returns 0 for RESPONSE_CRITERIA-only card (not in EVENT_CRITERIA)', () => {
+    const state = createBotState(['ottoman']);
+    // Card 31 Foul Weather lives in RESPONSE_CRITERIA, not EVENT_CRITERIA
+    expect(eventScore(state, 'ottoman', 31)).toBe(0);
+  });
+
+  it('explicit score function: Copernicus → 1.0 (always-play)', () => {
     const state = createBotState(['papacy']);
-    // Card 47 Copernicus migrated: score: () => 1.0 (no longer 0.8 fallback)
     expect(eventScore(state, 'papacy', 47)).toBeCloseTo(1.0, 5);
+  });
+
+  it('owner-strict: Augsburg Confession → 1.0 for Protestant, 0 otherwise', () => {
+    const state = createBotState(['protestant']);
+    expect(eventScore(state, 'protestant', 39)).toBeCloseTo(1.0, 5);
+    expect(eventScore(state, 'ottoman', 39)).toBe(0);
+  });
+
+  it('conditional: Halley\'s Comet → 0.9 only when at war', () => {
+    const state = createBotState(['ottoman']);
+    state.wars = [];
+    expect(eventScore(state, 'ottoman', 38)).toBe(0);
+    state.wars = [{ a: 'ottoman', b: 'hapsburg' }];
+    expect(eventScore(state, 'ottoman', 38)).toBeCloseTo(0.9, 5);
   });
 
   it('clamps score output to [0, 1]', () => {
     const state = createBotState(['protestant']);
-    const s = eventScore(state, 'protestant', 39); // Augsburg Confession (migrated, score 1.0)
+    const s = eventScore(state, 'protestant', 39);
     expect(s).toBeGreaterThanOrEqual(0);
     expect(s).toBeLessThanOrEqual(1);
   });
