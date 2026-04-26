@@ -561,6 +561,8 @@ export function executeLandBattle(state, power, cp) {
       }
       // Skip if space has units of a power we're not at war with
       if (hasNonWarEnemy) continue;
+      // Anti-oscillation: don't immediately reverse the most recent move
+      if (isReverseOfLastMove(state, power, cand.space, dest)) continue;
       // Attack if we outnumber, OR if enemy-controlled fortified space (to siege)
       const isEnemyFort = isFortified(destSp) && destSp.controller !== power;
       if ((enemyCount > 0 && enemyCount < cand.totalUnits) ||
@@ -1482,16 +1484,17 @@ function findSiegeRelief(state, power) {
   for (const siege of underSiege) {
     for (const form of formations) {
       const adj = getAllAdjacentSpaces(form.space);
-      if (adj.includes(siege)) {
-        return {
-          from: form.space, to: siege,
-          units: capUnitsToFormation(
-            { regulars: form.regulars, mercenaries: form.mercenaries, cavalry: form.cavalry },
-            form.leaders
-          ),
-          leaders: form.leaders
-        };
-      }
+      if (!adj.includes(siege)) continue;
+      // Anti-oscillation: don't immediately reverse the most recent move
+      if (isReverseOfLastMove(state, power, form.space, siege)) continue;
+      return {
+        from: form.space, to: siege,
+        units: capUnitsToFormation(
+          { regulars: form.regulars, mercenaries: form.mercenaries, cavalry: form.cavalry },
+          form.leaders
+        ),
+        leaders: form.leaders
+      };
     }
   }
   return null;
@@ -1602,6 +1605,10 @@ function findSiegeTarget(state, power) {
       if (sp.besieged && sp.besiegedBy === power) continue;
       // Skip if space has units of a power we can't attack
       if (hasEnemyUnitsNotAtWar(state, dest, power)) continue;
+      // Anti-oscillation: don't immediately reverse the most recent move
+      // (e.g. Buda → Pressburg → Buda shuttle when both flank the same
+      // formation's siege options; mirror tryAdvanceWithMinUnits guard).
+      if (isReverseOfLastMove(state, power, form.space, dest)) continue;
       targets.push({
         from: form.space, to: dest,
         units: capUnitsToFormation(
@@ -1878,6 +1885,13 @@ function chooseDebateZonePapacy(state) {
   let bestCount = 0;
 
   for (const zone of zones) {
+    // Engine's validateCallDebate also requires the defender (Protestant)
+    // to have available debaters in the zone. Skip zones where they don't.
+    const protAvail = getAvailableDebaters(state, 'protestant', zone, false);
+    if (!protAvail || protAvail.filter(d => !d.committed).length === 0) continue;
+    // Likewise need at least one uncommitted papal debater available.
+    const papalAvail = getAvailableDebaters(state, 'papal', zone, false);
+    if (!papalAvail || papalAvail.filter(d => !d.committed).length === 0) continue;
     let count = 0;
     for (const sp of Object.values(state.spaces)) {
       if (sp.languageZone === zone && sp.religion === RELIGION.PROTESTANT) count++;
@@ -1904,6 +1918,12 @@ function chooseDebateZoneProtestant(state) {
   for (const zone of zones) {
     const debaters = getAvailableDebaters(state, 'protestant', zone, false);
     const uncommitted = debaters.filter(d => !d.committed);
+    if (uncommitted.length === 0) continue;
+    // Engine's validateCallDebate also requires the defender (Papacy) to have
+    // an available debater in the zone. Skip zones where they don't, otherwise
+    // the bot burns an impulse on a guaranteed-invalid CALL_DEBATE.
+    const papalAvail = getAvailableDebaters(state, 'papal', zone, false);
+    if (!papalAvail || papalAvail.filter(d => !d.committed).length === 0) continue;
     for (const d of uncommitted) {
       const def = DEBATERS.find(dd => dd.id === d.id);
       const rating = def?.value || 0;

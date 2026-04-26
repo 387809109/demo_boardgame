@@ -484,6 +484,15 @@ function decideReformation(state, power) {
   const pending = state.pendingReformation;
   if (!pending) return null;
 
+  // Engine rejects RESOLVE_REFORMATION_ATTEMPT once attempts are exhausted
+  // (religious-actions.js validateReformationAttempt — both field names
+  // attemptsLeft / attemptsRemaining are supported). Skip up front so the
+  // bot doesn't burn an impulse on a guaranteed-invalid action.
+  const attemptsLeft = pending.attemptsLeft ?? pending.attemptsRemaining ?? 0;
+  if (attemptsLeft <= 0) {
+    return { actionType: ACTION_TYPES.END_IMPULSE, actionData: {} };
+  }
+
   const isCounterRef = pending.type === 'counter_reformation';
   const zoneFilter = (pending.zone || (pending.zones !== 'all' ? pending.zones : null));
 
