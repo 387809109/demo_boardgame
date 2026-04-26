@@ -156,6 +156,30 @@ function countProtestantSpacesInZone(state, zone) {
   return n;
 }
 
+/**
+ * Find a qualifying source space for #95 Sack of Rome:
+ * Italian-zone space with a non-Papacy stack whose mercenary count
+ * exceeds Papal regulars in Rome (per engine's validateEvent at
+ * event-actions-extended.js #95). Returns null if no qualifying stack
+ * exists — the bot uses this to score the card 0 (avoid wasted impulse)
+ * and to fill `actionData.fromSpace` when the card IS played.
+ *
+ * @param {Object} state
+ * @returns {string|null} Space name or null
+ */
+export function findSackOfRomeSource(state) {
+  const rome = state.spaces?.['Rome'];
+  const papalRegs = rome?.units?.find(u => u.owner === 'papacy')?.regulars || 0;
+  for (const [name, sp] of Object.entries(state.spaces || {})) {
+    if (sp.languageZone !== 'italian') continue;
+    const stack = sp.units?.find(
+      u => u.owner !== 'papacy' && (u.mercenaries || 0) > papalRegs
+    );
+    if (stack) return name;
+  }
+  return null;
+}
+
 // ── Event Card Criteria Table (§5) ───────────────────────────────
 // Key = card number from data/cards.js
 // shouldPlay(state, power) → play event?
@@ -718,11 +742,24 @@ export const EVENT_CRITERIA = {
     },
     treaty: (s, p, tp) => tp === p
   },
-  // 95: Sack of Rome — Protestant or at war with Papacy
+  // 95: Sack of Rome — Protestant or at war with Papacy.
+  //
+  // Engine validateEvent (event-actions-extended.js #95) requires
+  // actionData.fromSpace pointing to a qualifying italian stack (mercs >
+  // Papal regs in Rome). The legacy `shouldPlay` boolean keeps its
+  // owner-only semantics so ganging-up virtual-state evaluation
+  // (shouldPlayEventGangingUp) still returns true for "would benefit from
+  // this card given a hypothetical war state". The runtime `score` path
+  // gates on actual source-space availability so the bot never burns an
+  // impulse on a guaranteed-invalid PLAY_CARD_EVENT.
   95: {
     title: 'Sack of Rome',
     shouldPlay: (s, p) => p === 'protestant' || atWarWith(s, p, 'papacy'),
-    score: (s, p) => (p === 'protestant' || atWarWith(s, p, 'papacy')) ? 0.9 : 0,
+    score: (s, p) => {
+      const eligibleOwner = p === 'protestant' || atWarWith(s, p, 'papacy');
+      if (!eligibleOwner) return 0;
+      return findSackOfRomeSource(s) !== null ? 0.9 : 0;
+    },
     treaty: (s, p, tp) => tp === 'protestant' || atWarWith(s, tp, 'papacy')
   },
   // 96: Sale of Moluccas — has circumnavigation
@@ -759,11 +796,12 @@ export const EVENT_CRITERIA = {
     score: (s, p) => ['hapsburg', 'england', 'france'].includes(p) ? 0.9 : 0,
     treaty: null
   },
-  // 100: Shipbuilding — always
+  // 100: Shipbuilding — always for non-Protestant powers (engine
+  // validateEvent rejects Protestant per event-actions-extended.js#1150)
   100: {
     title: 'Shipbuilding',
-    shouldPlay: () => true,
-    score: () => 0.85,  // useful but not always optimal
+    shouldPlay: (s, p) => p !== 'protestant',
+    score: (s, p) => p === 'protestant' ? 0 : 0.85,
     treaty: null
   },
   // 101: Smallpox — always

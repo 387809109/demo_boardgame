@@ -19,7 +19,8 @@ import { getActiveRuler, countLandUnits, getUnitsInSpace, getAllVpTotals, isHome
 import {
   shouldPlayEvent, satisfiesTreaty, shouldPlayResponse,
   satisfiesResponseTreaty, hasEventCriteria, hasResponseCriteria,
-  eventScore, hasEventScore
+  eventScore, hasEventScore,
+  findSackOfRomeSource
 } from './bot-event-criteria.js';
 
 // ── Event Scoring Utilities (Phase G1) ────────────────────────────
@@ -742,6 +743,31 @@ function routeCombatResponseCard(state, power, cardNumber, card) {
 const EVENT_VS_CP_THRESHOLD = 0.05;
 
 /**
+ * Build the actionData payload for a PLAY_CARD_EVENT action, augmenting
+ * `{ cardNumber }` with any card-specific fields the engine validators
+ * require. Cards that don't need extras (the vast majority) just get
+ * `{ cardNumber }` back unchanged.
+ *
+ * Currently handles:
+ *   #95 Sack of Rome — fills `fromSpace` from `findSackOfRomeSource`.
+ *     Score function already gates this card to 0 when no source space
+ *     exists, so reaching this code with no candidate is unexpected;
+ *     defensive fallback returns just `{ cardNumber }`.
+ *
+ * @param {Object} state
+ * @param {number} cardNumber
+ * @returns {Object} actionData
+ */
+function buildEventActionData(state, cardNumber) {
+  const data = { cardNumber };
+  if (cardNumber === 95) {
+    const fromSpace = findSackOfRomeSource(state);
+    if (fromSpace) data.fromSpace = fromSpace;
+  }
+  return data;
+}
+
+/**
  * Pure helper: decide whether to play a card as event or for CPs given
  * pre-computed event/cp scores, the configured randomness, and an RNG.
  *
@@ -790,7 +816,7 @@ function routeEventCard(state, power, cardNumber, card) {
     if (chose === 'event') {
       return {
         actionType: ACTION_TYPES.PLAY_CARD_EVENT,
-        actionData: { cardNumber }
+        actionData: buildEventActionData(state, cardNumber)
       };
     }
   } else if (shouldPlayEvent(state, power, cardNumber)) {

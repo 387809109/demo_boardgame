@@ -169,12 +169,35 @@
 | #K | ✅ 已修复 | `isReverseOfLastMove` 守门补到 `findSiegeTarget`、`findSiegeRelief`、`executeLandBattle` 直接攻击分支 |
 | #L | ✅ 已修复 | `decideReformation` 加 `attemptsLeft` 余量预检；`chooseDebateZonePapacy/Protestant` 加 defender uncommitted-debater 检查 |
 
-## 修复后衍生发现（留待后续）
+## 修复后衍生发现 — ✅ 已修复
 
-修复后的同条件回归暴露 2 个新异常（不在本次修复范围）：
+### #M France `PLAY_CARD_EVENT 95` 缺 source space — ✅ 已修复
 
-- **#M France `PLAY_CARD_EVENT 95` 缺 source space（1 次告警）**：Sack of Rome 事件的 actionData 在 bot 决策层未填写 `sourceSpace`，引擎拒绝。需在 routeEventCard 或 card-specific handler 中补 source 选择
-- **#N Protestant `PLAY_CARD_EVENT 100` "Not playable by Protestant"（2 次告警）**：Card 100 Shipbuilding 当前 score `() => 0.85` 对 Protestant 也返回非零值，但引擎拒绝 Protestant 打此卡。需在 `bot-event-criteria.js` 把 100 的 score 改为 `(s, p) => p === 'protestant' ? 0 : 0.85`
+**修复**：
+
+- `bot-event-criteria.js` 新增 `findSackOfRomeSource(state)` 助手，按引擎 `validateEvent` 的语义查找 italian-zone 含 mercs > Papal Rome regs 的非教廷 stack
+- Card 95 `score` 改为 `eligibleOwner && findSackOfRomeSource(s) ? 0.9 : 0`，无候选时直接 0 → 走 CP 路径
+- `bot-card-play.js` 新增 `buildEventActionData(state, cardNumber)`，Card 95 时附加 `fromSpace` 到 actionData
+- `shouldPlay` 保留 owner-only 语义（供 `shouldPlayEventGangingUp` 的 virtual-state 评估使用，不引入条件耦合）
+
+**状态**：✅ 已修复
+
+### #N Protestant `PLAY_CARD_EVENT 100` "Not playable by Protestant" — ✅ 已修复
+
+**修复**：Card 100 Shipbuilding 的 `score` 从 `() => 0.85` 改为 `(s, p) => p === 'protestant' ? 0 : 0.85`，与引擎 `event-actions-extended.js#1150` 验证一致
+
+**状态**：✅ 已修复
+
+### 验证（修复后重跑同样的 9 回合 r=0 测试）
+
+| 异常 | 修复前 | 修复后 |
+|---|---|---|
+| `[BOT STUCK] *** PLAY_CARD_EVENT 95 *** Must specify source space` | 1 次 | **0** |
+| `[BOT STUCK] *** PLAY_CARD_EVENT 100 *** Not playable by Protestant` | 2 次 | **0** |
+
+终局：T9 time_limit，France 胜，1214 actions，PLAY_CARD_EVENT 93 (vs 2026-04-26 baseline 88, +5.7%, 在 ±15% 区间)。
+
+剩余 2 次 `[BOT STUCK]`（`ottoman ASSAULT free=true → No LOC` 自动秋季突击边缘 case）属于 **#H 防御不全的另一条路径**，与 #M/#N 无关——`findAssaultTarget` 已修复但 `autumnFreeAssault` 走另一条独立的代码路径（actionData 用 `target` 而非 `space`），未来作单独修复。
 
 ---
 

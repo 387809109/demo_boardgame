@@ -1016,6 +1016,42 @@ describe('eventScore (Phase G1)', () => {
       expect(eventScore(state, 'ottoman', 58)).toBe(0);
     });
   });
+
+  describe('Owner & precondition gating (2026-04-26 fixes)', () => {
+    it('Shipbuilding (100): 0 for Protestant (engine rejects)', () => {
+      const state = createBotState(['protestant']);
+      expect(eventScore(state, 'protestant', 100)).toBe(0);
+    });
+
+    it('Shipbuilding (100): 0.85 for non-Protestant powers', () => {
+      const state = createBotState(['ottoman']);
+      expect(eventScore(state, 'ottoman', 100)).toBeCloseTo(0.85, 5);
+    });
+
+    it('Sack of Rome (95): 0 when no qualifying italian source stack', () => {
+      const state = createBotState(['protestant']);
+      // Default createBotState has no merc-heavy non-Papacy italian stacks
+      expect(eventScore(state, 'protestant', 95)).toBe(0);
+    });
+
+    it('Sack of Rome (95): 0.9 when qualifying italian stack exists', () => {
+      const state = createBotState(['france']);
+      addWar(state, 'france', 'papacy');
+      // Make Florence (italian zone) hold a French stack with mercs > 0
+      // and Rome's Papal regs = 0 → French mercs > Papal regs
+      state.spaces['Florence'] = state.spaces['Florence'] || {
+        controller: 'france', languageZone: 'italian', units: []
+      };
+      state.spaces['Florence'].languageZone = 'italian';
+      state.spaces['Florence'].units = [{
+        owner: 'france', regulars: 0, mercenaries: 3, cavalry: 0,
+        squadrons: 0, corsairs: 0, leaders: []
+      }];
+      state.spaces['Rome'] = state.spaces['Rome'] || { units: [] };
+      state.spaces['Rome'].units = [];
+      expect(eventScore(state, 'france', 95)).toBeCloseTo(0.9, 5);
+    });
+  });
 });
 
 describe('computeGoalSaturation (Phase G1)', () => {
