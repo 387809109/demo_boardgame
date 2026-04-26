@@ -223,19 +223,46 @@ frontend/src/games/his/ai/
 
 ---
 
-## Phase H: 事件决策随机抽样（待开发）
+## Phase H: 事件决策随机抽样（H1–H3 ✅ 已完成 2026-04-25 / H4 可选推迟）
 
 > 在 Phase G 确定性评分基础上，引入受控 threshold-jitter，让真人对战可选启用非确定性 Bot 行为。默认关闭，回归测试基线 100% 保留。
 
 **详细立项文档**：[BOT_EVENT_RANDOMNESS_PLAN.md](BOT_EVENT_RANDOMNESS_PLAN.md)
+**实现偏离记录**：[HISBOT_REF.md §8.5.3](HISBOT_REF.md#853-事件-vs-cp-决策随机抽样phase-h--d-方案)
 
-| 子阶段 | 工作 | 预估 |
-|---|---|---|
-| H1 | `state.botEventRandomness` 字段 + clamp + state-init 单测 | 0.5 天 |
-| H2 | `routeEventCard` jitter + 注入式 RNG + 抽样单测（mulberry32 种子） | 0.5 天 |
-| H3 | `[event-vs-cp]` 遥测扩字段 + HISBOT_REF.md §8.5.3 + 文档同步 | 0.25 天 |
-| H4 | 可选：config.json UI 滑块 | 0.25 天（可推迟） |
+| 子阶段 | 工作 | 状态 | Commit |
+|---|---|---|---|
+| H1 | `state.botEventRandomness` 字段 + clamp + state-init 单测（8 测试） | ✅ | `fd078b8` |
+| H2 | `shouldRouteToEvent` 纯函数 + `routeEventCard` jitter 接入 + mulberry32 抽样测试（16 测试） | ✅ | `b209910` |
+| H3 | `[event-vs-cp]` 遥测扩字段 + HISBOT_REF.md §8.5.3 + 文档同步 | ✅ | _this commit_ |
+| H4 | 可选：config.json UI 滑块 | ⏸ 推迟（首次需要 UI 时再做） | — |
 
-**总计 1.25–1.5 天**。
+**实测基线对比**（9 回合全 Bot，`dominationVictoryEnabled: false`）：
 
-**启动条件**：✅ Phase G G1–G5 完成、✅ Inquisition tier-scoring 完成、✅ 2026-04-23/25 基线已建立。可随时开工。
+| 配置 | PLAY_CARD_EVENT | Δ vs Phase G baseline 85 | 备注 |
+|---|---|---|---|
+| `r = 0`（默认） | 85 | exact match | RNG 永不被调用，行为与 commit `b7b48c7` 100% 一致 |
+| `r = 0.1` | 80 | -5.9 % | 在 ±25 % 容忍区间；游戏结局变化（Protestant T8 religious_victory 替代 France T9 time_limit），证明随机性确实改变决策路径 |
+
+**已知 H4 待办**：UI lobby 设置项（`config.json` 加 type=number, default=0, min=0, max=0.3, step=0.05）。当前可通过 `window.app._startHisGame(null, { botEventRandomness: 0.1 })` 程序化注入。
+
+---
+
+## Phase G/H 整体小结
+
+完整 6+3=9 commits 落地 HISBOT 事件决策的可观测、可调、可选随机化重构：
+
+```
+fd078b8 H1 — state.botEventRandomness clamp
+b209910 H2 — threshold-jitter + sampling tests
+6cfa6c0 G5 — telemetry + HISBOT_REF §8.5.2
+063303a G4 — full 76 EVENT_CRITERIA migrated
+d4b7d00 G3 — Top-20 + cpUtility recalibration
+3399e7e G2 — hasEventScore gating
+30f9794 G1 — eventScore / cpUtility / saturation
+b7b48c7 G4 follow-up — Inquisition tier-scoring
+122ea46 H docs — Phase H registration
+42cc94c G docs — Phase G registration
+```
+
+回归基线：`b7b48c7`（Phase G + Inquisition follow-up，确定性 85 events）。所有后续 r=0 运行应与此完全一致。

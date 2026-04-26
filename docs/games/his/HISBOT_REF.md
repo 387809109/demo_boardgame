@@ -1978,6 +1978,78 @@ cpUtility   = baseCpValue × (1 - goalSaturation × 0.6) + warBonus(0.10)
 - 整体回退到 HISBOT 布尔规则：在 `routeEventCard` 中将 `if (hasEventScore(...))` 分支改为始终走 `else if (shouldPlayEvent(...))` 分支即可。所有 `score` 字段成为 dead code（不影响行为）但可保留供以后启用。
 - 删除评分化但保留 hasEventScore 守门：把 76 张 criteria 的 `score` 字段全部移除，`hasEventScore` 自然返回 false，路由全部回退到 `shouldPlayEvent`。
 
+**G4 follow-up（已修复）**：Papal Inquisition (56) / Spanish Inquisition (58) 现按 `countProtestantSpacesInZone(state, 'italian'|'spanish')` 分级评分（≥2→1.0、=1→0.7、=0→0.3 floor 保留次级效果价值）。详见 commit `b7b48c7`。
+
+---
+
+### 8.5.3 事件 vs CP 决策随机抽样（Phase H / D 方案）
+
+**位置**：
+- [`frontend/src/games/his/state/state-init.js`](../../../frontend/src/games/his/state/state-init.js) — `botEventRandomness` 配置 + `clampBotEventRandomness` 助手
+- [`frontend/src/games/his/ai/bot-card-play.js`](../../../frontend/src/games/his/ai/bot-card-play.js) — `shouldRouteToEvent` 纯函数 + `routeEventCard` 接入
+
+**偏离内容**：在 §8.5.2 评分化的基础上，把固定的 `EVENT_VS_CP_THRESHOLD = 0.05` 替换为受 `state.botEventRandomness` 缩放的 per-decision 随机阈值（threshold-jitter）：
+
+```
+r         = clamp(state.botEventRandomness, 0, 0.3)
+jitter    = r > 0 ? (rng() - 0.5) * 2 * r : 0       // uniform [-r, +r]
+threshold = 0.05 + jitter
+event iff  eventScore > cpUtility + threshold
+```
+
+**原 HISBOT 行为**：§5 决策表 + §8.5.2 评分化均为完全确定性。
+
+**动机**：
+
+1. 重复对局完全相同——给定相同初始牌堆顺序，6 个 Bot 决策固定，剧本可预测，缺乏多样性
+2. 接近分数无表达力——`es=0.50, cs=0.46` 与 `es=0.50, cs=0.20` 在确定性下等价（都打事件），但前者本质是"勉强决定"
+3. score 校准的边界 case 一刀切——评分微调对决策可能产生跃迁式改变；jitter 让边界软化
+
+**关键性质**：
+
+- `r = 0`（默认）：jitter = 0，行为与 §8.5.2 完全一致 → 回归测试基线（commit `b7b48c7` 的 9 回合行为）100% 保留，RNG 永不被调用
+- `r = 0.1`（推荐对战值）：threshold ∈ [-0.05, 0.15]
+  - 明显事件（gap ≥ 0.5）：永远走事件
+  - 接近分数（gap ≤ 0.1）：约 50/50 翻转
+  - 明显 CP（gap ≤ -0.5）：永远走 CP
+- `r = 0.3`（最大）：threshold ∈ [-0.25, 0.35]，更大的随机性窗口；分数差 ≥ 0.5 仍稳定
+
+**触发范围**：
+
+- 仅 `routeEventCard` 评分路径（`hasEventScore(cardNumber) === true`）
+- 不影响 Treaty / Ganging Up / Combat-Response / Home / Mandatory 五个分支
+- `state.botEventRandomness` 持久化到 state（随存档保存），但 RNG 实例不持久化（每次决策独立采样 `Math.random`）
+- 单元测试通过 `shouldRouteToEvent(es, cs, r, rng)` 注入种子化 PRNG（`mulberry32`）实现可重放
+
+**校准依据**：
+
+| Phase / r | PLAY_CARD_EVENT | Δ vs Phase G baseline 85 |
+|---|---|---|
+| §8.5.2 (G + Inquisition tier-scoring, deterministic, `b7b48c7`) | 85 | — (基线) |
+| §8.5.3 (H, r=0, default) | 85 | exact match |
+| §8.5.3 (H, r=0.1) | 80 | -5.9% (在 ±25% 容忍区间) |
+
+r=0.1 测试还观察到游戏结局变化（Protestant religious_victory T8 vs France time_limit T9），证明随机性确实改变决策路径而不仅仅是细节扰动。
+
+**回归方式**：
+
+- 单元测试：`bot-card-play.test.js` 含 16 个 H2 抽样测试覆盖 r=0 确定性、r=0.1 三档边界（37.5% / 50% / 62.5%）、r=0.3 极值、种子可重放、bad-input 防御
+- 9 回合 Playwright MCP live：`r=0` 应与 `b7b48c7` baseline 行为完全一致（85 events）；`r=0.1` 应在 ±25% 内浮动
+- 调试观测：`[event-vs-cp]` 控制台日志含 `threshold=...` 和 `(r=...)` 字段
+
+**调试遥测**：
+
+```
+[event-vs-cp] papacy 47 es=1.00 cs=0.13 threshold=0.07 → event (r=0.10)
+[event-vs-cp] hapsburg 56 es=0.30 cs=0.55 threshold=-0.03 → cp (r=0.10)
+```
+
+**移除方式**：
+
+- 整体撤销：把 `routeEventCard` 中 `state.botEventRandomness` 的读取改回常量 `EVENT_VS_CP_THRESHOLD`，`shouldRouteToEvent` 与 state 字段都可保留作为 dead code
+- 仅禁用而保留代码：`state.botEventRandomness = 0` 即可（默认行为）
+- 完全删除：移除 `state-init.js` 的 `botEventRandomness` 字段、`bot-card-play.js` 的 `shouldRouteToEvent`，`routeEventCard` 回退到 §8.5.2 写法
+
 ---
 
 ## §9 Gameplay Notes

@@ -327,7 +327,7 @@ frontend/src/games/his/
 > **立项待开发**：
 >
 > - [`BOT_EVENT_SCORING_PLAN.md`](BOT_EVENT_SCORING_PLAN.md) — Phase G 事件评分化（✅ 2026-04-25 已完成 G1–G5 + Inquisition tier-scoring follow-up `b7b48c7`）
-> - [`BOT_EVENT_RANDOMNESS_PLAN.md`](BOT_EVENT_RANDOMNESS_PLAN.md) — Phase H 事件决策随机抽样（D 方案，1.25–1.5 天，2026-04-25 立项，待开发）
+> - [`BOT_EVENT_RANDOMNESS_PLAN.md`](BOT_EVENT_RANDOMNESS_PLAN.md) — Phase H 事件决策随机抽样（D 方案，✅ 2026-04-25 已完成 H1–H3，H4 UI 滑块推迟）
 >
 > **异常记录流程**：模板 [`BOT_PENDING_ANOMALIES.md`](BOT_PENDING_ANOMALIES.md) + 执行流程 [`test/TEST_REQUIREMENTS.md`](test/TEST_REQUIREMENTS.md)
 >

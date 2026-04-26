@@ -1,8 +1,17 @@
 # HISBOT 事件决策随机抽样（Phase H / D 方案）— 立项计划
 
-> **状态**：待开发（2026-04-25 立项）
+> **状态**：✅ H1–H3 已完成（2026-04-25），H4 (UI 滑块) 推迟
 > **所属**：HIS AI 开发 — 接续 [AI_PLAN.md](AI_PLAN.md) Phase G 之后的 Phase H
 > **范围**：在 Phase G 确定性事件评分基础上，引入受控阈值随机化（threshold-jitter），让真人对战可选启用非确定性 Bot 行为；Phase G 测试基线在默认配置下 100% 保留
+>
+> **完成 commits**：
+> - H1 `fd078b8` — `state.botEventRandomness` clamp + 8 boundary tests
+> - H2 `b209910` — `shouldRouteToEvent` 纯函数 + `routeEventCard` jitter 接入 + 16 sampling tests
+> - H3 `<this commit>` — `[event-vs-cp]` 遥测扩字段 + HISBOT_REF.md §8.5.3 + AI_PLAN 状态翻完成
+>
+> **基线对比**：r=0 default 与 commit `b7b48c7`（Phase G + Inquisition tier-scoring）完全一致（85 events exact match）；r=0.1 实测 80 events (-5.9%) 落在 ±25% 容忍区间内，游戏结局可变化（验证随机性确实改变决策路径）
+>
+> **H4 状态**：UI 滑块 lobby 暴露推迟到首次需要时；当前可通过 `window.app._startHisGame(null, { botEventRandomness: 0.1 })` 程序化注入
 
 ---
 
