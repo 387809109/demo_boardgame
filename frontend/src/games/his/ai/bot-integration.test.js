@@ -212,12 +212,20 @@ describe('turn start processing', () => {
 // ═══════════════════════════════════════════════════════════════════════
 
 describe('autumn assaults in action phase', () => {
+  // LOC bridge so validateAssault doesn't reject Ottoman → Vienna/Prague
+  function setupOttomanLoc(state) {
+    for (const b of ['Belgrade', 'Mohacs', 'Buda', 'Pressburg', 'Brunn']) {
+      if (state.spaces[b]) { state.spaces[b].controller = 'ottoman'; state.spaces[b].units = []; }
+    }
+  }
+
   it('returns free assault when hand empty but siege exists', () => {
     const state = createBotState(['ottoman']);
     state.phase = PHASES.ACTION;
     state.activePower = 'ottoman';
     state.cpRemaining = 0;
     state.hands.ottoman = [];
+    setupOttomanLoc(state);
     state.spaces['Vienna'] = { besieged: true, besiegedBy: 'ottoman' };
 
     const action = decideBotAction(state, 'ottoman');
@@ -232,8 +240,25 @@ describe('autumn assaults in action phase', () => {
     state.activePower = 'ottoman';
     state.cpRemaining = 0;
     state.hands.ottoman = [];
-    state.spaces['Vienna'] = { besieged: true, besiegedBy: 'ottoman' };
-    state.spaces['Prague'] = { besieged: true, besiegedBy: 'ottoman' };
+    setupOttomanLoc(state);
+    // Vienna besieged + Buda besieged. Buda is in the LOC bridge but also
+    // needs ottoman besieger units present (engine validateAssault and bot
+    // both check countLandUnits > 0). Add a small ottoman stack to satisfy
+    // both the bridge role and the besieger presence requirement. Vienna
+    // gets its own besieger units too.
+    state.spaces['Vienna'] = {
+      besieged: true, besiegedBy: 'ottoman',
+      units: [{
+        owner: 'ottoman', regulars: 3, mercenaries: 0, cavalry: 0,
+        squadrons: 0, corsairs: 0, leaders: []
+      }]
+    };
+    state.spaces['Buda'].besieged = true;
+    state.spaces['Buda'].besiegedBy = 'ottoman';
+    state.spaces['Buda'].units = [{
+      owner: 'ottoman', regulars: 2, mercenaries: 0, cavalry: 0,
+      squadrons: 0, corsairs: 0, leaders: []
+    }];
 
     // First call returns one assault
     const action1 = decideBotAction(state, 'ottoman');

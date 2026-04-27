@@ -199,6 +199,20 @@
 
 剩余 2 次 `[BOT STUCK]`（`ottoman ASSAULT free=true → No LOC` 自动秋季突击边缘 case）属于 **#H 防御不全的另一条路径**，与 #M/#N 无关——`findAssaultTarget` 已修复但 `autumnFreeAssault` 走另一条独立的代码路径（actionData 用 `target` 而非 `space`），未来作单独修复。
 
+### #O 秋季自动突击 LOC 缺失（#H 路径补全）— ✅ 已修复
+
+**根因**：`getFinalAutumnAssaults` 在 `bot-card-play.js` 收集所有 `besieged + besiegedBy === power` 的空间，未做 LOC 检查，与引擎 `validateAssault`（`siege-actions.js#109`）的 LOC 要求不一致。`findAssaultTarget`（`bot-goals.js`）已在 #H 修复中加 `hasLineOfCommunicationForControl` 预检，但秋季自动突击是独立路径，逃过了那次修复。
+
+**修复**：在 `getFinalAutumnAssaults` 的 besieger-units 检查后追加 `hasLineOfCommunicationForControl` 预检，与 `findAssaultTarget` 一致。同步更新 6 个 affected tests（`bot-card-play.test.js`、`bot-rules.test.js`、`bot-integration.test.js`）添加 LOC 桥接 setup（Belgrade/Mohacs/Buda/Pressburg 改 ottoman 控制 + 必要的 besieger 单位）。
+
+**验证**（修复后重跑 9 回合 r=0 测试）：
+
+- `[BOT STUCK] *** ASSAULT free=true *** No LOC`：**0 次**（修复前 2 次）
+- 总 `[BOT STUCK]`：**0 次**（修复前 2 次）
+- 2470 HIS 单测全部通过（+1 新 H 路径回归测试 "skips siege when besieger has no LOC"）
+
+**状态**：✅ 已修复
+
 ---
 
 ## 数据归档

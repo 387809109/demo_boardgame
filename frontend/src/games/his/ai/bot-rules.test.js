@@ -279,6 +279,10 @@ describe('isExemptFromPhonyWar', () => {
 describe('autumn assault tracking', () => {
   it('getNextAutumnAssault returns siege assaults', () => {
     const state = createBotState(['ottoman']);
+    // LOC bridge so validateAssault doesn't reject (Hungary→Ottoman)
+for (const b of ['Belgrade', 'Mohacs', 'Buda', 'Pressburg']) {
+      if (state.spaces[b]) { state.spaces[b].controller = 'ottoman'; state.spaces[b].units = []; }
+    }
     state.spaces['Vienna'] = { besieged: true, besiegedBy: 'ottoman' };
     const assault = getNextAutumnAssault(state, 'ottoman');
     expect(assault).not.toBeNull();
@@ -289,6 +293,10 @@ describe('autumn assault tracking', () => {
 
   it('getNextAutumnAssault skips already-done assaults', () => {
     const state = createBotState(['ottoman']);
+    // LOC bridge so validateAssault doesn't reject (Hungary→Ottoman)
+for (const b of ['Belgrade', 'Mohacs', 'Buda', 'Pressburg']) {
+      if (state.spaces[b]) { state.spaces[b].controller = 'ottoman'; state.spaces[b].units = []; }
+    }
     state.spaces['Vienna'] = { besieged: true, besiegedBy: 'ottoman' };
 
     markAutumnAssaultDone(state, 'ottoman', 'Vienna');
@@ -482,6 +490,10 @@ describe('decideBotAction — autumn assaults', () => {
     state.activePower = 'ottoman';
     state.cpRemaining = 0;
     state.hands.ottoman = [];
+    // LOC bridge so validateAssault doesn't reject (Hungary→Ottoman)
+for (const b of ['Belgrade', 'Mohacs', 'Buda', 'Pressburg']) {
+      if (state.spaces[b]) { state.spaces[b].controller = 'ottoman'; state.spaces[b].units = []; }
+    }
     state.spaces['Vienna'] = { besieged: true, besiegedBy: 'ottoman' };
 
     const action = decideBotAction(state, 'ottoman');

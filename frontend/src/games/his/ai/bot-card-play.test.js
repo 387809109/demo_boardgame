@@ -490,10 +490,27 @@ describe('shouldSaveCards', () => {
 // §2.10.3 Final Autumn Assaults
 // ══════════════════════════════════════════════════════════════════
 
+/**
+ * Set Ottoman-controlled bridge keys so validateAssault's LOC check
+ * (mirrored by the bot in getFinalAutumnAssaults) can trace from
+ * Istanbul (capital) up through the Balkans to Vienna/Prague.
+ * Default 1517 controllers leave Belgrade/Mohacs/Buda/Pressburg as
+ * Hungary, breaking LOC for tests that besiege further-north keys.
+ */
+function setupOttomanBalkanLoc(state) {
+  for (const bridge of ['Belgrade', 'Mohacs', 'Buda', 'Pressburg', 'Brunn']) {
+    if (state.spaces[bridge]) {
+      state.spaces[bridge].controller = 'ottoman';
+      state.spaces[bridge].units = [];
+      state.spaces[bridge].unrest = false;
+    }
+  }
+}
+
 describe('getFinalAutumnAssaults', () => {
   it('returns assault for each active siege', () => {
     const state = createBotState(['ottoman']);
-    state.spaces = state.spaces || {};
+    setupOttomanBalkanLoc(state);
     state.spaces['Vienna'] = {
       controller: 'hapsburg',
       besieged: true, besiegedBy: 'ottoman', defenders: 3
@@ -507,6 +524,17 @@ describe('getFinalAutumnAssaults', () => {
     expect(assaults[0].actionData.free).toBe(true);
     expect(assaults.some(a => a.actionData.target === 'Vienna')).toBe(true);
     expect(assaults.some(a => a.actionData.target === 'Buda')).toBe(true);
+  });
+
+  it('skips siege when besieger has no LOC to a friendly fortification', () => {
+    const state = createBotState(['ottoman']);
+    // No Balkan LOC setup — Vienna unreachable from Istanbul through
+    // Hungary-controlled bridges. Mirror engine's validateAssault.
+    state.spaces['Vienna'] = {
+      controller: 'hapsburg',
+      besieged: true, besiegedBy: 'ottoman', defenders: 3
+    };
+    expect(getFinalAutumnAssaults(state, 'ottoman')).toEqual([]);
   });
 
   it('includes foreign war assaults when units >= enemy', () => {
@@ -533,7 +561,7 @@ describe('getFinalAutumnAssaults', () => {
     // Stale siege: besieged flag was set but attacker units were wiped
     // earlier in the same turn (retreat/death). Defensive guard.
     const state = createBotState(['ottoman']);
-    state.spaces = state.spaces || {};
+    setupOttomanBalkanLoc(state);
     state.spaces['Vienna'] = {
       controller: 'hapsburg',
       besieged: true, besiegedBy: 'ottoman', defenders: 3,

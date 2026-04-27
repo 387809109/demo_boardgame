@@ -16,6 +16,7 @@ import { CAPITALS, RULERS } from '../constants.js';
 import { getActiveBehaviorCard } from './behavior-cards.js';
 import { areAtWar, canAttack, getWarsOf } from '../state/war-helpers.js';
 import { getActiveRuler, countLandUnits, getUnitsInSpace, getAllVpTotals, isHomeSpace } from '../state/state-helpers.js';
+import { hasLineOfCommunicationForControl } from '../actions/military-actions.js';
 import {
   shouldPlayEvent, satisfiesTreaty, shouldPlayResponse,
   satisfiesResponseTreaty, hasEventCriteria, hasResponseCriteria,
@@ -573,6 +574,12 @@ export function getFinalAutumnAssaults(state, power) {
       const besieger = getUnitsInSpace(state, spaceName, power);
       if (!besieger || countLandUnits(besieger) === 0) continue;
     }
+    // LOC precheck: engine's validateAssault (siege-actions.js #109)
+    // rejects when the besieger has no supply line back to a friendly
+    // fortification. Skip up front so we don't queue an autumn-assault
+    // the engine will reject. (Mirrors findAssaultTarget in bot-goals.js
+    // — the same #H fix needs to apply here too.)
+    if (!hasLineOfCommunicationForControl(state, power, spaceName)) continue;
     // §14 port: enemy naval in adjacent sea zone blocks assault
     if (space.isPort && (space.connectedSeaZones || []).length > 0) {
       let blocked = false;
