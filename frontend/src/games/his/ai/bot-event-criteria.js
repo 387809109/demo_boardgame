@@ -54,6 +54,15 @@ function isStPetersIncomplete(state) {
   return (state.stPetersProgress || 0) < 5;
 }
 
+// Cards 65 (A Mighty Fortress) / 85 (Katherina Bora) commit Luther on play
+// and the engine rejects them when Luther is already committed
+// (event-actions-extended.js validate). Mirror that gate so the bot does not
+// route them to PLAY_CARD_EVENT only to be stuck.
+function lutherUncommitted(state) {
+  const luther = (state.debaters?.protestant || []).find(d => d.id === 'luther');
+  return !luther || !luther.committed;
+}
+
 function isAtWarWithAny(state, power) {
   return getWarsOf(state, power).length > 0;
 }
@@ -433,11 +442,11 @@ export const EVENT_CRITERIA = {
     },
     treaty: (s, p, tp) => atWarWith(s, tp, 'england')
   },
-  // 65: A Mighty Fortress — Protestant always
+  // 65: A Mighty Fortress — Protestant, only while Luther uncommitted
   65: {
     title: 'A Mighty Fortress',
-    shouldPlay: (s, p) => p === 'protestant',
-    score: (s, p) => p === 'protestant' ? 1.0 : 0,
+    shouldPlay: (s, p) => p === 'protestant' && lutherUncommitted(s),
+    score: (s, p) => (p === 'protestant' && lutherUncommitted(s)) ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'protestant'
   },
   // 66: Akinji Raiders — Ottoman
@@ -620,11 +629,11 @@ export const EVENT_CRITERIA = {
     score: (s, p) => (p === 'ottoman' && getCorsairCount(s, 'ottoman') >= 2) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
-  // 85: Katherina Bora — Protestant
+  // 85: Katherina Bora — Protestant, only while Luther uncommitted
   85: {
     title: 'Katherina Bora',
-    shouldPlay: (s, p) => p === 'protestant',
-    score: (s, p) => p === 'protestant' ? 1.0 : 0,
+    shouldPlay: (s, p) => p === 'protestant' && lutherUncommitted(s),
+    score: (s, p) => (p === 'protestant' && lutherUncommitted(s)) ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'protestant'
   },
   // 86: Knights of St. John — Papacy (St. Peter's), Hapsburg, never Ottoman

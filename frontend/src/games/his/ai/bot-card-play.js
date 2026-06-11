@@ -694,9 +694,43 @@ function routeHomeCard(state, power, cardNumber) {
 }
 
 /**
+ * Whether a mandatory event card can currently be played as its event.
+ *
+ * Most mandatory cards have no extra preconditions, so they are always
+ * playable on their turn. Card 13 (Schmalkaldic League) is the exception:
+ * its action-phase event requires Turn 2+ AND 12+ Protestant-religion
+ * spaces (event-actions.js#13 validate). Before that it must be held —
+ * the engine also auto-fires it in the Winter phase of its dueByTurn
+ * (phase-winter.js triggerOverdueMandatoryEvents).
+ *
+ * @param {Object} state
+ * @param {number} cardNumber
+ * @returns {boolean}
+ */
+function isMandatoryEventPlayable(state, cardNumber) {
+  if (cardNumber === 13) {
+    if ((state.turn || 0) < 2) return false;
+    let protSpaces = 0;
+    for (const sp of Object.values(state.spaces || {})) {
+      if (sp.religion === 'protestant') protSpaces++;
+    }
+    return protSpaces >= 12;
+  }
+  return true;
+}
+
+/**
  * Route a Mandatory event card: play event, spend remaining CPs on goals.
+ * If the event's precondition is not yet met, hold the card (set aside)
+ * rather than attempting an event the engine will reject.
  */
 function routeMandatoryCard(state, power, cardNumber, card) {
+  if (!isMandatoryEventPlayable(state, cardNumber)) {
+    return {
+      actionType: 'SET_ASIDE_CARD',
+      actionData: { cardNumber, reason: 'mandatory_precondition' }
+    };
+  }
   // Also check §5 for additional criteria
   return {
     actionType: ACTION_TYPES.PLAY_CARD_EVENT,

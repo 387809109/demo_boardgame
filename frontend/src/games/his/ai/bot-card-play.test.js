@@ -900,6 +900,34 @@ describe('decideCardPlay routing edge cases', () => {
     expect(result.actionData.mandatory).toBe(true);
   });
 
+  it('mandatory card 13 (Schmalkaldic League): held (set aside) on Turn 1', () => {
+    const state = createBotState(['protestant']);
+    state.turn = 1;
+    state.hands = { protestant: [13] };
+    const result = decideCardPlay(state, 'protestant');
+    expect(result.actionType).toBe('SET_ASIDE_CARD');
+  });
+
+  it('mandatory card 13: held when Turn 2+ but < 12 Protestant spaces', () => {
+    const state = createBotState(['protestant']);
+    state.turn = 3;
+    state.hands = { protestant: [13] };
+    const result = decideCardPlay(state, 'protestant');
+    expect(result.actionType).toBe('SET_ASIDE_CARD');
+  });
+
+  it('mandatory card 13: plays as event once Turn 2+ and 12+ Protestant spaces', () => {
+    const state = createBotState(['protestant']);
+    state.turn = 2;
+    state.hands = { protestant: [13] };
+    for (let i = 0; i < 12; i++) {
+      state.spaces['SchmalkTest' + i] = { religion: 'protestant' };
+    }
+    const result = decideCardPlay(state, 'protestant');
+    expect(result.actionType).toBe('PLAY_CARD_EVENT');
+    expect(result.actionData.mandatory).toBe(true);
+  });
+
   it('unknown card in hand falls back to PASS', () => {
     const state = createBotState(['ottoman']);
     state.hands = { ottoman: [99999] };
@@ -1078,6 +1106,26 @@ describe('eventScore (Phase G1)', () => {
       state.spaces['Rome'] = state.spaces['Rome'] || { units: [] };
       state.spaces['Rome'].units = [];
       expect(eventScore(state, 'france', 95)).toBeCloseTo(0.9, 5);
+    });
+  });
+
+  describe('Luther-committed gating (2026-06-11 fix #P)', () => {
+    it('A Mighty Fortress (65): 1.0 for Protestant when Luther uncommitted', () => {
+      const state = createBotState(['protestant']);
+      state.debaters = { protestant: [{ id: 'luther', committed: false }] };
+      expect(eventScore(state, 'protestant', 65)).toBeCloseTo(1.0, 5);
+    });
+
+    it('A Mighty Fortress (65): 0 for Protestant when Luther committed', () => {
+      const state = createBotState(['protestant']);
+      state.debaters = { protestant: [{ id: 'luther', committed: true }] };
+      expect(eventScore(state, 'protestant', 65)).toBe(0);
+    });
+
+    it('Katherina Bora (85): 0 for Protestant when Luther committed', () => {
+      const state = createBotState(['protestant']);
+      state.debaters = { protestant: [{ id: 'luther', committed: true }] };
+      expect(eventScore(state, 'protestant', 85)).toBe(0);
     });
   });
 });

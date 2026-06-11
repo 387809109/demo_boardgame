@@ -323,6 +323,8 @@ frontend/src/games/his/
 > - [`docs/games/his/bot_anomalies/2026-04-19_full-bot-9turns.md`](bot_anomalies/2026-04-19_full-bot-9turns.md) — 7 条异常全部 ✅ 已修复
 > - [`docs/games/his/bot_anomalies/2026-04-22_full-bot-verify.md`](bot_anomalies/2026-04-22_full-bot-verify.md) — #B/#C/#D ✅ 已修复，#A 澄清为测试方法论
 > - [`docs/games/his/bot_anomalies/2026-04-23_full-bot-9turns.md`](bot_anomalies/2026-04-23_full-bot-9turns.md) — #F/#G/#H/#J ✅ 已修复，#I 未修复（非阻塞观察）
+> - [`docs/games/his/bot_anomalies/2026-04-26_full-bot-event-verify.md`](bot_anomalies/2026-04-26_full-bot-event-verify.md) — #K/#L/#M/#N/#O ✅ 已修复，88 事件结算 1:1 核查
+> - [`docs/games/his/bot_anomalies/2026-06-11_full-bot-event-verify.md`](bot_anomalies/2026-06-11_full-bot-event-verify.md) — #P（卡 65/85 Luther 门控）/#Q（卡 13 强制前置）✅ 已修复；SET_ASIDE 强制卡不并回手牌为待跟进行为偏差
 >
 > **立项待开发**：
 >

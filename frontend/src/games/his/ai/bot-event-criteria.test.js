@@ -36,6 +36,13 @@ describe('shouldPlayEvent — power-specific always-play cards', () => {
     expect(shouldPlayEvent(state, 'hapsburg', 65)).toBe(false);
   });
 
+  it('A Mighty Fortress (65) / Katherina Bora (85): not played when Luther committed', () => {
+    const state = createBotState();
+    state.debaters = { protestant: [{ id: 'luther', committed: true }] };
+    expect(shouldPlayEvent(state, 'protestant', 65)).toBe(false);
+    expect(shouldPlayEvent(state, 'protestant', 85)).toBe(false);
+  });
+
   it('Copernicus (47): always played for VPs', () => {
     const state = createBotState();
     expect(shouldPlayEvent(state, 'ottoman', 47)).toBe(true);
