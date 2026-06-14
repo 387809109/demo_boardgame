@@ -665,15 +665,16 @@ describe('executeExplore', () => {
     const result = executeExplore(state, 'england', 5);
     expect(result).not.toBeNull();
     expect(result.action.actionType).toBe(ACTION_TYPES.EXPLORE);
-    expect(result.action.actionData.explorer).toBe('cabot');
+    // Explorer id comes from the engine's EXPLORERS data (faction-suffixed)
+    expect(result.action.actionData.explorer).toBe('cabot_eng');
     expect(result.cpCost).toBe(2);
   });
 
   it('returns null when all explorers used', () => {
     const state = createBotState(['england']);
     state.newWorld = {
-      placedExplorers: ['cabot', 'willoughby', 'chancellor', 'frobisher', 'drake'],
-      deadExplorers: [],
+      // Engine ids for England explorers (getAvailableExplorers parity)
+      placedExplorers: [], deadExplorers: ['cabot_eng', 'chancellor', 'rut', 'willoughby'],
       placedConquistadors: [], deadConquistadors: [],
       colonies: [], conquests: []
     };
@@ -1303,8 +1304,8 @@ describe('new world goal edge cases', () => {
   it('executeExplore returns null when all explorers used', () => {
     const state = createBotState(['england']);
     state.newWorld = {
-      placedExplorers: ['cabot', 'willoughby', 'chancellor', 'frobisher', 'drake'],
-      deadExplorers: []
+      // Engine ids for England explorers (getAvailableExplorers parity)
+      placedExplorers: [], deadExplorers: ['cabot_eng', 'chancellor', 'rut', 'willoughby']
     };
     expect(executeExplore(state, 'england', 5)).toBeNull();
   });

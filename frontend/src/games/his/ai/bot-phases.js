@@ -29,6 +29,7 @@ import {
 } from '../state/state-helpers.js';
 import { isBotPower, getBotPowers } from './bot-controller.js';
 import { validateSpringDeployment } from '../phases/phase-spring-deployment.js';
+import { hasDiploPair } from '../actions/diplomacy-actions.js';
 
 // ── §2.2 Card Draw — Hand Deck Stacking ──────────────────────────
 
@@ -392,6 +393,12 @@ export function decideWarDeclaration(state, power) {
 
   // Already at war?
   if (areAtWar(state, power, target)) {
+    return { shouldDeclare: false, target: null, isEnglandHomeCard: false };
+  }
+
+  // Made peace with this power this turn? Engine rejects re-declaration
+  // (diplomacy-actions.js validateDeclareWar → peaceMadeThisTurn). Mirror it.
+  if (hasDiploPair(state.peaceMadeThisTurn, power, target)) {
     return { shouldDeclare: false, target: null, isEnglandHomeCard: false };
   }
 

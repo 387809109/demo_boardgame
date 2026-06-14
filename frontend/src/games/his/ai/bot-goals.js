@@ -35,6 +35,7 @@ import {
 } from '../state/state-helpers.js';
 import { areAtWar, canAttack, getAlliesOf } from '../state/war-helpers.js';
 import { hasLineOfCommunicationForControl } from '../actions/military-actions.js';
+import { getAvailableExplorers } from '../actions/new-world-actions.js';
 import { SEA_ZONES, PORTS_BY_SEA_ZONE } from '../data/map-data.js';
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -1029,19 +1030,21 @@ export function executeExplore(state, power, cp) {
   const cost = ACTION_COSTS[power].explore;
   if (!cost || cp < cost) return null;
 
-  // Check if explorers available and unclaimed discoveries exist
+  // Check if explorers available and unclaimed discoveries exist.
+  // Reuse the engine's getAvailableExplorers so the bot's notion of "used"
+  // (dead + placed, keyed by explorerId) matches validateExplore exactly —
+  // the local filter compared object entries to id strings and never excluded
+  // placed explorers, routing EXPLORE for an unavailable explorer.
   const nw = state.newWorld;
   if (!nw) return null;
   if (nw.exploredThisTurn?.[power]) return null; // Already explored this turn
-  const usedExplorers = [...(nw.placedExplorers || []), ...(nw.deadExplorers || [])];
-  const availableExplorers = getExplorersForPower(power)
-    .filter(e => !usedExplorers.includes(e));
+  const availableExplorers = getAvailableExplorers(state, power);
   if (availableExplorers.length === 0) return null;
 
   return {
     action: {
       actionType: ACTION_TYPES.EXPLORE,
-      actionData: { explorer: availableExplorers[0] }
+      actionData: { explorer: availableExplorers[0].id }
     },
     cpCost: cost
   };
@@ -2003,17 +2006,6 @@ function findPiracyTarget(state) {
 }
 
 // ── New World Helpers ────────────────────────────────────────────────
-
-/** Explorer IDs by power (from leaders.js) */
-function getExplorersForPower(power) {
-  // Based on game setup: each power has specific explorers
-  const explorers = {
-    england: ['cabot', 'willoughby', 'chancellor', 'frobisher', 'drake'],
-    france: ['verrazano', 'cartier', 'roberval', 'laudonniere', 'ribaut'],
-    hapsburg: ['ponce_de_leon', 'de_ayllon', 'narvaez', 'de_soto', 'coronado']
-  };
-  return explorers[power] || [];
-}
 
 /** Conquistador IDs by power */
 function getConquistadorsForPower(power) {

@@ -388,11 +388,12 @@ export const EVENT_CRITERIA = {
     },
     treaty: (s, p, tp) => tp === 'hapsburg' || tp === 'papacy'
   },
-  // 59: Lady Jane Grey — Papacy/Protestant
+  // 59: Lady Jane Grey — Papacy/Protestant. Engine requires England to have
+  // changed rulers this turn (event-actions-extended.js[59]); mirror that gate.
   59: {
     title: 'Lady Jane Grey',
-    shouldPlay: (s, p) => p === 'papacy' || p === 'protestant',
-    score: (s, p) => (p === 'papacy' || p === 'protestant') ? 0.9 : 0,
+    shouldPlay: (s, p) => (p === 'papacy' || p === 'protestant') && !!s.englandRulerChangedThisTurn,
+    score: (s, p) => ((p === 'papacy' || p === 'protestant') && s.englandRulerChangedThisTurn) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === 'papacy' || tp === 'protestant'
   },
   // 60: Maurice of Saxony — Hapsburg/Protestant
@@ -622,11 +623,13 @@ export const EVENT_CRITERIA = {
     score: (s, p) => controls(s, p, 'Buda') ? 0.9 : 0,
     treaty: (s, p, tp) => controls(s, tp, 'Buda')
   },
-  // 84: Julia Gonzaga — Ottoman with >= 2 corsairs
+  // 84: Julia Gonzaga — Ottoman with >= 2 corsairs.
+  // Engine requires piracy enabled (Barbary Pirates played first); mirror that
+  // gate so the bot does not route to PLAY_CARD_EVENT only to be stuck.
   84: {
     title: 'Julia Gonzaga',
-    shouldPlay: (s, p) => p === 'ottoman' && getCorsairCount(s, 'ottoman') >= 2,
-    score: (s, p) => (p === 'ottoman' && getCorsairCount(s, 'ottoman') >= 2) ? 0.9 : 0,
+    shouldPlay: (s, p) => p === 'ottoman' && !!s.piracyEnabled && getCorsairCount(s, 'ottoman') >= 2,
+    score: (s, p) => (p === 'ottoman' && s.piracyEnabled && getCorsairCount(s, 'ottoman') >= 2) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
   // 85: Katherina Bora — Protestant, only while Luther uncommitted
@@ -691,11 +694,12 @@ export const EVENT_CRITERIA = {
     },
     treaty: (s, p, tp) => tp === p
   },
-  // 89: Pirate Haven — Ottoman
+  // 89: Pirate Haven — Ottoman. Engine requires piracy enabled (Barbary
+  // Pirates played first); mirror that gate to avoid a stuck event route.
   89: {
     title: 'Pirate Haven',
-    shouldPlay: (s, p) => p === 'ottoman',
-    score: (s, p) => p === 'ottoman' ? 1.0 : 0,
+    shouldPlay: (s, p) => p === 'ottoman' && !!s.piracyEnabled,
+    score: (s, p) => (p === 'ottoman' && s.piracyEnabled) ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'ottoman'
   },
   // 90: Printing Press — Protestant always

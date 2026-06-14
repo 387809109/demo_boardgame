@@ -21,7 +21,7 @@ function makeDiploPairKey(a, b) {
   return [a, b].sort().join('|');
 }
 
-function hasDiploPair(list, a, b) {
+export function hasDiploPair(list, a, b) {
   if (!Array.isArray(list) || list.length === 0) return false;
   const key = makeDiploPairKey(a, b);
   for (const entry of list) {

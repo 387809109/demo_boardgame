@@ -681,6 +681,28 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
     const move = { ...action, playerId: pid };
     const result = executeMove(move);
     if (result?.success) return;
+
+    // Benign hand desync (#T): the chosen card is no longer in the engine's
+    // hand (e.g. the power's home card was already played this turn but a
+    // different 'home'-deck card like "Here I Stand" was selected). The root
+    // cause is fixed in routeHomeCard; this is a safety net for any residual
+    // desync — purge the phantom from bot bookkeeping and re-decide once,
+    // quietly, before treating it as stuck.
+    if (result?.error === 'Card not in hand') {
+      const phantom = action.actionData?.cardNumber;
+      if (phantom != null) {
+        const sa = currentState.botSetAside?.[nextPower];
+        if (sa) { const i = sa.indexOf(phantom); if (i !== -1) sa.splice(i, 1); }
+      }
+      const retry = decideBotAction(currentState, nextPower);
+      if (retry && retry.actionType !== 'SET_ASIDE_CARD' &&
+          retry.actionType !== ACTION_TYPES.PASS) {
+        const r = executeMove({ ...retry, playerId: pid });
+        if (r?.success) return;
+      }
+      // Quiet recovery did not land — fall through to the standard chain.
+    }
+
     console.warn('[BOT STUCK]', nextPower, action.actionType,
       JSON.stringify(action.actionData).substring(0, 100), '→', result?.error);
 

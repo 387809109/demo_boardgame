@@ -6,6 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { createTestState } from '../test-helpers.js';
+import { MARITAL_STATUS } from '../constants.js';
 import { initBotDecks, isBotPower } from './bot-controller.js';
 import { initBotDeck, getActiveBehaviorCard, CARD_BY_ID } from './behavior-cards.js';
 import { addWar } from '../state/war-helpers.js';
@@ -237,6 +238,31 @@ describe('evaluateHomeCard', () => {
     expect(result.actionData.homeEffect).toBe('chateau_roll');
   });
 
+  it('France: skips Chateau roll when Francis I is captured (2026-06-14 fix #S)', () => {
+    // Engine rejects Patron of the Arts when Francis I is captured; the bot
+    // must not keep routing the home card to PLAY_CARD_EVENT.
+    const state = createBotState(['france']);
+    setActiveBehaviorCard(state, 'france', 'france_the_knight_king');
+    state.rulers = state.rulers || {};
+    state.rulers.france = { id: 'francis_i', name: 'Francis I', admin: 1 };
+    state.capturedLeaders = { hapsburg: ['francis_i'] };
+    const result = evaluateHomeCard(state, 'france');
+    expect(result).toBeNull();
+  });
+
+  it('England: skips marital when status cannot advance further (2026-06-14 fix #X)', () => {
+    // Engine rejects marital advance at the final status; bot must not route it.
+    const state = createBotState(['england']);
+    setActiveBehaviorCard(state, 'england', 'england_expedition');
+    state.turn = 2;
+    state.rulers = state.rulers || {};
+    state.rulers.england = { id: 'henry_viii', name: 'Henry VIII', admin: 1 };
+    state.englandHomeCardWar = null;
+    state.henryMaritalStatus = MARITAL_STATUS[MARITAL_STATUS.length - 1]; // maxed
+    const result = evaluateHomeCard(state, 'england');
+    expect(result).toBeNull();
+  });
+
   it('Protestant: always returns null (response-only)', () => {
     const state = createBotState(['protestant']);
     setActiveBehaviorCard(state, 'protestant', 'protestant_sola_scriptura');
@@ -293,6 +319,25 @@ describe('decideCardPlay', () => {
     expect(result).not.toBeNull();
     expect(result.actionType).toBe('PLAY_CARD_EVENT');
     expect(result.actionData.mode).toBe('recruit');
+  });
+
+  it('plays selected home-deck card for CP when own home card already played (2026-06-14 fix #T)', () => {
+    // Ottoman holds "Here I Stand" (#7, deck=home) but its own home card
+    // Janissaries (#1) was already played this turn (not in hand). The bot
+    // must play the selected card (#7) for CP, not route a phantom #1 event.
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war');
+    state.hands = { ottoman: [7] }; // Here I Stand only; #1 already played
+    state.homeCardPlayed = { ottoman: true };
+    // Istanbul understaffed → evaluateOttomanHome WOULD recruit if reached
+    state.spaces = state.spaces || {};
+    state.spaces['Istanbul'] = {
+      controller: 'ottoman',
+      units: [{ owner: 'ottoman', regulars: 1, mercenaries: 0, cavalry: 0, leaders: [] }]
+    };
+    const result = decideCardPlay(state, 'ottoman');
+    expect(result.actionType).toBe('PLAY_CARD_CP');
+    expect(result.actionData.cardNumber).toBe(7);
   });
 
   it('routes Mandatory event: always play event', () => {

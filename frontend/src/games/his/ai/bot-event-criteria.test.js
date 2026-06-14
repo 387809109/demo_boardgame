@@ -213,14 +213,37 @@ describe('shouldPlayEvent — condition-dependent cards', () => {
     expect(shouldPlayEvent(state, 'hapsburg', 83)).toBe(false);
   });
 
-  it('Julia Gonzaga (84): Ottoman with >= 2 corsairs', () => {
+  it('Julia Gonzaga (84): Ottoman with >= 2 corsairs (piracy enabled)', () => {
     const state = createBotState();
+    state.piracyEnabled = true; // engine requires Barbary Pirates played first
     state.spaces = state.spaces || {};
     state.spaces['Algiers'] = {
       controller: 'ottoman',
       units: [{ owner: 'ottoman', corsairs: 3 }]
     };
     expect(shouldPlayEvent(state, 'ottoman', 84)).toBe(true);
+    // Not playable before piracy is enabled
+    state.piracyEnabled = false;
+    expect(shouldPlayEvent(state, 'ottoman', 84)).toBe(false);
+  });
+
+  it('Lady Jane Grey (59): only when England changed rulers this turn (2026-06-14 fix #V)', () => {
+    const state = createBotState();
+    state.englandRulerChangedThisTurn = false;
+    expect(shouldPlayEvent(state, 'protestant', 59)).toBe(false);
+    expect(shouldPlayEvent(state, 'papacy', 59)).toBe(false);
+    state.englandRulerChangedThisTurn = true;
+    expect(shouldPlayEvent(state, 'protestant', 59)).toBe(true);
+    expect(shouldPlayEvent(state, 'papacy', 59)).toBe(true);
+  });
+
+  it('Pirate Haven (89): Ottoman only after piracy enabled (2026-06-14 fix #R)', () => {
+    const state = createBotState();
+    state.piracyEnabled = false;
+    expect(shouldPlayEvent(state, 'ottoman', 89)).toBe(false);
+    state.piracyEnabled = true;
+    expect(shouldPlayEvent(state, 'ottoman', 89)).toBe(true);
+    expect(shouldPlayEvent(state, 'hapsburg', 89)).toBe(false);
   });
 
   it('Thomas Cromwell (115): Papacy plays immediately', () => {

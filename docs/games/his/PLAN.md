@@ -325,6 +325,7 @@ frontend/src/games/his/
 > - [`docs/games/his/bot_anomalies/2026-04-23_full-bot-9turns.md`](bot_anomalies/2026-04-23_full-bot-9turns.md) — #F/#G/#H/#J ✅ 已修复，#I 未修复（非阻塞观察）
 > - [`docs/games/his/bot_anomalies/2026-04-26_full-bot-event-verify.md`](bot_anomalies/2026-04-26_full-bot-event-verify.md) — #K/#L/#M/#N/#O ✅ 已修复，88 事件结算 1:1 核查
 > - [`docs/games/his/bot_anomalies/2026-06-11_full-bot-event-verify.md`](bot_anomalies/2026-06-11_full-bot-event-verify.md) — #P（卡 65/85 Luther 门控）/#Q（卡 13 强制前置）✅ 已修复；SET_ASIDE 强制卡不并回手牌为待跟进行为偏差
+> - [`docs/games/his/bot_anomalies/2026-06-14_full-bot-event-verify.md`](bot_anomalies/2026-06-14_full-bot-event-verify.md) — #R/#S/#T/#U/#V/#W/#X 共 7 处 bot 路由 vs 引擎前置不对齐 ✅ 全部已修复（#T 根因 = #7 "Here I Stand" home-deck 卡触发主页路由）；最终 5 局验证 0 stuck / 0 chain broken
 >
 > **立项待开发**：
 >

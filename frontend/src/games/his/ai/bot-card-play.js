@@ -12,7 +12,7 @@
 
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import { ACTION_TYPES } from '../actions/action-types.js';
-import { CAPITALS, RULERS } from '../constants.js';
+import { CAPITALS, RULERS, MARITAL_STATUS } from '../constants.js';
 import { getActiveBehaviorCard } from './behavior-cards.js';
 import { areAtWar, canAttack, getWarsOf } from '../state/war-helpers.js';
 import { getActiveRuler, countLandUnits, getUnitsInSpace, getAllVpTotals, isHomeSpace } from '../state/state-helpers.js';
@@ -296,9 +296,16 @@ function evaluateEnglandHome(state) {
   }
 
   // Otherwise: advance Marital Status if Turn 2+ and Henry alive + not captured
+  // AND the marital track can still advance (engine rejects at the final
+  // status — event-actions.js[3] "Cannot advance marital status further").
   if ((state.turn || 1) >= 2) {
     const ruler = getActiveRuler(state, 'england');
-    if (ruler?.id === 'henry_viii' && !isLeaderCaptured(state, 'henry_viii')) {
+    // Unset → initial status (catherine_of_aragon, idx 0); real play always
+    // initializes it. Only the final status blocks advancing.
+    let maritalIdx = MARITAL_STATUS.indexOf(state.henryMaritalStatus);
+    if (maritalIdx === -1) maritalIdx = 0;
+    const canAdvanceMarital = maritalIdx < MARITAL_STATUS.length - 1;
+    if (ruler?.id === 'henry_viii' && !isLeaderCaptured(state, 'henry_viii') && canAdvanceMarital) {
       return {
         actionType: ACTION_TYPES.PLAY_CARD_EVENT,
         actionData: {
@@ -329,6 +336,9 @@ function isLeaderCaptured(state, leaderId) {
 function evaluateFranceHome(state) {
   const ruler = getActiveRuler(state, 'france');
   if (ruler?.id !== 'francis_i') return null; // Only Francis I
+  // Engine rejects Patron of the Arts when Francis I is captured
+  // (event-actions.js EVENT_HANDLERS[4].validate). Mirror that gate.
+  if (isLeaderCaptured(state, 'francis_i')) return null;
 
   // Calculate Chateau modifier
   const modifier = calculateChateauModifier(state);
@@ -683,10 +693,20 @@ function routeHomeCard(state, power, cardNumber) {
     };
   }
 
-  const homeAction = evaluateHomeCard(state, power);
-  if (homeAction) return homeAction;
+  // evaluateHomeCard always plays the power's OWN home card (HOME_CARDS[power]).
+  // But routeHomeCard is reached for ANY 'home'-deck card in hand — e.g. the
+  // generic "Here I Stand" (#7) — and the power's home card may already have
+  // been played this turn (homeCardPlayed → spliced from hand). Only emit the
+  // home-effect action when that card is actually in hand; otherwise play the
+  // actually-selected card for CPs. Mirrors the engine's "Card not in hand"
+  // guard (index.js) so the bot never routes a phantom home-card event. (#T)
+  const homeCardNumber = HOME_CARDS[power];
+  if ((state.hands?.[power] || []).includes(homeCardNumber)) {
+    const homeAction = evaluateHomeCard(state, power);
+    if (homeAction) return homeAction;
+  }
 
-  // Home criteria not met → play for CPs
+  // Home criteria not met (or home card unavailable) → play selected card for CPs
   return {
     actionType: ACTION_TYPES.PLAY_CARD_CP,
     actionData: { cardNumber }

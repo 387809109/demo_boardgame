@@ -280,6 +280,14 @@ describe('decideWarDeclaration', () => {
     expect(result.shouldDeclare).toBe(false);
   });
 
+  it('does not declare war on a power it made peace with this turn (2026-06-14 fix #W)', () => {
+    const state = createBotState(['ottoman']);
+    setActiveBehaviorCard(state, 'ottoman', 'ottoman_spoils_of_war'); // war = 'hapsburg'
+    state.peaceMadeThisTurn = ['hapsburg|ottoman'];
+    const result = decideWarDeclaration(state, 'ottoman');
+    expect(result.shouldDeclare).toBe(false);
+  });
+
   it('Protestant never declares war', () => {
     const state = createBotState(['protestant']);
     // Even with a war field (which Protestants don't have)
