@@ -412,14 +412,14 @@ describe('validateFoundJesuit', () => {
 
   it('rejects when jesuits not unlocked', () => {
     const state = cpState();
-    state.jesuitUnlocked = false;
+    state.jesuitFoundingEnabled = false;
     const r = validateFoundJesuit(state, 'papacy', { space: 'Rome' });
     expect(r.valid).toBe(false);
   });
 
   it('rejects non-catholic space', () => {
     const state = cpState();
-    state.jesuitUnlocked = true;
+    state.jesuitFoundingEnabled = true;
     // Find a protestant space
     const entry = Object.entries(state.spaces).find(
       ([, sp]) => sp.religion === RELIGION.PROTESTANT
@@ -432,14 +432,14 @@ describe('validateFoundJesuit', () => {
 
   it('accepts valid catholic space when unlocked', () => {
     const state = cpState();
-    state.jesuitUnlocked = true;
+    state.jesuitFoundingEnabled = true;
     const r = validateFoundJesuit(state, 'papacy', { space: 'Rome' });
     expect(r.valid).toBe(true);
   });
 
   it('rejects duplicate jesuit in same space', () => {
     const state = cpState();
-    state.jesuitUnlocked = true;
+    state.jesuitFoundingEnabled = true;
     state.jesuitUniversities.push('Rome');
     const r = validateFoundJesuit(state, 'papacy', { space: 'Rome' });
     expect(r.valid).toBe(false);
@@ -449,7 +449,7 @@ describe('validateFoundJesuit', () => {
 describe('foundJesuit', () => {
   it('adds space to jesuitUniversities', () => {
     const state = cpState();
-    state.jesuitUnlocked = true;
+    state.jesuitFoundingEnabled = true;
     const helpers = createMockHelpers();
     foundJesuit(state, 'papacy', { space: 'Rome' }, helpers);
     expect(state.jesuitUniversities).toContain('Rome');
@@ -457,7 +457,7 @@ describe('foundJesuit', () => {
 
   it('deducts CP', () => {
     const state = cpState(10);
-    state.jesuitUnlocked = true;
+    state.jesuitFoundingEnabled = true;
     const helpers = createMockHelpers();
     const before = state.cpRemaining;
     foundJesuit(state, 'papacy', { space: 'Rome' }, helpers);
@@ -704,7 +704,7 @@ describe('buildStPeters — edge cases', () => {
 describe('foundJesuit — edge cases', () => {
   it('rejects missing space parameter', () => {
     const state = cpState();
-    state.jesuitUnlocked = true;
+    state.jesuitFoundingEnabled = true;
     const r = validateFoundJesuit(state, 'papacy', {});
     expect(r.valid).toBe(false);
     expect(r.error).toContain('space');
@@ -712,7 +712,7 @@ describe('foundJesuit — edge cases', () => {
 
   it('rejects unknown space name', () => {
     const state = cpState();
-    state.jesuitUnlocked = true;
+    state.jesuitFoundingEnabled = true;
     const r = validateFoundJesuit(state, 'papacy', { space: 'Atlantis' });
     expect(r.valid).toBe(false);
     expect(r.error).toContain('not found');
@@ -720,7 +720,7 @@ describe('foundJesuit — edge cases', () => {
 
   it('multiple jesuits in different spaces works', () => {
     const state = cpState(20);
-    state.jesuitUnlocked = true;
+    state.jesuitFoundingEnabled = true;
     const helpers = createMockHelpers();
 
     // Find two different catholic spaces
@@ -738,7 +738,7 @@ describe('foundJesuit — edge cases', () => {
 
   it('rejects insufficient CP for jesuit', () => {
     const state = cpState(1); // jesuit costs 2 CP
-    state.jesuitUnlocked = true;
+    state.jesuitFoundingEnabled = true;
     const r = validateFoundJesuit(state, 'papacy', { space: 'Rome' });
     expect(r.valid).toBe(false);
     expect(r.error).toContain('CP');

@@ -73,8 +73,12 @@ describe('shouldPlayEvent — power-specific always-play cards', () => {
     expect(shouldPlayEvent(state, 'protestant', 56)).toBe(false);
   });
 
-  it('Jesuit Education (55): Papacy always', () => {
+  it('Jesuit Education (55): Papacy only after Society of Jesus played (2026-06-14 fix #Z)', () => {
     const state = createBotState();
+    // Engine requires jesuitFoundingEnabled (Society of Jesus played first)
+    state.jesuitFoundingEnabled = false;
+    expect(shouldPlayEvent(state, 'papacy', 55)).toBe(false);
+    state.jesuitFoundingEnabled = true;
     expect(shouldPlayEvent(state, 'papacy', 55)).toBe(true);
     expect(shouldPlayEvent(state, 'england', 55)).toBe(false);
   });

@@ -326,6 +326,9 @@ frontend/src/games/his/
 > - [`docs/games/his/bot_anomalies/2026-04-26_full-bot-event-verify.md`](bot_anomalies/2026-04-26_full-bot-event-verify.md) — #K/#L/#M/#N/#O ✅ 已修复，88 事件结算 1:1 核查
 > - [`docs/games/his/bot_anomalies/2026-06-11_full-bot-event-verify.md`](bot_anomalies/2026-06-11_full-bot-event-verify.md) — #P（卡 65/85 Luther 门控）/#Q（卡 13 强制前置）✅ 已修复；SET_ASIDE 强制卡不并回手牌为待跟进行为偏差
 > - [`docs/games/his/bot_anomalies/2026-06-14_full-bot-event-verify.md`](bot_anomalies/2026-06-14_full-bot-event-verify.md) — #R/#S/#T/#U/#V/#W/#X 共 7 处 bot 路由 vs 引擎前置不对齐 ✅ 全部已修复（#T 根因 = #7 "Here I Stand" home-deck 卡触发主页路由）；最终 5 局验证 0 stuck / 0 chain broken
+> - [`docs/games/his/bot_anomalies/2026-06-14_full-bot-stability-reverify.md`](bot_anomalies/2026-06-14_full-bot-stability-reverify.md) — 稳定性复验：6 局 0 stuck / 0 chain broken，#F–#X 零回归；#Y France 一边倒 6/6 ⏳ 记为 AI 平衡调优候选（非引擎缺陷）
+> - [`docs/games/his/bot_anomalies/2026-06-14_full-bot-bughunt.md`](bot_anomalies/2026-06-14_full-bot-bughunt.md) — 加量猎 bug：#Z（卡 55 Jesuit Education 缺 `jesuitFoundingEnabled` 门控，同 #R 型）✅ 已修复；修复后 8 局 0 stuck / 0 chain broken；#Y 持续（7/8）
+> - [`docs/games/his/bot_anomalies/2026-06-14_gate-parity-audit.md`](bot_anomalies/2026-06-14_gate-parity-audit.md) — **门控对齐静态审查**（非随机对局）：#AA（jesuit 一概念三名字 `jesuitUnlocked`/`societyOfJesusPlayed` 孤儿读 → FOUND_JESUIT 死门控）/#AB（`englandRulerChangedThisTurn` 无 setter → 卡59 Lady Jane Grey 永久不可打）✅ 已修复（统一 canonical 标志 + 接线 setter/reset，启用此前静默禁用的内容）；死标志 algiersInPlay/wartburgActive/juliaGonzagaActive 记录待办
 >
 > **立项待开发**：
 >

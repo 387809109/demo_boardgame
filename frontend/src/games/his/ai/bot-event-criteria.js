@@ -340,11 +340,13 @@ export const EVENT_CRITERIA = {
     score: (s, p) => ['england', 'france', 'hapsburg'].includes(p) ? 0.9 : 0,
     treaty: (s, p, tp) => tp === p
   },
-  // 55: Jesuit Education — Papacy always
+  // 55: Jesuit Education — Papacy, only after Society of Jesus played.
+  // Engine requires state.jesuitFoundingEnabled (event-actions-extended.js[55]);
+  // mirror that gate so the bot does not route a stuck event.
   55: {
     title: 'Jesuit Education',
-    shouldPlay: (s, p) => p === 'papacy',
-    score: (s, p) => p === 'papacy' ? 1.0 : 0,
+    shouldPlay: (s, p) => p === 'papacy' && !!s.jesuitFoundingEnabled,
+    score: (s, p) => (p === 'papacy' && s.jesuitFoundingEnabled) ? 1.0 : 0,
     treaty: (s, p, tp) => tp === 'papacy'
   },
   // 56: Papal Inquisition — Papacy

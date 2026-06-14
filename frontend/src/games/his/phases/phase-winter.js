@@ -411,6 +411,9 @@ function resetTurnState(state) {
   // Reset augsburg confession marker
   state.augsburgConfessionActive = false;
 
+  // Reset England ruler-change marker (Lady Jane Grey window, card 59)
+  state.englandRulerChangedThisTurn = false;
+
   // Uncommit all debaters
   for (const side of ['papal', 'protestant']) {
     if (state.debaters[side]) {

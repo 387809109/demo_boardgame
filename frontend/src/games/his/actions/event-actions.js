@@ -44,6 +44,12 @@ function replaceRuler(state, power, oldRulerId, newRulerId, helpers) {
   const ruler = RULERS[power]?.find(r => r.id === newRulerId);
   state.rulers[power] = newRulerId;
 
+  // Lady Jane Grey (card 59) responds to an England ruler change this turn.
+  // Reset each turn in winter resetTurnState (phase-winter.js).
+  if (power === 'england') {
+    state.englandRulerChangedThisTurn = true;
+  }
+
   // Remove old ruler leader from all spaces
   if (oldRulerId) {
     for (const sp of Object.values(state.spaces)) {

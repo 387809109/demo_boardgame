@@ -246,6 +246,13 @@ describe('executeWinter', () => {
     expect(state.augsburgConfessionActive).toBe(false);
   });
 
+  it('resets England ruler-change marker', () => {
+    const state = winterState({ englandRulerChangedThisTurn: true });
+    const helpers = createMockHelpers();
+    executeWinter(state, helpers);
+    expect(state.englandRulerChangedThisTurn).toBe(false);
+  });
+
   // ── Step 9: Overdue mandatory events ────────────────────────────
 
   it('removes overdue mandatory events from hand', () => {

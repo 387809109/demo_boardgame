@@ -623,14 +623,14 @@ describe('executeJesuits', () => {
 
   it('returns null without Society of Jesus', () => {
     const state = createBotState(['papacy']);
-    state.societyOfJesusPlayed = false;
+    state.jesuitFoundingEnabled = false;
     const result = executeJesuits(state, 'papacy', 5);
     expect(result).toBeNull();
   });
 
   it('places Jesuit university when Society played', () => {
     const state = createBotState(['papacy']);
-    state.societyOfJesusPlayed = true;
+    state.jesuitFoundingEnabled = true;
     state.jesuitUniversities = [];
     const result = executeJesuits(state, 'papacy', 5);
     // May find target or not depending on Protestant spaces in initial state
@@ -1281,7 +1281,7 @@ describe('religious goal edge cases', () => {
 
   it('executeJesuits returns null when Society of Jesus not played', () => {
     const state = createBotState(['papacy']);
-    state.societyOfJesusPlayed = false;
+    state.jesuitFoundingEnabled = false;
     expect(executeJesuits(state, 'papacy', 5)).toBeNull();
   });
 

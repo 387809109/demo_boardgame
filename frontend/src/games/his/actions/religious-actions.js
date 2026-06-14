@@ -431,7 +431,7 @@ export function buildStPeters(state, power, actionData, helpers) {
  */
 export function validateFoundJesuit(state, power, actionData) {
   if (power !== 'papacy') return { valid: false, error: 'Only Papacy can found Jesuits' };
-  if (!state.jesuitUnlocked) {
+  if (!state.jesuitFoundingEnabled) {
     return { valid: false, error: 'Jesuits not yet unlocked (requires Society of Jesus event)' };
   }
 

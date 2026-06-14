@@ -998,7 +998,7 @@ export function executeJesuits(state, power, cp) {
   if (!cost || cp < cost) return null;
 
   // Check prereq: Society of Jesus event must have been played
-  if (!state.societyOfJesusPlayed) return null;
+  if (!state.jesuitFoundingEnabled) return null;
 
   // Choose space: Catholic influence, adjacent to most Protestant spaces,
   // not within 2 of existing Jesuit university (§4.19)

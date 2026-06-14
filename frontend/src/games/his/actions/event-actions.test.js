@@ -437,6 +437,16 @@ describe('EVENT_HANDLERS', () => {
       expect(state.rulerCards.england).toBe(19);
     });
 
+    it('sets englandRulerChangedThisTurn (enables Lady Jane Grey #59)', () => {
+      const state = eventState();
+      const helpers = createMockHelpers();
+
+      expect(state.englandRulerChangedThisTurn).toBeFalsy();
+      executeEvent(state, 'england', 19, {}, helpers);
+
+      expect(state.englandRulerChangedThisTurn).toBe(true);
+    });
+
     it('removes Card #3 from game', () => {
       const state = eventState();
       const helpers = createMockHelpers();
