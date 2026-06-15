@@ -228,10 +228,14 @@ export function getAllVpTotals(state) {
  *   - track: other dynamic tracks (Protestant spaces / piracy / St. Peter's)
  *   - run:   state.vp — running event/control VP (incl. France Chateaux)
  *   - bonus: state.bonusVp — misc event bonuses
- * `keys` is the raw controlled-key count (context, not summed).
+ * `keys` is the raw controlled-key count (context, not summed). `chateaux` is
+ * the France-only portion of `run` from the Chateaux Table (state.chateauVp;
+ * Chateaux VP is added to state.vp.france at event-actions.js, so it is a
+ * subset of `run`, surfaced here to isolate France's signature VP engine for
+ * #Y balance analysis). It is NOT a separate bucket — buckets still sum to total.
  * @param {Object} state
  * @param {string} power
- * @returns {{total:number, key:number, track:number, run:number, bonus:number, keys:number}}
+ * @returns {{total:number, key:number, track:number, run:number, bonus:number, keys:number, chateaux:number}}
  */
 export function getVpBreakdown(state, power) {
   const key = getKeyVp(state, power);
@@ -241,7 +245,8 @@ export function getVpBreakdown(state, power) {
   return {
     total: key + track + run + bonus,
     key, track, run, bonus,
-    keys: countKeysForPower(state, power)
+    keys: countKeysForPower(state, power),
+    chateaux: power === 'france' ? (state.chateauVp || 0) : 0
   };
 }
 

@@ -55,12 +55,20 @@
 
 **初步结论**:#Y 的主因是 **France 的 run/城堡 VP 渠道**,而非关键空间或行动顺序。这是一个可调的杠杆,且本轮 5/8 表明修复后失衡已减弱。
 
+### 城堡确认(代码 + 数据,已坐实)
+
+**代码**:城堡 Table 掷骰的 VP 经 [event-actions.js:157](../../../../frontend/src/games/his/actions/event-actions.js#L157) `state.vp.france += result.vp` 计入权威总分(即在 `run` 桶内),并由 `state.chateauVp` 精确记录([:158](../../../../frontend/src/games/his/actions/event-actions.js#L158))。`getVpBreakdown` 现新增 `chateaux` 子字段(= France 的 `state.chateauVp`,run 的子集)隔离它。
+
+**数据**:加 `chateaux` 字段后单局确认(seed 2000,France 胜,total 18):**`run = 6`,其中 `chateaux = 6`** —— France 的 run 优势 **100% 来自城堡**。结合基线 France run 均值 6.5(其余各家 ≤1.4),**#Y 主因精确锁定 = France 城堡 VP 引擎**。
+
+**定性**:城堡是 France 的**设计性招牌 VP 引擎**(其他势力无等价的"被动持续 VP 渠道":奥斯曼靠海盗/征服转 key、教廷靠宗教/圣彼得、英西靠 key)。所以 France 经城堡领先**部分属 HIS 固有非对称**,而非纯 bot bug——只是 bot 每回合积极掷城堡把它最大化了。处置应权衡:是接受(France 本就该强),还是认为 bot 掷城堡过于优先 / 垫底家 VP 转化太弱。
+
 ---
 
 ## 后续步骤（按定因排序）
 
-1. **确认城堡是 run 的主体**：给 `getVpBreakdown` 加 `chateaux` 专属桶（从 `state.chateauxTrack` × `CHATEAU_TABLE` 推算），把 France 的 run 拆成"城堡 vs 其他事件",坐实头号嫌疑。
-2. **扩大样本**：跑 30 局(`_runHisBotBatch({games:30, seed:2000})`)给胜率上置信区间——确认修复后 France 是否真降到 ~5/8 量级。**注意在前台标签页跑**:后台标签 setTimeout 被浏览器节流,单局从 ~50s 拖到 ~6min。
+1. ✅ **已完成 — 确认城堡是 run 的主体**：`getVpBreakdown` 加了 `chateaux` 子字段;seed 2000 单局 run=6=chateaux(100%)。见上「城堡确认」。
+2. **扩大样本**：跑 30 局(`_runHisBotBatch({games:30, seed:2000})`)给胜率上置信区间——确认修复后 France 是否真降到 ~5/8 量级。**务必在前台标签页跑**:后台标签 setTimeout 被浏览器节流,单局从 ~50s 拖到 ~6min(本轮 8 局花了约 45min)。
 3. **单杠杆 A/B**(同种子对比胜率位移):
    - 下调 France 城堡目标权重(behavior-cards France 的 `CONTROL`/城堡相关目标);或
    - 上调垫底家(Papacy/Ottoman)的 VP 转化目标优先级。

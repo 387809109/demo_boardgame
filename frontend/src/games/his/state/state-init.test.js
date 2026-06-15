@@ -156,6 +156,21 @@ describe('buildInitialState', () => {
       }
     });
 
+    it('chateaux bucket reflects state.chateauVp (France only, subset of run)', () => {
+      // Local state — the describe-level `state` is shared across tests.
+      const s = buildInitialState(TEST_PLAYERS, {});
+      // Simulate a Chateaux Table roll: VP lands in state.vp.france + chateauVp.
+      s.vp.france = (s.vp.france || 0) + 4;
+      s.chateauVp = 4;
+      const bd = getAllVpBreakdowns(s);
+      expect(bd.france.chateaux).toBe(4);
+      expect(bd.france.chateaux).toBeLessThanOrEqual(bd.france.run);
+      expect(bd.ottoman.chateaux).toBe(0);
+      // chateaux is a subset of run, not a new bucket — sum invariant holds.
+      const { total, key, track, run, bonus } = bd.france;
+      expect(key + track + run + bonus).toBe(total);
+    });
+
     it('bonusVp all zero', () => {
       for (const power of MAJOR_POWERS) {
         expect(state.bonusVp[power]).toBe(0);
