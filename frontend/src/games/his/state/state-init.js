@@ -10,6 +10,7 @@ import {
 import { LAND_SPACES, SEA_ZONES } from '../data/map-data.js';
 import { CARDS } from '../data/cards.js';
 import { SCENARIO_1517 } from '../data/setup-1517.js';
+import { seedRng } from './rng.js';
 
 /** Home card numbers per power (cards 1–7) */
 const HOME_CARDS = {
@@ -54,6 +55,10 @@ const INITIAL_RULERS = {
  */
 export function buildInitialState(players, options = {}) {
   const scenario = SCENARIO_1517;
+
+  // Seed the deck RNG for reproducible card draws when a seed is supplied
+  // (default: Math.random, i.e. production behaviour is unchanged). See rng.js.
+  seedRng(options.rngSeed);
 
   // Map players to powers (supports 3-6 players)
   const assignment = options.powerAssignment
@@ -241,6 +246,7 @@ export function buildInitialState(players, options = {}) {
     // Game settings (stored in state so they survive save/load)
     dominationVictoryEnabled: options.dominationVictoryEnabled !== false,
     botEventRandomness: clampBotEventRandomness(options.botEventRandomness),
+    rngSeed: options.rngSeed ?? null,
 
     // Meta
     eventLog: []

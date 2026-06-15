@@ -8,6 +8,7 @@ import { MAJOR_POWERS, NEW_WORLD_RICHES_TABLE, RICHES_RESULTS } from '../constan
 import { CARDS } from '../data/cards.js';
 import { getCardDrawCount, isCardInPlay } from '../state/state-helpers.js';
 import { rollDice } from '../actions/religious-actions.js';
+import { rng } from '../state/rng.js';
 
 /** Home card numbers per power */
 const HOME_CARDS = {
@@ -99,7 +100,7 @@ function addTurnGatedCards(state) {
  */
 function shuffleDeck(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
 }

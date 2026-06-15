@@ -819,7 +819,7 @@ const EVENT_VS_CP_THRESHOLD = 0.05;
  * @param {number} cardNumber
  * @returns {Object} actionData
  */
-function buildEventActionData(state, cardNumber) {
+export function buildEventActionData(state, cardNumber) {
   const data = { cardNumber };
   if (cardNumber === 95) {
     const fromSpace = findSackOfRomeSource(state);

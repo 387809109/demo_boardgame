@@ -21,6 +21,27 @@ UI 层的测试需要通过 Playwright E2E（`e2e/games/his/`）另行覆盖。
 
 ---
 
+## 确定性测试工具（优先用于全卡覆盖与复现）
+
+全 Bot 对局的抽牌**默认随机**（主牌库每回合用 `Math.random` 重洗），因此靠随机对局"碰"出所有卡牌效率低、且无法复现。以下两件确定性工具应作为首选，全 Bot 随机对局留给"涌现式交互"（宣战链、战斗响应、谈判）。
+
+### 1. 逐卡覆盖测试（高效测全所有事件卡）
+
+[`bot-event-coverage.test.js`](../../../../frontend/src/games/his/ai/bot-event-coverage.test.js) 穷举 `EVENT_CRITERIA` 全部卡 × 6 势力 × 多个状态档，验证不变式：**只要 bot 会把某卡路由为 PLAY_CARD_EVENT（`eventScore>0` 或 `shouldPlayEvent`），引擎 `validateEvent` 必须接受**。这是「bot 路由 vs 引擎校验」异常类（#R/#Z/#P/#Q/#S/#V/#X）的确定性全覆盖，O(档×卡×势力) 次只读检查、毫秒级，取代靠随机对局逐张碰运气。新增同类卡或改 criteria 后跑此测试即可。
+
+### 2. 可复现抽牌（`rngSeed`）
+
+给开局传 `rngSeed`（整数）即可固定主牌库洗牌序列、复现同一局的抽牌：
+
+```javascript
+// 同一 seed → 同样的发牌；便于复现某局、二分定位
+window.app._startHisGame(null, { dominationVictoryEnabled: false, rngSeed: 12345 })
+```
+
+机制见 [`state/rng.js`](../../../../frontend/src/games/his/state/rng.js)（mulberry32，模块级；不传 seed 时为 `Math.random`，生产行为不变）。注意：仅播种主牌库洗牌；骰子/随机弃牌仍走 `Math.random`（如需全程确定性，可在测试 harness 中临时覆盖 `Math.random`）。模块级 RNG 不随存档恢复，复现以"同 seed 重新开局"为准。
+
+---
+
 ## 测试目标
 
 完整跑完 HIS 全局 7 个回合（T1–T7），验证引擎在无人工干预下能稳定运行。
