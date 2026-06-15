@@ -222,6 +222,41 @@ export function getAllVpTotals(state) {
 }
 
 /**
+ * Per-power VP broken down by source (for balance analysis, e.g. #Y).
+ * Buckets sum exactly to getAllVpTotals[power]:
+ *   - key:   key-space control VP (KEY_VP_TRACK)
+ *   - track: other dynamic tracks (Protestant spaces / piracy / St. Peter's)
+ *   - run:   state.vp — running event/control VP (incl. France Chateaux)
+ *   - bonus: state.bonusVp — misc event bonuses
+ * `keys` is the raw controlled-key count (context, not summed).
+ * @param {Object} state
+ * @param {string} power
+ * @returns {{total:number, key:number, track:number, run:number, bonus:number, keys:number}}
+ */
+export function getVpBreakdown(state, power) {
+  const key = getKeyVp(state, power);
+  const track = getTrackVp(state, power) - key;
+  const run = state.vp?.[power] || 0;
+  const bonus = state.bonusVp?.[power] || 0;
+  return {
+    total: key + track + run + bonus,
+    key, track, run, bonus,
+    keys: countKeysForPower(state, power)
+  };
+}
+
+/**
+ * VP breakdown for all powers. @see getVpBreakdown
+ * @param {Object} state
+ * @returns {Object} { [power]: breakdown }
+ */
+export function getAllVpBreakdowns(state) {
+  const out = {};
+  for (const power of MAJOR_POWERS) out[power] = getVpBreakdown(state, power);
+  return out;
+}
+
+/**
  * Check whether a power can pass in the action phase.
  * Cannot pass if: home card in hand, mandatory event in hand, or hand size > admin rating.
  * @param {Object} state

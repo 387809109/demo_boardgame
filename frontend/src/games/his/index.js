@@ -13,7 +13,7 @@ import {
 import { getVisibleState } from './state/state-visible.js';
 import {
   getPowerForPlayer, getPowersForPlayer, playerControlsPower,
-  canPass, isFortified, getAllVpTotals
+  canPass, isFortified, getAllVpTotals, getAllVpBreakdowns
 } from './state/state-helpers.js';
 import {
   PHASES, transitionPhase, advancePhase, advanceImpulse
@@ -1482,6 +1482,14 @@ export class HISGame extends GameEngine {
    */
   getVisibleState(playerId) {
     return getVisibleState(this.state, playerId);
+  }
+
+  /**
+   * Per-power VP breakdown by source (balance analysis, e.g. #Y).
+   * @returns {Object} { [power]: { total, key, track, run, bonus, keys } }
+   */
+  getScoreBreakdown() {
+    return getAllVpBreakdowns(this.state);
   }
 
   /**

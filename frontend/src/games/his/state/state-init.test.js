@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildInitialState } from './state-init.js';
 import { MAJOR_POWERS, IMPULSE_ORDER } from '../constants.js';
-import { getAllVpTotals } from './state-helpers.js';
+import { getAllVpTotals, getAllVpBreakdowns } from './state-helpers.js';
 import { TEST_PLAYERS } from '../test-helpers.js';
 
 describe('buildInitialState', () => {
@@ -144,6 +144,16 @@ describe('buildInitialState', () => {
       expect(totals.france).toBe(12);
       expect(totals.papacy).toBe(19);
       expect(totals.protestant).toBe(0);
+    });
+
+    it('VP breakdown buckets sum to total VP for every power', () => {
+      const totals = getAllVpTotals(state);
+      const bd = getAllVpBreakdowns(state);
+      for (const power of MAJOR_POWERS) {
+        const { total, key, track, run, bonus } = bd[power];
+        expect(key + track + run + bonus).toBe(total);
+        expect(total).toBe(totals[power]);
+      }
     });
 
     it('bonusVp all zero', () => {

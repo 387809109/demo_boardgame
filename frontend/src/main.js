@@ -1553,13 +1553,24 @@ class App {
           st = this.currentGame?.getState ? this.currentGame.getState() : null;
           if (st?.status && st.status !== 'playing') break;
         }
+        // Per-power VP breakdown by source + winner (balance analysis, #Y).
+        let winner = null, src = null;
+        const game = this.currentGame;
+        if (game?.getScoreBreakdown && st?.status && st.status !== 'playing') {
+          src = game.getScoreBreakdown();
+          let best = -Infinity;
+          for (const p of Object.keys(src)) {
+            if (src[p].total > best) { best = src[p].total; winner = p; }
+          }
+        }
         const r = {
           seed: gameSeed, status: st?.status ?? 'timeout', turn: st?.turn ?? null,
-          stuck: cap.stuck.length - sB, chainBroken: cap.chainBroken.length - cB
+          stuck: cap.stuck.length - sB, chainBroken: cap.chainBroken.length - cB,
+          winner, src
         };
         results.push(r);
         origWarn.call(console, `[bot-batch] ${i + 1}/${games} seed=${gameSeed} → ` +
-          `${r.status} T${r.turn} stuck=${r.stuck} chainBroken=${r.chainBroken}`);
+          `${r.status} T${r.turn} win=${winner} stuck=${r.stuck} chainBroken=${r.chainBroken}`);
       }
     } finally {
       Math.random = origRandom;
