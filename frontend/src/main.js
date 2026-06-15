@@ -1492,6 +1492,94 @@ class App {
   }
 
   /**
+   * Dev/test harness: run N full-bot HIS games and report engine stability.
+   * A clean run is 0 [BOT STUCK] and 0 [BOT CHAIN BROKEN]. Drives the REAL bot
+   * loop, so it covers every action class (events, CP sub-actions, responses,
+   * spring deployment) — the full-coverage complement to the deterministic
+   * unit sweeps (bot-event-coverage.test.js).
+   *
+   * Each game is seeded (deck via rngSeed + dice/shuffles via a temporary
+   * Math.random override) so failures are reproducible: re-run the printed seed.
+   * setTimeout delays are clamped during the batch to compress ~40-min games to
+   * ~1-3 min; all globals are restored afterwards.
+   *
+   * Console:
+   *   await window.app._runHisBotBatch()                          // 6 random-seed games
+   *   await window.app._runHisBotBatch({ games: 8, seed: 1000 })  // seeds 1000..1007
+   *   await window.app._runHisBotBatch({ games: 1, seed: 42 })    // reproduce seed 42
+   *
+   * @param {{ games?: number, seed?: number|null, maxMsPerGame?: number }} [opts]
+   * @returns {Promise<{ games: Array, totals: Object }>}
+   */
+  async _runHisBotBatch({ games = 6, seed = null, maxMsPerGame = 160000 } = {}) {
+    const mulberry32 = (a) => () => {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const origRandom = Math.random;
+    const origSetTimeout = window.setTimeout;
+    const realST = origSetTimeout.bind(window);
+    const origWarn = console.warn;
+    const origError = console.error;
+    const cap = { stuck: [], chainBroken: [] };
+
+    // Speed up bot scheduling; capture stuck/chain-broken signatures.
+    window.setTimeout = (fn, d, ...rest) =>
+      realST(fn, (typeof d === 'number' && d > 40) ? 40 : d, ...rest);
+    console.warn = (...a) => {
+      const s = a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ');
+      if (s.includes('[BOT STUCK]')) cap.stuck.push(s.slice(0, 220));
+      return origWarn.apply(console, a);
+    };
+    console.error = (...a) => {
+      const s = a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ');
+      if (s.includes('[BOT CHAIN BROKEN]')) cap.chainBroken.push(s.slice(0, 220));
+      return origError.apply(console, a);
+    };
+
+    const results = [];
+    try {
+      for (let i = 0; i < games; i++) {
+        const gameSeed = (seed != null) ? (seed + i) : Math.floor(origRandom() * 1e9);
+        Math.random = mulberry32(gameSeed);  // deterministic dice / random discards
+        const sB = cap.stuck.length, cB = cap.chainBroken.length;
+        await this._startHisGame(null, { dominationVictoryEnabled: false, rngSeed: gameSeed });
+        const start = Date.now();
+        let st = null;
+        while (Date.now() - start < maxMsPerGame) {
+          await new Promise(f => realST(f, 250));
+          st = this.currentGame?.getState ? this.currentGame.getState() : null;
+          if (st?.status && st.status !== 'playing') break;
+        }
+        const r = {
+          seed: gameSeed, status: st?.status ?? 'timeout', turn: st?.turn ?? null,
+          stuck: cap.stuck.length - sB, chainBroken: cap.chainBroken.length - cB
+        };
+        results.push(r);
+        origWarn.call(console, `[bot-batch] ${i + 1}/${games} seed=${gameSeed} → ` +
+          `${r.status} T${r.turn} stuck=${r.stuck} chainBroken=${r.chainBroken}`);
+      }
+    } finally {
+      Math.random = origRandom;
+      window.setTimeout = origSetTimeout;
+      console.warn = origWarn;
+      console.error = origError;
+    }
+
+    const totals = {
+      games: results.length,
+      stuck: cap.stuck.length,
+      chainBroken: cap.chainBroken.length,
+      clean: cap.stuck.length === 0 && cap.chainBroken.length === 0,
+      failedSeeds: results.filter(r => r.stuck || r.chainBroken).map(r => r.seed)
+    };
+    console.log('[bot-batch] DONE', JSON.stringify(totals));
+    return { games: results, totals };
+  }
+
+  /**
    * Convert a Bot-controlled power to the current human player.
    * Reverse of _addBotPower(). Use after loading a save to switch which
    * power you control.

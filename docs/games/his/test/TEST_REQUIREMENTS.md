@@ -23,11 +23,13 @@ UI 层的测试需要通过 Playwright E2E（`e2e/games/his/`）另行覆盖。
 
 ## 确定性测试工具（优先用于全卡覆盖与复现）
 
-全 Bot 对局的抽牌**默认随机**（主牌库每回合用 `Math.random` 重洗），因此靠随机对局"碰"出所有卡牌效率低、且无法复现。以下两件确定性工具应作为首选，全 Bot 随机对局留给"涌现式交互"（宣战链、战斗响应、谈判）。
+全 Bot 对局的抽牌**默认随机**（主牌库每回合用 `Math.random` 重洗），因此靠随机对局"碰"出所有卡牌效率低、且无法复现。以下确定性工具应作为首选，全 Bot 随机对局留给"涌现式交互"（宣战链、战斗响应、谈判）。
 
 ### 1. 逐卡覆盖测试（高效测全所有事件卡）
 
 [`bot-event-coverage.test.js`](../../../../frontend/src/games/his/ai/bot-event-coverage.test.js) 穷举 `EVENT_CRITERIA` 全部卡 × 6 势力 × 多个状态档，验证不变式：**只要 bot 会把某卡路由为 PLAY_CARD_EVENT（`eventScore>0` 或 `shouldPlayEvent`），引擎 `validateEvent` 必须接受**。这是「bot 路由 vs 引擎校验」异常类（#R/#Z/#P/#Q/#S/#V/#X）的确定性全覆盖，O(档×卡×势力) 次只读检查、毫秒级，取代靠随机对局逐张碰运气。新增同类卡或改 criteria 后跑此测试即可。
+
+> **Response（响应）卡无需此覆盖**：引擎对响应只校验"卡在 `pendingResponse.validCards` 内 + 在手牌"，不再跑事件 handler 的 validate；而 bot `decideResponsePlay` 只从引擎给的 `validCards` 里选——结构上不可能路由引擎会拒的响应卡，无此异常类。
 
 ### 2. 可复现抽牌（`rngSeed`）
 
@@ -38,7 +40,19 @@ UI 层的测试需要通过 Playwright E2E（`e2e/games/his/`）另行覆盖。
 window.app._startHisGame(null, { dominationVictoryEnabled: false, rngSeed: 12345 })
 ```
 
-机制见 [`state/rng.js`](../../../../frontend/src/games/his/state/rng.js)（mulberry32，模块级；不传 seed 时为 `Math.random`，生产行为不变）。注意：仅播种主牌库洗牌；骰子/随机弃牌仍走 `Math.random`（如需全程确定性，可在测试 harness 中临时覆盖 `Math.random`）。模块级 RNG 不随存档恢复，复现以"同 seed 重新开局"为准。
+机制见 [`state/rng.js`](../../../../frontend/src/games/his/state/rng.js)（mulberry32，模块级；不传 seed 时为 `Math.random`，生产行为不变）。注意：仅播种主牌库洗牌；骰子/随机弃牌仍走 `Math.random`。模块级 RNG 不随存档恢复，复现以"同 seed 重新开局"为准。
+
+### 3. 种子化批量全-Bot 回归（`_runHisBotBatch`）
+
+跑整局以覆盖单测覆盖不到的**涌现式交互**（CP 子动作/移动/宣战链/战斗响应/谈判），自动汇总引擎稳定性：
+
+```javascript
+await window.app._runHisBotBatch()                          // 6 局随机种子
+await window.app._runHisBotBatch({ games: 8, seed: 1000 })  // 种子 1000..1007
+await window.app._runHisBotBatch({ games: 1, seed: 42 })    // 复现种子 42
+```
+
+返回 `{ games, totals }`；`totals.clean === true` 即 0 `[BOT STUCK]` / 0 `[BOT CHAIN BROKEN]`，`totals.failedSeeds` 列出失败局的种子（用上面第三种形式逐一复现定位）。每局按种子确定性化（牌库经 `rngSeed`，骰子/洗牌经临时覆盖 `Math.random`），并临时压缩 setTimeout 加速（约 1–3 分钟/局），结束自动恢复全局。驱动**真实 bot loop**，覆盖所有动作类型——是「bot 路由 vs 引擎校验」CP/移动类异常（#F/#G/#H/#K/#O/#AC）的集成回归。
 
 ---
 
