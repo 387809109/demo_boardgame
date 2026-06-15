@@ -315,7 +315,11 @@ export class HisUI {
       }
       : null;
     const canPlay = (state.activePower === this._playerPower
-      && state.phase === 'action') || responseInfo !== null;
+        && state.phase === 'action')
+      // Diet of Worms: this power must select a hand card to submit (until it has)
+      || (state.phase === 'diet_of_worms' && state.pendingDietOfWorms
+        && state.pendingDietOfWorms.cards[this._playerPower] == null)
+      || responseInfo !== null;
     this._handPanel.update(hand, this._playerPower, canPlay, responseInfo);
     this._container.appendChild(handEl);
 
@@ -364,7 +368,11 @@ export class HisUI {
       this._playerPower = respPower;
     }
     const canPlay = (this._playerPowers.includes(state.activePower)
-      && state.phase === 'action') || responseInfo !== null;
+        && state.phase === 'action')
+      // Diet of Worms: allow this power to select a hand card until it submits
+      || (state.phase === 'diet_of_worms' && state.pendingDietOfWorms
+        && state.pendingDietOfWorms.cards[this._playerPower] == null)
+      || responseInfo !== null;
     this._handPanel.update(hand, this._playerPower, canPlay, responseInfo);
 
     // Update space detail if visible

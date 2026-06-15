@@ -103,7 +103,7 @@ export class GameBoard {
               ${isMyTurn ? '你的回合' : '等待对手'}
             </span>
             <span class="turn-number" style="color: var(--text-tertiary); font-size: var(--text-sm);">
-              回合 ${state.turnNumber || 1}
+              回合 ${state.turn ?? state.turnNumber ?? 1}
             </span>
             <div class="phase-timer-container"></div>
           ` : ''}
@@ -541,7 +541,7 @@ export class GameBoard {
     // Update turn number
     const turnNum = this.element.querySelector('.turn-number');
     if (turnNum) {
-      turnNum.textContent = `回合 ${state.turnNumber || 1}`;
+      turnNum.textContent = `回合 ${state.turn ?? state.turnNumber ?? 1}`;
     }
 
     // Update sidebar history
