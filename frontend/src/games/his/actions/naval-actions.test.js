@@ -684,6 +684,50 @@ describe('executePiracy', () => {
     expect(state.impulseActions[0].type).toBe('piracy');
   });
 
+  it('#84 Julia Gonzaga: a Tyrrhenian hit awards Ottoman +1 bonus VP, once', () => {
+    const state = cpState(10);
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Tyrrhenian Sea', 'ottoman', 0, 3); // no enemy → no anti-piracy
+    state.juliaGonzagaActive = true;
+    if (!state.bonusVp) state.bonusVp = {};
+    state.bonusVp.ottoman = 0;
+    const origRandom = Math.random;
+    Math.random = () => 0.99; // force piracy hits
+    try {
+      const result = executePiracy(state, 'ottoman', {
+        seaZone: 'Tyrrhenian Sea', targetPower: 'hapsburg'
+      }, helpers);
+      expect(result.piracyHits).toBeGreaterThan(0);
+      expect(result.juliaGonzagaVp).toBe(1);
+      expect(state.bonusVp.ottoman).toBe(1);
+      expect(state.juliaGonzagaActive).toBe(false); // consumed once
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('#84 Julia Gonzaga: no award outside the Tyrrhenian Sea; marker persists', () => {
+    const state = cpState(10);
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    placeNaval(state, 'Ionian Sea', 'ottoman', 0, 3);
+    state.juliaGonzagaActive = true;
+    if (!state.bonusVp) state.bonusVp = {};
+    state.bonusVp.ottoman = 0;
+    const origRandom = Math.random;
+    Math.random = () => 0.99;
+    try {
+      executePiracy(state, 'ottoman', {
+        seaZone: 'Ionian Sea', targetPower: 'hapsburg'
+      }, helpers);
+      expect(state.bonusVp.ottoman).toBe(0);
+      expect(state.juliaGonzagaActive).toBe(true); // not consumed
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
   it('counts anti-piracy fortress dice from eligible adjacent fortress', () => {
     const state = cpState(10);
     const helpers = createMockHelpers();

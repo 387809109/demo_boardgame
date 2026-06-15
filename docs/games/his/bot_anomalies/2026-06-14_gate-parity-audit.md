@@ -78,13 +78,11 @@
 - `lutherPlaced` bot 未显式镜像 → 纯理论（turn1 即置真，卡7/37 可打前必为真）
 - `schmalkaldicLeagueFormed`：14 张行为牌 war 目标无一为 protestant → bot 永不路由「对 Protestant 宣战」，结盟前门控碰不到
 
-## 死标志（记录，本轮不改 — 无路由风险，属未完成特性）
+## 死标志（✅ 2026-06-15 已清理）
 
-- `algiersInPlay`：state-init 声明但**全代码库无人读写** → 死声明（疑似 Barbary/Algiers 特性未完成）
-- `wartburgActive`：同上死声明（卡37 The Wartburg 改用 `pendingEventCancelled` 实现）
-- `juliaGonzagaActive`：extended:731 设置但**无人读取** → 死 setter（卡84 残留效果未消费；属"效果完整性"另一类，非门控对齐）
-
-> 以上三项不影响引擎正确性与 bot 路由，归 HISBOT/引擎特性完善待办。
+- `algiersInPlay`：state-init 声明但全代码库无人读写 → 纯死声明 → **已删除**。
+- `wartburgActive`：同上死声明（卡37 The Wartburg 实际用 `pendingEventCancelled` 实现）→ **已删除**。
+- `juliaGonzagaActive`：extended:731 设置但无人读取 → 实为**卡84 半实现效果** → **已补全**：劫掠结算（`executePiracy`）在本回合 Tyrrhenian Sea 命中且标记在场时授予奥斯曼 +1 bonus VP（一次性），winter 按回合重置；state-init 改为正式声明。见 [naval-actions.js executePiracy](../../../../frontend/src/games/his/actions/naval-actions.js) + 2 个确定性单测。
 
 ---
 

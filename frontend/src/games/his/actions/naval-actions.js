@@ -1106,6 +1106,16 @@ export function executePiracy(state, power, actionData, helpers) {
   const piracyHits = piracyRolls.filter(
     d => d >= NAVAL_COMBAT.hitThreshold).length;
 
+  // #84 Julia Gonzaga: while the marker is in play, a piracy hit in the
+  // Tyrrhenian Sea this turn awards Ottoman +1 bonus VP, once.
+  let juliaGonzagaVp = 0;
+  if (state.juliaGonzagaActive && seaZone === 'Tyrrhenian Sea' && piracyHits > 0) {
+    if (!state.bonusVp) state.bonusVp = {};
+    state.bonusVp.ottoman = (state.bonusVp.ottoman || 0) + 1;
+    state.juliaGonzagaActive = false;
+    juliaGonzagaVp = 1;
+  }
+
   let squadronsEliminated = 0;
   let cardsStolen = 0;
   let piracyVpAwarded = 0;
@@ -1179,6 +1189,7 @@ export function executePiracy(state, power, actionData, helpers) {
     squadronsEliminated,
     cardsStolen,
     piracyVpAwarded,
+    juliaGonzagaVp,
     piracyTrack: state.piracyTrack
   };
 

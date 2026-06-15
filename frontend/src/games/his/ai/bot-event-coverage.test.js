@@ -55,8 +55,7 @@ function unlockedState() {
     schmalkaldicLeagueFormed: true,
     englandRulerChangedThisTurn: true,
     edwardBorn: true,
-    lutherPlaced: true,
-    algiersInPlay: true
+    lutherPlaced: true
   });
   // Broad war web so war-conditional criteria become eligible.
   addWar(state, 'ottoman', 'hapsburg');

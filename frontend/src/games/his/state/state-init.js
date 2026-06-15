@@ -170,7 +170,6 @@ export function buildInitialState(players, options = {}) {
     englandRulerChangedThisTurn: false,
     jesuitFoundingEnabled: false,
     schmalkaldicLeagueFormed: false,
-    algiersInPlay: false,
     piracyEnabled: false,
 
     // Debaters (track who is in play + committed status)
@@ -208,7 +207,7 @@ export function buildInitialState(players, options = {}) {
     // Event markers
     augsburgConfessionActive: false,
     printingPressActive: false,
-    wartburgActive: false,
+    juliaGonzagaActive: false,
 
     // New World
     newWorld: {

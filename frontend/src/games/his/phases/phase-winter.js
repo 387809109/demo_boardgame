@@ -414,6 +414,9 @@ function resetTurnState(state) {
   // Reset England ruler-change marker (Lady Jane Grey window, card 59)
   state.englandRulerChangedThisTurn = false;
 
+  // Reset Julia Gonzaga marker (card 84 — its bonus VP window is this turn only)
+  state.juliaGonzagaActive = false;
+
   // Uncommit all debaters
   for (const side of ['papal', 'protestant']) {
     if (state.debaters[side]) {
