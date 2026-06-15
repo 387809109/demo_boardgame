@@ -329,6 +329,7 @@ frontend/src/games/his/
 > - [`docs/games/his/bot_anomalies/2026-06-14_full-bot-stability-reverify.md`](bot_anomalies/2026-06-14_full-bot-stability-reverify.md) — 稳定性复验：6 局 0 stuck / 0 chain broken，#F–#X 零回归；#Y France 一边倒 6/6 ⏳ 记为 AI 平衡调优候选（非引擎缺陷）
 > - [`docs/games/his/bot_anomalies/2026-06-14_full-bot-bughunt.md`](bot_anomalies/2026-06-14_full-bot-bughunt.md) — 加量猎 bug：#Z（卡 55 Jesuit Education 缺 `jesuitFoundingEnabled` 门控，同 #R 型）✅ 已修复；修复后 8 局 0 stuck / 0 chain broken；#Y 持续（7/8）
 > - [`docs/games/his/bot_anomalies/2026-06-14_gate-parity-audit.md`](bot_anomalies/2026-06-14_gate-parity-audit.md) — **门控对齐静态审查**（非随机对局）：#AA（jesuit 一概念三名字 `jesuitUnlocked`/`societyOfJesusPlayed` 孤儿读 → FOUND_JESUIT 死门控）/#AB（`englandRulerChangedThisTurn` 无 setter → 卡59 Lady Jane Grey 永久不可打）✅ 已修复（统一 canonical 标志 + 接线 setter/reset，启用此前静默禁用的内容）；死标志 algiersInPlay/wartburgActive/juliaGonzagaActive 记录待办
+> - [`docs/games/his/bot_anomalies/2026-06-14_spring-deploy-path.md`](bot_anomalies/2026-06-14_spring-deploy-path.md) — #AC（春季部署 AtPeace 分支返回前不校验路径 → `No valid spring deployment path`，同 #F/#G/#K 型）✅ 已修复（AtPeace 镜像 AtWar 的先校验后路由）
 >
 > **立项待开发**：
 >

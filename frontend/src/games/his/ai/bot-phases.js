@@ -589,55 +589,44 @@ function decideSpringDeploymentAtPeace(state, power) {
   const caps = CAPITALS[power] || [];
   if (caps.length === 0) return null;
 
-  // Find a capital with spare units above garrison
-  let sourceCap = null;
-  for (const cap of caps) {
+  // Candidate source capitals: controlled, with spare units above garrison.
+  const capCandidates = caps.filter(cap => {
     const sp = state.spaces[cap];
-    if (!sp || sp.controller !== power) continue;
+    if (!sp || sp.controller !== power) return false;
     const stack = getUnitsInSpace(state, cap, power);
-    if (!stack) continue;
-    const total = countLandUnits(stack);
-    const garrison = getGarrisonRequirement(state, cap, power);
-    if (total > garrison) {
-      sourceCap = cap;
-      break;
-    }
-  }
-  if (!sourceCap) return null;
+    if (!stack) return false;
+    return countLandUnits(stack) > getGarrisonRequirement(state, cap, power);
+  });
+  if (capCandidates.length === 0) return null;
 
-  // Find controlled key with fewest units (prefer non-home, then farthest)
-  let bestKey = null;
-  let bestScore = Infinity;
-
+  // Candidate destination keys: controlled keys (not a capital), ranked by
+  // fewest units then non-home preferred.
+  const keyCandidates = [];
   for (const [name, sp] of Object.entries(state.spaces)) {
     if (!sp.isKey || sp.controller !== power) continue;
-    if (caps.includes(name)) continue; // Not capital itself
+    if (caps.includes(name)) continue; // Not the capital itself
     const stack = getUnitsInSpace(state, name, power);
     const units = stack ? countLandUnits(stack) : 0;
-    // Score: fewer units better; non-home preferred (subtract 100)
-    const isHome = isHomeSpace(name, power);
-    const score = units + (isHome ? 100 : 0);
-    if (score < bestScore) {
-      bestScore = score;
-      bestKey = name;
+    const score = units + (isHomeSpace(name, power) ? 100 : 0);
+    keyCandidates.push({ name, score });
+  }
+  keyCandidates.sort((a, b) => a.score - b.score);
+
+  // Move a single unit to the best reachable key. Validate the deployment path
+  // (mirror engine canTraceSpringDeploymentPath) before routing, falling back
+  // through candidates when a preferred key is unreachable (e.g. Vienna->Tunis,
+  // anomaly #AC). Return null (-> PASS) when no key is reachable.
+  for (const { name: dest } of keyCandidates) {
+    for (const cap of capCandidates) {
+      const stack = getUnitsInSpace(state, cap, power);
+      const deployUnits = buildDeployUnits(stack, 1);
+      const actionData = { from: cap, to: dest, units: deployUnits, forPower: power };
+      if (validateSpringDeployment(state, power, actionData).valid) {
+        return { actionType: ACTION_TYPES.SPRING_DEPLOY, actionData };
+      }
     }
   }
-
-  if (!bestKey) return null;
-
-  // Build units object: deploy 1 regular (or mercenary if no regulars)
-  const stack = getUnitsInSpace(state, sourceCap, power);
-  const deployUnits = buildDeployUnits(stack, 1);
-
-  return {
-    actionType: ACTION_TYPES.SPRING_DEPLOY,
-    actionData: {
-      from: sourceCap,
-      to: bestKey,
-      units: deployUnits,
-      forPower: power
-    }
-  };
+  return null;
 }
 
 /**

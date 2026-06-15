@@ -20,6 +20,7 @@ import {
   pickExplorationChoice,
   getGarrisonRequirement
 } from './bot-phases.js';
+import { validateSpringDeployment } from '../phases/phase-spring-deployment.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -646,6 +647,40 @@ describe('decideSpringDeployment — edge cases', () => {
       (action.actionData.units.cavalry || 0);
     expect(total).toBeLessThanOrEqual(4);
     expect(total).toBeGreaterThan(0);
+  });
+
+  it('#AC: at peace never routes a spring deployment the engine rejects', () => {
+    const state = createBotState(['hapsburg']);
+    // Force at-peace: drop all non-Hapsburg units (no enemies/independents in
+    // range → hasNearbyIndependents false) and clear wars.
+    for (const sp of Object.values(state.spaces)) {
+      sp.units = sp.units.filter(u => u.owner === 'hapsburg');
+    }
+    state.wars = [];
+    // Make Tunis the only Hapsburg-controlled non-capital key, so it is the
+    // bot's preferred (lowest-score) destination, and mark it invalid for the
+    // engine (unrest) — a deterministic stand-in for the real #AC unreachable
+    // path (hapsburg Vienna->Tunis). Old AtPeace returned the preferred key
+    // unvalidated -> engine rejection -> [BOT STUCK]. Fix validates first.
+    const caps = ['Vienna', 'Valladolid'];
+    for (const [name, sp] of Object.entries(state.spaces)) {
+      if (sp.isKey && sp.controller === 'hapsburg' && !caps.includes(name)) {
+        sp.controller = 'france';
+      }
+    }
+    state.spaces['Tunis'].controller = 'hapsburg';
+    state.spaces['Tunis'].units = [];
+    state.spaces['Tunis'].unrest = true;
+    const vienna = state.spaces['Vienna'].units.find(u => u.owner === 'hapsburg');
+    if (vienna) { vienna.regulars = 8; vienna.mercenaries = 0; vienna.cavalry = 0; vienna.leaders = []; }
+
+    const action = decideSpringDeployment(state, 'hapsburg');
+    // Fix: bot validates before routing -> PASS/null or a valid action, never
+    // the invalid preferred Tunis.
+    const routedInvalid = action?.actionType === 'SPRING_DEPLOY' &&
+      !validateSpringDeployment(state, 'hapsburg', action.actionData).valid;
+    expect(routedInvalid).toBe(false);
+    expect(action?.actionData?.to).not.toBe('Tunis');
   });
 });
 
