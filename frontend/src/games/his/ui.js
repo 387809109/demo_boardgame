@@ -39,6 +39,7 @@ import { SpaceDetail } from './ui/space-detail.js';
 import { CARD_BY_NUMBER } from './data/cards.js';
 import { MAJOR_POWERS } from './constants.js';
 import { POWER_COLORS, POWER_LABELS } from './ui/his-theme.js';
+import { handCanPlay } from './ui/ui-gating.js';
 const ZONE_LABELS = {
   german: '德语区', french: '法语区', english: '英语区',
   italian: '意大利语区', spanish: '西班牙语区'
@@ -314,12 +315,7 @@ export class HisUI {
         respondingPower: state.pendingResponse.respondingPower
       }
       : null;
-    const canPlay = (state.activePower === this._playerPower
-        && state.phase === 'action')
-      // Diet of Worms: this power must select a hand card to submit (until it has)
-      || (state.phase === 'diet_of_worms' && state.pendingDietOfWorms
-        && state.pendingDietOfWorms.cards[this._playerPower] == null)
-      || responseInfo !== null;
+    const canPlay = handCanPlay(state, this._playerPower);
     this._handPanel.update(hand, this._playerPower, canPlay, responseInfo);
     this._container.appendChild(handEl);
 
@@ -367,12 +363,7 @@ export class HisUI {
     if (responseInfo && this._playerPower !== respPower) {
       this._playerPower = respPower;
     }
-    const canPlay = (this._playerPowers.includes(state.activePower)
-        && state.phase === 'action')
-      // Diet of Worms: allow this power to select a hand card until it submits
-      || (state.phase === 'diet_of_worms' && state.pendingDietOfWorms
-        && state.pendingDietOfWorms.cards[this._playerPower] == null)
-      || responseInfo !== null;
+    const canPlay = handCanPlay(state, this._playerPower);
     this._handPanel.update(hand, this._playerPower, canPlay, responseInfo);
 
     // Update space detail if visible

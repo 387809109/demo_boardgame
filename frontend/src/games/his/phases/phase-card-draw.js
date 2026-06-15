@@ -57,6 +57,11 @@ export function executeCardDraw(state, helpers) {
     state.homeCardPlayed[power] = false;
   }
 
+  // 5b. Test/debug only: apply deterministic forced opening hands (no-op in
+  //     production, where state.forceHands is null). Lets a scenario reach a
+  //     specific card-driven UI path without depending on the shuffle.
+  applyForcedHands(state);
+
   helpers.logEvent(state, 'cards_dealt', {
     turn: state.turn,
     counts: Object.fromEntries(
@@ -92,6 +97,42 @@ function addTurnGatedCards(state) {
     // Add to deck
     state.deck.push(card.number);
   }
+}
+
+/**
+ * Test/debug only: force exact opening hands. Guarded by `state.forceHands`
+ * (null in production → no-op). One-shot: consumed after the first card draw.
+ *
+ * For each listed power, returns its randomly-dealt non-home cards to the deck,
+ * then sets its hand to exactly the requested cards (pulled from the deck when
+ * present) plus that power's home card(s).
+ *
+ * @param {Object} state
+ */
+function applyForcedHands(state) {
+  if (!state.forceHands) return;
+
+  for (const [power, cards] of Object.entries(state.forceHands)) {
+    if (!Array.isArray(cards) || !state.hands[power]) continue;
+    const home = HOME_CARDS[power] || [];
+
+    // Return this power's dealt (non-home) cards to the deck.
+    const returning = state.hands[power].filter(c => !home.includes(c));
+    state.deck.push(...returning);
+
+    // Build the forced hand: requested cards (consumed from deck if present)
+    // followed by the power's home card(s).
+    const forced = [];
+    for (const c of cards) {
+      const idx = state.deck.indexOf(c);
+      if (idx >= 0) state.deck.splice(idx, 1);
+      if (!forced.includes(c)) forced.push(c);
+    }
+    for (const h of home) if (!forced.includes(h)) forced.push(h);
+    state.hands[power] = forced;
+  }
+
+  state.forceHands = null; // one-shot opening-hand control
 }
 
 /**

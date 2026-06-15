@@ -319,4 +319,36 @@ describe('executeCardDraw', () => {
       }
     });
   });
+
+  // ── forceHands (deterministic opening hands; test/debug only) ─────
+  describe('forceHands (deterministic deal)', () => {
+    it('gives a power exactly the requested cards plus its home card', () => {
+      // 110/82 are non-home main-deck cards; 7 is the Protestant home card.
+      const state = createTestState({ forceHands: { protestant: [110, 82] } });
+      drawOnState(state);
+      expect(state.hands.protestant.sort((a, b) => a - b)).toEqual([7, 82, 110]);
+    });
+
+    it('does not disturb powers that are not listed', () => {
+      const state = createTestState({ forceHands: { protestant: [110] } });
+      const seed = state.deck.length;
+      drawOnState(state);
+      // Other powers still receive a normal (non-empty) hand.
+      expect(state.hands.ottoman.length).toBeGreaterThan(0);
+      expect(seed).toBeGreaterThan(0);
+    });
+
+    it('is one-shot: cleared after the first draw, so later draws are normal', () => {
+      const state = createTestState({ forceHands: { protestant: [110, 82] } });
+      drawOnState(state);
+      expect(state.forceHands).toBeNull();
+    });
+
+    it('no-op in production (forceHands null) — hands are dealt normally', () => {
+      const state = createTestState();
+      expect(state.forceHands).toBeNull();
+      drawOnState(state);
+      expect(state.hands.protestant.length).toBeGreaterThan(0);
+    });
+  });
 });

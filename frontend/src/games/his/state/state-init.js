@@ -246,6 +246,9 @@ export function buildInitialState(players, options = {}) {
     dominationVictoryEnabled: options.dominationVictoryEnabled !== false,
     botEventRandomness: clampBotEventRandomness(options.botEventRandomness),
     rngSeed: options.rngSeed ?? null,
+    // Test/debug only: one-shot deterministic opening hands ({ [power]: number[] }).
+    // Consumed by the first card_draw; null in production. See phase-card-draw.
+    forceHands: options.forceHands ?? null,
 
     // Meta
     eventLog: []

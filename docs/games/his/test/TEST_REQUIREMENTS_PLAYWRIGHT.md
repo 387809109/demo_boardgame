@@ -87,3 +87,36 @@ Claude 的决策以 HISBOT 为基础，但对**卡牌打法**做如下覆盖：
 | 用控制台直接 executeMove 代替 Playwright 点击 | 绕过 UI 测试，失去测试意义 |
 | bot 卡住时手动推进 | 掩盖 bug |
 | 重开新局而非读档 | 丢失测试进度 |
+
+---
+
+## 确定性 UI 测试机制（高效覆盖，免靠运气）
+
+整局 Playwright 实跑（本文档主体）成本高、靠抽牌运气才能触发某些面板。为高效覆盖**所有 UI 交互**，引入两层确定性机制（与引擎 gate-parity 覆盖测试同理念）：
+
+### A. UI 门控覆盖测试（node 环境，免浏览器，CI 友好）
+
+把「某状态下某势力能做/看到什么」的渲染契约抽成**纯函数**，穷举断言：
+
+- [`ui-gating.js`](../../../../frontend/src/games/his/ui/ui-gating.js) — `handCanPlay` / `isActionPanelActive` / `activePanelKey`（唯一真源；此前 `canPlay` 在 ui.js 两处 + action-panel.js 重复，正是 UI-2「Diet 手牌不可点」的根因）。
+- [`ui-gating.test.js`](../../../../frontend/src/games/his/ui/ui-gating.test.js) — 穷举 `{阶段 × 势力 × 待决叠加层}`，含 UI-1/UI-2 回归用例。
+- [`turn-display.js`](../../../../frontend/src/utils/turn-display.js) + 测试 — UI-1 回合横幅（`turn` 优先于 `turnNumber`）。
+
+> 关键：本会话 Playwright 发现的两个 bug 都是**纯 `state → 渲染` 契约 bug**，根本不需要浏览器即可复现/防回归。优先用本层穷举，浏览器只跑集成确认。
+
+### B. 确定性发牌 `forceHands`（按需触达卡驱动路径）
+
+`rngSeed`（[rng.js](../../../../frontend/src/games/his/state/rng.js)）固定洗牌/掷骰；`forceHands` 进一步**指定开局手牌**，无需靠运气抽到目标卡即可走到「打某事件 / RESPONSE 卡 / 召集辩论」等路径：
+
+```js
+window.app._startHisGame('protestant', { rngSeed: 42, forceHands: { protestant: [110, 82] } })
+```
+
+- 经 [state-init.js](../../../../frontend/src/games/his/state/state-init.js) → [phase-card-draw.js](../../../../frontend/src/games/his/phases/phase-card-draw.js) `applyForcedHands`；**一次性**（首个 card_draw 后清空）；`forceHands` 为空时生产路径零影响。
+- 指定的非家牌精确成为该势力手牌 + 其家牌；其余势力正常发牌。
+
+### C.（后续，可选）少量种子化 Playwright golden-path `.spec.js`
+
+仅用真实浏览器验证 jsdom 验不到的部分：SVG `<polygon>` 命中、HMR 重载 + 存读档往返、真实 pointer 事件。每个用 `rngSeed`+`forceHands` 钉死，约 5 条，非穷举。
+
+> 边界：「所有 UI 交互」不可能逐状态穷举；可达目标是**每个面板/控件的契约全覆盖 + 任意失败可确定性复现**——A+B 已提供，C/D 增强集成信心。
