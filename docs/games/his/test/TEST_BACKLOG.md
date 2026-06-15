@@ -1,0 +1,68 @@
+# HIS 测试待办（按优先度）
+
+> 记录尚未覆盖的测试缺口，按优先度排列，供后续逐项执行。
+> 已覆盖：引擎层（3334 单测 + gate-parity 审查 + full-bot batch 回归）、UI 渲染契约（ui-gating 覆盖测试）。
+> 可用工具见 [TEST_REQUIREMENTS_PLAYWRIGHT.md](TEST_REQUIREMENTS_PLAYWRIGHT.md) 「确定性 UI 测试机制」：
+> ① ui-gating 覆盖测试（node，纯函数穷举）② `forceHands`+`rngSeed`（确定性发牌/掷骰）③ live Playwright（仅集成）。
+> 进度记号：⬜ 未开始 / 🟡 进行中 / ✅ 完成。
+
+---
+
+## P1 — 高优先（复用 `forceHands`，无浏览器依赖）
+
+### ⬜ 1. 其余 5 势力的特有 UI 路径
+
+本会话仅驱动了新教（Protestant）。以下面板/路径从未经 UI 触发，用 `forceHands` 指定相关卡 + 构造对应状态后逐一走通，并把稳定的渲染契约下沉到 `ui-gating`：
+
+- **Papacy**：主动发起反宗教改革、绝罚（excommunication 段）、创立耶稣会（`FOUND_JESUIT`，#AA 相关）、烧书（`BURN_BOOKS`）、建造圣彼得（`BUILD_ST_PETERS`）。
+- **Hapsburg**：新世界 探索 / 殖民 / 征服（`EXPLORE`/`COLONIZE`/`CONQUER`）UI。
+- **Ottoman**：海盗 / 建海盗船 / 海军移动（`PIRACY`/`BUILD_CORSAIR`/`NAVAL_MOVE`）UI。
+- **England**：继承换君 → 卡 59 Lady Jane Grey（#AB 相关；需 `englandRulerChangedThisTurn`）。
+- **France**：chateaux 相关交互。
+
+### ⬜ 2. 人类侧战斗与响应窗口
+
+本会话所有战斗均为 bot-vs-bot 自动结算；以下从未由人类侧驱动，且响应链历来易出 bug：
+
+- `pendingBattle` / `pendingInterception` / 突击（assault）面板。
+- W1–W7 响应卡窗口（佣兵 / 攻守方战斗卡 / 禁卫军 / 攻城炮 / 划桨手 / 脉冲中断）及 `RESPONSE` 卡（如 Gout、Siege Artillery）。
+- 工具：`forceHands` 发到响应/战斗卡 + 构造开战状态后触发。
+
+---
+
+## P2 — 中优先（需真实浏览器，layer C；需引入 Playwright runner 依赖）
+
+### ⬜ 3. 种子化 Playwright 集成回归 `.spec.js`
+
+仅覆盖 jsdom/node 验不到的部分，每条用 `rngSeed`+`forceHands` 钉死：
+
+- SVG `<polygon data-name>` 命中测试（真实指针事件）。
+- HMR 重载后续局。
+- **mid-`pending*` 存读档**：在战斗 / 辩论 / 改革进行中存档，再读档续局（本会话只验过普通阶段的往返）。
+
+### ⬜ 4. 跑到对局结束
+
+- 胜利判定（统治 / 宗教 / 军事）、`game-result` 结算屏、后期回合（T3–T9）机制。
+- 用固定 `rngSeed` 跑一局直到分出胜负，验证终局 UI 与计分。
+
+---
+
+## P3 — 较大独立工作
+
+### ⬜ 5. HIS 多人联机
+
+- LAN（WebSocket）+ Cloud（Supabase）下 `GAME_ACTION` 的双客户端同步、中途重连。
+- 大体量 HIS 状态的同步正确性（大厅/网络测试为通用，未针对 HIS 验证）。
+
+### ⬜ 6. 移动端响应式与性能
+
+- 密集地图（149 空间）+ 多面板在小屏的可用性。
+- 每个动作触发的整图重渲染性能。
+
+---
+
+## 执行约定
+
+- 优先 P1：用 `forceHands` 在 node/确定性层走通，能下沉为 `ui-gating` 纯函数契约的就下沉并加穷举用例；仅集成相关才上 Playwright。
+- 每完成一项：回填本表状态，并在对应 `bot_anomalies/` 或 test 文档记录发现与修复。
+- 发现的任何 UI bug 优先复现为 node 层断言（见 2026-06-15 两个 UI bug 的处理方式）。
