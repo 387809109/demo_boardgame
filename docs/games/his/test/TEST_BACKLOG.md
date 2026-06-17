@@ -85,8 +85,15 @@ emit 的精确 move（`PLAY_RESPONSE_CARD`/`DECLINE_RESPONSE`/`RESOLVE_BATTLE`/`
 `autoFlip` 切换「翻转/掷骰」控件、辩论 phase→label 映射与「仅掷骰后露命中数」。至此 response/battle/
 interception/reformation/debate 五类待决面板的 state→渲染契约全部穷举锁定。
 
-**仍待办**：①#34 Mode A（拦截/避战 ±2 响应窗口）②`RESPONSE` 卡 Gout 等效果结算
-③`AVOID_BATTLE` 经路由的撤退合法性分支。
+**进度（2026-06-17，AVOID_BATTLE 修 bug + 路由覆盖）**：为 `AVOID_BATTLE` 补 `processMove` 端到端覆盖时
+**查出 3 个真 bug**并修复（`index._handleAvoidBattle`）：`findLegalRetreats` 返回**空间名字符串数组**，但旧码
+当对象用——`legalRetreats.some(r => r.space === dest)`（恒 false → 任何撤退都判非法）、`retreats[0].space`
+（自动撤退目的地恒 `undefined`）、`eliminateFormation(state, space, power, helpers)` 漏传 `capturingPower`
+（实为 5 参 → 无法撤退时**抛异常**）。修正后 `index.test.js` +5 钉死：合法目的地撤退并清战斗 / 非法目的地记
+`avoid_battle_failed` 且保留战斗可重试 / 无目的地自动撤到首个合法 / 无合法撤退则歼灭（原崩溃路径）/ 无
+`pendingBattle` 安全无操作。
+
+**仍待办**：①#34 Mode A（拦截/避战 ±2 响应窗口）②`RESPONSE` 卡 Gout 等效果结算。
 
 ---
 

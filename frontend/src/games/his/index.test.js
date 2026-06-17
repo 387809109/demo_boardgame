@@ -5,6 +5,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { HISGame, ACTION_TYPES, PHASES } from './index.js';
 import { MAJOR_POWERS, IMPULSE_ORDER } from './constants.js';
 import { CARD_BY_NUMBER } from './data/cards.js';
+import { findLegalRetreats } from './actions/retreat.js';
+import { getAllAdjacentSpaces } from './state/state-helpers.js';
 
 const TEST_PLAYERS = [
   { id: 'p1', nickname: 'Alice', isHost: true },
@@ -2346,6 +2348,128 @@ describe('HISGame', () => {
       expect(newState.pendingNavalMove == null).toBe(true);
       expect(newState.eventLog.find(e => e.type === 'naval_combat')).toBeDefined();
       expect(newState.eventLog.find(e => e.type === 'naval_move')).toBeDefined();
+    });
+  });
+
+  // ── AVOID_BATTLE retreat legality through processMove (backlog P1.2) ──
+  // findLegalRetreats returns space-name strings; _handleAvoidBattle had
+  // treated them as objects (r.space / retreats[0].space) so every retreat
+  // read as illegal, and the eliminate path called eliminateFormation with the
+  // wrong arity (it would throw). These pin the corrected behavior.
+  describe('processMove — AVOID_BATTLE retreat legality', () => {
+    let game;
+    const SPACE = 'Vienna';
+
+    function blank(power, regs = 1) {
+      return {
+        owner: power, regulars: regs, mercenaries: 0, cavalry: 0,
+        squadrons: 0, corsairs: 0, leaders: []
+      };
+    }
+
+    function makeAvoidState() {
+      game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.ACTION;
+      state.activePower = 'ottoman';
+      state.pendingLuther95 = null;
+      state.consecutivePasses = 0;
+      const sp = state.spaces[SPACE];
+      sp.controller = 'hapsburg';
+      sp.unrest = false;
+      sp.units = [blank('ottoman', 3), blank('hapsburg', 2)];
+      state.pendingBattle = {
+        type: 'field_battle', space: SPACE,
+        attackerPower: 'ottoman', defenderPower: 'hapsburg'
+      };
+      return state;
+    }
+
+    // Make the first existing neighbour a legal Hapsburg retreat.
+    function makeNeighborLegal(state) {
+      for (const n of getAllAdjacentSpaces(SPACE)) {
+        if (!state.spaces[n]) continue;
+        state.spaces[n].controller = 'hapsburg';
+        state.spaces[n].unrest = false;
+        state.spaces[n].units = [];
+        return n;
+      }
+      return null;
+    }
+
+    // Occupy every neighbour with enemy units so no legal retreat remains.
+    function makeAllNeighborsIllegal(state) {
+      for (const n of getAllAdjacentSpaces(SPACE)) {
+        if (!state.spaces[n]) continue;
+        state.spaces[n].controller = 'ottoman';
+        state.spaces[n].unrest = false;
+        state.spaces[n].units = [blank('ottoman', 1)];
+      }
+    }
+
+    it('no pending battle → AVOID_BATTLE is a safe no-op', () => {
+      const state = makeAvoidState();
+      state.pendingBattle = null;
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.AVOID_BATTLE, actionData: {}, playerId: 'p1'
+      }, state);
+      expect(newState.pendingBattle == null).toBe(true);
+      expect(newState.eventLog.find(e => e.type === 'avoid_battle')).toBeUndefined();
+    });
+
+    it('legal destination → defender retreats there and the battle clears', () => {
+      const state = makeAvoidState();
+      const dest = makeNeighborLegal(state);
+      expect(findLegalRetreats(state, SPACE, 'hapsburg')).toContain(dest);
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.AVOID_BATTLE,
+        actionData: { destination: dest }, playerId: 'p1'
+      }, state);
+      expect(newState.pendingBattle).toBeNull();
+      expect(newState.spaces[SPACE].units.find(u => u.owner === 'hapsburg')).toBeUndefined();
+      expect(newState.spaces[dest].units.find(u => u.owner === 'hapsburg')).toBeDefined();
+      expect(newState.eventLog.find(e => e.type === 'avoid_battle')).toBeDefined();
+    });
+
+    it('illegal destination → logs failure and keeps the battle (retry possible)', () => {
+      const state = makeAvoidState();
+      makeNeighborLegal(state);
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.AVOID_BATTLE,
+        actionData: { destination: '__NoSuchSpace__' }, playerId: 'p1'
+      }, state);
+      expect(newState.pendingBattle).not.toBeNull();
+      expect(newState.eventLog.find(e => e.type === 'avoid_battle_failed')).toBeDefined();
+      expect(newState.eventLog.find(e => e.type === 'avoid_battle')).toBeUndefined();
+      expect(newState.spaces[SPACE].units.find(u => u.owner === 'hapsburg')).toBeDefined();
+    });
+
+    it('no destination + legal retreats → auto-retreats and clears the battle', () => {
+      const state = makeAvoidState();
+      makeNeighborLegal(state);
+      const legal = findLegalRetreats(state, SPACE, 'hapsburg');
+      expect(legal.length).toBeGreaterThan(0);
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.AVOID_BATTLE, actionData: {}, playerId: 'p1'
+      }, state);
+      expect(newState.pendingBattle).toBeNull();
+      expect(newState.spaces[SPACE].units.find(u => u.owner === 'hapsburg')).toBeUndefined();
+      const landed = legal.some(s =>
+        newState.spaces[s]?.units.some(u => u.owner === 'hapsburg'));
+      expect(landed).toBe(true);
+      expect(newState.eventLog.find(e => e.type === 'avoid_battle')).toBeDefined();
+    });
+
+    it('no destination + no legal retreats → formation eliminated (was a crash)', () => {
+      const state = makeAvoidState();
+      makeAllNeighborsIllegal(state);
+      expect(findLegalRetreats(state, SPACE, 'hapsburg')).toEqual([]);
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.AVOID_BATTLE, actionData: {}, playerId: 'p1'
+      }, state);
+      expect(newState.pendingBattle).toBeNull();
+      expect(newState.spaces[SPACE].units.find(u => u.owner === 'hapsburg')).toBeUndefined();
+      expect(newState.eventLog.find(e => e.type === 'eliminate_formation')).toBeDefined();
     });
   });
 });

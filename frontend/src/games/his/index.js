@@ -1386,33 +1386,31 @@ export class HISGame extends GameEngine {
     if (!battle) return;
 
     const { space, defenderPower, attackerPower } = battle;
+    const retreater = defenderPower || power;
     const destination = actionData?.destination;
+    // findLegalRetreats returns space-name strings.
+    const legalRetreats = findLegalRetreats(state, space, retreater);
 
-    // Validate retreat destination
     if (destination) {
-      const legalRetreats = findLegalRetreats(state, space, defenderPower || power);
-      const isLegal = legalRetreats.some(r => r.space === destination);
-      if (!isLegal) {
+      // An explicit destination must be one of the legal retreats.
+      if (!legalRetreats.includes(destination)) {
         helpers.logEvent(state, 'avoid_battle_failed', {
-          power: defenderPower || power, space, destination,
-          reason: 'illegal_retreat'
+          power: retreater, space, destination, reason: 'illegal_retreat'
         });
         return;
       }
-      executeRetreat(state, space, defenderPower || power, destination, helpers);
+      executeRetreat(state, space, retreater, destination, helpers);
+    } else if (legalRetreats.length > 0) {
+      // No destination given — retreat to the first legal option.
+      executeRetreat(state, space, retreater, legalRetreats[0], helpers);
     } else {
-      // No destination — eliminate if no legal retreats
-      const retreats = findLegalRetreats(state, space, defenderPower || power);
-      if (retreats.length > 0) {
-        executeRetreat(state, space, defenderPower || power, retreats[0].space, helpers);
-      } else {
-        eliminateFormation(state, space, defenderPower || power, helpers);
-      }
+      // Nowhere to retreat — the formation is eliminated (attacker captures).
+      eliminateFormation(state, space, retreater, attackerPower, helpers);
     }
 
     state.pendingBattle = null;
     helpers.logEvent(state, 'avoid_battle', {
-      power: defenderPower || power, space, destination
+      power: retreater, space, destination
     });
   }
 
