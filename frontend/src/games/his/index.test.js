@@ -2045,4 +2045,91 @@ describe('HISGame', () => {
       });
     });
   });
+
+  // ── Interception routing through processMove (backlog P1.2) ───────
+  // Bot tests assert only that the bot *decides* RESOLVE_INTERCEPTION /
+  // AVOID_BATTLE; the move is never driven through the top-level router.
+  // These pin the router case + _handleResolveInterception wiring.
+  describe('processMove — interception routing', () => {
+    let game;
+
+    function makeInterceptionState() {
+      game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.ACTION;
+      state.activePower = 'ottoman';
+      state.pendingLuther95 = null;
+      state.consecutivePasses = 0;
+      // Interceptor (hapsburg) holds a stack adjacent to the target space.
+      state.spaces['Varna'].units = [{
+        owner: 'hapsburg', regulars: 2, mercenaries: 0,
+        cavalry: 0, squadrons: 0, corsairs: 0, leaders: []
+      }];
+      state.pendingInterception = {
+        interceptorPower: 'hapsburg',
+        interceptorSpace: 'Varna',
+        targetSpace: 'Edirne',
+        movingPower: 'ottoman',
+        fromSpace: 'Istanbul'
+      };
+      return state;
+    }
+
+    it('no pending interception → RESOLVE_INTERCEPTION is a safe no-op', () => {
+      game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.ACTION;
+      state.activePower = 'ottoman';
+      state.pendingInterception = null;
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.RESOLVE_INTERCEPTION, actionData: {}, playerId: 'p1'
+      }, state);
+      expect(newState.pendingInterception == null).toBe(true);
+      expect(newState.pendingBattle == null).toBe(true);
+    });
+
+    it('clears pendingInterception and advances turnNumber regardless of dice', () => {
+      const state = makeInterceptionState();
+      const t0 = state.turnNumber;
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.RESOLVE_INTERCEPTION, actionData: {}, playerId: 'p1'
+      }, state);
+      expect(newState.pendingInterception).toBeNull();
+      expect(newState.turnNumber).toBe(t0 + 1);
+    });
+
+    it('success path: creates a field_battle at the target (ottoman vs hapsburg)', () => {
+      // Interception dice are unseeded; loop until one succeeds.
+      let battled = false;
+      for (let i = 0; i < 300 && !battled; i++) {
+        const state = makeInterceptionState();
+        const newState = game.processMove({
+          actionType: ACTION_TYPES.RESOLVE_INTERCEPTION, actionData: {}, playerId: 'p1'
+        }, state);
+        if (newState.pendingBattle) {
+          expect(newState.pendingBattle.type).toBe('field_battle');
+          expect(newState.pendingBattle.space).toBe('Edirne');
+          expect(newState.pendingBattle.attackerPower).toBe('ottoman');
+          expect(newState.pendingBattle.defenderPower).toBe('hapsburg');
+          battled = true;
+        }
+      }
+      expect(battled).toBe(true);
+    });
+
+    it('failure path: no battle is created when interception fails', () => {
+      let failed = false;
+      for (let i = 0; i < 300 && !failed; i++) {
+        const state = makeInterceptionState();
+        const newState = game.processMove({
+          actionType: ACTION_TYPES.RESOLVE_INTERCEPTION, actionData: {}, playerId: 'p1'
+        }, state);
+        if (!newState.pendingBattle) {
+          expect(newState.pendingInterception).toBeNull();
+          failed = true;
+        }
+      }
+      expect(failed).toBe(true);
+    });
+  });
 });

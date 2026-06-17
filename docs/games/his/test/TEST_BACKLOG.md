@@ -44,8 +44,23 @@
 **仅响应方**可见响应卡与放弃按钮（旁观者 `cards=[]`、不可 decline——响应链最易错处）、各控件
 emit 的精确 move（`PLAY_RESPONSE_CARD`/`DECLINE_RESPONSE`/`RESOLVE_BATTLE`/`WITHDRAW_INTO_FORTIFICATION`/
 `RESOLVE_INTERCEPTION`/`AVOID_BATTLE`/撤退走选择流）、退入工事 vs 单结算分支、避战门控。
-**仍待办**：用 `forceHands` 发到响应/战斗卡 + 构造真实开战状态，在引擎层端到端**走通**整条响应链
-（W1–W7 实际触发顺序、`RESPONSE` 卡如 Gout/Siege Artillery 的效果结算），以及辩论/改革面板。
+**进度（2026-06-17，续）— 引擎层路由走通**：核查 `index.test.js` 发现野战响应链
+（W1→W2→W3→W4 及 W7 脉冲中断：Wartburg/Foul Weather/Gout/Halley）**已**经 `game.processMove`
+端到端覆盖（~40 用例）。新补 **拦截链路由**：`index.test.js` 新增 `processMove — interception routing`
+4 用例，钉死 `RESOLVE_INTERCEPTION` 经顶层路由 → `_handleResolveInterception` 的成功（在 targetSpace
+建 `field_battle`，攻=移动方/守=拦截方）/失败/空 `pendingInterception` 安全无操作分支（此前 bot 测试只验
+*决策* `actionType`，从不经路由执行）。
+
+> **⚠ 引擎缺口（本轮发现，非测试缺口）**：**W5（攻城炮 #35，突击）/ W6（划桨手 #34，海战）响应窗口
+> 未接入实战流程**。`response-actions.js` 的 `createPostRollWindow`/`canAnyPowerRespondPostRoll` 支持
+> W5/W6 且有单测，但 `combat-actions.js` 仅在野战路径调用 post-roll（只产 W4）；`siege-actions.js` /
+> `naval-actions.js` **完全不开任何 `pendingResponse`**，且 `index.js:1117` 明确留桩
+> `// W5/W6 finalization: future integration with siege/naval`。即突击/海战实战中 #35/#34 永不触发。
+> 这是**未实现的功能**而非漏测——需先据 `RULES.md` 核实攻城炮/划桨手的加成规则再实现，不可凭空补码。
+> 建议作为独立功能任务排期。
+
+**仍待办**：①W5/W6 功能接入（见上）②`RESPONSE` 卡（Gout/Siege Artillery）效果结算 ③辩论/改革面板路由
+④`AVOID_BATTLE` 经路由的撤退合法性分支。
 
 ---
 
