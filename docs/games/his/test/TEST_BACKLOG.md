@@ -95,7 +95,14 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
 `avoid_battle_failed` 且保留战斗可重试 / 无目的地自动撤到首个合法 / 无合法撤退则歼灭（原崩溃路径）/ 无
 `pendingBattle` 安全无操作。
 
-**仍待办**：①#34 Mode A（拦截/避战 ±2 响应窗口）②`RESPONSE` 卡 Gout 等效果结算。
+**进度（2026-06-18，Gout #32 效果接入）**：此前 `pendingGout`（及 `pendingFoulWeather`）只设不消费——
+打出后**无任何效果**。已实现 Gout 核心效果：`EVENT_HANDLERS[32]` 额外扣 1 CP（Charles V+HRE 转移例外
+未建模）；`index.validateMove` 拦截**含被点名将领的** `MOVE_FORMATION`/`ASSAULT`；`advanceImpulse` 在脉冲
+结束时清 `pendingGout`/`pendingFoulWeather`。`index.test.js` +6（扣 CP / CP 不破 0 / 含将领的移动·突击被拦 /
+不含则放行 / 脉冲推进清除）。
+
+**仍待办**：①#34 Mode A（拦截/避战 ±2 响应窗口，已重评为大改造，单独排期）②`#31 Foul Weather` 效果接入
+（同 Gout 模式：扣 1 CP + 限制 targetPower 整脉冲的 移动/突击/海盗/海军移动；字段已备但未消费）。
 
 ---
 

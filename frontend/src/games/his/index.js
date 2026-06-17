@@ -13,7 +13,8 @@ import {
 import { getVisibleState } from './state/state-visible.js';
 import {
   getPowerForPlayer, getPowersForPlayer, playerControlsPower,
-  canPass, isFortified, getAllVpTotals, getAllVpBreakdowns
+  canPass, isFortified, getAllVpTotals, getAllVpBreakdowns,
+  getUnitsInSpace
 } from './state/state-helpers.js';
 import {
   PHASES, transitionPhase, advancePhase, advanceImpulse
@@ -547,6 +548,22 @@ export class HISGame extends GameEngine {
             valid: false,
             error: 'Must resolve pending interaction first'
           };
+        }
+      }
+
+      // §card #32 Gout: the targeted leader may not move or assault this impulse.
+      const goutLeader = state.pendingGout?.targetLeader;
+      if (goutLeader) {
+        if (actionType === ACTION_TYPES.MOVE_FORMATION &&
+            (actionData?.units?.leaders || []).includes(goutLeader)) {
+          return { valid: false, error: `Gout: ${goutLeader} cannot move this impulse` };
+        }
+        if (actionType === ACTION_TYPES.ASSAULT) {
+          const sp = actionData?.space ?? actionData?.target;
+          const stack = getUnitsInSpace(state, sp, actPower);
+          if (stack && stack.leaders.includes(goutLeader)) {
+            return { valid: false, error: `Gout: ${goutLeader} cannot assault this impulse` };
+          }
         }
       }
 

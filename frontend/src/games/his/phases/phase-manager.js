@@ -380,4 +380,8 @@ function advanceTurn(state, helpers) {
 export function advanceImpulse(state) {
   state.impulseIndex = (state.impulseIndex + 1) % IMPULSE_ORDER.length;
   state.activePower = IMPULSE_ORDER[state.impulseIndex];
+  // Impulse-scoped interrupt restrictions (#32 Gout, #31 Foul Weather) expire
+  // when the interrupted power's impulse ends.
+  state.pendingGout = null;
+  state.pendingFoulWeather = null;
 }

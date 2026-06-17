@@ -982,12 +982,20 @@ EVENT_HANDLERS[31] = {
   }
 };
 
-// #32 Gout: stop leader from moving/assaulting this impulse
+// #32 Gout: stop leader from moving/assaulting this impulse; 1 CP is lost.
+// (The block itself is enforced in validateMove; cleared at impulse end.)
 EVENT_HANDLERS[32] = {
   execute(state, power, actionData, helpers) {
     const targetLeader = actionData.targetLeader;
     state.pendingGout = { targetLeader };
-    helpers.logEvent(state, 'event_gout', { power, targetLeader });
+    // §card #32: the interrupted power loses 1 CP. The Charles V + Holy Roman
+    // Emperor transfer exception (no CP lost) is not modeled.
+    let cpLost = 0;
+    if (state.cpRemaining > 0) {
+      state.cpRemaining -= 1;
+      cpLost = 1;
+    }
+    helpers.logEvent(state, 'event_gout', { power, targetLeader, cpLost });
   }
 };
 

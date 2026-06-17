@@ -7,6 +7,8 @@ import { MAJOR_POWERS, IMPULSE_ORDER } from './constants.js';
 import { CARD_BY_NUMBER } from './data/cards.js';
 import { findLegalRetreats } from './actions/retreat.js';
 import { getAllAdjacentSpaces } from './state/state-helpers.js';
+import { EVENT_HANDLERS } from './actions/event-actions.js';
+import { advanceImpulse } from './phases/phase-manager.js';
 
 const TEST_PLAYERS = [
   { id: 'p1', nickname: 'Alice', isHost: true },
@@ -2470,6 +2472,85 @@ describe('HISGame', () => {
       expect(newState.pendingBattle).toBeNull();
       expect(newState.spaces[SPACE].units.find(u => u.owner === 'hapsburg')).toBeUndefined();
       expect(newState.eventLog.find(e => e.type === 'eliminate_formation')).toBeDefined();
+    });
+  });
+
+  // ── Gout (#32) interrupt effect ───────────────────────────────────
+  // Previously pendingGout was set but never consumed: no CP loss, no leader
+  // block. These pin the implemented effect (−1 CP, leader cannot move/assault
+  // this impulse, restriction expires when the impulse advances).
+  describe('Gout (#32) interrupt effect', () => {
+    const helpers = { logEvent: () => {} };
+    let game;
+
+    function actingState() {
+      game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.ACTION;
+      state.pendingLuther95 = null;
+      state.activePower = state.powerByPlayer['p1'];
+      return state;
+    }
+
+    it('handler sets pendingGout and costs the interrupted power 1 CP', () => {
+      const state = actingState();
+      state.cpRemaining = 3;
+      EVENT_HANDLERS[32].execute(state, 'protestant', { targetLeader: 'charles_v' }, helpers);
+      expect(state.pendingGout).toEqual({ targetLeader: 'charles_v' });
+      expect(state.cpRemaining).toBe(2);
+    });
+
+    it('handler never drops CP below 0', () => {
+      const state = actingState();
+      state.cpRemaining = 0;
+      EVENT_HANDLERS[32].execute(state, 'protestant', { targetLeader: 'x' }, helpers);
+      expect(state.cpRemaining).toBe(0);
+    });
+
+    it('validateMove blocks a MOVE_FORMATION that includes the gouted leader', () => {
+      const state = actingState();
+      state.pendingGout = { targetLeader: 'charles_v' };
+      const res = game.validateMove({
+        actionType: ACTION_TYPES.MOVE_FORMATION,
+        actionData: { from: 'Vienna', to: 'Graz', units: { regulars: 1, leaders: ['charles_v'] } },
+        playerId: 'p1'
+      }, state);
+      expect(res.valid).toBe(false);
+      expect(res.error).toContain('Gout');
+    });
+
+    it('does not block a MOVE_FORMATION without the gouted leader', () => {
+      const state = actingState();
+      state.pendingGout = { targetLeader: 'charles_v' };
+      const res = game.validateMove({
+        actionType: ACTION_TYPES.MOVE_FORMATION,
+        actionData: { from: 'Vienna', to: 'Graz', units: { regulars: 1, leaders: [] } },
+        playerId: 'p1'
+      }, state);
+      // May be invalid for other reasons (CP mode, etc.) but not due to Gout.
+      expect(res.error || '').not.toContain('Gout');
+    });
+
+    it('validateMove blocks an ASSAULT by a stack containing the gouted leader', () => {
+      const state = actingState();
+      state.pendingGout = { targetLeader: 'charles_v' };
+      state.spaces['Vienna'].units = [{
+        owner: state.activePower, regulars: 3, mercenaries: 0, cavalry: 0,
+        squadrons: 0, corsairs: 0, leaders: ['charles_v']
+      }];
+      const res = game.validateMove({
+        actionType: ACTION_TYPES.ASSAULT,
+        actionData: { space: 'Vienna' }, playerId: 'p1'
+      }, state);
+      expect(res.valid).toBe(false);
+      expect(res.error).toContain('Gout');
+    });
+
+    it('advanceImpulse clears the impulse-scoped Gout restriction', () => {
+      const state = actingState();
+      state.pendingGout = { targetLeader: 'charles_v' };
+      advanceImpulse(state);
+      expect(state.pendingGout).toBeNull();
     });
   });
 });
