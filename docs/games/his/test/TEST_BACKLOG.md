@@ -79,8 +79,14 @@ emit 的精确 move（`PLAY_RESPONSE_CARD`/`DECLINE_RESPONSE`/`RESOLVE_BATTLE`/`
 > **⚠ 仍缺 Mode A**：#34 的「修正 拦截/避战 掷骰 ±2」模式未接入——当前 拦截/避战 是同步 2d6、**无响应
 > 窗口**。需为 `tryNavalInterceptions` / 避战 掷骰新增 ±2 响应窗口（与 W6 触发点不同），作为独立子项。
 
-**仍待办**：①#34 Mode A（拦截/避战 ±2 响应窗口）②`RESPONSE` 卡 Gout 等效果结算 ③辩论/改革面板路由
-④`AVOID_BATTLE` 经路由的撤退合法性分支。
+**进度（2026-06-17，面板契约补全）**：辩论/改革（反改革）面板的渲染契约已下沉为 `ui-gating` 纯函数
+`reformationPanelModel` / `debatePanelModel`，`action-panel` 两个 `_render*` 改为消费（统一 `_controlButton`）。
+`ui-gating.test.js` +8：改革 vs 反改革标题、`attemptsLeft/attemptsRemaining` 与 `zone/zones('all'→null)` 归一、
+`autoFlip` 切换「翻转/掷骰」控件、辩论 phase→label 映射与「仅掷骰后露命中数」。至此 response/battle/
+interception/reformation/debate 五类待决面板的 state→渲染契约全部穷举锁定。
+
+**仍待办**：①#34 Mode A（拦截/避战 ±2 响应窗口）②`RESPONSE` 卡 Gout 等效果结算
+③`AVOID_BATTLE` 经路由的撤退合法性分支。
 
 ---
 

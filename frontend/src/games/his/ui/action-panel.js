@@ -11,7 +11,8 @@
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import {
   isActionPanelActive, cpActionsFor,
-  responsePanelModel, battlePanelModel, interceptionPanelModel
+  responsePanelModel, battlePanelModel, interceptionPanelModel,
+  reformationPanelModel, debatePanelModel
 } from './ui-gating.js';
 import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
 
@@ -322,49 +323,36 @@ export class ActionPanel {
   // ── Pending Sub-Interactions ────────────────────────────────
 
   _renderReformationPanel(state) {
-    const ref = state.pendingReformation;
-    // Support both schemas: type-based (religious-actions.js) and playedBy-based (event-actions.js)
-    const isReform = !ref.type || ref.type === 'reformation';
-    const attemptsLeft = ref.attemptsLeft ?? ref.attemptsRemaining ?? 0;
-    const zone = ref.zone || (ref.zones && ref.zones !== 'all' ? ref.zones : null);
-    this._el.appendChild(this._sectionHeader(
-      isReform ? '宗教改革' : '反宗教改革'
-    ));
+    const model = reformationPanelModel(state);
+    if (!model) return;
+    this._el.appendChild(this._sectionHeader(model.title));
     this._el.appendChild(this._infoText(
-      `剩余尝试: ${attemptsLeft}` +
-      (zone ? ` | 区域: ${zone}` : ' | 任意区域')
+      `剩余尝试: ${model.attemptsLeft}` +
+      (model.zone ? ` | 区域: ${model.zone}` : ' | 任意区域')
     ));
 
-    if (ref.autoFlip) {
+    if (model.autoFlip) {
       this._el.appendChild(this._infoText('选择地图上的目标空间进行翻转'));
     }
 
-    this._el.appendChild(this._actionButton(
-      ref.autoFlip ? '翻转选中空间' : '掷骰尝试', () => {
-        this._select('RESOLVE_REFORMATION_ATTEMPT');
-      }, 'primary'
-    ));
+    this._el.appendChild(this._controlButton(model.control, 'primary'));
   }
 
   _renderDebatePanel(state) {
-    const debate = state.pendingDebate;
+    const model = debatePanelModel(state);
+    if (!model) return;
     this._el.appendChild(this._sectionHeader('神学辩论'));
-
-    const phaseLabel = debate.phase === 'roll' ? '掷骰'
-      : debate.phase === 'resolve' ? '结算' : debate.phase;
     this._el.appendChild(this._infoText(
-      `第 ${debate.round} 轮 | 阶段: ${phaseLabel}`
+      `第 ${model.round} 轮 | 阶段: ${model.phaseLabel}`
     ));
 
-    if (debate.attackerRolls) {
+    if (model.hasRolls) {
       this._el.appendChild(this._infoText(
-        `进攻方命中: ${debate.attackerHits} | 防守方命中: ${debate.defenderHits}`
+        `进攻方命中: ${model.attackerHits} | 防守方命中: ${model.defenderHits}`
       ));
     }
 
-    this._el.appendChild(this._actionButton('继续', () => {
-      this._emit({ type: 'RESOLVE_DEBATE_STEP' });
-    }, 'primary'));
+    this._el.appendChild(this._controlButton(model.control, 'primary'));
   }
 
   _renderBattlePanel(state) {

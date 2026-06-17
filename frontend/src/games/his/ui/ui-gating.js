@@ -235,6 +235,62 @@ export function interceptionPanelModel(state) {
 }
 
 /**
+ * Descriptor for the reformation / counter-reformation panel, or null when none
+ * is pending. Normalizes the two pendingReformation schemas (type-based from
+ * religious-actions, playedBy-based from event-actions) into one contract.
+ *
+ * @param {Object} state
+ * @returns {null | {isReform, title, attemptsLeft, zone, autoFlip,
+ *   control: {label, select}}}
+ */
+export function reformationPanelModel(state) {
+  const ref = state && state.pendingReformation;
+  if (!ref) return null;
+  const isReform = !ref.type || ref.type === 'reformation';
+  const attemptsLeft = ref.attemptsLeft ?? ref.attemptsRemaining ?? 0;
+  const zone = ref.zone || (ref.zones && ref.zones !== 'all' ? ref.zones : null);
+  return {
+    isReform,
+    title: isReform ? '宗教改革' : '反宗教改革',
+    attemptsLeft,
+    zone,
+    autoFlip: !!ref.autoFlip,
+    control: {
+      label: ref.autoFlip ? '翻转选中空间' : '掷骰尝试',
+      select: 'RESOLVE_REFORMATION_ATTEMPT'
+    }
+  };
+}
+
+/**
+ * Descriptor for the theological debate panel, or null when none is pending.
+ * Surfaces the round/phase and (once rolled) the hit tallies; the single
+ * control advances the debate step.
+ *
+ * @param {Object} state
+ * @returns {null | {round, phase, phaseLabel, hasRolls, attackerHits,
+ *   defenderHits, control: {label, move}}}
+ */
+export function debatePanelModel(state) {
+  const debate = state && state.pendingDebate;
+  if (!debate) return null;
+  const phaseLabel = debate.phase === 'roll' ? '掷骰'
+    : debate.phase === 'resolve' ? '结算' : debate.phase;
+  return {
+    round: debate.round,
+    phase: debate.phase,
+    phaseLabel,
+    hasRolls: !!debate.attackerRolls,
+    attackerHits: debate.attackerHits,
+    defenderHits: debate.defenderHits,
+    control: {
+      label: '继续',
+      move: { actionType: 'RESOLVE_DEBATE_STEP', actionData: {} }
+    }
+  };
+}
+
+/**
  * Should the action panel show controls for `power` (vs "等待对手行动")?
  *
  * Assumes no response window is open (the panel renders the response UI first;

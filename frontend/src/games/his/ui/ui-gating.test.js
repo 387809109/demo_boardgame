@@ -17,6 +17,7 @@ import {
   handCanPlay, isActionPanelActive, activePanelKey,
   cpActionsFor, CP_ACTION_CATALOG,
   responsePanelModel, battlePanelModel, interceptionPanelModel,
+  reformationPanelModel, debatePanelModel,
   RESPONSE_WINDOW_LABELS
 } from './ui-gating.js';
 import { ACTION_COSTS } from '../constants.js';
@@ -400,6 +401,70 @@ describe('interceptionPanelModel', () => {
     });
     expect(m.controls).toHaveLength(2);
     expect(m.controls[1].move).toEqual({ actionType: 'AVOID_BATTLE', actionData: {} });
+  });
+});
+
+describe('reformationPanelModel', () => {
+  it('returns null with no pending reformation', () => {
+    expect(reformationPanelModel({})).toBe(null);
+  });
+
+  it('reformation (no type / type=reformation) titles + roll control', () => {
+    for (const ref of [{ attemptsLeft: 3 }, { type: 'reformation', attemptsLeft: 2 }]) {
+      const m = reformationPanelModel({ pendingReformation: ref });
+      expect(m.isReform).toBe(true);
+      expect(m.title).toBe('宗教改革');
+      expect(m.control).toEqual({ label: '掷骰尝试', select: 'RESOLVE_REFORMATION_ATTEMPT' });
+    }
+  });
+
+  it('counter-reformation flips the title', () => {
+    const m = reformationPanelModel({ pendingReformation: { type: 'counter', attemptsRemaining: 1 } });
+    expect(m.isReform).toBe(false);
+    expect(m.title).toBe('反宗教改革');
+  });
+
+  it('normalizes attemptsLeft / attemptsRemaining and zone / zones', () => {
+    expect(reformationPanelModel({ pendingReformation: { attemptsRemaining: 5 } }).attemptsLeft).toBe(5);
+    expect(reformationPanelModel({ pendingReformation: { attemptsLeft: 4 } }).attemptsLeft).toBe(4);
+    expect(reformationPanelModel({ pendingReformation: {} }).attemptsLeft).toBe(0);
+    expect(reformationPanelModel({ pendingReformation: { zone: 'german' } }).zone).toBe('german');
+    expect(reformationPanelModel({ pendingReformation: { zones: 'french' } }).zone).toBe('french');
+    expect(reformationPanelModel({ pendingReformation: { zones: 'all' } }).zone).toBe(null);
+    expect(reformationPanelModel({ pendingReformation: {} }).zone).toBe(null);
+  });
+
+  it('autoFlip swaps the control label (flip vs roll)', () => {
+    const flip = reformationPanelModel({ pendingReformation: { autoFlip: true } });
+    expect(flip.autoFlip).toBe(true);
+    expect(flip.control.label).toBe('翻转选中空间');
+    expect(flip.control.select).toBe('RESOLVE_REFORMATION_ATTEMPT');
+  });
+});
+
+describe('debatePanelModel', () => {
+  it('returns null with no pending debate', () => {
+    expect(debatePanelModel({})).toBe(null);
+  });
+
+  it('maps phase to a label and offers the advance control', () => {
+    expect(debatePanelModel({ pendingDebate: { round: 1, phase: 'roll' } }).phaseLabel).toBe('掷骰');
+    expect(debatePanelModel({ pendingDebate: { round: 2, phase: 'resolve' } }).phaseLabel).toBe('结算');
+    // unknown phase passes through
+    expect(debatePanelModel({ pendingDebate: { round: 1, phase: 'setup' } }).phaseLabel).toBe('setup');
+    const m = debatePanelModel({ pendingDebate: { round: 3, phase: 'roll' } });
+    expect(m.round).toBe(3);
+    expect(m.control).toEqual({ label: '继续', move: { actionType: 'RESOLVE_DEBATE_STEP', actionData: {} } });
+  });
+
+  it('exposes hit tallies only once dice are rolled', () => {
+    expect(debatePanelModel({ pendingDebate: { round: 1, phase: 'roll' } }).hasRolls).toBe(false);
+    const rolled = debatePanelModel({
+      pendingDebate: { round: 1, phase: 'resolve', attackerRolls: [4, 5], attackerHits: 1, defenderHits: 0 }
+    });
+    expect(rolled.hasRolls).toBe(true);
+    expect(rolled.attackerHits).toBe(1);
+    expect(rolled.defenderHits).toBe(0);
   });
 });
 
