@@ -967,7 +967,9 @@ EVENT_HANDLERS[30] = {
 
 // ── Response Cards (#31-38) ───────────────────────────────────────
 
-// #31 Foul Weather: -1 CP, restrict movement for impulse
+// #31 Foul Weather: 1 CP lost; for the rest of the targeted power's impulse no
+// land unit may move >1 space and assault/piracy/naval move/naval transport are
+// prohibited. (Restrictions enforced in validateMove; cleared at impulse end.)
 EVENT_HANDLERS[31] = {
   execute(state, power, actionData, helpers) {
     const targetPower = actionData.targetPower;
@@ -976,9 +978,16 @@ EVENT_HANDLERS[31] = {
       maxMoveSpaces: 1,
       noAssault: true,
       noPiracy: true,
-      noNavalMove: true
+      noNavalMove: true,
+      noNavalTransport: true
     };
-    helpers.logEvent(state, 'event_foul_weather', { power, targetPower });
+    // §card #31: the interrupted power loses 1 CP.
+    let cpLost = 0;
+    if (state.cpRemaining > 0) {
+      state.cpRemaining -= 1;
+      cpLost = 1;
+    }
+    helpers.logEvent(state, 'event_foul_weather', { power, targetPower, cpLost });
   }
 };
 

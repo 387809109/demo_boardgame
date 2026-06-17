@@ -2553,4 +2553,65 @@ describe('HISGame', () => {
       expect(state.pendingGout).toBeNull();
     });
   });
+
+  // ── Foul Weather (#31) interrupt effect ───────────────────────────
+  // Same previously-unconsumed pattern as Gout: 1 CP lost and the targeted
+  // power may not assault / pirate / naval-move / naval-transport this impulse.
+  describe('Foul Weather (#31) interrupt effect', () => {
+    const helpers = { logEvent: () => {} };
+    let game;
+
+    function actingState() {
+      game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.ACTION;
+      state.pendingLuther95 = null;
+      state.activePower = state.powerByPlayer['p1'];
+      return state;
+    }
+
+    it('handler sets pendingFoulWeather and costs the target 1 CP', () => {
+      const state = actingState();
+      state.cpRemaining = 4;
+      EVENT_HANDLERS[31].execute(state, 'protestant', { targetPower: state.activePower }, helpers);
+      expect(state.pendingFoulWeather.targetPower).toBe(state.activePower);
+      expect(state.pendingFoulWeather.noNavalTransport).toBe(true);
+      expect(state.cpRemaining).toBe(3);
+    });
+
+    it('validateMove prohibits assault/piracy/naval-move/naval-transport for the target', () => {
+      const state = actingState();
+      state.pendingFoulWeather = {
+        targetPower: state.activePower, maxMoveSpaces: 1,
+        noAssault: true, noPiracy: true, noNavalMove: true, noNavalTransport: true
+      };
+      for (const at of [ACTION_TYPES.ASSAULT, ACTION_TYPES.PIRACY,
+        ACTION_TYPES.NAVAL_MOVE, ACTION_TYPES.NAVAL_TRANSPORT]) {
+        const res = game.validateMove({
+          actionType: at, actionData: { space: 'Vienna' }, playerId: 'p1'
+        }, state);
+        expect(res.valid).toBe(false);
+        expect(res.error).toContain('Foul Weather');
+      }
+    });
+
+    it('does not restrict a power that is not the Foul Weather target', () => {
+      const state = actingState();
+      state.pendingFoulWeather = {
+        targetPower: 'someone_else',
+        noAssault: true, noPiracy: true, noNavalMove: true, noNavalTransport: true
+      };
+      const res = game.validateMove({
+        actionType: ACTION_TYPES.PIRACY, actionData: {}, playerId: 'p1'
+      }, state);
+      expect(res.error || '').not.toContain('Foul Weather');
+    });
+
+    it('advanceImpulse clears the Foul Weather restriction', () => {
+      const state = actingState();
+      state.pendingFoulWeather = { targetPower: state.activePower };
+      advanceImpulse(state);
+      expect(state.pendingFoulWeather).toBeNull();
+    });
+  });
 });

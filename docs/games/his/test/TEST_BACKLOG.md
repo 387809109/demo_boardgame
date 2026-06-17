@@ -101,8 +101,13 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
 结束时清 `pendingGout`/`pendingFoulWeather`。`index.test.js` +6（扣 CP / CP 不破 0 / 含将领的移动·突击被拦 /
 不含则放行 / 脉冲推进清除）。
 
-**仍待办**：①#34 Mode A（拦截/避战 ±2 响应窗口，已重评为大改造，单独排期）②`#31 Foul Weather` 效果接入
-（同 Gout 模式：扣 1 CP + 限制 targetPower 整脉冲的 移动/突击/海盗/海军移动；字段已备但未消费）。
+**进度（2026-06-18，Foul Weather #31 效果接入）**：同 Gout 模式实现 #31：`EVENT_HANDLERS[31]` 扣 1 CP +
+补 `noNavalTransport` 字段；`validateMove` 对 `targetPower` 拦截 突击/海盗/海军移动/海军运输（整脉冲）；
+`advanceImpulse` 清除（与 Gout 共用）。`index.test.js` +4。**部分**：卡面「陆军每单位最多移动 1 空间」因本
+引擎 `MOVE_FORMATION` 本就是单步邻接移动（≤1 空间），未额外做「每单位整脉冲移动总距离」计数限制。
+
+**仍待办**：①#34 Mode A（拦截/避战 ±2 响应窗口，大改造，单独排期）②Foul Weather「每单位 ≤1 空间总距离」
+精确限制（需按单位记录整脉冲移动，当前单步模型已基本满足）。
 
 ---
 

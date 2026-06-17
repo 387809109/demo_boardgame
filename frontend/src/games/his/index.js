@@ -567,6 +567,21 @@ export class HISGame extends GameEngine {
         }
       }
 
+      // §card #31 Foul Weather: the targeted power may not assault, initiate
+      // piracy, naval move, or naval transport for the rest of its impulse.
+      const fw = state.pendingFoulWeather;
+      if (fw && fw.targetPower === actPower) {
+        const blocked = (
+          (fw.noAssault && actionType === ACTION_TYPES.ASSAULT) ||
+          (fw.noPiracy && actionType === ACTION_TYPES.PIRACY) ||
+          (fw.noNavalMove && actionType === ACTION_TYPES.NAVAL_MOVE) ||
+          (fw.noNavalTransport && actionType === ACTION_TYPES.NAVAL_TRANSPORT)
+        );
+        if (blocked) {
+          return { valid: false, error: 'Foul Weather: action prohibited this impulse' };
+        }
+      }
+
       // CP sub-actions
       if (isCpAction(actionType)) {
         // §2.10.3 Final Autumn Assaults: free ASSAULT allowed outside CP mode
