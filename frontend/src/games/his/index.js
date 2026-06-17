@@ -62,7 +62,7 @@ import {
   finalizeFieldBattle
 } from './actions/combat-actions.js';
 import {
-  validateAssault, executeAssault
+  validateAssault, executeAssault, finalizeAssault
 } from './actions/siege-actions.js';
 import {
   validateNavalMove, executeNavalMove,
@@ -1097,6 +1097,12 @@ export class HISGame extends GameEngine {
       return;
     }
 
+    // W5 Siege Artillery — assault post-roll, not a pendingBattle flow
+    if (currentWindow === 'W5') {
+      this._advanceAfterW5(state, helpers);
+      return;
+    }
+
     const battle = state.pendingBattle;
 
     if (!battle) return;
@@ -1104,9 +1110,9 @@ export class HISGame extends GameEngine {
     const { space, attackerPower, defenderPower } = battle;
     const battleType = battle.battleType || 'field';
 
-    // Post-roll windows (W4/W5/W6): finalize the battle
-    if (currentWindow === 'W4' || currentWindow === 'W5'
-        || currentWindow === 'W6') {
+    // Post-roll windows: W4 finalizes the field battle. (W5 is handled above
+    // via _advanceAfterW5; W6 naval post-roll is not yet integrated.)
+    if (currentWindow === 'W4' || currentWindow === 'W6') {
       state.pendingBattle = null;
       if (currentWindow === 'W4') {
         finalizeFieldBattle(
@@ -1114,7 +1120,7 @@ export class HISGame extends GameEngine {
           battleState || {}
         );
       }
-      // W5/W6 finalization: future integration with siege/naval
+      // W6 naval post-roll finalization: future integration with naval combat
       return;
     }
 
@@ -1184,6 +1190,21 @@ export class HISGame extends GameEngine {
     if (state.pendingBattle === battle) {
       state.pendingBattle = null;
     }
+  }
+
+  /**
+   * Advance after a W5 (Siege Artillery) post-roll response. The assault was
+   * paused after rolling; finalize it now (applying any #35 bonus dice the
+   * responder set) and resume normal impulse bookkeeping.
+   * @private
+   */
+  _advanceAfterW5(state, helpers) {
+    const ctx = state.pendingAssault;
+    state.pendingAssault = null;
+    if (!ctx) return;
+    finalizeAssault(state, ctx, helpers);
+    this._checkVictory(state, helpers);
+    this._checkAutoEndImpulse(state, helpers);
   }
 
   /**

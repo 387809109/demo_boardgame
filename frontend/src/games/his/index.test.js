@@ -2132,4 +2132,116 @@ describe('HISGame', () => {
       expect(failed).toBe(true);
     });
   });
+
+  // ── W5 Siege Artillery (assault post-roll) through processMove ────
+  // The assault CP action pauses after rolling when the attacker holds #35
+  // (Siege Artillery) and has a line of communication ≤4 to a fortified home
+  // space; the bonus dice (hit on 3–6) apply at finalize.
+  describe('processMove — W5 Siege Artillery (assault post-roll)', () => {
+    let game;
+
+    function makeAssaultState(space, attackerHand) {
+      game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.ACTION;
+      state.activePower = 'ottoman';
+      state.pendingLuther95 = null;
+      state.consecutivePasses = 0;
+      state.cpRemaining = 5;
+      state.activeCard = 50;
+      state.activeCardNumber = 50;
+      const sp = state.spaces[space];
+      sp.controller = 'hapsburg';
+      sp.besieged = true;
+      sp.besiegedBy = 'ottoman';
+      sp.units = [
+        { owner: 'ottoman', regulars: 6, mercenaries: 0, cavalry: 0,
+          squadrons: 0, corsairs: 0, leaders: [] },
+        { owner: 'hapsburg', regulars: 1, mercenaries: 0, cavalry: 0,
+          squadrons: 0, corsairs: 0, leaders: [] }
+      ];
+      state.hands.ottoman = attackerHand;
+      return state;
+    }
+
+    // Edirne is adjacent to Istanbul (Ottoman fortified capital) → LOC ≤4.
+    it('LOC in range + holds #35 → assault pauses at W5 for the attacker', () => {
+      const state = makeAssaultState('Edirne', [35, 50]);
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.ASSAULT,
+        actionData: { space: 'Edirne', free: true }, playerId: 'p1'
+      }, state);
+      expect(newState.pendingResponse).toBeTruthy();
+      expect(newState.pendingResponse.window).toBe('W5');
+      expect(newState.pendingResponse.respondingPower).toBe('ottoman');
+      expect(newState.pendingResponse.validCards).toContain(35);
+      expect(newState.pendingAssault).toBeTruthy();
+      expect(newState.pendingAssault.space).toBe('Edirne');
+    });
+
+    it('playing #35 finalizes the assault with bonus dice and consumes the card', () => {
+      let state = makeAssaultState('Edirne', [35, 50]);
+      state = game.processMove({
+        actionType: ACTION_TYPES.ASSAULT,
+        actionData: { space: 'Edirne', free: true }, playerId: 'p1'
+      }, state);
+      expect(state.pendingResponse.window).toBe('W5');
+
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+        actionData: { cardNumber: 35 }, playerId: 'p1'
+      }, state);
+
+      expect(newState.pendingResponse).toBeNull();
+      expect(newState.pendingAssault).toBeNull();
+      expect(newState.hands.ottoman).not.toContain(35);
+      expect(newState.eventLog.find(e => e.type === 'assault')).toBeDefined();
+      const sa = newState.eventLog.find(e => e.type === 'siege_artillery_bonus');
+      expect(sa).toBeDefined();
+      expect(sa.data.dice).toBe(2);
+      expect(sa.data.hitOn).toBe(3);
+    });
+
+    it('declining W5 finalizes the assault with no bonus and keeps the card', () => {
+      let state = makeAssaultState('Edirne', [35, 50]);
+      state = game.processMove({
+        actionType: ACTION_TYPES.ASSAULT,
+        actionData: { space: 'Edirne', free: true }, playerId: 'p1'
+      }, state);
+
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE,
+        actionData: {}, playerId: 'p1'
+      }, state);
+
+      expect(newState.pendingResponse).toBeNull();
+      expect(newState.pendingAssault).toBeNull();
+      expect(newState.hands.ottoman).toContain(35);
+      expect(newState.eventLog.find(e => e.type === 'siege_artillery_bonus'))
+        .toBeUndefined();
+      expect(newState.eventLog.find(e => e.type === 'assault')).toBeDefined();
+    });
+
+    it('LOC gate: holds #35 but no line of communication → no W5, resolves synchronously', () => {
+      // Ottoman assaulting Paris has no LOC to an Ottoman fortified home space.
+      const state = makeAssaultState('Paris', [35, 50]);
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.ASSAULT,
+        actionData: { space: 'Paris', free: true }, playerId: 'p1'
+      }, state);
+      expect(newState.pendingResponse == null).toBe(true);
+      expect(newState.pendingAssault == null).toBe(true);
+      expect(newState.eventLog.find(e => e.type === 'assault')).toBeDefined();
+    });
+
+    it('no #35 in hand → no W5 window even with LOC in range', () => {
+      const state = makeAssaultState('Edirne', [50]);
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.ASSAULT,
+        actionData: { space: 'Edirne', free: true }, playerId: 'p1'
+      }, state);
+      expect(newState.pendingResponse == null).toBe(true);
+      expect(newState.eventLog.find(e => e.type === 'assault')).toBeDefined();
+    });
+  });
 });

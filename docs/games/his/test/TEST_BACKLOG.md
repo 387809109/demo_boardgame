@@ -51,15 +51,21 @@ emit 的精确 move（`PLAY_RESPONSE_CARD`/`DECLINE_RESPONSE`/`RESOLVE_BATTLE`/`
 建 `field_battle`，攻=移动方/守=拦截方）/失败/空 `pendingInterception` 安全无操作分支（此前 bot 测试只验
 *决策* `actionType`，从不经路由执行）。
 
-> **⚠ 引擎缺口（本轮发现，非测试缺口）**：**W5（攻城炮 #35，突击）/ W6（划桨手 #34，海战）响应窗口
-> 未接入实战流程**。`response-actions.js` 的 `createPostRollWindow`/`canAnyPowerRespondPostRoll` 支持
-> W5/W6 且有单测，但 `combat-actions.js` 仅在野战路径调用 post-roll（只产 W4）；`siege-actions.js` /
-> `naval-actions.js` **完全不开任何 `pendingResponse`**，且 `index.js:1117` 明确留桩
-> `// W5/W6 finalization: future integration with siege/naval`。即突击/海战实战中 #35/#34 永不触发。
-> 这是**未实现的功能**而非漏测——需先据 `RULES.md` 核实攻城炮/划桨手的加成规则再实现，不可凭空补码。
-> 建议作为独立功能任务排期。
+**进度（2026-06-17，W5 实现）**：**W5（攻城炮 #35，突击）已接入实战流程并经 `processMove` 端到端覆盖**。
+据卡面规则（#35：进攻方突击 +2 骰、命中值 3–6、需「至发起方设防本土空间 ≤4 陆地空间的交通线」）实现：
 
-**仍待办**：①W5/W6 功能接入（见上）②`RESPONSE` 卡（Gout/Siege Artillery）效果结算 ③辩论/改革面板路由
+- `siege-actions.js`：`executeAssault` 拆为 掷骰阶段（满足「持 #35 且 `assaultLocWithinRange` LOC≤4」时存
+  `state.pendingAssault` + 开 W5 窗口暂停）+ `finalizeAssault`（消费既有 `EVENT_HANDLERS[35]` 设的
+  `state.pendingCombatBonus`，按命中值 3 计 +2 骰加成，再算伤亡/夺控）。新增深度受限 BFS `assaultLocWithinRange`。
+- `index.js`：`_advanceAfterResponse` 新增 W5 分支 → `_advanceAfterW5` → `finalizeAssault`（含胜负/自动结束脉冲）；
+  原 `// W5/W6 finalization` 桩缩为仅 W6。复用既有 `EVENT_HANDLERS[35]`（曾只设 `pendingCombatBonus` 无人消费）。
+- 测试：`index.test.js` +5（暂停/出 #35 加成/放弃/LOC 门控/无牌不开窗），`siege-actions.test.js` +3（LOC BFS 直测）。
+
+> **⚠ 引擎缺口（W6 仍未实现）**：**W6（划桨手 #34，海战）响应窗口未接入实战流程**。`naval-actions.js`
+> 不开 `pendingResponse`；`index.js` W6 分支仍为桩。#34 双模式（修正 拦截/避战 掷骰 ±2 —或— 海战 +3 骰，
+> 非海盗），需据规则在 naval 结算中拆 暂停/finalize 后实现，较 W5 更大。
+
+**仍待办**：①W6 功能接入（见上，naval 1433 行、双模式）②`RESPONSE` 卡 Gout 等效果结算 ③辩论/改革面板路由
 ④`AVOID_BATTLE` 经路由的撤退合法性分支。
 
 ---

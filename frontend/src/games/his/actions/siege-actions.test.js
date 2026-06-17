@@ -4,7 +4,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   establishSiege, validateAssault, executeAssault,
-  checkSiegeBreak, checkRelief, hasLineOfCommunication
+  checkSiegeBreak, checkRelief, hasLineOfCommunication,
+  assaultLocWithinRange
 } from './siege-actions.js';
 import { startCpSpending } from './cp-manager.js';
 import { createTestState, createMockHelpers } from '../test-helpers.js';
@@ -441,5 +442,22 @@ describe('checkRelief — edge cases', () => {
     state.spaces['Belgrade'].besiegedBy = 'ottoman';
     const result = checkRelief(state, 'Belgrade');
     expect(result.shouldBattle).toBe(false);
+  });
+});
+
+describe('assaultLocWithinRange (W5 Siege Artillery LOC gate)', () => {
+  it('true at a space adjacent to the Ottoman fortified capital (Edirne→Istanbul)', () => {
+    const state = createTestState();
+    expect(assaultLocWithinRange(state, 'Edirne', 'ottoman')).toBe(true);
+  });
+
+  it('false for a far western space with no Ottoman line of communication (Paris)', () => {
+    const state = createTestState();
+    expect(assaultLocWithinRange(state, 'Paris', 'ottoman')).toBe(false);
+  });
+
+  it('depth 0 only checks the space itself (Paris is not an Ottoman home)', () => {
+    const state = createTestState();
+    expect(assaultLocWithinRange(state, 'Paris', 'ottoman', 0)).toBe(false);
   });
 });
