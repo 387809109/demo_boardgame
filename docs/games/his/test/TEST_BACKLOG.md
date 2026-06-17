@@ -10,7 +10,7 @@
 
 ## P1 — 高优先（复用 `forceHands`，无浏览器依赖）
 
-### ⬜ 1. 其余 5 势力的特有 UI 路径
+### 🟡 1. 其余 5 势力的特有 UI 路径
 
 本会话仅驱动了新教（Protestant）。以下面板/路径从未经 UI 触发，用 `forceHands` 指定相关卡 + 构造对应状态后逐一走通，并把稳定的渲染契约下沉到 `ui-gating`：
 
@@ -19,6 +19,15 @@
 - **Ottoman**：海盗 / 建海盗船 / 海军移动（`PIRACY`/`BUILD_CORSAIR`/`NAVAL_MOVE`）UI。
 - **England**：继承换君 → 卡 59 Lady Jane Grey（#AB 相关；需 `englandRulerChangedThisTurn`）。
 - **France**：chateaux 相关交互。
+
+**进度（2026-06-17）**：CP 行动菜单的**每势力可见性契约**已下沉为 `ui-gating` 纯函数 `cpActionsFor`（唯一真源
+`CP_ACTION_CATALOG`），取代了 `action-panel._renderCpActions` 中三处重复的 `costs[a.cost] != null && <= cp`
+过滤。`ui-gating.test.js` 新增 10 条穷举用例，独立钉死各势力特有路径的**可见集合**：仅 Ottoman 有
+海盗/海盗船/骑兵；新世界仅 Hapsburg/England/France；仅 Papacy 可创耶稣会/建圣彼得/烧书；英格兰为唯一
+非改革方的发表论文方；Protestant 无海军；并交叉校验 `cpActionsFor` 与 `ACTION_COSTS` 一致、可负担门控。
+**仍待办**：①各动作点击后的多步**选择流程**（target selection，需集成层）②事件卡专属 UI 流程
+（FOUND_JESUIT #AA / Lady Jane Grey #AB / chateaux 等，非 CP 菜单，靠 `forceHands` 发卡 + 构造状态触发）
+③绝罚段 / 反宗教改革面板。
 
 ### ⬜ 2. 人类侧战斗与响应窗口
 

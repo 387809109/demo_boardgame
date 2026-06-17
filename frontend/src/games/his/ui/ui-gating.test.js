@@ -13,7 +13,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { handCanPlay, isActionPanelActive, activePanelKey } from './ui-gating.js';
+import {
+  handCanPlay, isActionPanelActive, activePanelKey,
+  cpActionsFor, CP_ACTION_CATALOG
+} from './ui-gating.js';
+import { ACTION_COSTS } from '../constants.js';
 
 const POWERS = ['ottoman', 'hapsburg', 'england', 'france', 'papacy', 'protestant'];
 
@@ -124,6 +128,132 @@ describe('activePanelKey', () => {
   it('plain active phase returns the phase key', () => {
     expect(activePanelKey({ phase: 'action', activePower: 'protestant' }, 'protestant')).toBe('action');
     expect(activePanelKey({ phase: 'spring_deployment', activePower: 'protestant' }, 'protestant')).toBe('spring_deployment');
+  });
+});
+
+describe('cpActionsFor — per-power CP action menu (P1 backlog item 1)', () => {
+  const HIGH_CP = 99; // affords everything; isolates the availability gate
+
+  // Catalog integrity: every action's costKey must exist for every power in
+  // ACTION_COSTS (as a number or null), and keys must be unique across groups.
+  it('catalog cost keys all resolve in ACTION_COSTS for every power', () => {
+    const allEntries = [
+      ...CP_ACTION_CATALOG.military,
+      ...CP_ACTION_CATALOG.religious,
+      ...CP_ACTION_CATALOG.newWorld
+    ];
+    for (const power of POWERS) {
+      for (const { costKey } of allEntries) {
+        expect(ACTION_COSTS[power], `${power} has ${costKey}`).toHaveProperty(costKey);
+      }
+    }
+  });
+
+  it('action keys are unique across the three groups', () => {
+    const keys = [
+      ...CP_ACTION_CATALOG.military,
+      ...CP_ACTION_CATALOG.religious,
+      ...CP_ACTION_CATALOG.newWorld
+    ].map((a) => a.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  // With unlimited CP, the menu must equal exactly the actions whose cost is
+  // non-null for that power — derived from ACTION_COSTS (the engine source).
+  it('exposes exactly the non-null-cost actions of each power (cross-check vs ACTION_COSTS)', () => {
+    for (const power of POWERS) {
+      const groups = cpActionsFor(power, HIGH_CP);
+      for (const groupName of ['military', 'religious', 'newWorld']) {
+        const got = groups[groupName].map((a) => a.key).sort();
+        const expected = CP_ACTION_CATALOG[groupName]
+          .filter((a) => ACTION_COSTS[power][a.costKey] != null)
+          .map((a) => a.key)
+          .sort();
+        expect(got, `${power}/${groupName}`).toEqual(expected);
+      }
+      // Reported costs must match ACTION_COSTS.
+      for (const groupName of ['military', 'religious', 'newWorld']) {
+        for (const a of groups[groupName]) {
+          const costKey = CP_ACTION_CATALOG[groupName].find((c) => c.key === a.key).costKey;
+          expect(a.cost).toBe(ACTION_COSTS[power][costKey]);
+        }
+      }
+    }
+  });
+
+  // Independent ground-truth signatures for each power's *unique* UI paths —
+  // these are the "特有 UI 路径" the backlog flags as never UI-triggered.
+  const menu = (power) => {
+    const g = cpActionsFor(power, HIGH_CP);
+    return new Set([...g.military, ...g.religious, ...g.newWorld].map((a) => a.key));
+  };
+
+  it('Ottoman alone has piracy / corsair / cavalry, and no New World or religious', () => {
+    const ott = menu('ottoman');
+    expect(ott.has('PIRACY')).toBe(true);
+    expect(ott.has('BUILD_CORSAIR')).toBe(true);
+    expect(ott.has('RAISE_CAVALRY')).toBe(true);
+    expect(cpActionsFor('ottoman', HIGH_CP).newWorld).toEqual([]);
+    expect(cpActionsFor('ottoman', HIGH_CP).religious).toEqual([]);
+    // and no other power has these
+    for (const p of POWERS.filter((x) => x !== 'ottoman')) {
+      expect(menu(p).has('PIRACY')).toBe(false);
+      expect(menu(p).has('BUILD_CORSAIR')).toBe(false);
+      expect(menu(p).has('RAISE_CAVALRY')).toBe(false);
+    }
+  });
+
+  it('New World actions belong only to Hapsburg / England / France', () => {
+    const nwPowers = POWERS.filter((p) => cpActionsFor(p, HIGH_CP).newWorld.length > 0);
+    expect(nwPowers.sort()).toEqual(['england', 'france', 'hapsburg']);
+    for (const p of ['hapsburg', 'england', 'france']) {
+      expect(cpActionsFor(p, HIGH_CP).newWorld.map((a) => a.key).sort())
+        .toEqual(['COLONIZE', 'CONQUER', 'EXPLORE']);
+    }
+  });
+
+  it('Papacy alone may found Jesuits / build St. Peters / burn books', () => {
+    const pap = menu('papacy');
+    expect(pap.has('FOUND_JESUIT')).toBe(true);
+    expect(pap.has('BUILD_ST_PETERS')).toBe(true);
+    expect(pap.has('BURN_BOOKS')).toBe(true);
+    for (const p of POWERS.filter((x) => x !== 'papacy')) {
+      expect(menu(p).has('FOUND_JESUIT')).toBe(false);
+      expect(menu(p).has('BUILD_ST_PETERS')).toBe(false);
+      expect(menu(p).has('BURN_BOOKS')).toBe(false);
+    }
+  });
+
+  it('England is the only non-reformer with Publish Treatise (English zone)', () => {
+    expect(menu('england').has('PUBLISH_TREATISE')).toBe(true);
+    expect(menu('protestant').has('PUBLISH_TREATISE')).toBe(true); // reformer
+    for (const p of ['ottoman', 'hapsburg', 'france', 'papacy']) {
+      expect(menu(p).has('PUBLISH_TREATISE')).toBe(false);
+    }
+  });
+
+  it('Protestant has no naval actions (no squadron / naval move / corsair)', () => {
+    const prot = menu('protestant');
+    expect(prot.has('BUILD_SQUADRON')).toBe(false);
+    expect(prot.has('NAVAL_MOVE')).toBe(false);
+    expect(prot.has('BUILD_CORSAIR')).toBe(false);
+    // but it does reform: translate + publish + debate
+    expect(prot.has('TRANSLATE_SCRIPTURE')).toBe(true);
+    expect(prot.has('CALL_DEBATE')).toBe(true);
+  });
+
+  it('affordability gate: low CP hides actions costing more than remaining', () => {
+    // Hapsburg CONQUER costs 4; at 3 CP it must drop out, at 4 it appears.
+    expect(cpActionsFor('hapsburg', 3).newWorld.map((a) => a.key)).not.toContain('CONQUER');
+    expect(cpActionsFor('hapsburg', 4).newWorld.map((a) => a.key)).toContain('CONQUER');
+    // At 0 CP nothing is affordable.
+    const z = cpActionsFor('hapsburg', 0);
+    expect([...z.military, ...z.religious, ...z.newWorld]).toEqual([]);
+  });
+
+  it('unknown power yields empty groups (no throw)', () => {
+    const g = cpActionsFor('nobody', HIGH_CP);
+    expect(g).toEqual({ military: [], religious: [], newWorld: [] });
   });
 });
 

@@ -12,6 +12,69 @@
  */
 
 import { canActInSegment } from '../phases/phase-diplomacy.js';
+import { ACTION_COSTS } from '../constants.js';
+
+/**
+ * Canonical catalog of CP-spend actions, grouped as the action panel renders
+ * them (军事 / 宗教 / 新世界). Each entry maps the engine action `key` to its
+ * `costKey` in ACTION_COSTS. This is the single source of truth for *which*
+ * actions exist per group; presentation (label/icon) lives in action-panel.js.
+ *
+ * Per-power availability is fully data-driven: an action shows only when its
+ * cost for that power is non-null. That gate (previously triplicated inline in
+ * action-panel `_renderCpActions`) is enumerated by `cpActionsFor` below so the
+ * "what may this power do" contract can be asserted exhaustively in node.
+ */
+export const CP_ACTION_CATALOG = {
+  military: [
+    { key: 'MOVE_FORMATION', costKey: 'move_formation' },
+    { key: 'RAISE_REGULAR', costKey: 'raise_regular' },
+    { key: 'BUY_MERCENARY', costKey: 'buy_mercenary' },
+    { key: 'RAISE_CAVALRY', costKey: 'raise_cavalry' },
+    { key: 'BUILD_SQUADRON', costKey: 'build_squadron' },
+    { key: 'BUILD_CORSAIR', costKey: 'build_corsair' },
+    { key: 'NAVAL_MOVE', costKey: 'naval_move' },
+    { key: 'CONTROL_UNFORTIFIED', costKey: 'control_unfortified' },
+    { key: 'ASSAULT', costKey: 'assault' },
+    { key: 'PIRACY', costKey: 'initiate_piracy' }
+  ],
+  religious: [
+    { key: 'PUBLISH_TREATISE', costKey: 'publish_treatise' },
+    { key: 'TRANSLATE_SCRIPTURE', costKey: 'translate_scripture' },
+    { key: 'CALL_DEBATE', costKey: 'call_debate' },
+    { key: 'BUILD_ST_PETERS', costKey: 'build_st_peters' },
+    { key: 'BURN_BOOKS', costKey: 'burn_books' },
+    { key: 'FOUND_JESUIT', costKey: 'found_jesuit' }
+  ],
+  newWorld: [
+    { key: 'EXPLORE', costKey: 'explore' },
+    { key: 'COLONIZE', costKey: 'colonize' },
+    { key: 'CONQUER', costKey: 'conquer' }
+  ]
+};
+
+/**
+ * Which CP-spend actions `power` may take with `cpRemaining` points, grouped as
+ * the action panel renders them. An action qualifies when its cost for that
+ * power is defined (non-null) and affordable (≤ cpRemaining).
+ *
+ * @param {string} power
+ * @param {number} cpRemaining
+ * @returns {{ military: Array<{key:string,cost:number}>,
+ *            religious: Array<{key:string,cost:number}>,
+ *            newWorld: Array<{key:string,cost:number}> }}
+ */
+export function cpActionsFor(power, cpRemaining) {
+  const costs = ACTION_COSTS[power] || {};
+  const pick = (group) => CP_ACTION_CATALOG[group]
+    .filter((a) => costs[a.costKey] != null && costs[a.costKey] <= cpRemaining)
+    .map((a) => ({ key: a.key, cost: costs[a.costKey] }));
+  return {
+    military: pick('military'),
+    religious: pick('religious'),
+    newWorld: pick('newWorld')
+  };
+}
 
 /**
  * May `power` select/play a hand card right now?

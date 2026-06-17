@@ -8,40 +8,36 @@
  * instead of emitting directly. The parent UI handles the selection flow.
  */
 
-import { ACTION_COSTS } from '../constants.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
-import { isActionPanelActive } from './ui-gating.js';
+import { isActionPanelActive, cpActionsFor } from './ui-gating.js';
 import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
 
-// ── Action Definitions ──────────────────────────────────────────
+// ── Action Presentation ─────────────────────────────────────────
+// Which actions exist per group (and their per-power cost gate) is owned by
+// ui-gating's CP_ACTION_CATALOG / cpActionsFor — the single source of truth.
+// This map only carries display (label/icon) keyed by engine action key.
 
-const MILITARY_ACTIONS = [
-  { key: 'MOVE_FORMATION', cost: 'move_formation', label: '移动编队', icon: '⚔' },
-  { key: 'RAISE_REGULAR', cost: 'raise_regular', label: '征募正规军', icon: '🛡' },
-  { key: 'BUY_MERCENARY', cost: 'buy_mercenary', label: '雇佣兵', icon: '💰' },
-  { key: 'RAISE_CAVALRY', cost: 'raise_cavalry', label: '骑兵', icon: '🐎' },
-  { key: 'BUILD_SQUADRON', cost: 'build_squadron', label: '建造舰队', icon: '⛵' },
-  { key: 'BUILD_CORSAIR', cost: 'build_corsair', label: '建造海盗船', icon: '🏴' },
-  { key: 'NAVAL_MOVE', cost: 'naval_move', label: '海军移动', icon: '⚓' },
-  { key: 'CONTROL_UNFORTIFIED', cost: 'control_unfortified', label: '控制空间', icon: '🏳' },
-  { key: 'ASSAULT', cost: 'assault', label: '突击', icon: '🗡' },
-  { key: 'PIRACY', cost: 'initiate_piracy', label: '海盗行动', icon: '☠' }
-];
-
-const RELIGIOUS_ACTIONS = [
-  { key: 'PUBLISH_TREATISE', cost: 'publish_treatise', label: '发表论文', icon: '📜' },
-  { key: 'TRANSLATE_SCRIPTURE', cost: 'translate_scripture', label: '翻译圣经', icon: '📖' },
-  { key: 'CALL_DEBATE', cost: 'call_debate', label: '召集辩论', icon: '🎭' },
-  { key: 'BUILD_ST_PETERS', cost: 'build_st_peters', label: '建造圣彼得', icon: '⛪' },
-  { key: 'BURN_BOOKS', cost: 'burn_books', label: '烧书', icon: '🔥' },
-  { key: 'FOUND_JESUIT', cost: 'found_jesuit', label: '创立耶稣会', icon: '✝' }
-];
-
-const NEW_WORLD_ACTIONS = [
-  { key: 'EXPLORE', cost: 'explore', label: '探索', icon: '🧭' },
-  { key: 'COLONIZE', cost: 'colonize', label: '殖民', icon: '🏗' },
-  { key: 'CONQUER', cost: 'conquer', label: '征服', icon: '⚔' }
-];
+const CP_ACTION_PRESENTATION = {
+  MOVE_FORMATION: { label: '移动编队', icon: '⚔' },
+  RAISE_REGULAR: { label: '征募正规军', icon: '🛡' },
+  BUY_MERCENARY: { label: '雇佣兵', icon: '💰' },
+  RAISE_CAVALRY: { label: '骑兵', icon: '🐎' },
+  BUILD_SQUADRON: { label: '建造舰队', icon: '⛵' },
+  BUILD_CORSAIR: { label: '建造海盗船', icon: '🏴' },
+  NAVAL_MOVE: { label: '海军移动', icon: '⚓' },
+  CONTROL_UNFORTIFIED: { label: '控制空间', icon: '🏳' },
+  ASSAULT: { label: '突击', icon: '🗡' },
+  PIRACY: { label: '海盗行动', icon: '☠' },
+  PUBLISH_TREATISE: { label: '发表论文', icon: '📜' },
+  TRANSLATE_SCRIPTURE: { label: '翻译圣经', icon: '📖' },
+  CALL_DEBATE: { label: '召集辩论', icon: '🎭' },
+  BUILD_ST_PETERS: { label: '建造圣彼得', icon: '⛪' },
+  BURN_BOOKS: { label: '烧书', icon: '🔥' },
+  FOUND_JESUIT: { label: '创立耶稣会', icon: '✝' },
+  EXPLORE: { label: '探索', icon: '🧭' },
+  COLONIZE: { label: '殖民', icon: '🏗' },
+  CONQUER: { label: '征服', icon: '⚔' }
+};
 
 // Actions that need a multi-step selection flow
 const NEEDS_SELECTION = new Set([
@@ -243,53 +239,10 @@ export class ActionPanel {
     const cpRemaining = state.cpRemaining;
     this._el.appendChild(this._sectionHeader(`CP 行动 (剩余: ${cpRemaining})`));
 
-    const costs = ACTION_COSTS[power];
-    if (!costs) return;
-
-    // Military actions
-    const milAvail = MILITARY_ACTIONS.filter(a =>
-      costs[a.cost] != null && costs[a.cost] <= cpRemaining
-    );
-    if (milAvail.length > 0) {
-      this._el.appendChild(this._groupLabel('军事'));
-      const grid = this._actionGrid();
-      for (const action of milAvail) {
-        grid.appendChild(this._cpActionButton(
-          action, costs[action.cost], power
-        ));
-      }
-      this._el.appendChild(grid);
-    }
-
-    // Religious actions
-    const relAvail = RELIGIOUS_ACTIONS.filter(a =>
-      costs[a.cost] != null && costs[a.cost] <= cpRemaining
-    );
-    if (relAvail.length > 0) {
-      this._el.appendChild(this._groupLabel('宗教'));
-      const grid = this._actionGrid();
-      for (const action of relAvail) {
-        grid.appendChild(this._cpActionButton(
-          action, costs[action.cost], power
-        ));
-      }
-      this._el.appendChild(grid);
-    }
-
-    // New World actions
-    const nwAvail = NEW_WORLD_ACTIONS.filter(a =>
-      costs[a.cost] != null && costs[a.cost] <= cpRemaining
-    );
-    if (nwAvail.length > 0) {
-      this._el.appendChild(this._groupLabel('新世界'));
-      const grid = this._actionGrid();
-      for (const action of nwAvail) {
-        grid.appendChild(this._cpActionButton(
-          action, costs[action.cost], power
-        ));
-      }
-      this._el.appendChild(grid);
-    }
+    const groups = cpActionsFor(power, cpRemaining);
+    this._renderCpGroup('军事', groups.military, power);
+    this._renderCpGroup('宗教', groups.religious, power);
+    this._renderCpGroup('新世界', groups.newWorld, power);
 
     // End impulse
     const endRow = document.createElement('div');
@@ -639,7 +592,19 @@ export class ActionPanel {
     return grid;
   }
 
-  _cpActionButton(actionDef, cost, power) {
+  /** Render a labeled grid of CP-action buttons (skips empty groups). */
+  _renderCpGroup(label, actions, power) {
+    if (!actions || actions.length === 0) return;
+    this._el.appendChild(this._groupLabel(label));
+    const grid = this._actionGrid();
+    for (const action of actions) {
+      grid.appendChild(this._cpActionButton(action, power));
+    }
+    this._el.appendChild(grid);
+  }
+
+  _cpActionButton(action, power) {
+    const present = CP_ACTION_PRESENTATION[action.key] || { label: action.key, icon: '•' };
     const btn = document.createElement('button');
     btn.style.cssText = `
       display: flex; align-items: center; gap: 4px;
@@ -650,9 +615,9 @@ export class ActionPanel {
       transition: background 0.15s;
     `;
     btn.innerHTML = `
-      <span style="font-size:13px">${actionDef.icon}</span>
-      <span>${actionDef.label}</span>
-      <span style="font-size:9px;color:#94a3b8;margin-left:2px">${cost}CP</span>
+      <span style="font-size:13px">${present.icon}</span>
+      <span>${present.label}</span>
+      <span style="font-size:9px;color:#94a3b8;margin-left:2px">${action.cost}CP</span>
     `;
     btn.addEventListener('mouseenter', () => {
       btn.style.background = POWER_COLORS[power] + '18';
@@ -661,7 +626,7 @@ export class ActionPanel {
       btn.style.background = 'rgba(255,255,255,0.9)';
     });
     btn.addEventListener('click', () => {
-      this._select(actionDef.key);
+      this._select(action.key);
     });
     return btn;
   }
