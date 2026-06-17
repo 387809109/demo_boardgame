@@ -101,6 +101,139 @@ export function handCanPlay(state, power) {
   return false;
 }
 
+// ── Combat-response panel models (P1 backlog item 2) ────────────────
+// Pure state→panel descriptors for the historically bug-prone response /
+// battle / interception windows. action-panel renders straight from these so
+// "which controls appear and what move each emits" has one source of truth and
+// can be enumerated in node (W1–W7 × my/not-my response × cards/no-cards, etc.)
+// without a live battle. Each control is { label, move } (direct emit) or
+// { label, select } (starts a target-selection flow).
+
+/** Window id → short label (响应窗口名). */
+export const RESPONSE_WINDOW_LABELS = {
+  W1: '佣兵响应',
+  W2: '攻方战斗卡',
+  W3: '守方战斗卡',
+  W4: '禁卫军',
+  W5: '攻城炮',
+  W6: '划桨手',
+  W7: '脉冲中断'
+};
+
+/** Window id → one-line hint. */
+export const RESPONSE_WINDOW_HINTS = {
+  W1: '选择是否打出佣兵卡',
+  W2: '选择是否打出战斗卡',
+  W3: '选择是否打出战斗卡',
+  W4: '奥斯曼可重投',
+  W5: '增加突击骰',
+  W6: '增加海战骰',
+  W7: '响应对手行动'
+};
+
+/**
+ * Descriptor for the response window panel, or null when none is open.
+ * Cards/decline are offered only to the responding power; spectators see a
+ * waiting state (isMyResponse=false, empty cards, no decline).
+ *
+ * @param {Object} state
+ * @param {string} playerPower
+ * @returns {null | {window, label, hint, respondingPower, isMyResponse,
+ *   context, cards: Array<{cardNumber, move}>, canDecline, declineMove}}
+ */
+export function responsePanelModel(state, playerPower) {
+  const resp = state && state.pendingResponse;
+  if (!resp) return null;
+  const window = resp.window || '?';
+  const respondingPower = resp.respondingPower;
+  const isMyResponse = respondingPower === playerPower;
+  const validCards = isMyResponse ? (resp.validCards || []) : [];
+  return {
+    window,
+    label: RESPONSE_WINDOW_LABELS[window] || window,
+    hint: RESPONSE_WINDOW_HINTS[window] || '',
+    respondingPower,
+    isMyResponse,
+    context: resp.context || null,
+    cards: validCards.map((n) => ({
+      cardNumber: n,
+      move: { actionType: 'PLAY_RESPONSE_CARD', actionData: { cardNumber: n } }
+    })),
+    canDecline: isMyResponse,
+    declineMove: isMyResponse
+      ? { actionType: 'DECLINE_RESPONSE', actionData: {} }
+      : null
+  };
+}
+
+/**
+ * Descriptor for the battle panel, or null when no battle is pending. When the
+ * defender may retreat into fortification two choices are offered (退入工事 /
+ * 应战); otherwise a single resolve. A post-battle retreat appends a
+ * selection-flow control.
+ *
+ * @param {Object} state
+ * @returns {null | {type, space, attackerPower, defenderPower, canWithdraw,
+ *   controls: Array<{label, move?, select?}>, needsRetreat}}
+ */
+export function battlePanelModel(state) {
+  const battle = state && state.pendingBattle;
+  if (!battle) return null;
+  const controls = [];
+  if (battle.canWithdraw) {
+    controls.push({
+      label: '退入工事',
+      move: { actionType: 'WITHDRAW_INTO_FORTIFICATION', actionData: { space: battle.space } }
+    });
+    controls.push({
+      label: '应战',
+      move: { actionType: 'RESOLVE_BATTLE', actionData: {} }
+    });
+  } else {
+    controls.push({
+      label: '解决战斗',
+      move: { actionType: 'RESOLVE_BATTLE', actionData: {} }
+    });
+  }
+  if (battle.needsRetreat) {
+    controls.push({ label: '撤退到选中空间', select: 'RESOLVE_RETREAT' });
+  }
+  return {
+    type: battle.type === 'field_battle' ? '野战' : '战斗',
+    space: battle.space,
+    attackerPower: battle.attackerPower,
+    defenderPower: battle.defenderPower,
+    canWithdraw: !!battle.canWithdraw,
+    controls,
+    needsRetreat: !!battle.needsRetreat
+  };
+}
+
+/**
+ * Descriptor for the interception panel, or null when none is pending. Offers
+ * 尝试拦截 always; 避战 only when the mover may avoid.
+ *
+ * @param {Object} state
+ * @returns {null | {interceptorPower, interceptorSpace, targetSpace,
+ *   controls: Array<{label, move}>}}
+ */
+export function interceptionPanelModel(state) {
+  const interc = state && state.pendingInterception;
+  if (!interc) return null;
+  const controls = [
+    { label: '尝试拦截', move: { actionType: 'RESOLVE_INTERCEPTION', actionData: {} } }
+  ];
+  if (interc.canAvoid) {
+    controls.push({ label: '避战', move: { actionType: 'AVOID_BATTLE', actionData: {} } });
+  }
+  return {
+    interceptorPower: interc.interceptorPower,
+    interceptorSpace: interc.interceptorSpace,
+    targetSpace: interc.targetSpace,
+    controls
+  };
+}
+
 /**
  * Should the action panel show controls for `power` (vs "等待对手行动")?
  *

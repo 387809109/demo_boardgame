@@ -15,7 +15,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   handCanPlay, isActionPanelActive, activePanelKey,
-  cpActionsFor, CP_ACTION_CATALOG
+  cpActionsFor, CP_ACTION_CATALOG,
+  responsePanelModel, battlePanelModel, interceptionPanelModel,
+  RESPONSE_WINDOW_LABELS
 } from './ui-gating.js';
 import { ACTION_COSTS } from '../constants.js';
 
@@ -254,6 +256,150 @@ describe('cpActionsFor — per-power CP action menu (P1 backlog item 1)', () => 
   it('unknown power yields empty groups (no throw)', () => {
     const g = cpActionsFor('nobody', HIGH_CP);
     expect(g).toEqual({ military: [], religious: [], newWorld: [] });
+  });
+});
+
+describe('responsePanelModel — W1–W7 response windows (P1 backlog item 2)', () => {
+  const WINDOWS = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'];
+
+  it('returns null when no response window is open', () => {
+    expect(responsePanelModel({}, 'ottoman')).toBe(null);
+    expect(responsePanelModel(null, 'ottoman')).toBe(null);
+  });
+
+  it('every window resolves to a known label + hint (no raw window id leaks)', () => {
+    for (const w of WINDOWS) {
+      const s = { pendingResponse: { window: w, respondingPower: 'ottoman', validCards: [] } };
+      const m = responsePanelModel(s, 'ottoman');
+      expect(m.window).toBe(w);
+      expect(m.label).toBe(RESPONSE_WINDOW_LABELS[w]);
+      expect(m.label).not.toBe(w); // mapped, not the bare id
+      expect(typeof m.hint).toBe('string');
+      expect(m.hint.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('unknown window id falls back to the id and empty hint (no throw)', () => {
+    const s = { pendingResponse: { window: 'W99', respondingPower: 'ottoman', validCards: [1] } };
+    const m = responsePanelModel(s, 'ottoman');
+    expect(m.label).toBe('W99');
+    expect(m.hint).toBe('');
+  });
+
+  it('responding power gets card + decline controls with correct moves', () => {
+    const s = {
+      pendingResponse: { window: 'W2', respondingPower: 'hapsburg', validCards: [161, 162] }
+    };
+    const m = responsePanelModel(s, 'hapsburg');
+    expect(m.isMyResponse).toBe(true);
+    expect(m.cards.map((c) => c.cardNumber)).toEqual([161, 162]);
+    expect(m.cards[0].move).toEqual({
+      actionType: 'PLAY_RESPONSE_CARD', actionData: { cardNumber: 161 }
+    });
+    expect(m.canDecline).toBe(true);
+    expect(m.declineMove).toEqual({ actionType: 'DECLINE_RESPONSE', actionData: {} });
+  });
+
+  it('spectators (not the responding power) see no cards and cannot decline', () => {
+    const s = {
+      pendingResponse: { window: 'W1', respondingPower: 'ottoman', validCards: [1, 2, 3] }
+    };
+    const m = responsePanelModel(s, 'france');
+    expect(m.isMyResponse).toBe(false);
+    expect(m.cards).toEqual([]);       // never expose another power's cards
+    expect(m.canDecline).toBe(false);
+    expect(m.declineMove).toBe(null);
+  });
+
+  it('responding power with no valid cards may still decline', () => {
+    const s = { pendingResponse: { window: 'W3', respondingPower: 'england', validCards: [] } };
+    const m = responsePanelModel(s, 'england');
+    expect(m.isMyResponse).toBe(true);
+    expect(m.cards).toEqual([]);
+    expect(m.canDecline).toBe(true);
+  });
+
+  it('passes through battle context for display', () => {
+    const ctx = { space: 'Vienna', attackerPower: 'ottoman', defenderPower: 'hapsburg' };
+    const s = { pendingResponse: { window: 'W2', respondingPower: 'hapsburg', validCards: [], context: ctx } };
+    expect(responsePanelModel(s, 'hapsburg').context).toEqual(ctx);
+  });
+
+  it('exhaustive: across all windows × all powers, only the responder is offered controls', () => {
+    for (const w of WINDOWS) {
+      for (const responder of POWERS) {
+        const s = { pendingResponse: { window: w, respondingPower: responder, validCards: [42] } };
+        for (const viewer of POWERS) {
+          const m = responsePanelModel(s, viewer);
+          const mine = viewer === responder;
+          expect(m.isMyResponse).toBe(mine);
+          expect(m.canDecline).toBe(mine);
+          expect(m.cards.length).toBe(mine ? 1 : 0);
+          expect(m.declineMove === null).toBe(!mine);
+        }
+      }
+    }
+  });
+});
+
+describe('battlePanelModel', () => {
+  it('returns null with no pending battle', () => {
+    expect(battlePanelModel({})).toBe(null);
+  });
+
+  it('field battle without withdraw: single resolve control', () => {
+    const m = battlePanelModel({
+      pendingBattle: { type: 'field_battle', space: 'Milan', attackerPower: 'france', defenderPower: 'hapsburg' }
+    });
+    expect(m.type).toBe('野战');
+    expect(m.canWithdraw).toBe(false);
+    expect(m.controls).toHaveLength(1);
+    expect(m.controls[0].move).toEqual({ actionType: 'RESOLVE_BATTLE', actionData: {} });
+  });
+
+  it('siege/assault that allows withdraw: 退入工事 (with space) + 应战', () => {
+    const m = battlePanelModel({
+      pendingBattle: { type: 'siege', space: 'Vienna', attackerPower: 'ottoman', defenderPower: 'hapsburg', canWithdraw: true }
+    });
+    expect(m.type).toBe('战斗');
+    expect(m.canWithdraw).toBe(true);
+    expect(m.controls).toHaveLength(2);
+    expect(m.controls[0].move).toEqual({
+      actionType: 'WITHDRAW_INTO_FORTIFICATION', actionData: { space: 'Vienna' }
+    });
+    expect(m.controls[1].move).toEqual({ actionType: 'RESOLVE_BATTLE', actionData: {} });
+  });
+
+  it('post-battle retreat appends a selection-flow control', () => {
+    const m = battlePanelModel({
+      pendingBattle: { type: 'field_battle', space: 'Milan', attackerPower: 'france', defenderPower: 'hapsburg', needsRetreat: true }
+    });
+    expect(m.needsRetreat).toBe(true);
+    const last = m.controls[m.controls.length - 1];
+    expect(last.select).toBe('RESOLVE_RETREAT');
+    expect(last.move).toBeUndefined();
+  });
+});
+
+describe('interceptionPanelModel', () => {
+  it('returns null with no pending interception', () => {
+    expect(interceptionPanelModel({})).toBe(null);
+  });
+
+  it('offers 尝试拦截 only when avoid is unavailable', () => {
+    const m = interceptionPanelModel({
+      pendingInterception: { interceptorPower: 'hapsburg', interceptorSpace: 'Milan', targetSpace: 'Pavia' }
+    });
+    expect(m.controls).toHaveLength(1);
+    expect(m.controls[0].move).toEqual({ actionType: 'RESOLVE_INTERCEPTION', actionData: {} });
+  });
+
+  it('adds 避战 when the mover may avoid', () => {
+    const m = interceptionPanelModel({
+      pendingInterception: { interceptorPower: 'hapsburg', interceptorSpace: 'Milan', targetSpace: 'Pavia', canAvoid: true }
+    });
+    expect(m.controls).toHaveLength(2);
+    expect(m.controls[1].move).toEqual({ actionType: 'AVOID_BATTLE', actionData: {} });
   });
 });
 

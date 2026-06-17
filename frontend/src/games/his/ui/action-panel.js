@@ -9,7 +9,10 @@
  */
 
 import { CARD_BY_NUMBER } from '../data/cards.js';
-import { isActionPanelActive, cpActionsFor } from './ui-gating.js';
+import {
+  isActionPanelActive, cpActionsFor,
+  responsePanelModel, battlePanelModel, interceptionPanelModel
+} from './ui-gating.js';
 import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
 
 // ── Action Presentation ─────────────────────────────────────────
@@ -50,27 +53,6 @@ const NEEDS_SELECTION = new Set([
   'SPRING_DEPLOY', 'SELECT_LUTHER95_TARGET',
   'RESOLVE_REFORMATION_ATTEMPT', 'RESOLVE_RETREAT'
 ]);
-
-const RESPONSE_WINDOW_LABELS = {
-  W1: '佣兵响应',
-  W2: '攻方战斗卡',
-  W3: '守方战斗卡',
-  W4: '禁卫军',
-  W5: '攻城炮',
-  W6: '划桨手',
-  W7: '脉冲中断'
-};
-
-const RESPONSE_WINDOW_HINTS = {
-  W1: '选择是否打出佣兵卡',
-  W2: '选择是否打出战斗卡',
-  W3: '选择是否打出战斗卡',
-  W4: '奥斯曼可重投',
-  W5: '增加突击骰',
-  W6: '增加海战骰',
-  W7: '响应对手行动'
-};
-
 
 export class ActionPanel {
   constructor() {
@@ -386,62 +368,43 @@ export class ActionPanel {
   }
 
   _renderBattlePanel(state) {
-    const battle = state.pendingBattle;
-    this._el.appendChild(this._sectionHeader(
-      battle.type === 'field_battle' ? '野战' : '战斗'
-    ));
+    const model = battlePanelModel(state);
+    if (!model) return;
+    this._el.appendChild(this._sectionHeader(model.type));
     this._el.appendChild(this._infoText(
-      `地点: ${battle.space} | ` +
-      `进攻: ${battle.attackerPower} vs 防守: ${battle.defenderPower}`
+      `地点: ${model.space} | ` +
+      `进攻: ${model.attackerPower} vs 防守: ${model.defenderPower}`
     ));
 
-    if (battle.canWithdraw) {
+    // Withdraw/fight choices render as a row; resolve/retreat stack below.
+    if (model.canWithdraw) {
       const btnRow = document.createElement('div');
       btnRow.style.cssText = 'display:flex;gap:6px;';
-
-      btnRow.appendChild(this._actionButton('退入工事', () => {
-        this._emit({
-          type: 'WITHDRAW_INTO_FORTIFICATION',
-          data: { space: battle.space }
-        });
-      }));
-
-      btnRow.appendChild(this._actionButton('应战', () => {
-        this._emit({ type: 'RESOLVE_BATTLE' });
-      }, 'danger'));
-
+      btnRow.appendChild(this._controlButton(model.controls[0], 'default'));
+      btnRow.appendChild(this._controlButton(model.controls[1], 'danger'));
       this._el.appendChild(btnRow);
     } else {
-      this._el.appendChild(this._actionButton('解决战斗', () => {
-        this._emit({ type: 'RESOLVE_BATTLE' });
-      }, 'primary'));
+      this._el.appendChild(this._controlButton(model.controls[0], 'primary'));
     }
 
-    // Retreat option (after battle)
-    if (battle.needsRetreat) {
+    if (model.needsRetreat) {
       this._el.appendChild(this._infoText('选择撤退目的地'));
-      this._el.appendChild(this._actionButton('撤退到选中空间', () => {
-        this._select('RESOLVE_RETREAT');
-      }, 'secondary'));
+      const retreat = model.controls[model.controls.length - 1];
+      this._el.appendChild(this._controlButton(retreat, 'secondary'));
     }
   }
 
   _renderResponsePanel(state, playerPower) {
-    const resp = state.pendingResponse;
-    const windowId = resp.window || '?';
-    const label = RESPONSE_WINDOW_LABELS[windowId] || windowId;
-    const hint = RESPONSE_WINDOW_HINTS[windowId] || '';
-    const respPower = resp.respondingPower;
+    const model = responsePanelModel(state, playerPower);
+    if (!model) return;
+    const respPower = model.respondingPower;
     const respPowerName = POWER_LABELS[respPower] || respPower;
-    const isMyResponse = respPower === playerPower;
 
     // Window header
-    this._el.appendChild(this._sectionHeader(
-      `${label} — ${hint}`
-    ));
+    this._el.appendChild(this._sectionHeader(`${model.label} — ${model.hint}`));
 
     // Context info (battle space, attacker vs defender)
-    const ctx = resp.context;
+    const ctx = model.context;
     if (ctx) {
       const parts = [];
       if (ctx.space) parts.push(`地点: ${ctx.space}`);
@@ -467,30 +430,22 @@ export class ActionPanel {
     powerIndicator.textContent = `响应方: ${respPowerName}`;
     this._el.appendChild(powerIndicator);
 
-    if (!isMyResponse) {
+    if (!model.isMyResponse) {
       // Not this player's response turn — show waiting message
-      this._el.appendChild(this._infoText(
-        `等待 ${respPowerName} 响应...`
-      ));
+      this._el.appendChild(this._infoText(`等待 ${respPowerName} 响应...`));
       return;
     }
 
     // Player's response turn — show valid cards and decline button
-    const validCards = resp.validCards || [];
-    if (validCards.length > 0) {
+    if (model.cards.length > 0) {
       this._el.appendChild(this._groupLabel('可用响应卡'));
       const grid = this._actionGrid();
-      for (const cardNum of validCards) {
-        const card = CARD_BY_NUMBER[cardNum];
-        const cardName = card ? card.name : `Card #${cardNum}`;
+      for (const c of model.cards) {
+        const card = CARD_BY_NUMBER[c.cardNumber];
+        const cardName = card ? card.name : `Card #${c.cardNumber}`;
         const btn = this._actionButton(
-          `#${cardNum} ${cardName}`,
-          () => {
-            this._emit({
-              type: 'PLAY_RESPONSE_CARD',
-              data: { cardNumber: cardNum }
-            });
-          },
+          `#${c.cardNumber} ${cardName}`,
+          () => { this._onAction(c.move); },
           'primary'
         );
         btn.style.fontSize = '11px';
@@ -506,32 +461,25 @@ export class ActionPanel {
     const declineRow = document.createElement('div');
     declineRow.style.cssText = 'margin-top: 8px;';
     declineRow.appendChild(this._actionButton('放弃响应', () => {
-      this._emit({ type: 'DECLINE_RESPONSE' });
+      this._onAction(model.declineMove);
     }, 'secondary'));
     this._el.appendChild(declineRow);
   }
 
   _renderInterceptionPanel(state) {
-    const interc = state.pendingInterception;
+    const model = interceptionPanelModel(state);
+    if (!model) return;
     this._el.appendChild(this._sectionHeader('拦截'));
     this._el.appendChild(this._infoText(
-      `${interc.interceptorPower} 尝试从 ${interc.interceptorSpace} ` +
-      `拦截进入 ${interc.targetSpace} 的编队`
+      `${model.interceptorPower} 尝试从 ${model.interceptorSpace} ` +
+      `拦截进入 ${model.targetSpace} 的编队`
     ));
 
     const btnRow = document.createElement('div');
     btnRow.style.cssText = 'display:flex;gap:6px;';
-
-    btnRow.appendChild(this._actionButton('尝试拦截', () => {
-      this._emit({ type: 'RESOLVE_INTERCEPTION' });
-    }, 'primary'));
-
-    if (interc.canAvoid) {
-      btnRow.appendChild(this._actionButton('避战', () => {
-        this._emit({ type: 'AVOID_BATTLE' });
-      }, 'secondary'));
-    }
-
+    model.controls.forEach((ctrl, i) => {
+      btnRow.appendChild(this._controlButton(ctrl, i === 0 ? 'primary' : 'secondary'));
+    });
     this._el.appendChild(btnRow);
   }
 
@@ -629,6 +577,17 @@ export class ActionPanel {
       this._select(action.key);
     });
     return btn;
+  }
+
+  /**
+   * Build a button from a panel-model control: `{ label, move }` emits the move
+   * directly, `{ label, select }` starts a target-selection flow.
+   */
+  _controlButton(ctrl, variant = 'default') {
+    return this._actionButton(ctrl.label, () => {
+      if (ctrl.move) this._onAction(ctrl.move);
+      else if (ctrl.select) this._select(ctrl.select);
+    }, variant);
   }
 
   _actionButton(text, onClick, variant = 'default') {

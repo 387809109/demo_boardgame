@@ -29,13 +29,23 @@
 （FOUND_JESUIT #AA / Lady Jane Grey #AB / chateaux 等，非 CP 菜单，靠 `forceHands` 发卡 + 构造状态触发）
 ③绝罚段 / 反宗教改革面板。
 
-### ⬜ 2. 人类侧战斗与响应窗口
+### 🟡 2. 人类侧战斗与响应窗口
 
 本会话所有战斗均为 bot-vs-bot 自动结算；以下从未由人类侧驱动，且响应链历来易出 bug：
 
 - `pendingBattle` / `pendingInterception` / 突击（assault）面板。
 - W1–W7 响应卡窗口（佣兵 / 攻守方战斗卡 / 禁卫军 / 攻城炮 / 划桨手 / 脉冲中断）及 `RESPONSE` 卡（如 Gout、Siege Artillery）。
 - 工具：`forceHands` 发到响应/战斗卡 + 构造开战状态后触发。
+
+**进度（2026-06-17）**：三个战斗-响应面板的**控件与出招契约**已下沉为 `ui-gating` 纯函数
+`responsePanelModel` / `battlePanelModel` / `interceptionPanelModel`，`action-panel` 三个 `_render*` 方法
+改为直接消费（移除内联分支 + 重复的窗口常量，控件用 `{label, move}` 或 `{label, select}` 统一描述）。
+`ui-gating.test.js` 新增 15 条穷举用例钉死：W1–W7 全窗口 label/hint 映射（不泄露裸窗口 id）、
+**仅响应方**可见响应卡与放弃按钮（旁观者 `cards=[]`、不可 decline——响应链最易错处）、各控件
+emit 的精确 move（`PLAY_RESPONSE_CARD`/`DECLINE_RESPONSE`/`RESOLVE_BATTLE`/`WITHDRAW_INTO_FORTIFICATION`/
+`RESOLVE_INTERCEPTION`/`AVOID_BATTLE`/撤退走选择流）、退入工事 vs 单结算分支、避战门控。
+**仍待办**：用 `forceHands` 发到响应/战斗卡 + 构造真实开战状态，在引擎层端到端**走通**整条响应链
+（W1–W7 实际触发顺序、`RESPONSE` 卡如 Gout/Siege Artillery 的效果结算），以及辩论/改革面板。
 
 ---
 
