@@ -67,7 +67,8 @@ import {
 import {
   validateNavalMove, executeNavalMove,
   validatePiracy, executePiracy,
-  validateNavalTransport, executeNavalTransport
+  validateNavalTransport, executeNavalTransport,
+  finalizeNavalCombat, continueNavalMove, applyNavalRetreatAndBreak
 } from './actions/naval-actions.js';
 import { resolveInterception } from './actions/interception.js';
 import {
@@ -1103,6 +1104,13 @@ export class HISGame extends GameEngine {
       return;
     }
 
+    // W6 Professional Rowers — naval-combat post-roll, drives the resumable
+    // naval move rather than a pendingBattle.
+    if (currentWindow === 'W6') {
+      this._advanceAfterW6(state, helpers);
+      return;
+    }
+
     const battle = state.pendingBattle;
 
     if (!battle) return;
@@ -1110,17 +1118,13 @@ export class HISGame extends GameEngine {
     const { space, attackerPower, defenderPower } = battle;
     const battleType = battle.battleType || 'field';
 
-    // Post-roll windows: W4 finalizes the field battle. (W5 is handled above
-    // via _advanceAfterW5; W6 naval post-roll is not yet integrated.)
-    if (currentWindow === 'W4' || currentWindow === 'W6') {
+    // Post-roll window: W4 finalizes the field battle. (W5/W6 handled above.)
+    if (currentWindow === 'W4') {
       state.pendingBattle = null;
-      if (currentWindow === 'W4') {
-        finalizeFieldBattle(
-          state, space, attackerPower, defenderPower, helpers,
-          battleState || {}
-        );
-      }
-      // W6 naval post-roll finalization: future integration with naval combat
+      finalizeFieldBattle(
+        state, space, attackerPower, defenderPower, helpers,
+        battleState || {}
+      );
       return;
     }
 
@@ -1203,6 +1207,24 @@ export class HISGame extends GameEngine {
     state.pendingAssault = null;
     if (!ctx) return;
     finalizeAssault(state, ctx, helpers);
+    this._checkVictory(state, helpers);
+    this._checkAutoEndImpulse(state, helpers);
+  }
+
+  /**
+   * Advance after a W6 (Professional Rowers) naval post-roll response. Finalize
+   * the paused naval combat (applying any #34 bonus), retreat the loser, then
+   * resume the naval move (which may pause again at the next combat's W6).
+   * @private
+   */
+  _advanceAfterW6(state, helpers) {
+    const ctx = state.pendingNavalCombat;
+    state.pendingNavalCombat = null;
+    if (!ctx) return;
+    const result = finalizeNavalCombat(state, ctx, helpers);
+    const ends = applyNavalRetreatAndBreak(state, ctx, result, helpers);
+    if (ends && state.pendingNavalMove) state.pendingNavalMove.currentTo = null;
+    continueNavalMove(state, helpers);
     this._checkVictory(state, helpers);
     this._checkAutoEndImpulse(state, helpers);
   }

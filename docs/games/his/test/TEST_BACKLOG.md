@@ -61,11 +61,25 @@ emit 的精确 move（`PLAY_RESPONSE_CARD`/`DECLINE_RESPONSE`/`RESOLVE_BATTLE`/`
   原 `// W5/W6 finalization` 桩缩为仅 W6。复用既有 `EVENT_HANDLERS[35]`（曾只设 `pendingCombatBonus` 无人消费）。
 - 测试：`index.test.js` +5（暂停/出 #35 加成/放弃/LOC 门控/无牌不开窗），`siege-actions.test.js` +3（LOC BFS 直测）。
 
-> **⚠ 引擎缺口（W6 仍未实现）**：**W6（划桨手 #34，海战）响应窗口未接入实战流程**。`naval-actions.js`
-> 不开 `pendingResponse`；`index.js` W6 分支仍为桩。#34 双模式（修正 拦截/避战 掷骰 ±2 —或— 海战 +3 骰，
-> 非海盗），需据规则在 naval 结算中拆 暂停/finalize 后实现，较 W5 更大。
+**进度（2026-06-17，W6 Mode B 实现）**：**W6（划桨手 #34，海战 +3 骰 = Mode B）已接入实战流程并经
+`processMove` 端到端覆盖**。因海战嵌在「移动→多场海战」同步循环里，把海军移动改造成**可跨 processMove
+恢复的状态机**：
 
-**仍待办**：①W6 功能接入（见上，naval 1433 行、双模式）②`RESPONSE` 卡 Gout 等效果结算 ③辩论/改革面板路由
+- `naval-actions.js`：`resolveNavalCombat` 拆为 掷骰阶段（持 #34 即存 `state.pendingNavalCombat` + 开 W6
+  暂停）+ `finalizeNavalCombat`（消费 `EVENT_HANDLERS[34]` 'combat' 模式设的 `pendingCombatBonus`，给
+  响应方一侧 +3 骰，post-roll 掷骰加命中）。`executeNavalMove` → `pendingNavalMove` + 可恢复
+  `continueNavalMove`（逐 movement 跑 拦截/移动/避战 + 海战序列；遇 W6 暂停即返回，留状态待恢复）。
+  抽出共享 `applyNavalRetreatAndBreak`（同步路径与恢复路径共用 撤退+终止判定）。
+- `index.js`：`_advanceAfterResponse` 新增 W6 分支 → `_advanceAfterW6`（finalize 该场海战 → 撤退 →
+  `continueNavalMove` 续跑剩余 movement/海战，可再次于下一场 W6 暂停）；旧 W4/W6 桩缩为仅 W4。
+- `response-actions.js`：W6 窗口出 #34 默认 'combat' 模式（否则 handler 默认 'modify' → +3 骰永不生效，
+  此前的真实集成缺陷）。`EVENT_HANDLERS[34]` 'combat' 模式记录 `power` 以定加成归属。
+- 测试：`index.test.js` +4（暂停/出 #34 加成归攻方/放弃/无牌不开窗）；既有 naval 71 测全绿（行为保持）。
+
+> **⚠ 仍缺 Mode A**：#34 的「修正 拦截/避战 掷骰 ±2」模式未接入——当前 拦截/避战 是同步 2d6、**无响应
+> 窗口**。需为 `tryNavalInterceptions` / 避战 掷骰新增 ±2 响应窗口（与 W6 触发点不同），作为独立子项。
+
+**仍待办**：①#34 Mode A（拦截/避战 ±2 响应窗口）②`RESPONSE` 卡 Gout 等效果结算 ③辩论/改革面板路由
 ④`AVOID_BATTLE` 经路由的撤退合法性分支。
 
 ---

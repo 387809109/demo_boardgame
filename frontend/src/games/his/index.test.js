@@ -2244,4 +2244,108 @@ describe('HISGame', () => {
       expect(newState.eventLog.find(e => e.type === 'assault')).toBeDefined();
     });
   });
+
+  // ── W6 Professional Rowers (naval post-roll) through processMove ──
+  // A NAVAL_MOVE into an enemy port resolves a naval combat; if a combatant
+  // holds #34 the combat pauses post-roll for +3 dice. This exercises the
+  // resumable naval-move machinery (pendingNavalMove/pendingNavalCombat).
+  describe('processMove — W6 Professional Rowers (naval post-roll)', () => {
+    let game;
+
+    function makeNavalState(attackerHand) {
+      game = startGame();
+      const state = game.getState();
+      state.phase = PHASES.ACTION;
+      state.activePower = 'ottoman';
+      state.pendingLuther95 = null;
+      state.consecutivePasses = 0;
+      state.cpRemaining = 5;
+      state.activeCard = 50;
+      state.activeCardNumber = 50;
+      state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+      // Isolate the scenario: only the two fleets exist.
+      for (const sp of Object.values(state.spaces)) sp.units = [];
+      if (!state.spaces['Ionian Sea']) state.spaces['Ionian Sea'] = { units: [] };
+      state.spaces['Ionian Sea'].units = [{
+        owner: 'ottoman', regulars: 0, mercenaries: 0, cavalry: 0,
+        squadrons: 3, corsairs: 0, leaders: []
+      }];
+      state.spaces['Corfu'].units = [{
+        owner: 'hapsburg', regulars: 0, mercenaries: 0, cavalry: 0,
+        squadrons: 1, corsairs: 0, leaders: []
+      }];
+      state.hands.ottoman = attackerHand;
+      return state;
+    }
+
+    const move = { movements: [{ from: 'Ionian Sea', to: 'Corfu' }] };
+
+    it('attacker holds #34 → naval combat pauses at W6', () => {
+      const state = makeNavalState([34, 50]);
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.NAVAL_MOVE, actionData: move, playerId: 'p1'
+      }, state);
+      expect(newState.pendingResponse).toBeTruthy();
+      expect(newState.pendingResponse.window).toBe('W6');
+      expect(newState.pendingResponse.respondingPower).toBe('ottoman');
+      expect(newState.pendingResponse.validCards).toContain(34);
+      expect(newState.pendingNavalCombat).toBeTruthy();
+      expect(newState.pendingNavalMove).toBeTruthy();
+    });
+
+    it('playing #34 finalizes combat with +3 bonus dice and completes the move', () => {
+      let state = makeNavalState([34, 50]);
+      state = game.processMove({
+        actionType: ACTION_TYPES.NAVAL_MOVE, actionData: move, playerId: 'p1'
+      }, state);
+      expect(state.pendingResponse.window).toBe('W6');
+
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.PLAY_RESPONSE_CARD,
+        actionData: { cardNumber: 34 }, playerId: 'p1'
+      }, state);
+
+      expect(newState.pendingResponse).toBeNull();
+      expect(newState.pendingNavalCombat == null).toBe(true);
+      expect(newState.pendingNavalMove == null).toBe(true);
+      expect(newState.hands.ottoman).not.toContain(34);
+      expect(newState.eventLog.find(e => e.type === 'naval_combat')).toBeDefined();
+      const bonus = newState.eventLog.find(e => e.type === 'professional_rowers_bonus');
+      expect(bonus).toBeDefined();
+      expect(bonus.data.dice).toBe(3);
+      expect(bonus.data.side).toBe('attacker');
+      expect(newState.eventLog.find(e => e.type === 'naval_move')).toBeDefined();
+    });
+
+    it('declining W6 finalizes combat with no bonus and completes the move', () => {
+      let state = makeNavalState([34, 50]);
+      state = game.processMove({
+        actionType: ACTION_TYPES.NAVAL_MOVE, actionData: move, playerId: 'p1'
+      }, state);
+
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.DECLINE_RESPONSE, actionData: {}, playerId: 'p1'
+      }, state);
+
+      expect(newState.pendingResponse).toBeNull();
+      expect(newState.pendingNavalCombat == null).toBe(true);
+      expect(newState.pendingNavalMove == null).toBe(true);
+      expect(newState.hands.ottoman).toContain(34);
+      expect(newState.eventLog.find(e => e.type === 'professional_rowers_bonus'))
+        .toBeUndefined();
+      expect(newState.eventLog.find(e => e.type === 'naval_combat')).toBeDefined();
+      expect(newState.eventLog.find(e => e.type === 'naval_move')).toBeDefined();
+    });
+
+    it('no #34 in hand → no W6, naval move resolves synchronously', () => {
+      const state = makeNavalState([50]);
+      const newState = game.processMove({
+        actionType: ACTION_TYPES.NAVAL_MOVE, actionData: move, playerId: 'p1'
+      }, state);
+      expect(newState.pendingResponse == null).toBe(true);
+      expect(newState.pendingNavalMove == null).toBe(true);
+      expect(newState.eventLog.find(e => e.type === 'naval_combat')).toBeDefined();
+      expect(newState.eventLog.find(e => e.type === 'naval_move')).toBeDefined();
+    });
+  });
 });

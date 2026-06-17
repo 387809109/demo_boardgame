@@ -390,6 +390,12 @@ export function handlePlayResponseCard(state, power, actionData, helpers) {
   const handler = EVENT_HANDLERS[cardNumber];
   if (handler && handler.execute) {
     const eventActionData = {
+      // W6 is the naval-combat post-roll window: #34 there is always the
+      // +3-dice combat mode (the ±2 intercept/avoid "modify" mode belongs to a
+      // separate trigger). Default it so the bonus actually applies; an
+      // explicit actionData.mode still wins.
+      mode: actionData.mode
+        || (state.pendingResponse.window === 'W6' ? 'combat' : undefined),
       ...actionData,
       targetSpace: state.pendingResponse.context.space,
       targetPower: power === state.pendingResponse.context.attackerPower

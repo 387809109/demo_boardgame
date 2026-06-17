@@ -14,6 +14,9 @@ import { LEADER_BY_ID } from '../data/leaders.js';
 import { SEA_ZONES, SEA_EDGES, PORTS_BY_SEA_ZONE } from '../data/map-data.js';
 import { rollDice } from './religious-actions.js';
 import { canAttack } from '../state/war-helpers.js';
+import {
+  canAnyPowerRespondPostRoll, createPostRollWindow
+} from './response-actions.js';
 
 const SEA_EDGE_SET = (() => {
   const edges = new Set();
@@ -395,15 +398,29 @@ function resolveNavalCombatSequence(state, movingPower, destination, helpers) {
     const result = resolveNavalCombat(
       state, destination, movingPower, defenderPower, defenderInPort, helpers
     );
+    if (result.paused) return true;   // W6 window open — resume via the router
     if (result.error) break;
 
-    const retreatPower = defenderInPort ? movingPower : result.loserPower;
-    executeNavalRetreat(state, destination, retreatPower, defenderInPort, helpers);
-
-    if (defenderInPort || retreatPower === movingPower) {
-      break;
-    }
+    const ends = applyNavalRetreatAndBreak(
+      state,
+      { space: destination, attackerPower: movingPower, defenderInPort },
+      result, helpers
+    );
+    if (ends) break;
   }
+  return false;
+}
+
+/**
+ * After a naval combat resolves, retreat the loser (or the mover when the
+ * defender fought from port) and decide whether the combat sequence at this
+ * space should stop. Shared by the synchronous path and the W6 resume path.
+ * @returns {boolean} true if the sequence should end
+ */
+export function applyNavalRetreatAndBreak(state, ctx, result, helpers) {
+  const retreatPower = ctx.defenderInPort ? ctx.attackerPower : result.loserPower;
+  executeNavalRetreat(state, ctx.space, retreatPower, ctx.defenderInPort, helpers);
+  return ctx.defenderInPort || retreatPower === ctx.attackerPower;
 }
 
 function violatesAtlanticRestriction(stack, to) {
@@ -756,17 +773,52 @@ export function executeNavalMove(state, power, actionData, helpers) {
   spendCp(state, cost);
 
   const { movements = [] } = actionData;
-  for (const { from, to } of movements) {
-    const interception = tryNavalInterceptions(state, power, to, from, helpers);
-    moveNavalStack(state, from, to, power);
-    if (!interception.success) {
-      tryNavalEvades(state, power, to, helpers);
+  state.pendingNavalMove = {
+    power,
+    movements: movements.map(m => ({ from: m.from, to: m.to })),
+    allMovements: movements,
+    currentTo: null
+  };
+  continueNavalMove(state, helpers);
+}
+
+/**
+ * Drive the resumable naval move: per movement run interception/move/evade then
+ * the combat sequence. If a combat opens a W6 (Professional Rowers) window the
+ * loop returns early, leaving state.pendingNavalMove + pendingNavalCombat for
+ * the move router to resume (_advanceAfterW6 → continueNavalMove). When all
+ * movements are done, logs the move and clears pendingNavalMove.
+ *
+ * `currentTo` means interception/move/evade for that destination are already
+ * done and only the combat sequence remains (so a resume does not re-move).
+ *
+ * @param {Object} state
+ * @param {Object} helpers
+ */
+export function continueNavalMove(state, helpers) {
+  const pnm = state.pendingNavalMove;
+  if (!pnm) return;
+
+  while (true) {
+    if (!pnm.currentTo) {
+      if (pnm.movements.length === 0) break;
+      const { from, to } = pnm.movements.shift();
+      const interception = tryNavalInterceptions(state, pnm.power, to, from, helpers);
+      moveNavalStack(state, from, to, pnm.power);
+      if (!interception.success) {
+        tryNavalEvades(state, pnm.power, to, helpers);
+      }
+      pnm.currentTo = to;
     }
-    resolveNavalCombatSequence(state, power, to, helpers);
+
+    const paused = resolveNavalCombatSequence(state, pnm.power, pnm.currentTo, helpers);
+    if (paused) return;   // W6 window open — resume later
+    pnm.currentTo = null;
   }
 
-  state.impulseActions.push({ type: 'naval_move', movements });
-  helpers.logEvent(state, 'naval_move', { power, movements });
+  state.impulseActions.push({ type: 'naval_move', movements: pnm.allMovements });
+  helpers.logEvent(state, 'naval_move', { power: pnm.power, movements: pnm.allMovements });
+  state.pendingNavalMove = null;
 }
 
 /**
@@ -893,10 +945,74 @@ export function resolveNavalCombat(state, space, attackerPower,
   const attackerRolls = rollDice(attackerDice);
   const defenderRolls = rollDice(defenderDice);
 
-  const attackerHits = attackerRolls.filter(
+  const ctx = {
+    space, attackerPower, defenderPower, defenderInPort,
+    attackerDice, defenderDice, attackerRolls, defenderRolls,
+    attackerBefore, defenderBefore
+  };
+
+  // W6 (Professional Rowers #34) post-roll window — naval combat only (piracy
+  // uses a separate dice path and never reaches here). Pause if a combatant
+  // holds #34; finalizeNavalCombat applies any +3-dice bonus on resume.
+  const postRoll = canAnyPowerRespondPostRoll(
+    state, 'naval', attackerPower, defenderPower
+  );
+  if (postRoll.canRespond) {
+    state.pendingNavalCombat = ctx;
+    const created = createPostRollWindow(
+      state, 'W6', space, attackerPower, defenderPower, 'naval', { responses: {} }
+    );
+    if (created) return { paused: true, window: 'W6' };
+    state.pendingNavalCombat = null;
+  }
+
+  return finalizeNavalCombat(state, ctx, helpers);
+}
+
+/**
+ * Finalize a naval combat after any W6 (Professional Rowers) window resolves.
+ * Applies the #34 bonus (+3 dice to the responder's side, rolled post-roll),
+ * then winner/casualties/retention/cleanup. Called directly by
+ * resolveNavalCombat when no W6 window opens, or from the move router on resume.
+ *
+ * @param {Object} state
+ * @param {Object} ctx - carried-forward roll context
+ * @param {Object} helpers
+ * @returns {Object} Naval combat result
+ */
+export function finalizeNavalCombat(state, ctx, helpers) {
+  const {
+    space, attackerPower, defenderPower,
+    attackerDice, defenderDice, attackerRolls, defenderRolls,
+    attackerBefore, defenderBefore
+  } = ctx;
+  const attackerStack = getUnitsInSpace(state, space, attackerPower);
+  const defenderStack = getUnitsInSpace(state, space, defenderPower);
+  if (!attackerStack || !defenderStack) {
+    return { error: 'Both sides must have naval units' };
+  }
+
+  let attackerHits = attackerRolls.filter(
     d => d >= NAVAL_COMBAT.hitThreshold).length;
-  const defenderHits = defenderRolls.filter(
+  let defenderHits = defenderRolls.filter(
     d => d >= NAVAL_COMBAT.hitThreshold).length;
+
+  // §card #34: +3 dice (post-roll) to the responder's side in naval combat.
+  let rowersHits = 0;
+  let rowersRolls = null;
+  const bonus = state.pendingCombatBonus;
+  if (bonus && bonus.card === 34 && (bonus.types || []).includes('naval')) {
+    rowersRolls = rollDice(bonus.dice);
+    rowersHits = rowersRolls.filter(d => d >= NAVAL_COMBAT.hitThreshold).length;
+    const side = bonus.power === defenderPower ? 'defender' : 'attacker';
+    if (side === 'defender') defenderHits += rowersHits;
+    else attackerHits += rowersHits;
+    helpers.logEvent(state, 'professional_rowers_bonus', {
+      power: bonus.power, side, dice: bonus.dice,
+      rolls: rowersRolls, hits: rowersHits
+    });
+    state.pendingCombatBonus = null;
+  }
 
   // Winner: tie = defender
   let winner, winnerPower, loserPower;

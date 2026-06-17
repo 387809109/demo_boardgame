@@ -1032,7 +1032,9 @@ EVENT_HANDLERS[34] = {
     if (mode === 'modify') {
       state.pendingNavalModifier = { modifier: actionData.modifier || 2 };
     } else {
-      state.pendingCombatBonus = { card: 34, dice: 3, types: ['naval'] };
+      // power = the responder who played it; finalizeNavalCombat grants the
+      // +3 dice to that power's side of the combat.
+      state.pendingCombatBonus = { card: 34, dice: 3, types: ['naval'], power };
     }
     helpers.logEvent(state, 'event_professional_rowers', { power, mode });
   }
