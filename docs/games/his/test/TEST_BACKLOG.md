@@ -76,8 +76,10 @@ emit 的精确 move（`PLAY_RESPONSE_CARD`/`DECLINE_RESPONSE`/`RESOLVE_BATTLE`/`
   此前的真实集成缺陷）。`EVENT_HANDLERS[34]` 'combat' 模式记录 `power` 以定加成归属。
 - 测试：`index.test.js` +4（暂停/出 #34 加成归攻方/放弃/无牌不开窗）；既有 naval 71 测全绿（行为保持）。
 
-> **⚠ 仍缺 Mode A**：#34 的「修正 拦截/避战 掷骰 ±2」模式未接入——当前 拦截/避战 是同步 2d6、**无响应
-> 窗口**。需为 `tryNavalInterceptions` / 避战 掷骰新增 ±2 响应窗口（与 W6 触发点不同），作为独立子项。
+> **⚠ 仍缺 Mode A（重评：比 W6 更深）**：#34 的「修正 拦截/避战 掷骰 ±2」模式未接入。`tryNavalInterceptions`
+> 对**多个候选拦截者**逐一掷 2d6 直到命中，且发生在 `continueNavalMove` 每段移动的**战斗之前**；要在每次
+> 拦截/避战掷骰后开 ±2 窗口，需把**多候选拦截循环 + 避战循环**也改造成可恢复（比 W6 的单场战斗更深一层），
+> 而收益仅是一个 ±2 修正。**建议单独排期**，不与 W6 同批。
 
 **进度（2026-06-17，面板契约补全）**：辩论/改革（反改革）面板的渲染契约已下沉为 `ui-gating` 纯函数
 `reformationPanelModel` / `debatePanelModel`，`action-panel` 两个 `_render*` 改为消费（统一 `_controlButton`）。
