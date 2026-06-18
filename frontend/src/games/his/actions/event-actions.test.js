@@ -841,28 +841,32 @@ describe('EVENT_HANDLERS', () => {
       expect(r.valid).toBe(true);
     });
 
-    it('sets pendingLeipzigDebate with zone', () => {
+    it('initiates a real debate (pendingDebate), not the unread pendingLeipzigDebate', () => {
       const state = eventState();
       const helpers = createMockHelpers();
 
       executeEvent(state, 'papacy', 6,
         { zone: 'german', specifyDebater: 'eck' }, helpers);
 
-      expect(state.pendingLeipzigDebate).toEqual({
-        zone: 'german',
-        specifyDebater: 'eck',
-        blockDebater: null
-      });
+      // The old no-op field must not be used; a real debate is set up.
+      expect(state.pendingLeipzigDebate).toBeUndefined();
+      expect(state.pendingDebate).toBeTruthy();
+      expect(state.pendingDebate.zone).toBe('german');
+      expect(state.pendingDebate.initiator).toBe('papacy');
+      expect(state.pendingDebate.attackerSide).toBe('papal');
+      // The specified papal debater is used as the attacker.
+      expect(state.pendingDebate.attackerId).toBe('eck');
     });
 
-    it('sets blockDebater option', () => {
+    it('blockDebater removes that Protestant debater from defender selection', () => {
       const state = eventState();
       const helpers = createMockHelpers();
 
       executeEvent(state, 'papacy', 6,
         { zone: 'german', blockDebater: 'luther' }, helpers);
 
-      expect(state.pendingLeipzigDebate.blockDebater).toBe('luther');
+      expect(state.pendingDebate).toBeTruthy();
+      expect(state.pendingDebate.defenderId).not.toBe('luther');
     });
   });
 

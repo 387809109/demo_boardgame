@@ -19,6 +19,7 @@ import {
 } from '../constants.js';
 import { areAllied } from '../state/war-helpers.js';
 import { isHomeSpace } from '../state/state-helpers.js';
+import { initiateDebate } from './debate-actions.js';
 import { EXTENDED_EVENT_HANDLERS } from './event-actions-extended.js';
 import { DIPLOMACY_EVENT_HANDLERS } from './event-actions-diplomacy.js';
 import {
@@ -270,14 +271,17 @@ EVENT_HANDLERS[6] = {
   execute(state, power, actionData, helpers) {
     const { zone, specifyDebater, blockDebater } = actionData;
 
-    state.pendingLeipzigDebate = {
-      zone,
-      specifyDebater: specifyDebater || null,
-      blockDebater: blockDebater || null
-    };
+    // §card #6: call a theological debate (no CP — this is the event). The
+    // initiator may specify their own papal debater, or block one Protestant
+    // debater for this debate. Routes into the shared debate setup so the
+    // debate actually runs (the old pendingLeipzigDebate was never consumed).
+    const started = initiateDebate(state, 'papacy', zone, helpers, {
+      attackerId: specifyDebater || null,
+      blockDefenderId: blockDebater || null
+    });
 
     helpers.logEvent(state, 'event_leipzig_debate', {
-      power, zone, specifyDebater, blockDebater
+      power, zone, specifyDebater, blockDebater, started
     });
   }
 };

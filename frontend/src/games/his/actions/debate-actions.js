@@ -59,16 +59,42 @@ export function validateCallDebate(state, power, actionData) {
 export function callDebate(state, power, actionData, helpers) {
   const cost = ACTION_COSTS[power].call_debate;
   spendCp(state, cost);
+  initiateDebate(state, power, actionData.zone, helpers);
+}
 
-  const { zone } = actionData;
+/**
+ * Set up a theological debate (no CP cost). Shared by the CALL_DEBATE CP action
+ * and the Leipzig Debate event (#6). §18.5: the attacker chooses their debater
+ * (best by default) and the defender is drawn randomly. Options support card
+ * #6: specify the attacker's debater, or block one defender debater.
+ *
+ * @param {Object} state
+ * @param {string} power - debate initiator ('papacy' | 'protestant')
+ * @param {string} zone - language zone
+ * @param {Object} helpers
+ * @param {{ attackerId?: string|null, blockDefenderId?: string|null }} [opts]
+ * @returns {boolean} true if a debate was initiated (both sides had a debater)
+ */
+export function initiateDebate(state, power, zone, helpers, opts = {}) {
   const attackerSide = power === 'papacy' ? 'papal' : 'protestant';
   const defenderSide = power === 'papacy' ? 'protestant' : 'papal';
 
-  // Attacker chooses their debater; defender is drawn randomly (§18.5)
   const attackerDebaters = getAvailableDebaters(state, attackerSide, zone);
-  const defenderDebaters = getAvailableDebaters(state, defenderSide, zone);
+  let defenderDebaters = getAvailableDebaters(state, defenderSide, zone);
+  // §card #6: optionally make one defender debater unavailable for this debate.
+  if (opts.blockDefenderId) {
+    defenderDebaters = defenderDebaters.filter(d => d.id !== opts.blockDefenderId);
+  }
+  if (attackerDebaters.length === 0 || defenderDebaters.length === 0) {
+    return false;
+  }
 
-  const attacker = selectBestDebater(attackerDebaters);
+  // §card #6: the initiator may specify their own debater; otherwise best.
+  let attacker = null;
+  if (opts.attackerId) {
+    attacker = attackerDebaters.find(d => d.id === opts.attackerId) || null;
+  }
+  if (!attacker) attacker = selectBestDebater(attackerDebaters);
   const defender = selectRandomDebater(defenderDebaters);
 
   // Mark both as committed
@@ -94,6 +120,7 @@ export function callDebate(state, power, actionData, helpers) {
     attacker: attacker.id,
     defender: defender.id
   });
+  return true;
 }
 
 // ── Resolve Debate Step ─────────────────────────────────────────
