@@ -701,6 +701,63 @@ describe('Extended Event Handlers (#55-116)', () => {
     });
   });
 
+  // ── #105 Treachery! ──────────────────────────────────────────────
+  describe('#105 Treachery!', () => {
+    function blank(power, regs, leaders = []) {
+      return {
+        owner: power, regulars: regs, mercenaries: 0, cavalry: 0,
+        squadrons: 0, corsairs: 0, leaders
+      };
+    }
+
+    function besiegedState(attackerRegs, defenderRegs, leaders = []) {
+      const state = eventState();
+      state.capturedLeaders = {};
+      const sp = state.spaces['Vienna'];
+      sp.controller = 'protestant';
+      sp.besieged = true;
+      sp.besiegedBy = 'hapsburg';
+      sp.units = [
+        blank('hapsburg', attackerRegs),
+        blank('protestant', defenderRegs, leaders)
+      ];
+      return state;
+    }
+
+    it('overrun: defenders survive the dice but are outnumbered → fortress falls', () => {
+      const state = besiegedState(6, 2, ['some_leader']);
+      const helpers = createMockHelpers();
+      // No dice hits → defenders survive the assault, then the overrun rule
+      // applies because the besiegers (6) outnumber the units within (2).
+      const origRandom = Math.random;
+      Math.random = () => 0;
+      try {
+        executeEvent(state, 'hapsburg', 105, { targetSpace: 'Vienna' }, helpers);
+      } finally {
+        Math.random = origRandom;
+      }
+      const sp = state.spaces['Vienna'];
+      expect(sp.units.find(u => u.owner === 'protestant')).toBeUndefined();
+      expect(sp.controller).toBe('hapsburg');
+      expect(sp.besieged).toBe(false);
+      expect(state.capturedLeaders.hapsburg).toContain('some_leader');
+      const ev = state.eventLog.find(e => e.type === 'event_treachery');
+      expect(ev.data.overrun).toBe(true);
+    });
+
+    it('no-op when the target space is not under siege', () => {
+      const state = eventState();
+      state.spaces['Vienna'].besieged = false;
+      const helpers = createMockHelpers();
+      executeEvent(state, 'hapsburg', 105, { targetSpace: 'Vienna' }, helpers);
+      const ev = state.eventLog.find(e => e.type === 'event_treachery');
+      expect(ev.data.error).toBeTruthy();
+      expect(ev.data.overrun).toBe(false);
+      // The old no-op field must no longer be written.
+      expect(state.pendingTreacheryAssault).toBeUndefined();
+    });
+  });
+
   // ── #106 Unpaid Mercenaries ─────────────────────────────────────
   describe('#106 Unpaid Mercenaries', () => {
     it('removes all mercs from target space/power', () => {

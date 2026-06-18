@@ -1462,8 +1462,18 @@ EVENT_HANDLERS[54] = {
 };
 
 // ── Merge Extended & Diplomacy Handlers ──────────────────────────────
+// Done lazily (first dispatch) rather than at module load: some extended
+// handlers import back into this module's graph (e.g. siege-actions for #105
+// Treachery → response-actions → event-actions), and a load-time merge would
+// touch EXTENDED_EVENT_HANDLERS while that cycle is mid-initialization (TDZ).
+// By the time an event is dispatched, every module is fully loaded.
 
-Object.assign(EVENT_HANDLERS, EXTENDED_EVENT_HANDLERS, DIPLOMACY_EVENT_HANDLERS);
+let _handlersMerged = false;
+function ensureHandlersMerged() {
+  if (_handlersMerged) return;
+  Object.assign(EVENT_HANDLERS, EXTENDED_EVENT_HANDLERS, DIPLOMACY_EVENT_HANDLERS);
+  _handlersMerged = true;
+}
 
 // ── Utility: Execute Event ─────────────────────────────────────────
 
@@ -1477,6 +1487,7 @@ Object.assign(EVENT_HANDLERS, EXTENDED_EVENT_HANDLERS, DIPLOMACY_EVENT_HANDLERS)
  * @returns {{ grantCp?: number } | undefined}
  */
 export function executeEvent(state, power, cardNumber, actionData, helpers) {
+  ensureHandlersMerged();
   const handler = EVENT_HANDLERS[cardNumber];
   if (!handler) {
     helpers.logEvent(state, 'event_unhandled', { power, cardNumber });
@@ -1494,6 +1505,7 @@ export function executeEvent(state, power, cardNumber, actionData, helpers) {
  * @returns {{ valid: boolean, error?: string }}
  */
 export function validateEvent(state, power, cardNumber, actionData) {
+  ensureHandlersMerged();
   const handler = EVENT_HANDLERS[cardNumber];
   if (!handler) {
     return { valid: true }; // Unhandled events are allowed (stub)

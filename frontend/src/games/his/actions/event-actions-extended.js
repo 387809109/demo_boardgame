@@ -6,6 +6,7 @@ import { RULERS } from '../constants.js';
 import { areAllied } from '../state/war-helpers.js';
 import { rollDice } from './religious-actions.js';
 import { getUnitsInSpace } from '../state/state-helpers.js';
+import { treacheryAssault } from './siege-actions.js';
 
 export const EXTENDED_EVENT_HANDLERS = {};
 
@@ -1296,12 +1297,16 @@ EXTENDED_EVENT_HANDLERS[104] = {
 EXTENDED_EVENT_HANDLERS[105] = {
   execute(state, power, actionData, helpers) {
     const targetSpace = actionData.targetSpace;
-    state.pendingTreacheryAssault = {
-      targetSpace, initiatedBy: power
-    };
-    helpers.logEvent(
-      state, 'event_treachery', { power, targetSpace }
-    );
+    // §card #105: immediately assault the besieged fortification (by its
+    // besieging power), ignoring LOC/naval requirements; treacheryAssault
+    // applies the overrun rule. Previously this set the unread
+    // pendingTreacheryAssault, so the card did nothing.
+    const result = treacheryAssault(state, targetSpace, helpers);
+    helpers.logEvent(state, 'event_treachery', {
+      power, targetSpace,
+      overrun: result?.overrun ?? false,
+      error: result?.error
+    });
   }
 };
 

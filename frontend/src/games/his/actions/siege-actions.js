@@ -196,16 +196,21 @@ export function validateAssault(state, power, actionData) {
  * @param {Object} helpers
  * @returns {Object} Assault result
  */
-export function executeAssault(state, power, actionData, helpers) {
-  const space = actionData?.space ?? actionData?.target;
-  const isFree = actionData?.free === true;
-  const cost = ACTION_COSTS[power].assault;
-  if (!isFree) spendCp(state, cost);
-
+/**
+ * Compute and roll assault dice for both sides. Shared by executeAssault (CP
+ * action) and treacheryAssault (event #105). Returns the roll context that
+ * finalizeAssault consumes. Cavalry is ignored for dice; the defender gets the
+ * fortification bonus die.
+ *
+ * @param {Object} state
+ * @param {string} space
+ * @param {string} power - the assaulting (besieging) power
+ * @returns {Object} { space, attackerPower, defenderPower, attackerRolls,
+ *   defenderRolls, attackerDice, defenderDice }
+ */
+function rollAssault(state, space, power) {
   const sp = state.spaces[space];
   const attackerStack = getUnitsInSpace(state, space, power);
-
-  // Find defender stack (power that controls the space)
   const defenderPower = sp.controller;
   const defenderStack = getUnitsInSpace(state, space, defenderPower);
 
@@ -249,14 +254,24 @@ export function executeAssault(state, power, actionData, helpers) {
   defenderDice += COMBAT.defenderBonusDice;
   defenderDice = Math.max(defenderDice, 1);
 
-  // Roll dice
   const attackerRolls = rollDice(attackerDice);
   const defenderRolls = rollDice(defenderDice);
 
-  const ctx = {
+  return {
     space, attackerPower: power, defenderPower,
-    attackerRolls, defenderRolls, attackerDice, defenderDice, free: isFree
+    attackerRolls, defenderRolls, attackerDice, defenderDice
   };
+}
+
+export function executeAssault(state, power, actionData, helpers) {
+  const space = actionData?.space ?? actionData?.target;
+  const isFree = actionData?.free === true;
+  const cost = ACTION_COSTS[power].assault;
+  if (!isFree) spendCp(state, cost);
+
+  const ctx = rollAssault(state, space, power);
+  ctx.free = isFree;
+  const { defenderPower, attackerRolls, defenderRolls } = ctx;
 
   // W5 (Siege Artillery #35) post-roll window: only the assaulting power, only
   // when it holds #35 and has a line of communication ≤4 to a fortified home
@@ -381,6 +396,60 @@ export function finalizeAssault(state, ctx, helpers) {
   helpers.logEvent(state, 'assault', { power, space, ...result });
 
   return result;
+}
+
+/**
+ * §card #105 Treachery!: the besieging power immediately assaults the units in
+ * a besieged fortification, ignoring the usual LOC / naval requirements. The
+ * W5 (Siege Artillery) window never applies (it requires a LOC, which Treachery
+ * specifically bypasses). After the assault, if the besiegers still outnumber
+ * the units within, all defenders are eliminated, their leaders captured, and
+ * the space passes to the besieging power.
+ *
+ * @param {Object} state
+ * @param {string} space - the besieged space
+ * @param {Object} helpers
+ * @returns {Object} assault result, plus { overrun: boolean }
+ */
+export function treacheryAssault(state, space, helpers) {
+  const sp = state.spaces[space];
+  if (!sp || !sp.besieged) return { error: 'Space is not under siege' };
+  const power = sp.besiegedBy;
+  if (!power) return { error: 'No besieging power' };
+  const attackerStack = getUnitsInSpace(state, space, power);
+  if (!attackerStack) return { error: 'No besieging units' };
+
+  const ctx = rollAssault(state, space, power);
+  ctx.free = true;
+  const { defenderPower } = ctx;
+  const result = finalizeAssault(state, ctx, helpers);
+
+  // Overrun rule: if defenders remain but the besiegers outnumber them, the
+  // fortification falls. (finalizeAssault already handles the defenders==0 win.)
+  const defenderStack = getUnitsInSpace(state, space, defenderPower);
+  const attackerAfter = getUnitsInSpace(state, space, power);
+  const defLand = defenderStack ? countLandUnits(defenderStack) : 0;
+  const attLand = attackerAfter ? countLandUnits(attackerAfter) : 0;
+  let overrun = false;
+  if (defLand > 0 && attLand > defLand) {
+    overrun = true;
+    if (defenderStack.leaders.length > 0) {
+      if (!state.capturedLeaders[power]) state.capturedLeaders[power] = [];
+      state.capturedLeaders[power].push(...defenderStack.leaders);
+      defenderStack.leaders = [];
+    }
+    sp.units = sp.units.filter(u => u.owner !== defenderPower);
+    sp.besieged = false;
+    sp.besiegedBy = null;
+    sp.siegeEstablishedImpulse = null;
+    sp.siegeEstablishedTurn = null;
+    sp.siegeEstablishedCardNumber = null;
+    sp.siegeEstablishedBy = null;
+    sp.controller = power;
+    helpers.logEvent(state, 'treachery_overrun', { space, power, defenderPower });
+  }
+
+  return { ...result, overrun };
 }
 
 // ── Break Siege ─────────────────────────────────────────────────
