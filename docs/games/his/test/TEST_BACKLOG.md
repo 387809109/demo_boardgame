@@ -25,9 +25,21 @@
 过滤。`ui-gating.test.js` 新增 10 条穷举用例，独立钉死各势力特有路径的**可见集合**：仅 Ottoman 有
 海盗/海盗船/骑兵；新世界仅 Hapsburg/England/France；仅 Papacy 可创耶稣会/建圣彼得/烧书；英格兰为唯一
 非改革方的发表论文方；Protestant 无海军；并交叉校验 `cpActionsFor` 与 `ACTION_COSTS` 一致、可负担门控。
-**仍待办**：①各动作点击后的多步**选择流程**（target selection，需集成层）②事件卡专属 UI 流程
-（FOUND_JESUIT #AA / Lady Jane Grey #AB / chateaux 等，非 CP 菜单，靠 `forceHands` 发卡 + 构造状态触发）
-③绝罚段 / 反宗教改革面板。
+**进度（2026-06-18，事件卡 `pending*` 未消费审计）**：审计「事件 handler 设了 `state.pending*` 但全局
+无人读取」的事件效果（reads = 非赋值引用数）。**16 个 `pending*` 字段读取数为 0**：CounterReformation、
+DebateCall、DiplomaticPressure、DiscardChoice、ForeignRecruits、FreeAssault、GiveCard、HandReveal、
+HandReview、LadyJaneGrey、LeipzigDebate、MachiavelliChoice、PeaceRestore、SkipImpulse、
+StPetersContribution、TreacheryAssault、Unrest。**两类**：(a) **赘余旗标**——主效果走别的路径（如 #76 Foreign
+Recruits 靠 `return {grantCp:4}`、#208/#112/#207 靠 `pendingCardDraw` 抽牌），`pending*` 只是死代码；
+(b) **真 no-op**——整/主效果丢失。已修 (b) 一例：**#61 Mary Defies Council**——卡面「教廷在英语区做 3 次反
+改革尝试」，旧码设**未被读取**的 `pendingCounterReformation`（且键名 `attemptsRemaining/zones` 与解析器
+解耦），改为设**被消费**的 `pendingReformation = { type:'counter_reformation', zone:'english', attemptsLeft:3 }`
+（`attemptsLeft` 才是 `resolveReformationAttempt` 递减的键）。原测试锁定了 bug（断言赘余字段），已改为断言
+落到 `pendingReformation`。`event-actions-extended.test.js` 仍 145 绿。
+
+**仍待办**：①逐项分类并修复其余真 no-op 事件（如 #42 Roxelana 自由突击、其余 0-read 字段——需逐卡核实卡面
+规则，勿凭空补）②各动作点击后的多步**选择流程**（target selection，需集成层）③事件卡多步 UI（Lady Jane Grey
+抽牌+选牌等，draw+choose 属交互流程）④绝罚段 / 反宗教改革面板。
 
 ### 🟡 2. 人类侧战斗与响应窗口
 

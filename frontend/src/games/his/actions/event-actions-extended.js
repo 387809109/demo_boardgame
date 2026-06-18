@@ -187,10 +187,16 @@ EXTENDED_EVENT_HANDLERS[60] = {
 // #61 Mary Defies Council
 EXTENDED_EVENT_HANDLERS[61] = {
   execute(state, power, actionData, helpers) {
-    state.pendingCounterReformation = {
-      attemptsRemaining: 3,
-      zones: 'english',
-      playedBy: power
+    // §card #61: the Papal player makes 3 Counter Reformation attempts in the
+    // English language zone. This must land on pendingReformation (the field
+    // the engine/UI actually consume); pendingCounterReformation was never
+    // read, so the card previously did nothing. attemptsLeft is the key the
+    // resolver decrements; type=counter_reformation flips Protestant→Catholic.
+    state.pendingReformation = {
+      type: 'counter_reformation',
+      zone: 'english',
+      attemptsLeft: 3,
+      source: 'mary_defies_council'
     };
     helpers.logEvent(state, 'event_mary_defies_council', { power });
   }

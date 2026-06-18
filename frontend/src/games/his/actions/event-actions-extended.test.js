@@ -143,14 +143,17 @@ describe('Extended Event Handlers (#55-116)', () => {
 
   // ── #61 Mary Defies Council ──────────────────────────────────────
   describe('#61 Mary Defies Council', () => {
-    it('sets 3 counter-reformation attempts in English zone', () => {
+    it('grants 3 counter-reformation attempts in the English zone via pendingReformation', () => {
       const state = eventState();
       const helpers = createMockHelpers();
       executeEvent(state, 'papacy', 61, {}, helpers);
-      expect(state.pendingCounterReformation).toEqual({
-        attemptsRemaining: 3,
-        zones: 'english',
-        playedBy: 'papacy'
+      // Must land on the consumed field (pendingReformation), as a
+      // counter-reformation; the old pendingCounterReformation was never read.
+      expect(state.pendingCounterReformation).toBeUndefined();
+      expect(state.pendingReformation).toMatchObject({
+        type: 'counter_reformation',
+        zone: 'english',
+        attemptsLeft: 3
       });
     });
   });
