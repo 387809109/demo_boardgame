@@ -2614,4 +2614,82 @@ describe('HISGame', () => {
       expect(state.pendingFoulWeather).toBeNull();
     });
   });
+
+  // ── Victory-determination integration (backlog P2.4) ──────────────
+  // checkImmediateVictory thresholds are exhaustively unit-tested elsewhere;
+  // these pin the _checkVictory → checkGameEnd → _buildEndResult chain (the
+  // status==='ended' military/religious path was untested) and the endgame
+  // result/scoring contract.
+  describe('checkGameEnd — victory determination integration', () => {
+    const helpers = { logEvent: () => {} };
+
+    function freshGame() {
+      const game = startGame();
+      return { game, state: game.getState() };
+    }
+
+    it('military auto-win ends the game and checkGameEnd reports it with scoring', () => {
+      const { game, state } = freshGame();
+      let keys = 0;
+      for (const sp of Object.values(state.spaces)) {
+        if ((sp.isKey || sp.isElectorate) && keys < 11) {
+          sp.controller = 'ottoman';
+          sp.unrest = false;
+          keys++;
+        }
+      }
+      game._checkVictory(state, helpers);
+      expect(state.status).toBe('ended');
+      expect(state.winner).toBe('ottoman');
+      expect(state.winReason).toBe('military_auto_win');
+
+      const result = game.checkGameEnd(state);
+      expect(result.ended).toBe(true);
+      expect(result.winnerPower).toBe('ottoman');
+      expect(result.winner).toBe(state.playerByPower['ottoman']);
+      expect(result.reason).toBe('military_auto_win');
+      // Endgame scoring: every major power ranked, contiguous 1..N by VP desc.
+      expect(result.rankings).toHaveLength(MAJOR_POWERS.length);
+      expect(result.rankings.map(r => r.rank))
+        .toEqual(MAJOR_POWERS.map((_, i) => i + 1));
+      for (let i = 1; i < result.rankings.length; i++) {
+        expect(result.rankings[i].vp).toBeLessThanOrEqual(result.rankings[i - 1].vp);
+      }
+    });
+
+    it('religious victory ends the game with the Protestant winner', () => {
+      const { game, state } = freshGame();
+      let count = 0;
+      for (const sp of Object.values(state.spaces)) {
+        if (count < 50) {
+          sp.religion = 'protestant';
+          sp.unrest = false;
+          count++;
+        }
+      }
+      game._checkVictory(state, helpers);
+      expect(state.winReason).toBe('religious_victory');
+
+      const result = game.checkGameEnd(state);
+      expect(result.ended).toBe(true);
+      expect(result.winnerPower).toBe('protestant');
+      expect(result.reason).toBe('religious_victory');
+    });
+
+    it('_checkVictory does not overwrite an already-ended game', () => {
+      const { game, state } = freshGame();
+      state.status = 'ended';
+      state.winner = 'france';
+      state.winReason = 'standard_victory';
+      game._checkVictory(state, helpers);
+      expect(state.winner).toBe('france');
+      expect(state.winReason).toBe('standard_victory');
+    });
+
+    it('no immediate victory in a normal opening state', () => {
+      const { game, state } = freshGame();
+      game._checkVictory(state, helpers);
+      expect(state.status).not.toBe('ended');
+    });
+  });
 });

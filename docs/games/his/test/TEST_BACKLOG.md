@@ -121,10 +121,23 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
 - HMR 重载后续局。
 - **mid-`pending*` 存读档**：在战斗 / 辩论 / 改革进行中存档，再读档续局（本会话只验过普通阶段的往返）。
 
-### ⬜ 4. 跑到对局结束
+### 🟡 4. 跑到对局结束
 
 - 胜利判定（统治 / 宗教 / 军事）、`game-result` 结算屏、后期回合（T3–T9）机制。
 - 用固定 `rngSeed` 跑一局直到分出胜负，验证终局 UI 与计分。
+
+**进度（2026-06-18，胜负判定集成）**：胜利阈值（`checkImmediateVictory` 军事/宗教、`checkGameEnd`
+标准/统治/时限）此前已分别穷举单测。本次补 **`_checkVictory → checkGameEnd → _buildEndResult` 集成链**
+（`index.test.js` +4）：军事 auto-win（奥斯曼 11 钥）与宗教胜利（新教 50 空间）经 `_checkVictory` 置
+`status='ended'/winner/winReason` 后，`checkGameEnd` 的 `status==='ended'` 分支（此前未测）返回正确
+`winnerPower/winner(playerId)/reason` 与**全 6 势力计分排名**（rank 1..N、VP 降序）；`_checkVictory` 已结束
+幂等、开局无胜利。`game-result` 结算屏为**通用 UI**（消费 `{ended,winner,winnerPower,reason,rankings}`，
+非 HIS 专属）。
+
+> **仍待办**：①**种子化全-bot 跑到终局**的引擎集成驱动——`scheduleBotAction` 编排携带大量 bot 簿记
+> （set-aside / goal counts / behavior-card / 脱手恢复），同步复刻易写成「测自己的 harness」而非引擎，
+> 评估为大且易脆，单独排期。②后期回合 T3–T9 机制（新世界阶段等）已有 `phase-new-world.test.js` 等分测，
+> 端到端串联未验。
 
 ---
 
