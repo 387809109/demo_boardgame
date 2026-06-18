@@ -461,3 +461,48 @@ describe('assaultLocWithinRange (W5 Siege Artillery LOC gate)', () => {
     expect(assaultLocWithinRange(state, 'Paris', 'ottoman', 0)).toBe(false);
   });
 });
+
+describe('Roxelana free-assault grant (#42, pendingFreeAssault)', () => {
+  function setupGrant() {
+    const state = cpState(10);
+    const belgrade = state.spaces['Belgrade'];
+    belgrade.controller = 'hapsburg';
+    belgrade.isFortress = true;
+    belgrade.besieged = false; // NOT under siege — only the grant permits this
+    belgrade.units = [
+      makeStack('ottoman', 5, 0, 0, ['suleiman']),
+      makeStack('hapsburg', 2)
+    ];
+    state.pendingFreeAssault = { power: 'ottoman', requireLeader: 'suleiman' };
+    return state;
+  }
+
+  it('allows a free assault on a non-besieged fortress with Suleiman', () => {
+    const state = setupGrant();
+    const r = validateAssault(state, 'ottoman', { space: 'Belgrade', free: true });
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects when the formation lacks the required leader', () => {
+    const state = setupGrant();
+    state.spaces['Belgrade'].units[0].leaders = [];
+    const r = validateAssault(state, 'ottoman', { space: 'Belgrade', free: true });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('suleiman');
+  });
+
+  it('without the grant, a non-besieged fortress cannot be assaulted', () => {
+    const state = setupGrant();
+    state.pendingFreeAssault = null;
+    const r = validateAssault(state, 'ottoman', { space: 'Belgrade', free: true });
+    expect(r.valid).toBe(false);
+    expect(r.error).toContain('not under siege');
+  });
+
+  it('executeAssault consumes the one-shot grant', () => {
+    const state = setupGrant();
+    const helpers = createMockHelpers();
+    executeAssault(state, 'ottoman', { space: 'Belgrade', free: true }, helpers);
+    expect(state.pendingFreeAssault).toBeNull();
+  });
+});

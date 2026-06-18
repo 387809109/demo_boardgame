@@ -128,21 +128,31 @@ export function validateAssault(state, power, actionData) {
 
   const sp = state.spaces[space];
   if (!sp) return { valid: false, error: `Space "${space}" not found` };
-  if (!sp.besieged) return { valid: false, error: 'Space is not under siege' };
-  if (sp.besiegedBy !== power) {
-    return { valid: false, error: 'You are not the besieger' };
-  }
 
-  // Cannot assault in the same impulse that established the siege.
-  const sameCardImpulse = (
-    sp.siegeEstablishedCardNumber != null &&
-    state.activeCardNumber != null &&
-    sp.siegeEstablishedTurn === state.turn &&
-    sp.siegeEstablishedBy === power &&
-    sp.siegeEstablishedCardNumber === state.activeCardNumber
-  );
-  if (sameCardImpulse || sp.siegeEstablishedImpulse === state.turnNumber) {
-    return { valid: false, error: 'Cannot assault in same impulse as siege establishment' };
+  // §card #42 Roxelana: a free assault by the named formation (Suleiman),
+  // allowed "even on a fortress not under siege at the start of the impulse".
+  // The grant bypasses the besieged / siege-timing / CP requirements; the LOC,
+  // units and naval checks below still apply.
+  const grant = state.pendingFreeAssault;
+  const usingGrant = isFree && grant != null && grant.power === power;
+
+  if (!usingGrant) {
+    if (!sp.besieged) return { valid: false, error: 'Space is not under siege' };
+    if (sp.besiegedBy !== power) {
+      return { valid: false, error: 'You are not the besieger' };
+    }
+
+    // Cannot assault in the same impulse that established the siege.
+    const sameCardImpulse = (
+      sp.siegeEstablishedCardNumber != null &&
+      state.activeCardNumber != null &&
+      sp.siegeEstablishedTurn === state.turn &&
+      sp.siegeEstablishedBy === power &&
+      sp.siegeEstablishedCardNumber === state.activeCardNumber
+    );
+    if (sameCardImpulse || sp.siegeEstablishedImpulse === state.turnNumber) {
+      return { valid: false, error: 'Cannot assault in same impulse as siege establishment' };
+    }
   }
 
   // Check CP (skipped for free autumn assaults)
@@ -158,6 +168,12 @@ export function validateAssault(state, power, actionData) {
   const stack = getUnitsInSpace(state, space, power);
   if (!stack || countLandUnits(stack) === 0) {
     return { valid: false, error: 'No units available for assault' };
+  }
+
+  // Roxelana grant requires the named leader (Suleiman) in the formation.
+  if (usingGrant && grant.requireLeader &&
+      !stack.leaders.includes(grant.requireLeader)) {
+    return { valid: false, error: `Free assault requires ${grant.requireLeader}` };
   }
 
   // LOC check: must have a path to a friendly fortified home space
@@ -268,6 +284,15 @@ export function executeAssault(state, power, actionData, helpers) {
   const isFree = actionData?.free === true;
   const cost = ACTION_COSTS[power].assault;
   if (!isFree) spendCp(state, cost);
+
+  // §card #42 Roxelana: consume the one-shot free-assault grant when used.
+  const grant = state.pendingFreeAssault;
+  if (isFree && grant != null && grant.power === power) {
+    const gStack = getUnitsInSpace(state, space, power);
+    if (gStack && (!grant.requireLeader || gStack.leaders.includes(grant.requireLeader))) {
+      state.pendingFreeAssault = null;
+    }
+  }
 
   const ctx = rollAssault(state, space, power);
   ctx.free = isFree;
