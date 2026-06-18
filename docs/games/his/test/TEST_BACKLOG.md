@@ -113,13 +113,17 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
 
 ## P2 — 中优先（需真实浏览器，layer C；需引入 Playwright runner 依赖）
 
-### ⬜ 3. 种子化 Playwright 集成回归 `.spec.js`
+### 🟡 3. 种子化 Playwright 集成回归 `.spec.js`
 
 仅覆盖 jsdom/node 验不到的部分，每条用 `rngSeed`+`forceHands` 钉死：
 
-- SVG `<polygon data-name>` 命中测试（真实指针事件）。
-- HMR 重载后续局。
-- **mid-`pending*` 存读档**：在战斗 / 辩论 / 改革进行中存档，再读档续局（本会话只验过普通阶段的往返）。
+- SVG `<polygon data-name>` 命中测试（真实指针事件）。**需浏览器，仍待办。**
+- HMR 重载后续局。**需浏览器，仍待办。**
+- **mid-`pending*` 存读档**：在战斗 / 辩论 / 改革进行中存档，再读档续局。✅ **引擎层已覆盖**
+  （2026-06-18，`save-load.test.js` +2）：①全部 10 类待决状态（battle/response/interception/reformation/
+  debate/navalCombat/navalMove/assault/gout/foulWeather）经 `exportSave→importSave` 深拷贝往返逐字段保真；
+  ②**载入后续局**——把对局驱动到 W5（攻城炮）暂停、存档、导入新对局实例、`DECLINE_RESPONSE` 续局 →
+  突击正确结算（`pendingAssault` 清空 + 记 `assault`）。**仅载入后的 UI 重渲染**属浏览器部分，仍待办。
 
 ### 🟡 4. 跑到对局结束
 

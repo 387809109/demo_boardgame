@@ -356,3 +356,131 @@ describe('GameEngine exportSave / importSave', () => {
     expect(game._autoSaveEnabled).toBe(true);
   });
 });
+
+// ── Mid-pending save/load round-trip (backlog P2.3) ─────────────────
+// The existing round-trip covers only ordinary phases. These verify a save
+// taken mid-interaction (battle / response / debate / reformation / naval /
+// assault / interrupt) survives export→import, and that a paused chain
+// resumes correctly after load — the deterministic half of "存读档续局"
+// (the post-load UI re-render is the browser-only part).
+describe('mid-pending save/load round-trip (P2.3)', () => {
+  let HISGame, ACTION_TYPES, PHASES;
+
+  beforeAll(async () => {
+    const mod = await import('../index.js');
+    HISGame = mod.default || mod.HISGame;
+    ACTION_TYPES = mod.ACTION_TYPES;
+    PHASES = mod.PHASES;
+  });
+
+  function startGame() {
+    const game = new HISGame('offline');
+    game.start({
+      gameType: 'his',
+      players: [
+        { id: 'p1', nickname: 'A', isHost: true }, { id: 'p2', nickname: 'B' },
+        { id: 'p3', nickname: 'C' }, { id: 'p4', nickname: 'D' },
+        { id: 'p5', nickname: 'E' }, { id: 'p6', nickname: 'F' }
+      ],
+      options: {}
+    });
+    return game;
+  }
+
+  it('every pending interaction survives export → import', () => {
+    const game = startGame();
+    const pending = {
+      pendingBattle: {
+        type: 'field_battle', space: 'Vienna', attackerPower: 'ottoman',
+        defenderPower: 'hapsburg', battleType: 'field'
+      },
+      pendingResponse: {
+        window: 'W2', respondingPower: 'ottoman', validCards: [24, 25],
+        context: { space: 'Vienna', type: 'field' }, responses: {}
+      },
+      pendingInterception: {
+        interceptorPower: 'hapsburg', interceptorSpace: 'Graz', targetSpace: 'Vienna'
+      },
+      pendingReformation: { type: 'reformation', attemptsLeft: 3, zone: 'german' },
+      pendingDebate: { round: 1, phase: 'roll', attackerHits: 0, defenderHits: 0 },
+      pendingNavalCombat: {
+        space: 'Corfu', attackerPower: 'ottoman', defenderPower: 'hapsburg',
+        defenderInPort: true, attackerRolls: [5, 3], defenderRolls: [2],
+        attackerDice: 2, defenderDice: 1,
+        attackerBefore: { squadrons: 3, corsairs: 0 },
+        defenderBefore: { squadrons: 1, corsairs: 0 }
+      },
+      pendingNavalMove: {
+        power: 'ottoman', movements: [],
+        allMovements: [{ from: 'Ionian Sea', to: 'Corfu' }], currentTo: 'Corfu'
+      },
+      pendingAssault: {
+        space: 'Edirne', attackerPower: 'ottoman', defenderPower: 'hapsburg',
+        attackerRolls: [5, 5, 3], defenderRolls: [2], attackerDice: 3,
+        defenderDice: 1, free: true
+      },
+      pendingGout: { targetLeader: 'charles_v' },
+      pendingFoulWeather: {
+        targetPower: 'france', maxMoveSpaces: 1, noAssault: true,
+        noPiracy: true, noNavalMove: true, noNavalTransport: true
+      }
+    };
+    Object.assign(game.getState(), pending);
+
+    const save = game.exportSave();
+    expect(validateSaveData(save).valid).toBe(true);
+
+    const game2 = startGame();
+    game2.importSave(save);
+    const restored = game2.getState();
+    for (const [field, value] of Object.entries(pending)) {
+      expect(restored[field]).toEqual(value);
+    }
+  });
+
+  it('resumes a paused W5 assault chain after load (decline finalizes)', () => {
+    const game = startGame();
+    const state = game.getState();
+    state.phase = PHASES.ACTION;
+    state.activePower = 'ottoman';
+    state.pendingLuther95 = null;
+    state.consecutivePasses = 0;
+    state.cpRemaining = 5;
+    state.activeCard = 50;
+    state.activeCardNumber = 50;
+    // Edirne is adjacent to Istanbul (Ottoman fortified capital) → LOC ≤4.
+    const sp = state.spaces['Edirne'];
+    sp.controller = 'hapsburg';
+    sp.besieged = true;
+    sp.besiegedBy = 'ottoman';
+    sp.units = [
+      { owner: 'ottoman', regulars: 6, mercenaries: 0, cavalry: 0, squadrons: 0, corsairs: 0, leaders: [] },
+      { owner: 'hapsburg', regulars: 1, mercenaries: 0, cavalry: 0, squadrons: 0, corsairs: 0, leaders: [] }
+    ];
+    state.hands.ottoman = [35, 50];
+
+    // Drive the assault to pause at W5 (processMove bypasses player validation).
+    const paused = game.processMove({
+      actionType: ACTION_TYPES.ASSAULT,
+      actionData: { space: 'Edirne', free: true }, playerId: 'p1'
+    }, state);
+    expect(paused.pendingResponse.window).toBe('W5');
+    expect(paused.pendingAssault).toBeTruthy();
+    game.state = paused;
+
+    // Save mid-W5, load into a fresh game.
+    const save = game.exportSave();
+    const game2 = startGame();
+    game2.importSave(save);
+    expect(game2.getState().pendingResponse.window).toBe('W5');
+    expect(game2.getState().pendingAssault).toBeTruthy();
+
+    // Continue on the loaded game: decline → the assault finalizes.
+    const after = game2.processMove({
+      actionType: ACTION_TYPES.DECLINE_RESPONSE, actionData: {}, playerId: 'p1'
+    }, game2.getState());
+    expect(after.pendingResponse).toBeNull();
+    expect(after.pendingAssault == null).toBe(true);
+    expect(after.eventLog.find(e => e.type === 'assault')).toBeDefined();
+  });
+});
