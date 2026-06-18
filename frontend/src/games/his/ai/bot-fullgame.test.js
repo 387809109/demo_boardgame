@@ -93,20 +93,31 @@ describe('HIS full-bot game runs to completion (P2.4)', () => {
 
   // A few fixed seeds — reproducible; reuse a printed seed to debug a failure.
   for (const seed of [12345, 2026, 777]) {
-    it(`seed ${seed}: reaches a terminal status with a winner and no broken chain`, () => {
+    it(`seed ${seed}: clean full-game run (ended, no stuck/broken) with late-turn mechanics + winner`, () => {
       const r = playSeededGame(seed);
-      if (!r.ended || r.chainBroken) {
+      if (!r.ended || r.chainBroken || r.stuck) {
         console.error(`[fullgame seed=${seed}] status=${r.status} turn=${r.turn} ` +
           `iters=${r.iters} chainBroken=${r.chainBroken} stuck=${r.stuck}`);
       }
+      // A clean run: reaches a terminal status with neither a bot stuck nor a
+      // broken chain (matches _runHisBotBatch's `clean`).
       expect(r.ended).toBe(true);
       expect(r.chainBroken).toBe(0);
+      expect(r.stuck).toBe(0);
+
+      // Late-turn mechanics actually executed (T3–T9): the game progressed
+      // several turns and the New World phase resolved at least once.
+      const state = r.game.getState();
+      expect(r.turn).toBeGreaterThanOrEqual(3);
+      const ranNewWorld = state.eventLog.some(
+        e => e.type === 'phase_change' && e.data?.phase === 'new_world');
+      expect(ranNewWorld).toBe(true);
 
       // A concrete winner with full scoring is produced.
-      const result = r.game.checkGameEnd(r.game.getState());
+      const result = r.game.checkGameEnd(state);
       expect(result.ended).toBe(true);
       expect(ALL_POWERS).toContain(result.winnerPower);
       expect(result.rankings).toHaveLength(ALL_POWERS.length);
-    });
+    }, 30000); // a full game is ~1300 bot actions; generous under parallel load
   }
 });

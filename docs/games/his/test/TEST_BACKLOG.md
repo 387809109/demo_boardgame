@@ -138,12 +138,14 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
 `_runHisBotBatch`。关键洞察：`transitionPhase` 让自动阶段（card_draw/winter/new_world/victory_determination）
 自链（resolve + `advancePhase`），故全局由交互阶段的 bot 决策驱动。**复用真实 bot loop**（`scheduleBotAction`）
 而非重写：用 vitest **fake timers** 把 setTimeout 链同步化——每次 `runOnlyPendingTimers()` 触发一个 bot 动作、
-其 `executeMove` 再续接下一个；`Math.random` 用 mulberry32(seed) 播种确定性。3 个固定种子各**跑满整局到终局**
-（~2.6s/局），断言：到达终止态、产出 `winnerPower` + 全 6 势力计分、**0 `[BOT CHAIN BROKEN]`**。这是覆盖
-所有动作类（事件/CP 子动作/响应/部署/战斗链）的端到端引擎稳定性回归（关闭统治胜利以跑满回合）。
+其 `executeMove` 再续接下一个；`Math.random` 用 mulberry32(seed) 播种确定性。3 个固定种子各**跑满整局到 T9**
+（~2.6s/局，关闭统治胜利），断言 **clean run**（到达终止态 + `stuck===0` + `chainBroken===0`，对齐
+`_runHisBotBatch.clean`）+ **后期回合机制确实执行**（turn≥3 且 eventLog 有 `new_world` 的 `phase_change`）+
+产出 `winnerPower` + 全 6 势力计分。覆盖所有动作类（事件/CP 子动作/响应/部署/战斗链）的端到端引擎稳定性回归。
+（每条 `it` 给 30s 超时，避免并行负载下 5s 默认超时误报。）
 
-> **仍待办**：后期回合 T3–T9 机制（新世界阶段等）已有 `phase-new-world.test.js` 等分测；全-bot 跑到终局已
-> 端到端串联（上），但**特定机制断言**（如 T3+ 新世界产出、宗教压力曲线）未逐项校验，可后续按需补。
+> **仍待办（可选）**：T3–T9 **特定机制**的逐项断言（如新世界探索/殖民产出量、宗教压力曲线）——避免过度约束
+> bot 行为（见 TEST_REQUIREMENTS「只记录不中途修复行为偏差」），仅在需要时补结构性（非行为性）断言。
 
 ---
 
