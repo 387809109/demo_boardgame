@@ -334,6 +334,114 @@ describe('executeNavalMove', () => {
   });
 });
 
+// ── #34 Professional Rowers Mode A: ±2 intercept/avoid modifier ───
+// Auto-applied (interception/evade are non-interactive): when the beneficiary
+// holds #34 and ±2 flips a close roll in their favour, it is applied + consumed.
+describe('Professional Rowers (#34) Mode A — intercept/avoid ±2', () => {
+  // Force a 2d6 roll: mulberry-free fixed sequence via Math.random.
+  function withRolls(values, fn) {
+    const orig = Math.random;
+    let i = 0;
+    // Each die: Math.floor(r*6)+1, so r=(v-1)/6 yields die v.
+    Math.random = () => (i < values.length ? (values[i++] - 1) / 6 : 0);
+    try { return fn(); } finally { Math.random = orig; }
+  }
+
+  it('mover negates a successful interception with #34 (−2)', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+    placeNaval(state, 'Aegean Sea', 'ottoman', 2, 0);
+    placeNaval(state, 'Adriatic Sea', 'hapsburg', 1, 0); // adjacent interceptor
+    state.hands.ottoman = [34];
+
+    // Interceptor rolls 4+5 = 9 (success); mover −2 → 7 (fails).
+    withRolls([4, 5], () => {
+      executeNavalMove(state, 'ottoman', {
+        movements: [{ from: 'Aegean Sea', to: 'Ionian Sea' }]
+      }, helpers);
+    });
+
+    const mod = state.eventLog.find(e => e.type === 'professional_rowers_modifier');
+    expect(mod).toBeDefined();
+    expect(mod.data.delta).toBe(-2);
+    const attempt = state.eventLog.find(e => e.type === 'naval_interception_attempt');
+    expect(attempt.data.total).toBe(7);
+    expect(attempt.data.success).toBe(false);
+    expect(state.eventLog.find(e => e.type === 'naval_interception_success')).toBeUndefined();
+    // Card consumed.
+    expect(state.hands.ottoman).not.toContain(34);
+    expect(state.discard).toContain(34);
+  });
+
+  it('interceptor forces a failed interception to succeed with #34 (+2)', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+    placeNaval(state, 'Aegean Sea', 'ottoman', 2, 0);
+    placeNaval(state, 'Adriatic Sea', 'hapsburg', 1, 0);
+    state.hands.hapsburg = [34];
+
+    // Interceptor rolls 3+4 = 7 (fail); interceptor +2 → 9 (succeeds).
+    withRolls([3, 4, 1, 1, 1, 1, 1, 1], () => {
+      executeNavalMove(state, 'ottoman', {
+        movements: [{ from: 'Aegean Sea', to: 'Ionian Sea' }]
+      }, helpers);
+    });
+
+    const mod = state.eventLog.find(e => e.type === 'professional_rowers_modifier');
+    expect(mod).toBeDefined();
+    expect(mod.data.delta).toBe(2);
+    const attempt = state.eventLog.find(e => e.type === 'naval_interception_attempt');
+    expect(attempt.data.success).toBe(true);
+    expect(state.hands.hapsburg).not.toContain(34);
+  });
+
+  it('does not apply when no beneficiary holds #34 (behaviour preserved)', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+    placeNaval(state, 'Aegean Sea', 'ottoman', 2, 0);
+    placeNaval(state, 'Adriatic Sea', 'hapsburg', 1, 0);
+    state.hands.ottoman = [];
+    state.hands.hapsburg = [];
+
+    withRolls([4, 5], () => {
+      executeNavalMove(state, 'ottoman', {
+        movements: [{ from: 'Aegean Sea', to: 'Ionian Sea' }]
+      }, helpers);
+    });
+
+    expect(state.eventLog.find(e => e.type === 'professional_rowers_modifier')).toBeUndefined();
+    const attempt = state.eventLog.find(e => e.type === 'naval_interception_attempt');
+    expect(attempt.data.total).toBe(9); // unmodified
+    expect(attempt.data.success).toBe(true);
+  });
+
+  it('does not waste #34 when ±2 cannot flip the result', () => {
+    const state = cpState();
+    const helpers = createMockHelpers();
+    clearAllUnits(state);
+    state.wars.push({ a: 'ottoman', b: 'hapsburg' });
+    placeNaval(state, 'Aegean Sea', 'ottoman', 2, 0);
+    placeNaval(state, 'Adriatic Sea', 'hapsburg', 1, 0);
+    state.hands.ottoman = [34];
+
+    // Interceptor rolls 6+6 = 12 (success); −2 → 10, still ≥9, so no point.
+    withRolls([6, 6, 1, 1, 1, 1, 1, 1], () => {
+      executeNavalMove(state, 'ottoman', {
+        movements: [{ from: 'Aegean Sea', to: 'Ionian Sea' }]
+      }, helpers);
+    });
+
+    expect(state.eventLog.find(e => e.type === 'professional_rowers_modifier')).toBeUndefined();
+    expect(state.hands.ottoman).toContain(34); // not consumed
+  });
+});
+
 // ── resolveNavalCombat ──────────────────────────────────────────
 
 describe('resolveNavalCombat', () => {

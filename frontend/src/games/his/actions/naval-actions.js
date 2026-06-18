@@ -265,6 +265,30 @@ function executeNavalRetreat(state, battleSpace, retreatPower, inPortBattle, hel
   return { retreated: true, destination };
 }
 
+/**
+ * §card #34 Mode A (Professional Rowers): a ±2 modifier to a naval intercept or
+ * avoid-battle roll, played "after the dice are rolled". Interception/evade in
+ * this engine is fully automatic (no player window), so the modifier is
+ * auto-applied to match that model: when the beneficiary holds #34 and the
+ * shift would flip a close result in their favour, it is applied and the card
+ * consumed (one ±2 per roll). `delta` is +2 (force a success) or -2 (negate one).
+ *
+ * @returns {boolean} true if #34 was held and consumed (modifier applied)
+ */
+function applyRowersRollModifier(state, beneficiary, delta, helpers, context) {
+  const hand = state.hands?.[beneficiary];
+  if (!hand) return false;
+  const idx = hand.indexOf(34);
+  if (idx === -1) return false;
+  hand.splice(idx, 1);
+  if (!state.discard) state.discard = [];
+  state.discard.push(34);
+  helpers.logEvent(state, 'professional_rowers_modifier', {
+    power: beneficiary, delta, ...context
+  });
+  return true;
+}
+
 function tryNavalInterceptions(state, movingPower, destination, from, helpers) {
   if (!isSeaZoneLocation(destination)) {
     return { success: false };
@@ -297,14 +321,29 @@ function tryNavalInterceptions(state, movingPower, destination, from, helpers) {
 
     const bonus = getNavalLeaderBattleBonus(stack);
     const { dice, total } = getRoll2d6WithBonus(bonus);
-    const success = total >= 9;
+    let success = total >= 9;
+    let finalTotal = total;
+
+    // §card #34 Mode A: ±2 to flip a close interception. The mover may negate a
+    // 9/10 (−2); the interceptor may force a 7/8 to succeed (+2).
+    const ctx = { roll: 'intercept', from: candidate.location, to: destination };
+    if (success && total - 2 < 9 &&
+        applyRowersRollModifier(state, movingPower, -2, helpers, ctx)) {
+      success = false;
+      finalTotal = total - 2;
+    } else if (!success && total + 2 >= 9 &&
+        applyRowersRollModifier(state, candidate.power, 2, helpers, ctx)) {
+      success = true;
+      finalTotal = total + 2;
+    }
+
     helpers.logEvent(state, 'naval_interception_attempt', {
       power: candidate.power,
       from: candidate.location,
       to: destination,
       dice,
       bonus,
-      total,
+      total: finalTotal,
       success
     });
 
@@ -354,8 +393,23 @@ function tryNavalEvades(state, movingPower, destination, helpers) {
 
     const bonus = getNavalLeaderBattleBonus(stack);
     const { dice, total } = getRoll2d6WithBonus(bonus);
-    const success = total >= 9;
+    let success = total >= 9;
+    let finalTotal = total;
     const destinationChoice = options[0];
+
+    // §card #34 Mode A: ±2 to flip a close avoid-battle roll. The mover may
+    // negate a 9/10 (−2, to keep the enemy and fight); the evader may force a
+    // 7/8 to escape (+2).
+    const ctx = { roll: 'avoid', from: destination, to: destinationChoice };
+    if (success && total - 2 < 9 &&
+        applyRowersRollModifier(state, movingPower, -2, helpers, ctx)) {
+      success = false;
+      finalTotal = total - 2;
+    } else if (!success && total + 2 >= 9 &&
+        applyRowersRollModifier(state, enemyPower, 2, helpers, ctx)) {
+      success = true;
+      finalTotal = total + 2;
+    }
 
     helpers.logEvent(state, 'naval_evade_attempt', {
       power: enemyPower,
@@ -363,7 +417,7 @@ function tryNavalEvades(state, movingPower, destination, helpers) {
       to: destinationChoice,
       dice,
       bonus,
-      total,
+      total: finalTotal,
       success
     });
 

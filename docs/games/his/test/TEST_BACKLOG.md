@@ -108,10 +108,14 @@ emit 的精确 move（`PLAY_RESPONSE_CARD`/`DECLINE_RESPONSE`/`RESOLVE_BATTLE`/`
   此前的真实集成缺陷）。`EVENT_HANDLERS[34]` 'combat' 模式记录 `power` 以定加成归属。
 - 测试：`index.test.js` +4（暂停/出 #34 加成归攻方/放弃/无牌不开窗）；既有 naval 71 测全绿（行为保持）。
 
-> **⚠ 仍缺 Mode A（重评：比 W6 更深）**：#34 的「修正 拦截/避战 掷骰 ±2」模式未接入。`tryNavalInterceptions`
-> 对**多个候选拦截者**逐一掷 2d6 直到命中，且发生在 `continueNavalMove` 每段移动的**战斗之前**；要在每次
-> 拦截/避战掷骰后开 ±2 窗口，需把**多候选拦截循环 + 避战循环**也改造成可恢复（比 W6 的单场战斗更深一层），
-> 而收益仅是一个 ±2 修正。**建议单独排期**，不与 W6 同批。
+**进度（2026-06-19，#34 Mode A 接入 — 自动生效）**：原方案（多候选拦截/避战循环改可恢复 + ±2 交互窗口）
+经评估为最大单项重构、收益仅 ±2，且**现有拦截/避战本就全自动无玩家窗口**。故按「与自动模型一致」实现：
+`naval-actions.applyRowersRollModifier` 在每次 拦截/避战 掷骰后，若**受益方持 #34** 且 ±2 能**翻转接近阈值
+（9）的结果**则自动施加并消耗该卡——移动方可把成功的 9/10 拦截/避战 −2 否掉，拦截/逃逸方可把 7/8 +2 成功。
+每次掷骰至多一次 ±2。`naval-actions.test.js` +4（−2 否决 / +2 强成 / 无持卡不动 / 不能翻转则不浪费卡，
+均用固定 `Math.random` 序列确定性触发）。全 bot 跑到终局回归仍绿。
+**简化说明**：非字面「交互响应窗口」，而是在自动拦截模型下由引擎做「最优使用」决策（与现有设计一致）；
+`EVENT_HANDLERS[34]` 的 `pendingNavalModifier`（modify 模式）随之成为赘余旗标。
 
 **进度（2026-06-17，面板契约补全）**：辩论/改革（反改革）面板的渲染契约已下沉为 `ui-gating` 纯函数
 `reformationPanelModel` / `debatePanelModel`，`action-panel` 两个 `_render*` 改为消费（统一 `_controlButton`）。
