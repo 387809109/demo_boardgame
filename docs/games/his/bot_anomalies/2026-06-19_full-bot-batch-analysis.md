@@ -18,7 +18,8 @@
 | 胜利类型 | time_limit 9 / religious_victory 2 / standard_victory 1 |
 | 平均回合 | 8.7（多数跑满 T9） |
 | 平均新教空间 | 35.1（2 局到 50 触发宗教胜利） |
-| **新宣战数（war_declared）** | **0（全程，所有势力）** |
+| 平均每局新宣战（`declare_war`） | **3.4** |
+| 各势力发起宣战（12 局合计） | ottoman 24 / papacy 11 / hapsburg 6 / england 0 / france 0 / protestant 0 |
 | 平均每局战斗数 | 4.5 |
 | 各势力发起战斗 | ottoman 12 / england 15 / hapsburg 11 / france 10 / papacy 6 / protestant 0 |
 | stuck / chainBroken（修复后） | **0 / 0**（修复前 6 / 2） |
@@ -53,24 +54,31 @@
 
 ---
 
-## #3 ⚠️ 行为偏差（只记录）— 全程零新宣战
+## #3 ❌ 撤回（误报）— "全程零新宣战" 系分析口径错误
 
-- **现象**: `war_declared` 事件**全程为 0**（所有势力、所有局），但战斗仍发生（均 4.5/局）——
-  即战斗**全部来自 1517 开局既有战争状态**，外交阶段从不新增战争。
-- **推测**: 外交阶段 bot 决策实质恒为 PASS（`decideDiplomacy` 当前为偏保守/桩实现），从不主动 `DECLARE_WAR`。
-  这限制了战略变化（战线固定为开局格局）。注意：这与 `TEST_REQUIREMENTS` 警示的「force-pass → 零战斗」
-  不同——此处仍有战斗（开局战争），但**无任何新宣战**。
-- **复现分析方式**: 同上批量；看 `warDeclares=0` 与 `battlesBy` 同时存在。
-- **相关代码位置**: `ai/bot-controller.js` `decideDiplomacy`；`ai/bot-negotiation.js`。
-- **处置**: **不在本轮修**（行为调优）；列入 PLAN「行为调优待办」，与 #2 一并评估（更主动的外交可能也改变 #2 的平衡）。
+- **初判**: 首轮分析报告 `war_declared` 事件 = 0，疑似外交 bot 恒 PASS。
+- **诊断（决定动手前先排查）**: 在 `decideWarDeclaration` 临时打点发现——bot **确实在 `declarations_of_war`
+  段做决策**，且多处 `atWar=false` 的有效目标（如 ottoman→venice/hapsburg/papacy、papacy→genoa、
+  hapsburg→england），且**下一回合 `atWar` 由 false 翻为 true**（war 状态确实建立）。
+- **根因**: 引擎宣战事件名是 **`declare_war`**（`diplomacy-actions.js:219`，`{ power, target }`），
+  而分析工具误数 `war_declared`（一个不存在/旧 UI 名）→ 计数恒 0。**纯测量口径错误，bot 行为正常。**
+- **修正后真实数据**: 平均 **3.4 次新宣战/局**；ottoman 24 / papacy 11 / hapsburg 6（12 局合计）。
+  england/france 经此 `declare_war` 路径为 0 系机制使然——**england 走本土卡在行动阶段首脉冲宣战**
+  （`isEnglandHomeCard` → `state.englandHomeCardWar`，非外交段事件）；**france 的行为卡目标多为小国 genoa**
+  （宣战小国走另一路径）。两者非缺陷，留作观察。
+- **处置**: 分析工具已修（数 `declare_war` + `data.power`）。**#3 关闭，无需行为调优。**
+  附带教训：批量遥测的事件名要与引擎 `logEvent` 实际名核对。
 
 ---
 
-## 整体修复建议顺序
+## 结论
 
-1. ✅ #1 已修（引擎稳定性，已完成）。
-2. #3 外交主动性（恒 PASS → 适度 DECLARE_WAR）——唯一仍开放、可操作的行为调优项；列入 PLAN「行为调优待办」。
-3. #2 已结案（接受的非对称），无需动作。
+1. ✅ **#1 已修**（引擎稳定性：对局结束后 bot 不再被调度，消除假 chain-broken）+ 回归单测。
+2. ℹ️ **#2** France 支配 = 已结案 #Y（接受的非对称），无需动作。
+3. ❌ **#3 撤回**（测量口径错误，bot 宣战正常，均 3.4/局）；分析工具已修。
+
+**本轮无开放的行为调优待办**；引擎与 bot 行为均健康。唯一可选观察：england/france 的标准外交段宣战为 0
+（各因 home-card / 小国目标的机制），若要丰富战线变化可后续评估，但非缺陷。
 
 ## 数据归档
 

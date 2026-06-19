@@ -87,7 +87,8 @@ function analyzeSeed(seed, cap = 50000) {
   for (const p of ALL_POWERS) { warsBy[p] = 0; battlesBy[p] = 0; }
   for (const e of log) {
     eventCounts[e.type] = (eventCounts[e.type] || 0) + 1;
-    if (e.type === 'war_declared' && e.data?.attacker) warsBy[e.data.attacker]++;
+    // Engine logs the event as 'declare_war' with { power, target }.
+    if (e.type === 'declare_war' && e.data?.power) warsBy[e.data.power]++;
     if (BATTLE_EVENTS.has(e.type)) {
       const atk = e.data?.attackerPower || e.data?.power;
       if (atk && battlesBy[atk] != null) battlesBy[atk]++;
@@ -104,7 +105,7 @@ function analyzeSeed(seed, cap = 50000) {
     wars: (state.wars || []).length,
     warsBy, battlesBy,
     battlesTotal: ALL_POWERS.reduce((s, p) => s + battlesBy[p], 0),
-    warDeclares: eventCounts.war_declared || 0,
+    warDeclares: eventCounts.declare_war || 0,
     debates: eventCounts.call_debate || 0,
     reformations: eventCounts.reformation || 0,
     stuck, chainBroken, brokenMsgs, stuckMsgs
