@@ -6,8 +6,9 @@ import { createTestState } from '../test-helpers.js';
 import {
   isBotPower, getBotPowers, botPlayerId,
   initBotDecks, placeBotExtraUnits,
-  decideBotAction
+  decideBotAction, scheduleBotAction
 } from './bot-controller.js';
+import { PHASES } from '../phases/phase-manager.js';
 import { CARD_BY_ID } from './behavior-cards.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -439,5 +440,31 @@ describe('HISGame with Bot initialization', () => {
     expect(state.playerByPower.ottoman).toBe('bot_ottoman');
     expect(state.powerByPlayer['bot_ottoman']).toBe('ottoman');
     expect(state.powersForPlayer['bot_ottoman']).toEqual(['ottoman']);
+  });
+});
+
+describe('scheduleBotAction — game-over guard', () => {
+  it('schedules no action once the game has ended (no spurious chain break)', () => {
+    // An immediate victory can flip status to 'ended' while phase is still
+    // 'action'; the bot loop must stop rather than fire a trailing move that
+    // fails "Game is not running" and logs [BOT CHAIN BROKEN].
+    const state = createBotState(['ottoman']);
+    state.phase = PHASES.ACTION;
+    state.activePower = 'ottoman';
+    state.status = 'ended';
+    const game = { getState: () => state, isRunning: false };
+    const result = scheduleBotAction(game, () => ({ success: true }));
+    expect(result).toBeNull();
+  });
+
+  it('still schedules during a live action phase', () => {
+    const state = createBotState(['ottoman']);
+    state.phase = PHASES.ACTION;
+    state.activePower = 'ottoman';
+    state.status = 'playing';
+    const game = { getState: () => state, isRunning: true };
+    const result = scheduleBotAction(game, () => ({ success: true }));
+    expect(result).not.toBeNull();
+    if (result) clearTimeout(result);
   });
 });

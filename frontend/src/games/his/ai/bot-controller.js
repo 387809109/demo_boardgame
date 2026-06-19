@@ -782,6 +782,12 @@ export function scheduleBotAction(game, executeMove, delay = BOT_ACTION_DELAY) {
  * @returns {string|null}
  */
 function getNextActingBotPower(state) {
+  // Game over — no one acts. An immediate victory can end the game mid-action
+  // phase (status='ended' while phase is still 'action'); without this guard the
+  // chain keeps scheduling, the trailing move fails "Game is not running", and a
+  // spurious [BOT CHAIN BROKEN] is logged.
+  if (state.status && state.status !== 'playing') return null;
+
   // Response window: check if responding power is a Bot
   if (state.pendingResponse) {
     const rp = state.pendingResponse.respondingPower;

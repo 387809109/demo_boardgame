@@ -331,6 +331,7 @@ frontend/src/games/his/
 > - [`docs/games/his/bot_anomalies/2026-06-14_gate-parity-audit.md`](bot_anomalies/2026-06-14_gate-parity-audit.md) — **门控对齐静态审查**（非随机对局）：#AA（jesuit 一概念三名字 `jesuitUnlocked`/`societyOfJesusPlayed` 孤儿读 → FOUND_JESUIT 死门控）/#AB（`englandRulerChangedThisTurn` 无 setter → 卡59 Lady Jane Grey 永久不可打）✅ 已修复（统一 canonical 标志 + 接线 setter/reset，启用此前静默禁用的内容）；死标志 ✅ 2026-06-15 已清理（algiersInPlay/wartburgActive 删除、juliaGonzagaActive 补全为卡84 Julia Gonzaga 效果）
 > - [`docs/games/his/bot_anomalies/2026-06-14_spring-deploy-path.md`](bot_anomalies/2026-06-14_spring-deploy-path.md) — #AC（春季部署 AtPeace 分支返回前不校验路径 → `No valid spring deployment path`，同 #F/#G/#K 型）✅ 已修复（AtPeace 镜像 AtWar 的先校验后路由）
 > - [`docs/games/his/bot_anomalies/2026-06-15_france-dominance-analysis.md`](bot_anomalies/2026-06-15_france-dominance-analysis.md) — **#Y France 一边倒 平衡分析 ✅ 结案（接受并记录）**：VP-by-source 遥测（`getVpBreakdown`/`getScoreBreakdown`/`_runHisBotBatch`）定因 = France 城堡(Chateaux)VP 引擎（run 优势 100% 来自城堡）；修复后已降到 5/8。判为可接受的 HIS 固有非对称，不改平衡。
+> - [`docs/games/his/bot_anomalies/2026-06-19_full-bot-batch-analysis.md`](bot_anomalies/2026-06-19_full-bot-batch-analysis.md) — **node 确定性批量分析（12 种子）**：#1 [BOT CHAIN BROKEN] 假阳性（即时胜利结束对局后 bot 仍被调度 → `getNextActingBotPower` 加 status 守卫）✅ 已修 + 回归单测；#2 France 7/12 = 已结案 #Y 复核（不重开）；**#3 全程零新宣战**（外交恒 PASS）⏳ 唯一开放行为调优项。分析工具 `ai/bot-analysis.test.js`（默认 `describe.skip`）。
 >
 > **立项待开发**：
 >
