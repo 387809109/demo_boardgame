@@ -8,7 +8,6 @@
  * instead of emitting directly. The parent UI handles the selection flow.
  */
 
-import { CARD_BY_NUMBER } from '../data/cards.js';
 import {
   isActionPanelActive, cpActionsFor, unavailableCpActions,
   responsePanelModel, battlePanelModel, interceptionPanelModel,
@@ -431,10 +430,8 @@ export class ActionPanel {
       this._el.appendChild(this._groupLabel('可用响应卡'));
       const grid = this._actionGrid();
       for (const c of model.cards) {
-        const card = CARD_BY_NUMBER[c.cardNumber];
-        const cardName = card ? card.name : `Card #${c.cardNumber}`;
         const btn = this._actionButton(
-          `#${c.cardNumber} ${cardName}`,
+          `#${c.cardNumber} ${c.name}`,
           () => { this._onAction(c.move); },
           'primary'
         );

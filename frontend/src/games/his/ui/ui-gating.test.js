@@ -481,6 +481,20 @@ describe('responsePanelModel — W1–W7 response windows (P1 backlog item 2)', 
     expect(m.declineMove).toEqual({ actionType: 'DECLINE_RESPONSE', actionData: {} });
   });
 
+  it('resolves each card name from its title (2026-06-20 — buttons showed "undefined")', () => {
+    // #24 Arquebusiers is a COMBAT card; HIS cards expose the name as `title`,
+    // not `name` — the response buttons must show the title, never undefined.
+    const s = { pendingResponse: { window: 'W2', respondingPower: 'ottoman', validCards: [24] } };
+    const m = responsePanelModel(s, 'ottoman');
+    expect(m.cards[0].name).toBe('Arquebusiers');
+    expect(m.cards[0].name).not.toMatch(/undefined/);
+  });
+
+  it('falls back to "Card #N" for an unknown card number', () => {
+    const s = { pendingResponse: { window: 'W2', respondingPower: 'ottoman', validCards: [99999] } };
+    expect(responsePanelModel(s, 'ottoman').cards[0].name).toBe('Card #99999');
+  });
+
   it('spectators (not the responding power) see no cards and cannot decline', () => {
     const s = {
       pendingResponse: { window: 'W1', respondingPower: 'ottoman', validCards: [1, 2, 3] }

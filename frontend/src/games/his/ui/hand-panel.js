@@ -161,7 +161,7 @@ export class HandPanel {
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
     `;
-    name.textContent = card.name || `Card ${card.number}`;
+    name.textContent = card.title || card.name || `Card ${card.number}`;
     el.appendChild(name);
 
     // Card type badge
@@ -247,7 +247,7 @@ export class HandPanel {
       line-height: 1.4;
     `;
 
-    let html = `<div style="font-weight:700;font-size:13px;margin-bottom:4px;">#${card.number} ${card.name}</div>`;
+    let html = `<div style="font-weight:700;font-size:13px;margin-bottom:4px;">#${card.number} ${card.title || card.name || ''}</div>`;
     html += `<div style="display:flex;gap:8px;margin-bottom:6px;">`;
     html += `<span style="background:#5c6bc0;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;">${card.cp || 0} CP</span>`;
     if (card.type) {

@@ -18,6 +18,7 @@ import {
 import {
   getAvailableExplorers, getAvailableConquistadors
 } from '../actions/new-world-actions.js';
+import { CARD_BY_NUMBER } from '../data/cards.js';
 
 /**
  * Canonical catalog of CP-spend actions, grouped as the action panel renders
@@ -219,10 +220,17 @@ export function responsePanelModel(state, playerPower) {
     respondingPower,
     isMyResponse,
     context: resp.context || null,
-    cards: validCards.map((n) => ({
-      cardNumber: n,
-      move: { actionType: 'PLAY_RESPONSE_CARD', actionData: { cardNumber: n } }
-    })),
+    cards: validCards.map((n) => {
+      const card = CARD_BY_NUMBER[n];
+      return {
+        cardNumber: n,
+        // HIS cards expose their display name as `title` (not `name`); resolving
+        // it here keeps the view from re-deriving it wrong (the response buttons
+        // showed "undefined" when action-panel read card.name — 2026-06-20).
+        name: card?.title || card?.name || `Card #${n}`,
+        move: { actionType: 'PLAY_RESPONSE_CARD', actionData: { cardNumber: n } }
+      };
+    }),
     canDecline: isMyResponse,
     declineMove: isMyResponse
       ? { actionType: 'DECLINE_RESPONSE', actionData: {} }
