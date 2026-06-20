@@ -151,9 +151,16 @@ decline_response（守方 bot W3）→ field_battle` 结算（ottoman 5R→3R）
 
 复用「构造 `pendingBattle`/围困/海战态 + `forceHands` + `_handleGameAction(RESOLVE_BATTLE/ASSAULT/NAVAL_MOVE)`」手法
 （见 [[project_his_testing]]）。**响应窗口 UI 至此充分覆盖**：5 窗 × 3 战斗类型 live 走通、卡名修复全局生效。
+**进度（2026-06-20 续，战斗面板 + 拦截面板 live 复核）**：用「改 state + `currentGame.emit('stateUpdated', s)`」强制重渲染，
+驱动两个**不同模型**的面板：**战斗面板** `battlePanelModel`——结算分支「解决战斗」（攻方）渲染+点击 → `field_battle`；
+退入工事分支「退入工事 / 应战」（守方）渲染+点击「退入工事」→ `field_battle → siege_established`（守军退入要塞、转围城）。
+**拦截面板** `interceptionPanelModel`——「尝试拦截 / 避战」渲染。**verify-before-claim 抓到一例自摆乌龙**：守方退入面板初次为空，
+疑似「守方在攻方脉冲无法决策」的门控 bug——核 `bot-controller.decideAction:362`（`decideBattle/Interception` 同样要求
+`activePower===power`）证明引擎在守方/拦截方决策时**会把 `activePower` 设为决策方**；初次为空仅因我测试里把 `activePower`
+设成了攻方（测试构造错误），改对即正常渲染，**非 bug**。
 **仍待（同 `responsePanelModel` 接线、render bug 已统一修，低边际价值）**：**W4 禁卫军**（post-roll 条件触发，本次未自然出现）、
-**W7 脉冲中断**（跨脉冲，RESPONSE 卡如 Gout/Wartburg）；及 `battlePanelModel`「退入工事 vs 应战」、
-`interceptionPanelModel` 拦截/避战面板（不同模型，已 node 测）。
+**W7 脉冲中断**（跨脉冲，RESPONSE 卡如 Gout/Wartburg）。**至此 A1（人类侧战斗+响应窗口）实质完成**：5 响应窗 + 战斗（结算/退入工事）+
+拦截面板均 live 走通，全程仅 1 个真 bug（卡名 undefined，已修）。
 
 本会话所有战斗均为 bot-vs-bot 自动结算；以下从未由人类侧驱动，且响应链历来易出 bug：
 
