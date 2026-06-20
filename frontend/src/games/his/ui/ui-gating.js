@@ -58,16 +58,28 @@ export const CP_ACTION_CATALOG = {
  * the action panel renders them. An action qualifies when its cost for that
  * power is defined (non-null) and affordable (≤ cpRemaining).
  *
+ * The piracy actions (PIRACY / BUILD_CORSAIR) are additionally gated on
+ * `opts.piracyEnabled`: the engine's validatePiracy / validateBuildCorsair
+ * reject them with "before Barbary Pirates is in play" while piracy is off, so
+ * offering them in the menu lets the human start a flow that the engine
+ * silently drops (no corsair, no feedback). Defaults to enabled so callers that
+ * only care about the cost-based catalog (and tests) are unaffected; the live
+ * action panel passes the real `state.piracyEnabled`.
+ *
  * @param {string} power
  * @param {number} cpRemaining
+ * @param {{ piracyEnabled?: boolean }} [opts]
  * @returns {{ military: Array<{key:string,cost:number}>,
  *            religious: Array<{key:string,cost:number}>,
  *            newWorld: Array<{key:string,cost:number}> }}
  */
-export function cpActionsFor(power, cpRemaining) {
+export function cpActionsFor(power, cpRemaining, opts = {}) {
   const costs = ACTION_COSTS[power] || {};
+  const piracyEnabled = opts.piracyEnabled ?? true;
+  const gated = piracyEnabled ? null : new Set(['PIRACY', 'BUILD_CORSAIR']);
   const pick = (group) => CP_ACTION_CATALOG[group]
-    .filter((a) => costs[a.costKey] != null && costs[a.costKey] <= cpRemaining)
+    .filter((a) => costs[a.costKey] != null && costs[a.costKey] <= cpRemaining &&
+      !(gated && gated.has(a.key)))
     .map((a) => ({ key: a.key, cost: costs[a.costKey] }));
   return {
     military: pick('military'),

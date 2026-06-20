@@ -222,7 +222,9 @@ export class ActionPanel {
     const cpRemaining = state.cpRemaining;
     this._el.appendChild(this._sectionHeader(`CP 行动 (剩余: ${cpRemaining})`));
 
-    const groups = cpActionsFor(power, cpRemaining);
+    const groups = cpActionsFor(power, cpRemaining, {
+      piracyEnabled: state.piracyEnabled
+    });
     this._renderCpGroup('军事', groups.military, power);
     this._renderCpGroup('宗教', groups.religious, power);
     this._renderCpGroup('新世界', groups.newWorld, power);

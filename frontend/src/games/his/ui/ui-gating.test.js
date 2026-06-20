@@ -266,6 +266,25 @@ describe('cpActionsFor — per-power CP action menu (P1 backlog item 1)', () => 
     }
   });
 
+  // Regression for the 2026-06-20 Playwright-found bug: the menu offered
+  // PIRACY / BUILD_CORSAIR before Barbary Pirates was in play, but the engine
+  // (validatePiracy / validateBuildCorsair) silently rejects them while
+  // state.piracyEnabled is false — so the human's action vanished with no feedback.
+  it('Ottoman piracy actions are gated on piracyEnabled', () => {
+    const ottOff = cpActionsFor('ottoman', HIGH_CP, { piracyEnabled: false });
+    const offKeys = new Set(ottOff.military.map((a) => a.key));
+    expect(offKeys.has('PIRACY')).toBe(false);
+    expect(offKeys.has('BUILD_CORSAIR')).toBe(false);
+    // non-piracy Ottoman military actions are unaffected
+    expect(offKeys.has('RAISE_CAVALRY')).toBe(true);
+    expect(offKeys.has('MOVE_FORMATION')).toBe(true);
+    // explicit enable (and the default) restore them
+    const ottOn = cpActionsFor('ottoman', HIGH_CP, { piracyEnabled: true });
+    const onKeys = new Set(ottOn.military.map((a) => a.key));
+    expect(onKeys.has('PIRACY')).toBe(true);
+    expect(onKeys.has('BUILD_CORSAIR')).toBe(true);
+  });
+
   it('New World actions belong only to Hapsburg / England / France', () => {
     const nwPowers = POWERS.filter((p) => cpActionsFor(p, HIGH_CP).newWorld.length > 0);
     expect(nwPowers.sort()).toEqual(['england', 'france', 'hapsburg']);
