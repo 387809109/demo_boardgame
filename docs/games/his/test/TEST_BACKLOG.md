@@ -12,6 +12,23 @@
 
 ### 🟡 1. 其余 5 势力的特有 UI 路径
 
+**进度（2026-06-20，Playwright 人类可玩性走查 — 以 Ottoman 实机驱动整轮 T1）**：起单机局控 Ottoman、5 AI，
+走通 外交 5 段 → 春季部署 → 行动阶段 的人类侧 UI，并查出并修复 **2 个真 UI bug**：
+
+- 🐛✅ **状态栏在外交/diet 段显示错误行动方**（`fix(his): status bar shows real actor during diplomacy`）。
+  `status-bar` 直接读 `state.activePower`，而该字段只在 impulse 序阶段维护；外交/diet 段它残留上一个设值者
+  （T1 由 Luther95 设为 `protestant`），于是轮到人类时仍显示「▶ [BOT] 新教 思考中」——人类**无从得知该自己行动**。
+  新增 `ui-gating.getActivePower(state)`（与 `isActionPanelActive` 同款分阶段回合模型），`status-bar` 改用之。
+  穷举节点测试 +8，live 复核：外交 5 段 + 春季 + 行动**每阶段显示正确**。
+- 🐛✅ **Ottoman 海盗/海盗船 CP 动作在 `piracyEnabled=false` 时仍出现于菜单**（`fix(his): gate Ottoman
+  piracy/corsair CP actions on piracyEnabled`）。引擎 `validatePiracy`/`validateBuildCorsair` 在 Barbary Pirates
+  入场前拒收，但 UI 照样出 `海盗行动`/`建造海盗船`、高亮合法港口、允许走完选择流——结果**静默丢弃**（无海盗船、
+  不扣 CP、**无任何提示**）。`cpActionsFor` 增 `opts.piracyEnabled` 门控这两项；`action-panel` 传 `state.piracyEnabled`。
+  节点测试 +1，live 复核：`piracyEnabled=false` 时菜单只剩 7 项（无海盗/海盗船）。Ottoman 的 `PIRACY`/
+  `BUILD_CORSAIR`/`NAVAL_MOVE` 选择流入口与 `BUILD_CORSAIR` 端到端（含引擎拒收路径）由此走通。
+- ⚠️ **附带观察（未修，跨切面 UX 缺口）**：被引擎拒收的 move **无任何用户反馈**（无 toast/通知）——本 bug 只是其一例；
+  各 reformation 结算弹窗在 bot 行动期间不断弹出且需手动「关闭」。两者宜后续统一处理（错误提示 + 弹窗策略）。
+
 本会话仅驱动了新教（Protestant）。以下面板/路径从未经 UI 触发，用 `forceHands` 指定相关卡 + 构造对应状态后逐一走通，并把稳定的渲染契约下沉到 `ui-gating`：
 
 - **Papacy**：主动发起反宗教改革、绝罚（excommunication 段）、创立耶稣会（`FOUND_JESUIT`，#AA 相关）、烧书（`BURN_BOOKS`）、建造圣彼得（`BUILD_ST_PETERS`）。
