@@ -22,20 +22,27 @@
   穷举节点测试 +8，live 复核：外交 5 段 + 春季 + 行动**每阶段显示正确**。
 - 🐛✅ **Ottoman 海盗/海盗船 CP 动作在 `piracyEnabled=false` 时仍出现于菜单**（`fix(his): gate Ottoman
   piracy/corsair CP actions on piracyEnabled`）。引擎 `validatePiracy`/`validateBuildCorsair` 在 Barbary Pirates
-  入场前拒收，但 UI 照样出 `海盗行动`/`建造海盗船`、高亮合法港口、允许走完选择流——结果**静默丢弃**（无海盗船、
-  不扣 CP、**无任何提示**）。`cpActionsFor` 增 `opts.piracyEnabled` 门控这两项；`action-panel` 传 `state.piracyEnabled`。
+  入场前拒收，但 UI 照样出 `海盗行动`/`建造海盗船`、高亮合法港口、允许走完选择流——白走一趟交互（无海盗船、
+  不扣 CP）。**修正（2026-06-20 复核）**：引擎拒收**确有反馈**——`_handleGameAction` 在 `!result.success` 时
+  `showToast(result.error)`（3s 自动消失，早前误判「无反馈」系 toast 已自动消失后才扫描的测量偏差，见末尾 ⚠️）。
+  故此修的正当性是「**菜单不应提供引擎必拒的动作**」（与既有按成本门控同理），而非「补反馈」。
+  `cpActionsFor` 增门控（首版 `opts.piracyEnabled`，后泛化为 `opts.unavailable`）；`action-panel` 传 `state.piracyEnabled`。
   节点测试 +1，live 复核：`piracyEnabled=false` 时菜单只剩 7 项（无海盗/海盗船）。Ottoman 的 `PIRACY`/
   `BUILD_CORSAIR`/`NAVAL_MOVE` 选择流入口与 `BUILD_CORSAIR` 端到端（含引擎拒收路径）由此走通。
 - 🐛✅ **CP 菜单/引擎门控一致性（gate-parity）泛化**（`fix(his): generalize CP-menu/engine gate parity`）：
-  以 piracy 同款审计全部 CP 动作 validator 的「状态前置」拒收点，新查出 3 类同类 bug（菜单出、引擎静默拒）：
+  以 piracy 同款审计全部 CP 动作 validator 的「状态前置」拒收点，新查出 3 类同类问题（菜单提供、引擎必拒——
+  会 toast 报错但白走交互）：
   **FOUND_JESUIT**（需 `jesuitFoundingEnabled`，Society of Jesus 前）、**EXPLORE/COLONIZE/CONQUER**
   （`newWorld.*ThisTurn[power]` 每回合各一次，用后菜单仍出）。统一收敛为唯一真源 `ui-gating.unavailableCpActions
   (state, power)`（与各 `validate*` 门一一对应）；`cpActionsFor` 改收 `opts.unavailable: Set`，`action-panel` 传之。
   节点测试 +5（逐门 + 逐势力 + null 安全）。**注**：jesuit/new-world 与 piracy 同一套 action-panel 接线（piracy 已
   live 复核），本次未单独 live 驱动 Papacy（T1 Diet of Worms 挡住快速跳过路径）。**仍可补**：EXPLORE「无可用探险家」/
   CONQUER「无可用征服者」/COLONIZE「殖民上限」等资源耗尽门（需引入对应 helper），及 `BUILD_ST_PETERS` 完工后终止门。
-- ⚠️ **附带观察（未修，跨切面 UX 缺口）**：被引擎拒收的 move **无任何用户反馈**（无 toast/通知）——本 bug 只是其一例；
-  各 reformation 结算弹窗在 bot 行动期间不断弹出且需手动「关闭」。两者宜后续统一处理（错误提示 + 弹窗策略）。
+- ✅ **已澄清（原列为「无反馈」缺口，经核实为误判并撤回）**：被引擎拒收的 move **确有反馈**——
+  `main._handleGameAction` 在 `!result.success` 时 `showToast(result.error)`（3s）；选择流完成也经 `ui.js:_startSelectionFlow`
+  的 `onComplete → this.onAction → _handleGameAction` 走此路。早前「无 toast」系 3s 自动消失后才扫描 DOM 的测量偏差
+  （同 2026-06-19 宣战事件名误判一类）。**故不新建「拒收反馈」功能（已存在）**。
+- ⚠️ **仍待（真 UX 小项）**：各 reformation 结算弹窗在 bot 行动期间不断弹出且需手动「关闭」——弹窗策略可后续优化。
 
 本会话仅驱动了新教（Protestant）。以下面板/路径从未经 UI 触发，用 `forceHands` 指定相关卡 + 构造对应状态后逐一走通，并把稳定的渲染契约下沉到 `ui-gating`：
 
