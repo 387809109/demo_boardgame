@@ -21,6 +21,7 @@ import {
   RESPONSE_WINDOW_LABELS
 } from './ui-gating.js';
 import { ACTION_COSTS } from '../constants.js';
+import { EXPLORERS, CONQUISTADORS } from '../data/leaders.js';
 
 const POWERS = ['ottoman', 'hapsburg', 'england', 'france', 'papacy', 'protestant'];
 
@@ -392,6 +393,50 @@ describe('unavailableCpActions — menu/engine gate parity (P1 backlog item 1)',
     // missing newWorld: only the unlock gates apply, no throw
     expect(unavailableCpActions({}, 'hapsburg'))
       .toEqual(new Set(['PIRACY', 'BUILD_CORSAIR', 'FOUND_JESUIT']));
+  });
+
+  // Piece-exhaustion gates (2026-06-20 follow-up) — mirror the validators'
+  // resource checks so the menu hides an action whose pieces are spent.
+  const unlocked = { piracyEnabled: true, jesuitFoundingEnabled: true };
+  /** A complete, empty newWorld (all arrays present, nothing used). */
+  const freshNewWorld = () => ({
+    exploredThisTurn: {}, colonizedThisTurn: {}, conqueredThisTurn: {},
+    deadExplorers: [], placedExplorers: [], colonies: [], underwayColonies: [],
+    deadConquistadors: [], placedConquistadors: []
+  });
+
+  it('EXPLORE gated when the power has no available explorers', () => {
+    const nw = freshNewWorld();
+    // mark every Hapsburg explorer as placed → none available
+    nw.placedExplorers = EXPLORERS.filter(e => e.faction === 'hapsburg')
+      .map(e => ({ explorerId: e.id }));
+    const u = unavailableCpActions({ ...unlocked, newWorld: nw }, 'hapsburg');
+    expect(u.has('EXPLORE')).toBe(true);
+    // a power with explorers still available is not gated
+    expect(unavailableCpActions({ ...unlocked, newWorld: freshNewWorld() }, 'hapsburg')
+      .has('EXPLORE')).toBe(false);
+  });
+
+  it('COLONIZE gated when the colony limit is reached (Hapsburg = 3)', () => {
+    const nw = freshNewWorld();
+    nw.colonies = [{ power: 'hapsburg' }, { power: 'hapsburg' }];
+    nw.underwayColonies = [{ power: 'hapsburg' }]; // 2 + 1 = 3 == limit
+    expect(unavailableCpActions({ ...unlocked, newWorld: nw }, 'hapsburg').has('COLONIZE')).toBe(true);
+    // another power's colonies don't count against this one
+    expect(unavailableCpActions({ ...unlocked, newWorld: nw }, 'france').has('COLONIZE')).toBe(false);
+  });
+
+  it('CONQUER gated for Hapsburg when no conquistadors remain', () => {
+    const nw = freshNewWorld();
+    nw.placedConquistadors = CONQUISTADORS.map(c => ({ conquistadorId: c.id }));
+    expect(unavailableCpActions({ ...unlocked, newWorld: nw }, 'hapsburg').has('CONQUER')).toBe(true);
+    // england/france conquer uses markers, not conquistadors → not gated here
+    expect(unavailableCpActions({ ...unlocked, newWorld: nw }, 'england').has('CONQUER')).toBe(false);
+  });
+
+  it('BUILD_ST_PETERS gated once St. Peter\'s is complete (stPetersVp >= maxVp)', () => {
+    expect(unavailableCpActions({ ...unlocked, stPetersVp: 5 }, 'papacy').has('BUILD_ST_PETERS')).toBe(true);
+    expect(unavailableCpActions({ ...unlocked, stPetersVp: 3 }, 'papacy').has('BUILD_ST_PETERS')).toBe(false);
   });
 });
 

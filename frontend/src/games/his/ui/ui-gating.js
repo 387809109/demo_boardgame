@@ -12,7 +12,12 @@
  */
 
 import { canActInSegment } from '../phases/phase-diplomacy.js';
-import { ACTION_COSTS, IMPULSE_ORDER } from '../constants.js';
+import {
+  ACTION_COSTS, IMPULSE_ORDER, COLONY_LIMITS, ST_PETERS, NEW_WORLD_POWERS
+} from '../constants.js';
+import {
+  getAvailableExplorers, getAvailableConquistadors
+} from '../actions/new-world-actions.js';
 
 /**
  * Canonical catalog of CP-spend actions, grouped as the action panel renders
@@ -97,8 +102,11 @@ export function cpActionsFor(power, cpRemaining, opts = {}) {
  *    (validatePiracy / validateBuildCorsair).
  *  - FOUND_JESUIT — before Society of Jesus (`!jesuitFoundingEnabled`)
  *    (validateFoundJesuit).
- *  - EXPLORE / COLONIZE / CONQUER — once-per-turn already used by this power
- *    (validateExplore / validateColonize / validateConquer).
+ *  - BUILD_ST_PETERS — once St. Peter's is finished (`stPetersVp >= maxVp`)
+ *    (validateBuildStPeters).
+ *  - EXPLORE / COLONIZE / CONQUER — once-per-turn already used by this power,
+ *    or the relevant pieces are exhausted (no explorers / colony limit reached /
+ *    no conquistadors) (validateExplore / validateColonize / validateConquer).
  *
  * @param {Object} state
  * @param {string} power
@@ -109,11 +117,25 @@ export function unavailableCpActions(state, power) {
   if (!state) return out;
   if (!state.piracyEnabled) { out.add('PIRACY'); out.add('BUILD_CORSAIR'); }
   if (!state.jesuitFoundingEnabled) out.add('FOUND_JESUIT');
+  if (state.stPetersVp >= ST_PETERS.maxVp) out.add('BUILD_ST_PETERS');
   const nw = state.newWorld;
-  if (nw) {
+  if (nw && NEW_WORLD_POWERS.includes(power)) {
+    // Once-per-turn (already used this turn).
     if (nw.exploredThisTurn?.[power]) out.add('EXPLORE');
     if (nw.colonizedThisTurn?.[power]) out.add('COLONIZE');
     if (nw.conqueredThisTurn?.[power]) out.add('CONQUER');
+    // Piece exhaustion — mirror the validators (guarded on the arrays the
+    // helpers read so a partial state can't throw).
+    if (Array.isArray(nw.deadExplorers) && Array.isArray(nw.placedExplorers) &&
+        getAvailableExplorers(state, power).length === 0) out.add('EXPLORE');
+    if (Array.isArray(nw.colonies) && Array.isArray(nw.underwayColonies)) {
+      const colonies = nw.colonies.filter(c => c.power === power).length +
+        nw.underwayColonies.filter(c => c.power === power).length;
+      if (colonies >= (COLONY_LIMITS[power] || 2)) out.add('COLONIZE');
+    }
+    if (power === 'hapsburg' &&
+        Array.isArray(nw.deadConquistadors) && Array.isArray(nw.placedConquistadors) &&
+        getAvailableConquistadors(state).length === 0) out.add('CONQUER');
   }
   return out;
 }
