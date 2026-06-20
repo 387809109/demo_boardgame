@@ -11,10 +11,20 @@ import { POWER_COLORS } from './his-theme.js';
 
 const HIT_THRESHOLD = 5;
 
+/**
+ * How long a result modal stays up before auto-dismissing. These overlays are
+ * informational (the game log keeps the full history); auto-dismissing stops
+ * bot-driven reformation/debate results from piling up behind a backdrop and
+ * forcing the human to click 关闭 repeatedly during bot turns. The 关闭 button
+ * and backdrop-click still dismiss early.
+ */
+export const RESULT_AUTO_HIDE_MS = 3500;
+
 export class ReligiousDisplay {
   constructor() {
     this._overlayEl = null;
     this._visible = false;
+    this._autoHideTimer = null;
   }
 
   createOverlay() {
@@ -53,6 +63,10 @@ export class ReligiousDisplay {
   }
 
   hide() {
+    if (this._autoHideTimer) {
+      clearTimeout(this._autoHideTimer);
+      this._autoHideTimer = null;
+    }
     if (this._overlayEl) this._overlayEl.style.display = 'none';
     this._visible = false;
   }
@@ -65,6 +79,10 @@ export class ReligiousDisplay {
     this._overlayEl.appendChild(modal);
     this._overlayEl.style.display = 'flex';
     this._visible = true;
+    // Auto-dismiss; resetting on each result so a rapid bot sequence just
+    // flashes the latest one instead of stacking (see RESULT_AUTO_HIDE_MS).
+    if (this._autoHideTimer) clearTimeout(this._autoHideTimer);
+    this._autoHideTimer = setTimeout(() => this.hide(), RESULT_AUTO_HIDE_MS);
   }
 
   // ── Debate Result Modal ────────────────────────────────────────
