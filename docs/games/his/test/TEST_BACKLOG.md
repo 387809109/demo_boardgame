@@ -35,9 +35,29 @@
   **FOUND_JESUIT**（需 `jesuitFoundingEnabled`，Society of Jesus 前）、**EXPLORE/COLONIZE/CONQUER**
   （`newWorld.*ThisTurn[power]` 每回合各一次，用后菜单仍出）。统一收敛为唯一真源 `ui-gating.unavailableCpActions
   (state, power)`（与各 `validate*` 门一一对应）；`cpActionsFor` 改收 `opts.unavailable: Set`，`action-panel` 传之。
-  节点测试 +5（逐门 + 逐势力 + null 安全）。**注**：jesuit/new-world 与 piracy 同一套 action-panel 接线（piracy 已
-  live 复核），本次未单独 live 驱动 Papacy（T1 Diet of Worms 挡住快速跳过路径）。**仍可补**：EXPLORE「无可用探险家」/
-  CONQUER「无可用征服者」/COLONIZE「殖民上限」等资源耗尽门（需引入对应 helper），及 `BUILD_ST_PETERS` 完工后终止门。
+  节点测试 +5（逐门 + 逐势力 + null 安全）。
+- 🐛✅ **资源耗尽门补全**（`fix(his): gate CP menu on New World piece exhaustion + St Peter's complete`）：
+  `unavailableCpActions` 再补 **EXPLORE「无可用探险家」/ COLONIZE「殖民上限」/ CONQUER「无征服者」（仅 Hapsburg）/
+  BUILD_ST_PETERS「已完工 `stPetersVp>=maxVp`」**——直接复用引擎 helper `getAvailableExplorers/getAvailableConquistadors`
+  以及 `COLONY_LIMITS/ST_PETERS`（无环；数组存在性守卫防局部态抛错）。节点测试 +4（用真 EXPLORERS/CONQUISTADORS 数据）。
+  **至此 item 1 gate-parity 收口**：菜单不再提供任何引擎必拒的 CP 动作。
+
+**进度（2026-06-20，item 2 其余势力 live 走查 + item 3 弹窗）**：
+
+- ✅ **Hapsburg 新世界 端到端走通（无 bug）**：实机 单击「探索」→ `exploredThisTurn=true` + 一个 exploration 进入
+  `underwayExplorations`（航行中）；**新世界面板**（`new-world-panel.js`，曾致 Vercel 失败、从未 UI 测）正确渲染
+  征服/殖民地/航行中/财富表并实时反映该探索。**顺带 live 复核 item 1 的每回合门**：探索后菜单立即移除「探索」。
+  「征服」缺席经核实为**成本门**（Hapsburg conquer=4CP > 余 3CP），非误门控（征服者 0 placed/0 dead = 有货）。
+- ✅ **Papacy 宗教菜单逻辑（确定性核实，无 bug）**：`cpActionsFor('papacy',2,…)` 宗教组 = `[BUILD_ST_PETERS,BURN_BOOKS]`，
+  FOUND_JESUIT 被正确门控（jesuit 未解锁）、CALL_DEBATE 因成本(3>2)排除。live 驱动 Papacy 因 reformation 弹窗反复
+  拦截合成点击而退化（即 item 3），故宗教菜单改以 node 确定性核实（免弹窗干扰）。
+- ⏭️ **England 继承换君（Lady Jane Grey #59）**：需 `englandRulerChangedThisTurn` 的中局特定态，快速跳过到不了，
+  宜后续以 forceHands/构造态做 ui-gating 或 node 测，不强行 live。
+- 🐛✅ **item 3 — reformation/debate 结算弹窗自动消失**（`fix(his): auto-dismiss reformation/debate result modals`）：
+  `_detectNewEvents` 对每条改革/辩论结果弹全屏 `ReligiousDisplay`（含 bot 整回合数十次），背景遮罩需手动「关闭」→
+  bot 回合反复挡板并干扰操作。`ReligiousDisplay._show` 加自动隐藏定时器（`RESULT_AUTO_HIDE_MS=3.5s`，每条结果重置→
+  bot 连发只闪最后一条）；`hide()` 清定时器（关闭/点背景仍可提前关）。日志保留全史。node 测 +3，live 复核
+  弹窗 `none→flex→none` 自动消失、无需手动关闭。
 - ✅ **已澄清（原列为「无反馈」缺口，经核实为误判并撤回）**：被引擎拒收的 move **确有反馈**——
   `main._handleGameAction` 在 `!result.success` 时 `showToast(result.error)`（3s）；选择流完成也经 `ui.js:_startSelectionFlow`
   的 `onComplete → this.onAction → _handleGameAction` 走此路。早前「无 toast」系 3s 自动消失后才扫描 DOM 的测量偏差
