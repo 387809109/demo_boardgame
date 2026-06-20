@@ -10,7 +10,7 @@
 
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import {
-  isActionPanelActive, cpActionsFor,
+  isActionPanelActive, cpActionsFor, unavailableCpActions,
   responsePanelModel, battlePanelModel, interceptionPanelModel,
   reformationPanelModel, debatePanelModel
 } from './ui-gating.js';
@@ -223,7 +223,7 @@ export class ActionPanel {
     this._el.appendChild(this._sectionHeader(`CP 行动 (剩余: ${cpRemaining})`));
 
     const groups = cpActionsFor(power, cpRemaining, {
-      piracyEnabled: state.piracyEnabled
+      unavailable: unavailableCpActions(state, power)
     });
     this._renderCpGroup('军事', groups.military, power);
     this._renderCpGroup('宗教', groups.religious, power);

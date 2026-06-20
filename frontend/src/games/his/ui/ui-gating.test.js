@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   handCanPlay, isActionPanelActive, getActivePower, activePanelKey,
-  cpActionsFor, CP_ACTION_CATALOG,
+  cpActionsFor, unavailableCpActions, CP_ACTION_CATALOG,
   responsePanelModel, battlePanelModel, interceptionPanelModel,
   reformationPanelModel, debatePanelModel,
   RESPONSE_WINDOW_LABELS
@@ -270,17 +270,18 @@ describe('cpActionsFor — per-power CP action menu (P1 backlog item 1)', () => 
   // PIRACY / BUILD_CORSAIR before Barbary Pirates was in play, but the engine
   // (validatePiracy / validateBuildCorsair) silently rejects them while
   // state.piracyEnabled is false — so the human's action vanished with no feedback.
-  it('Ottoman piracy actions are gated on piracyEnabled', () => {
-    const ottOff = cpActionsFor('ottoman', HIGH_CP, { piracyEnabled: false });
-    const offKeys = new Set(ottOff.military.map((a) => a.key));
+  it('cpActionsFor hides actions listed in opts.unavailable', () => {
+    const off = cpActionsFor('ottoman', HIGH_CP, {
+      unavailable: new Set(['PIRACY', 'BUILD_CORSAIR'])
+    });
+    const offKeys = new Set(off.military.map((a) => a.key));
     expect(offKeys.has('PIRACY')).toBe(false);
     expect(offKeys.has('BUILD_CORSAIR')).toBe(false);
-    // non-piracy Ottoman military actions are unaffected
+    // non-gated Ottoman military actions are unaffected
     expect(offKeys.has('RAISE_CAVALRY')).toBe(true);
     expect(offKeys.has('MOVE_FORMATION')).toBe(true);
-    // explicit enable (and the default) restore them
-    const ottOn = cpActionsFor('ottoman', HIGH_CP, { piracyEnabled: true });
-    const onKeys = new Set(ottOn.military.map((a) => a.key));
+    // omitting opts.unavailable restores the full cost-based catalog
+    const onKeys = new Set(cpActionsFor('ottoman', HIGH_CP).military.map((a) => a.key));
     expect(onKeys.has('PIRACY')).toBe(true);
     expect(onKeys.has('BUILD_CORSAIR')).toBe(true);
   });
@@ -336,6 +337,61 @@ describe('cpActionsFor — per-power CP action menu (P1 backlog item 1)', () => 
   it('unknown power yields empty groups (no throw)', () => {
     const g = cpActionsFor('nobody', HIGH_CP);
     expect(g).toEqual({ military: [], religious: [], newWorld: [] });
+  });
+});
+
+describe('unavailableCpActions — menu/engine gate parity (P1 backlog item 1)', () => {
+  // Each gate mirrors an engine validate* precondition that would otherwise
+  // reject a menu-offered action with no UI feedback (2026-06-20 Playwright pass).
+  it('piracy actions gated until Barbary Pirates (piracyEnabled)', () => {
+    expect(unavailableCpActions({ piracyEnabled: false }, 'ottoman'))
+      .toEqual(new Set(['PIRACY', 'BUILD_CORSAIR', 'FOUND_JESUIT']));
+    const enabled = unavailableCpActions(
+      { piracyEnabled: true, jesuitFoundingEnabled: true }, 'ottoman');
+    expect(enabled.has('PIRACY')).toBe(false);
+    expect(enabled.has('BUILD_CORSAIR')).toBe(false);
+  });
+
+  it('FOUND_JESUIT gated until Society of Jesus (jesuitFoundingEnabled)', () => {
+    expect(unavailableCpActions({ piracyEnabled: true }, 'papacy').has('FOUND_JESUIT')).toBe(true);
+    expect(unavailableCpActions(
+      { piracyEnabled: true, jesuitFoundingEnabled: true }, 'papacy').has('FOUND_JESUIT')).toBe(false);
+  });
+
+  it('New World actions gated once-per-turn, per power', () => {
+    const base = { piracyEnabled: true, jesuitFoundingEnabled: true };
+    const nw = {
+      ...base,
+      newWorld: {
+        exploredThisTurn: { hapsburg: true },
+        colonizedThisTurn: { france: true },
+        conqueredThisTurn: { hapsburg: true }
+      }
+    };
+    const haps = unavailableCpActions(nw, 'hapsburg');
+    expect(haps.has('EXPLORE')).toBe(true);
+    expect(haps.has('CONQUER')).toBe(true);
+    expect(haps.has('COLONIZE')).toBe(false); // hapsburg hasn't colonized
+    // per-power: france's colonize flag does not gate hapsburg, and vice versa
+    const fra = unavailableCpActions(nw, 'france');
+    expect(fra.has('COLONIZE')).toBe(true);
+    expect(fra.has('EXPLORE')).toBe(false);
+  });
+
+  it('no New World gating when nothing used this turn', () => {
+    const s = {
+      piracyEnabled: true, jesuitFoundingEnabled: true,
+      newWorld: { exploredThisTurn: {}, colonizedThisTurn: {}, conqueredThisTurn: {} }
+    };
+    const u = unavailableCpActions(s, 'england');
+    for (const k of ['EXPLORE', 'COLONIZE', 'CONQUER']) expect(u.has(k)).toBe(false);
+  });
+
+  it('guards null/missing state and newWorld', () => {
+    expect(unavailableCpActions(null, 'ottoman')).toEqual(new Set());
+    // missing newWorld: only the unlock gates apply, no throw
+    expect(unavailableCpActions({}, 'hapsburg'))
+      .toEqual(new Set(['PIRACY', 'BUILD_CORSAIR', 'FOUND_JESUIT']));
   });
 });
 

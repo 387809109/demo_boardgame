@@ -58,34 +58,64 @@ export const CP_ACTION_CATALOG = {
  * the action panel renders them. An action qualifies when its cost for that
  * power is defined (non-null) and affordable (≤ cpRemaining).
  *
- * The piracy actions (PIRACY / BUILD_CORSAIR) are additionally gated on
- * `opts.piracyEnabled`: the engine's validatePiracy / validateBuildCorsair
- * reject them with "before Barbary Pirates is in play" while piracy is off, so
- * offering them in the menu lets the human start a flow that the engine
- * silently drops (no corsair, no feedback). Defaults to enabled so callers that
- * only care about the cost-based catalog (and tests) are unaffected; the live
- * action panel passes the real `state.piracyEnabled`.
+ * Some actions are additionally hidden via `opts.unavailable` (a Set of action
+ * keys) — see {@link unavailableCpActions}. These are actions the cost catalog
+ * deems affordable but the engine validators reject on a state precondition
+ * (feature not yet unlocked, once-per-turn already used). Offering them lets the
+ * human complete a selection flow the engine then silently drops (no effect, no
+ * feedback). When `opts.unavailable` is omitted, only the cost-based catalog
+ * applies (tests and any caller that doesn't need state gating are unaffected).
  *
  * @param {string} power
  * @param {number} cpRemaining
- * @param {{ piracyEnabled?: boolean }} [opts]
+ * @param {{ unavailable?: Set<string> }} [opts]
  * @returns {{ military: Array<{key:string,cost:number}>,
  *            religious: Array<{key:string,cost:number}>,
  *            newWorld: Array<{key:string,cost:number}> }}
  */
 export function cpActionsFor(power, cpRemaining, opts = {}) {
   const costs = ACTION_COSTS[power] || {};
-  const piracyEnabled = opts.piracyEnabled ?? true;
-  const gated = piracyEnabled ? null : new Set(['PIRACY', 'BUILD_CORSAIR']);
+  const unavailable = opts.unavailable || null;
   const pick = (group) => CP_ACTION_CATALOG[group]
     .filter((a) => costs[a.costKey] != null && costs[a.costKey] <= cpRemaining &&
-      !(gated && gated.has(a.key)))
+      !(unavailable && unavailable.has(a.key)))
     .map((a) => ({ key: a.key, cost: costs[a.costKey] }));
   return {
     military: pick('military'),
     religious: pick('religious'),
     newWorld: pick('newWorld')
   };
+}
+
+/**
+ * CP-action keys that are currently unavailable to `power` for state-level
+ * reasons the cost catalog cannot express. Keep in sync with the corresponding
+ * `validate*` gates — each entry here mirrors an engine precondition that would
+ * otherwise reject a menu-offered action with no on-screen feedback:
+ *
+ *  - PIRACY / BUILD_CORSAIR — before Barbary Pirates (`!piracyEnabled`)
+ *    (validatePiracy / validateBuildCorsair).
+ *  - FOUND_JESUIT — before Society of Jesus (`!jesuitFoundingEnabled`)
+ *    (validateFoundJesuit).
+ *  - EXPLORE / COLONIZE / CONQUER — once-per-turn already used by this power
+ *    (validateExplore / validateColonize / validateConquer).
+ *
+ * @param {Object} state
+ * @param {string} power
+ * @returns {Set<string>}
+ */
+export function unavailableCpActions(state, power) {
+  const out = new Set();
+  if (!state) return out;
+  if (!state.piracyEnabled) { out.add('PIRACY'); out.add('BUILD_CORSAIR'); }
+  if (!state.jesuitFoundingEnabled) out.add('FOUND_JESUIT');
+  const nw = state.newWorld;
+  if (nw) {
+    if (nw.exploredThisTurn?.[power]) out.add('EXPLORE');
+    if (nw.colonizedThisTurn?.[power]) out.add('COLONIZE');
+    if (nw.conqueredThisTurn?.[power]) out.add('CONQUER');
+  }
+  return out;
 }
 
 /**
