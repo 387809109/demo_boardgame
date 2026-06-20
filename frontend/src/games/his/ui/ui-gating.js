@@ -12,7 +12,7 @@
  */
 
 import { canActInSegment } from '../phases/phase-diplomacy.js';
-import { ACTION_COSTS } from '../constants.js';
+import { ACTION_COSTS, IMPULSE_ORDER } from '../constants.js';
 
 /**
  * Canonical catalog of CP-spend actions, grouped as the action panel renders
@@ -310,6 +310,35 @@ export function isActionPanelActive(state, power) {
     return state.pendingDietOfWorms?.cards[power] == null;
   }
   return state.activePower === power;
+}
+
+/**
+ * Which single power the status UI should present as "currently acting" (the
+ * ▶ / "[BOT] 思考中" badge).
+ *
+ * `state.activePower` is only maintained for the impulse-ordered phases
+ * (action / spring_deployment / luther_95). The segment-based phases
+ * (diplomacy, diet_of_worms) never update it, so a naive `state.activePower`
+ * read shows whoever last set it — e.g. the Protestant bot from Luther's 95
+ * Theses — together with a misleading "[BOT] 思考中" badge while it is in fact
+ * the human's turn to act in the diplomacy segment. Derive the real actor from
+ * the same per-phase turn model as {@link isActionPanelActive}: the first power
+ * in impulse order that may still act.
+ *
+ * @param {Object} state
+ * @returns {string|null} the acting power, or null if none is currently waiting
+ */
+export function getActivePower(state) {
+  if (!state) return null;
+  if (state.phase === 'diplomacy') {
+    return IMPULSE_ORDER.find(p => canActInSegment(state, p)) || null;
+  }
+  if (state.phase === 'diet_of_worms') {
+    return IMPULSE_ORDER.find(
+      p => state.pendingDietOfWorms?.cards?.[p] == null
+    ) || null;
+  }
+  return state.activePower || null;
 }
 
 /**

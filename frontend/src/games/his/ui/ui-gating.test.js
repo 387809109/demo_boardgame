@@ -14,7 +14,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  handCanPlay, isActionPanelActive, activePanelKey,
+  handCanPlay, isActionPanelActive, getActivePower, activePanelKey,
   cpActionsFor, CP_ACTION_CATALOG,
   responsePanelModel, battlePanelModel, interceptionPanelModel,
   reformationPanelModel, debatePanelModel,
@@ -97,6 +97,66 @@ describe('isActionPanelActive', () => {
       expect(isActionPanelActive(s, 'protestant')).toBe(true);
       expect(isActionPanelActive(s, 'ottoman')).toBe(false);
     }
+  });
+});
+
+describe('getActivePower — status-bar acting-power display', () => {
+  // Regression for the 2026-06-20 Playwright-found bug: during the diplomacy
+  // phase the status bar read state.activePower directly, which is stale (set
+  // by Luther's 95 Theses to 'protestant') — so it showed "▶ [BOT] 新教 思考中"
+  // while it was in fact the human Ottoman's turn to act.
+  it('diplomacy: returns the first impulse-order power that may still act, not stale activePower', () => {
+    // All bots have acted in negotiation; only the human Ottoman remains.
+    const s = {
+      phase: 'diplomacy', diplomacySegment: 'negotiation',
+      activePower: 'protestant', // stale (last set by luther_95)
+      diplomacyActed: {
+        hapsburg: true, england: true, france: true, papacy: true, protestant: true
+      }
+    };
+    expect(getActivePower(s)).toBe('ottoman');
+    expect(getActivePower(s)).not.toBe(s.activePower);
+  });
+
+  it('diplomacy: segment start (no one acted) → first in impulse order (ottoman)', () => {
+    const s = { phase: 'diplomacy', diplomacySegment: 'negotiation', diplomacyActed: {} };
+    expect(getActivePower(s)).toBe('ottoman');
+  });
+
+  it('diplomacy: skips powers that already acted', () => {
+    const s = {
+      phase: 'diplomacy', diplomacySegment: 'negotiation',
+      diplomacyActed: { ottoman: true, hapsburg: true }
+    };
+    expect(getActivePower(s)).toBe('england');
+  });
+
+  it('diplomacy excommunication: only papacy, regardless of others', () => {
+    const s = { phase: 'diplomacy', diplomacySegment: 'excommunication', diplomacyActed: {} };
+    expect(getActivePower(s)).toBe('papacy');
+    expect(getActivePower({ ...s, diplomacyActed: { papacy: true } })).toBe(null);
+  });
+
+  it('diplomacy: all acted (segment about to advance) → null', () => {
+    const acted = {};
+    for (const p of POWERS) acted[p] = true;
+    expect(getActivePower({ phase: 'diplomacy', diplomacySegment: 'negotiation', diplomacyActed: acted })).toBe(null);
+  });
+
+  it('diet_of_worms: first power that has not submitted a card', () => {
+    expect(getActivePower(dietState('ottoman'))).toBe('ottoman');
+    expect(getActivePower(dietState('france'))).toBe('france');
+  });
+
+  it('action / spring / luther: passes through state.activePower', () => {
+    for (const phase of ['action', 'spring_deployment', 'luther_95']) {
+      expect(getActivePower({ phase, activePower: 'hapsburg' })).toBe('hapsburg');
+    }
+  });
+
+  it('guards null/empty input', () => {
+    expect(getActivePower(null)).toBe(null);
+    expect(getActivePower({ phase: 'action' })).toBe(null);
   });
 });
 

@@ -18,6 +18,7 @@ const PHASE_LABELS = {
 
 import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
 import { getAllVpTotals } from '../state/state-helpers.js';
+import { getActivePower } from './ui-gating.js';
 
 export class StatusBar {
   constructor() {
@@ -54,11 +55,13 @@ export class StatusBar {
     const phase = this._badge(phaseLabel, '#78909c');
     this._el.appendChild(phase);
 
-    // Active power
-    if (state.activePower) {
-      const color = POWER_COLORS[state.activePower] || '#666';
-      const label = POWER_LABELS[state.activePower] || state.activePower;
-      const isBot = !!state.botPowers?.[state.activePower];
+    // Active power — derive from the per-phase turn model (segment-based phases
+    // leave state.activePower stale; see getActivePower).
+    const activePower = getActivePower(state);
+    if (activePower) {
+      const color = POWER_COLORS[activePower] || '#666';
+      const label = POWER_LABELS[activePower] || activePower;
+      const isBot = !!state.botPowers?.[activePower];
       const prefix = isBot ? '▶ [BOT] ' : '▶ ';
       const power = this._badge(`${prefix}${label}`, color);
       this._el.appendChild(power);
