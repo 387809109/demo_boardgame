@@ -290,10 +290,28 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
 
 ## P3 — 较大独立工作
 
-### ⬜ 5. HIS 多人联机
+### 🟥 5. HIS 多人联机 — **查出架构级阻断（RNG 非确定性 → 必然 desync）**
 
 - LAN（WebSocket）+ Cloud（Supabase）下 `GAME_ACTION` 的双客户端同步、中途重连。
 - 大体量 HIS 状态的同步正确性（大厅/网络测试为通用，未针对 HIS 验证）。
+
+**🟥 阻断发现（2026-06-21，verify-before-implement）**：当前同步模型是 **lockstep 重放**——远端收到
+`GAME_STATE_UPDATE.lastAction` 后用 `executeMove(action)` **在本地重新执行该 move**（`app-online-room-methods.js:570`）。
+但 **HIS 战斗/宗教/辩论掷骰用裸 `Math.random()`**（`religious-actions.rollDice`、`combat-actions`/`debate-actions`
+及 ~31 处内联掷骰；仅**牌库** RNG 经 `state/rng.js` 播种，**战斗骰未播种**），且 `resolveFieldBattle` **不从
+`actionData` 读骰**（无条件 `rollDice()`），转发的 action 也**不带骰值**（`sendGameAction` 发原始 `actionData`，
+`processMove` 只克隆 state 不回写骰值）。**实测确证**：同一 `RESOLVE_BATTLE` 对同一 state 跑 3 次得 3 种结果
+（攻骰 `[2,2,5,5,3]` / `[6,6,6,6,6]` / `[4,1,1,6,4]`，`identical=false`）。⇒ **两客户端在首个掷骰 move 即状态分叉、不可逆 desync**
+（野战/突击/海战/改革/辩论/conclave/多张事件卡全中招）。这正是 C8「大体量 HIS 状态同步正确性」未验区的根因。
+
+**修复方案（架构级，需单独排期 + 决策，勿擅自大改）**：
+
+- **A（推荐）状态内播种 RNG**：把骰子 RNG 并入 `state`（仿现有牌库 `rng.js` 的 mulberry32），所有引擎掷骰改走该
+  state-rng（每次掷骰推进 rng 状态）→ 同 state 重放同 move 必得同骰，rng 状态随 state 同步则两端永不分叉。
+  顺带让全引擎 deterministic-on-replay（测试无需再覆写 `Math.random`）。改动 ~31 掷骰点，集中但量大。
+- **B 把骰值写入转发 action**：host 掷骰后将骰值写回 `actionData`，各 resolver 改「`actionData.dieN ?? roll`」优先
+  （部分事件卡已是此式，野战/突击/海战未做），转发携骰。点多、易漏。
+- **C host 权威态同步**：host 执行掷骰 move 后广播**结果 state**（非 move），客户端整态替换。改变中继模型、带宽大（HIS 态大）。
 
 ### ⬜ 6. 移动端响应式与性能
 
