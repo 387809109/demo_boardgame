@@ -290,7 +290,17 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
 
 ## P3 — 较大独立工作
 
-### 🟥 5. HIS 多人联机 — **查出架构级阻断（RNG 非确定性 → 必然 desync）**
+### 🟢 5. HIS 多人联机 — **RNG 确定性阻断已修（方案 A）；双客户端 live 联机仍待**
+
+**✅ 已修（2026-06-21，方案 A：状态内播种 RNG）**：所有引擎掷骰/选牌改走 `state.rngState` 播种的 PRNG
+（`state/rng.js` 的 `nextRandom/rollDie/randInt`，原地推进）；`processMove` 为本次 move 设「活动状态」作用域，
+故**同 state 重放同 move 必得同骰**。`religious-actions.rollDice` 内部改走 `rollDie()`（签名不变 → ~38 处调用方零改动），
+另替换 ~31 处内联 `Math.random`（event/extended/diplomacy/naval/debate/diplomacy-actions/new-world）。`state-init`
+从 `options.rngSeed`（无则 `Date.now`+单调计数，避免扰动 mock）播种 `state.rngState`。**种子传播天然成立**：host 开局
+`getState()`（含 `rngState`）经 START_GAME 广播，客户端 `applyStateUpdate` 整态采纳 → 两端同种子起步、move 重放同步。
+回归 `multiplayer-determinism.test.js`（同 move 同 state 必同 / rngState 推进 / 异种子异骰）。全 HIS 2630 绿、build 绿。
+**仍待**：双客户端**真机联机** live 验（LAN WebSocket + Cloud Supabase）：开战/改革后两端态一致、中途重连快照、
+大体量态同步带宽。引擎确定性已具备，余为联机集成验证。
 
 - LAN（WebSocket）+ Cloud（Supabase）下 `GAME_ACTION` 的双客户端同步、中途重连。
 - 大体量 HIS 状态的同步正确性（大厅/网络测试为通用，未针对 HIS 验证）。
