@@ -309,12 +309,17 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
 **独立 playerId**）。建房（host）+ 两端加入 → **房间双向同步**（三端互见）；host 开局 → 三端齐入 GameBoard。
 **关键集成证据**：三端 `state.rngState` **完全一致**（`3912184817`）、`powerByPlayer`/单位指纹逐字段相同 → host 播种态
 经广播正确传播。**引擎确定性（已证）+ 同种子起步（live 证）= lockstep 成立**。
-**⚠️ 顺带查出 2 个联机 setup 缺口（与 RNG 修复无关，独立待办）**：
-①**`supportsAI` 未传播到联机房**（`roomSupportsAI=false`）→ host 无法在等待室加 AI 填空位；
-②**<6 人开局未给未分配势力派 bot/分配**：3 人各得 1 势力（ottoman/hapsburg/france），余 3 势力（england/papacy/
-protestant）**无控制者** → 游戏**卡在 luther_95**（等无人的 protestant）。故无法 live 驱动到人类战斗 move；
-但「同起始态 + 引擎确定性」已足证 lockstep。**仍待**：修联机 setup（AI 填充/势力分配）后驱动一场 live 战斗双端比对；
-中途重连快照；Cloud（Supabase）路径（需凭据）。
+**❌ 先前报的 2 个「联机 setup 缺口」均撤回（verify-before-implement：经核实皆非 bug）**：
+①**`roomSupportsAI=false` 系刻意设计**——HIS `config.json` 明列 `onlineSupportsAI: false`（单机可 vs AI，联机刻意禁 AI）；
+联机 HIS 为纯人类对局，3 人即经 `DEFAULT_POWER_ASSIGNMENTS[3]` 分组覆盖全部 6 势力（`[['ottoman'],['hapsburg','england'],
+['france','papacy','protestant']]`），无需 AI 填充。②**「卡在 luther_95」系误判**——protestant 由玩家3（控
+france/papacy/protestant 组）掌控，其行动面板**正常显示「选择目标空间」**；游戏只是在**正确等待玩家3 输入**，
+我误当无 bot 而空等。**驱动玩家3 的人类 move 后立证 lockstep**：玩家3 作为 protestant 在 Brandenburg 发起改革
+（掷骰，`rngState 3912184817 → -1078559346`、改革成功），host 经 WS 转发**重放得完全相同 rngState/结果**
+（Brandenburg→protestant）。⇒ **一次掷骰人类 move 跨真机 WS 同步、RNG 结果一致**——这正是先前以为被「卡死」挡住的
+live 战斗同步证据。**联机 HIS（3 人真机）端到端可玩且 lockstep 已 live 证实。**
+**仍待（可选）**：中途重连快照一致性；Cloud（Supabase）路径（需凭据）；若要联机 AI 对手则属**新功能**
+（翻 `onlineSupportsAI` + 验 host 跑 bot 并广播），非 bug 修复。
 
 - LAN（WebSocket）+ Cloud（Supabase）下 `GAME_ACTION` 的双客户端同步、中途重连。
 - 大体量 HIS 状态的同步正确性（大厅/网络测试为通用，未针对 HIS 验证）。
