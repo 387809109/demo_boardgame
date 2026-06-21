@@ -299,8 +299,22 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
 从 `options.rngSeed`（无则 `Date.now`+单调计数，避免扰动 mock）播种 `state.rngState`。**种子传播天然成立**：host 开局
 `getState()`（含 `rngState`）经 START_GAME 广播，客户端 `applyStateUpdate` 整态采纳 → 两端同种子起步、move 重放同步。
 回归 `multiplayer-determinism.test.js`（同 move 同 state 必同 / rngState 推进 / 异种子异骰）。全 HIS 2630 绿、build 绿。
-**仍待**：双客户端**真机联机** live 验（LAN WebSocket + Cloud Supabase）：开战/改革后两端态一致、中途重连快照、
-大体量态同步带宽。引擎确定性已具备，余为联机集成验证。
+
+**✅ 引擎级双客户端 lockstep 模拟（2026-06-21）**：`multiplayer-determinism.test.js` 新增「two-client lockstep」——
+两个 `HISGame` 实例**以不同起始种子**启动，皆 `applyStateUpdate(host 广播态)`，再把一步掷骰 move **只发 action**
+（actionType+actionData，无骰，即 `sendGameAction` 上线格式）转发给远端重放；host 本地执行后两端**整态逐字段相等**
+（单位/eventLog 骰值/rngState/VP），覆盖 野战/突击/海战。仅 eventLog `timestamp`（Date.now 元数据）剥离后比对。
+
+**✅ LAN 真机三客户端 live 验（2026-06-21）**：起本地 WS 后端（7777）+ 3 个浏览器标签（各自 `sessionStorage` →
+**独立 playerId**）。建房（host）+ 两端加入 → **房间双向同步**（三端互见）；host 开局 → 三端齐入 GameBoard。
+**关键集成证据**：三端 `state.rngState` **完全一致**（`3912184817`）、`powerByPlayer`/单位指纹逐字段相同 → host 播种态
+经广播正确传播。**引擎确定性（已证）+ 同种子起步（live 证）= lockstep 成立**。
+**⚠️ 顺带查出 2 个联机 setup 缺口（与 RNG 修复无关，独立待办）**：
+①**`supportsAI` 未传播到联机房**（`roomSupportsAI=false`）→ host 无法在等待室加 AI 填空位；
+②**<6 人开局未给未分配势力派 bot/分配**：3 人各得 1 势力（ottoman/hapsburg/france），余 3 势力（england/papacy/
+protestant）**无控制者** → 游戏**卡在 luther_95**（等无人的 protestant）。故无法 live 驱动到人类战斗 move；
+但「同起始态 + 引擎确定性」已足证 lockstep。**仍待**：修联机 setup（AI 填充/势力分配）后驱动一场 live 战斗双端比对；
+中途重连快照；Cloud（Supabase）路径（需凭据）。
 
 - LAN（WebSocket）+ Cloud（Supabase）下 `GAME_ACTION` 的双客户端同步、中途重连。
 - 大体量 HIS 状态的同步正确性（大厅/网络测试为通用，未针对 HIS 验证）。
