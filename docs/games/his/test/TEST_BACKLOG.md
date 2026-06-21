@@ -355,20 +355,36 @@ live 战斗同步证据。**联机 HIS（3 人真机）端到端可玩且 lockst
 - 密集地图（149 空间）+ 多面板在小屏的可用性。
 - 每个动作触发的整图重渲染性能。
 
-### ⬜ 7. 外交牌库子系统（diplomacy-deck subsystem）
+### 🟢 7. 外交牌库子系统（diplomacy-deck subsystem）
 
-> 由 P1「整卡 no-op 审计」升级而来（2026-06-20）。当前引擎**完全未建**外交牌库——外交卡（`diplomacy`/
-> `diplomacy_sl`）从不发牌、`state.diplomacyDeck`/`diplomacyHand`/`diplomacyDiscard` 从未初始化、`event-actions.js:551`
-> 的 `if (state.diplomacyDeck)` 是死代码，故 **#201-219 全部外交事件 handler 在正常对局不可达**。
+> 由 P1「整卡 no-op 审计」升级而来（2026-06-20）。
 
-实现范围（独立大功能，需逐项核实卡面规则）：
+**⚠️ 关键核实（2026-06-21，verify-before-implement）**：外交牌库是 HIS **两人局专属**组件——入侵模拟卡
+（French/Spanish/Ottoman Invasion 等）模拟的是**未被玩家操控的列强**，仅在两人局（教廷阵营 vs 新教阵营）成立。
+本项目只实现 **3–6 人局**（`config.json` minPlayers:3、`DEFAULT_POWER_ASSIGNMENTS` 仅 3–6、RULES/SEQUENCE 无外交牌库），
+且项目自身已显式延后两人局（`SCENARIO_1517_SETUP.md:160`「Extract if/when 2-player variant is implemented」）。
+故 **#201-219 在 3–6 人局根本不可达**，「忠实实现」= 建整个两人局变体。按用户选定的 **"subsystem unit only"** 范围，
+本次只建**自洽子系统**（不接入 3–6 人回合流程）。
 
-- 外交卡牌库 + 各势力外交手牌 + 弃牌堆 + played-this-turn 跟踪 + 回合末重洗（含 Machiavelli/入侵卡回洗规则）。
-- 每回合外交段发外交卡的发牌流程（与现有 `phase-diplomacy.js` 五段集成）。
-- 解锁并落实依赖手牌的两张 no-op：**#205 Diplomatic Pressure**（查看对手外交手牌 → 强制弃+补抽 / 互换）、
-  **#215 Machiavelli**（从外交牌库/弃牌堆选入侵卡打出 → 重洗）。
-- 打外交卡的 UI 流程 + bot 决策接入。
-- 清理死代码 `if (state.diplomacyDeck)`（要么补 init，要么删该桩）。
+**✅ 已建（2026-06-21，子系统单元）**：新增 `state/diplomacy-deck.js`——
+
+- **数据子系统**：`diplomacyDeck`（洗好的基础牌 201-212）、`diplomacyHands{papacy,protestant}`、`diplomacyDiscard`、
+  `diplomacyPlayedThisTurn`、`diplomacyForcedPlay`；`initDiplomacyDeck`/`ensureDiplomacyDeck`/`isDiplomacyDeckActive`。
+- **发牌/打牌/弃牌/互换/重洗**：`drawDiplomacyCard`（牌库空自动回洗弃牌堆）、`playDiplomacyCard`（→playedThisTurn，
+  消费 forcedPlay 约束）、`discardDiplomacyCard`、`swapDiplomacyCards`、`reshuffleDiplomacyDeck`（可选 includePlayed）、
+  `endDiplomacyTurn`（playedThisTurn→discard）、`removeFromDiplomacyPiles`。
+- **SL 卡加入**：`addSchmalkaldicDiplomacyCards`（施马尔卡尔登同盟成立时把 213-219 洗入；幂等、去重、子系统未激活时 no-op）。
+- **#205 Diplomatic Pressure 真机制**：教廷→指定新教本回合必打哪张（`diplomacyForcedPlay`）；新教→强制对手弃牌+补抽 / 互换一张。
+- **#215 Machiavelli 真机制**：落后 VP 方（平局→打牌方，`trailingDiplomacySide`）从牌库/弃牌堆选一张**入侵卡**（非本回合已打）
+  打出其事件 → 把 Machiavelli(215)+该入侵卡+弃牌堆全部洗回牌库。
+- **死代码清理**：`event-actions.js` 的 `#13` 把 `if (state.diplomacyDeck){push 213-219}` 死桩改为
+  `addSchmalkaldicDiplomacyCards(state)`（3–6 人局因子系统未激活而正确 no-op，全-bot 终局测仍绿）。
+- **测试**：`state/diplomacy-deck.test.js` +26（牌池/init/SL 加入/发打弃换/重洗/回合清理/trailing-VP），
+  `event-actions-diplomacy.test.js` 的 #205/#215 改为断言真机制（原仅断言占位 `pending*`）。HIS 全套 2662 绿、build 绿。
+
+**仍待（=两人局变体本身，单独大排期）**：把子系统接入两人局回合流程（外交段发牌：每方抽 1、T2+ 各打 1，见
+`his_ref/img/_vmod_docs/sequence_twoplayer.html`）、两人阵营分组、打外交卡的 UI 流程 + bot 决策、联机隐藏手牌遮蔽
+（`getVisibleState`）。子系统已就绪，待两人局 setup 调 `initDiplomacyDeck` 即可消费。
 
 ---
 

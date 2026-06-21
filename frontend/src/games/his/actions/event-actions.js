@@ -23,6 +23,7 @@ import { rollDie, nextRandom } from '../state/rng.js';
 import { initiateDebate } from './debate-actions.js';
 import { EXTENDED_EVENT_HANDLERS } from './event-actions-extended.js';
 import { DIPLOMACY_EVENT_HANDLERS } from './event-actions-diplomacy.js';
+import { addSchmalkaldicDiplomacyCards } from '../state/diplomacy-deck.js';
 import {
   validateExcommunicateReformer, excommunicateReformer,
   validateExcommunicateRuler, excommunicateRuler
@@ -548,11 +549,10 @@ EVENT_HANDLERS[13] = {
       }
     }
 
-    // Add Schmalkaldic League diplomacy cards to deck (213-219)
-    if (state.diplomacyDeck) {
-      const slCards = [213, 214, 215, 216, 217, 218, 219];
-      state.diplomacyDeck.push(...slCards);
-    }
+    // Add Schmalkaldic League diplomacy cards (213-219) to the diplomacy deck.
+    // No-op unless the two-player diplomacy-deck subsystem is active — the 3–6
+    // player game does not use the diplomacy deck (see state/diplomacy-deck.js).
+    addSchmalkaldicDiplomacyCards(state);
     helpers.logEvent(state, 'event_schmalkaldic_league', {
       power, turn: state.turn, spacesTransferred: transferred
     });

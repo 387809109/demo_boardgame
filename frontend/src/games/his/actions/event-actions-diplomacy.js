@@ -3,6 +3,11 @@
  */
 import { areAllied } from '../state/war-helpers.js';
 import { rollDie } from '../state/rng.js';
+import {
+  DIPLOMACY_SIDES, ensureDiplomacyDeck, diplomacyOpponent, isInvasionCard,
+  trailingDiplomacySide, discardDiplomacyCard, drawDiplomacyCard,
+  swapDiplomacyCards, removeFromDiplomacyPiles, shuffleDiplomacyDeck
+} from '../state/diplomacy-deck.js';
 
 export const DIPLOMACY_EVENT_HANDLERS = {};
 
@@ -126,17 +131,52 @@ DIPLOMACY_EVENT_HANDLERS[204] = {
 
 /**
  * #205 Diplomatic Pressure
- * Review opponent's diplomatic cards.
- * Papacy picks which Protestant plays.
- * Protestant can swap or force discard.
+ * Look at your opponent's Diplomatic cards.
+ * - Papacy: dictate which card the Protestant must play this turn.
+ * - Protestant: either force the opponent to discard a card and draw a new one,
+ *   OR swap your remaining Diplomatic card with the opponent's.
+ * Operates on the diplomacy-deck subsystem (see state/diplomacy-deck.js).
  */
 DIPLOMACY_EVENT_HANDLERS[205] = {
   execute(state, power, actionData, helpers) {
+    ensureDiplomacyDeck(state);
+    const opponent = diplomacyOpponent(power);
+    const result = { reviewer: power, opponent };
+
+    if (power === 'papacy') {
+      // Papacy dictates which card the Protestant must play this turn.
+      const card = actionData.targetCard
+        ?? state.diplomacyHands.protestant[0] ?? null;
+      state.diplomacyForcedPlay = { side: 'protestant', card };
+      result.mode = 'choose_opponent_play';
+      result.card = card;
+    } else if ((actionData.mode || 'force_discard') === 'swap') {
+      // Swap Protestant's remaining card with the opponent's remaining card.
+      const myCard = actionData.myCard
+        ?? state.diplomacyHands[power][0] ?? null;
+      const theirCard = actionData.theirCard
+        ?? state.diplomacyHands[opponent][0] ?? null;
+      swapDiplomacyCards(state, power, myCard, opponent, theirCard);
+      result.mode = 'swap';
+      result.myCard = myCard;
+      result.theirCard = theirCard;
+    } else {
+      // Force the opponent to discard a card and draw a replacement.
+      const card = actionData.targetCard
+        ?? state.diplomacyHands[opponent][0] ?? null;
+      if (card != null) discardDiplomacyCard(state, opponent, card);
+      const drawn = drawDiplomacyCard(state, opponent);
+      result.mode = 'force_discard';
+      result.discarded = card;
+      result.drawn = drawn;
+    }
+
+    // Pending marker retained for UI / compatibility.
     state.pendingDiplomaticPressure = {
       reviewer: power,
-      action: actionData.action || 'review'
+      action: actionData.action || result.mode
     };
-    helpers.logEvent(state, 'event_diplo_pressure', { power });
+    helpers.logEvent(state, 'event_diplo_pressure', { power, ...result });
   }
 };
 
@@ -436,15 +476,50 @@ DIPLOMACY_EVENT_HANDLERS[214] = {
 
 /**
  * #215 Machiavelli (post-SL)
- * Trailing VP player picks an invasion card to play.
+ * The player trailing in VP (ties → the player who played the card) chooses any
+ * Invasion card currently in the Diplomacy Deck or its discard pile (but not one
+ * played earlier this turn), plays it, then the Machiavelli card and that
+ * invasion card are reshuffled back into the deck along with the discard pile.
+ * Operates on the diplomacy-deck subsystem (see state/diplomacy-deck.js).
  */
 DIPLOMACY_EVENT_HANDLERS[215] = {
   execute(state, power, actionData, helpers) {
-    state.pendingMachiavelliChoice = {
-      chooser: power,
-      targetCard: actionData.targetCard || null
-    };
-    helpers.logEvent(state, 'event_diplo_machiavelli', { power });
+    ensureDiplomacyDeck(state);
+    const tieBreak = DIPLOMACY_SIDES.includes(power) ? power : 'papacy';
+    const chooser = trailingDiplomacySide(state, tieBreak);
+    const targetCard = actionData.targetCard ?? null;
+
+    const eligible = isInvasionCard(targetCard)
+      && !state.diplomacyPlayedThisTurn.includes(targetCard)
+      && (state.diplomacyDeck.includes(targetCard)
+        || state.diplomacyDiscard.includes(targetCard));
+
+    let played = false;
+    if (eligible) {
+      // Pull the chosen invasion card out and resolve its event for the chooser.
+      removeFromDiplomacyPiles(state, targetCard);
+      DIPLOMACY_EVENT_HANDLERS[targetCard].execute(
+        state, chooser, actionData.invasionData || {}, helpers
+      );
+      played = true;
+
+      // Reshuffle: discard pile + the Machiavelli card + the invasion card all
+      // return to the deck, then shuffle.
+      state.diplomacyDeck.push(...state.diplomacyDiscard);
+      state.diplomacyDiscard = [];
+      removeFromDiplomacyPiles(state, 215);
+      if (!state.diplomacyDeck.includes(215)) state.diplomacyDeck.push(215);
+      if (!state.diplomacyDeck.includes(targetCard)) {
+        state.diplomacyDeck.push(targetCard);
+      }
+      shuffleDiplomacyDeck(state);
+    }
+
+    // Pending marker retained for UI / compatibility.
+    state.pendingMachiavelliChoice = { chooser, targetCard, played };
+    helpers.logEvent(
+      state, 'event_diplo_machiavelli', { power, chooser, targetCard, played }
+    );
   }
 };
 

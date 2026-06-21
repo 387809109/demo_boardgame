@@ -295,11 +295,46 @@ describe('Diplomacy Event Handlers (#201-219)', () => {
 
   // ── #205 Diplomatic Pressure ───────────────────────────────────
   describe('#205 Diplomatic Pressure', () => {
-    it('sets pending diplomatic pressure state', () => {
-      const state = eventState();
+    function deckState(overrides = {}) {
+      return eventState({
+        diplomacyDeck: [203, 204, 209, 210],
+        diplomacyHands: { papacy: [201], protestant: [205, 212] },
+        diplomacyDiscard: [],
+        diplomacyPlayedThisTurn: [],
+        diplomacySLAdded: false,
+        diplomacyForcedPlay: null,
+        ...overrides
+      });
+    }
+
+    it('Papacy dictates which card the Protestant must play', () => {
+      const state = deckState();
       const helpers = createMockHelpers();
-      executeEvent(state, 'papacy', 205, { action: 'review' }, helpers);
+      executeEvent(state, 'papacy', 205, { targetCard: 212 }, helpers);
+      expect(state.diplomacyForcedPlay).toEqual({ side: 'protestant', card: 212 });
       expect(state.pendingDiplomaticPressure.reviewer).toBe('papacy');
+    });
+
+    it('Protestant force-discard removes opponent card and draws a replacement', () => {
+      const state = deckState();
+      const helpers = createMockHelpers();
+      executeEvent(state, 'protestant', 205,
+        { mode: 'force_discard', targetCard: 201 }, helpers);
+      expect(state.diplomacyDiscard).toContain(201);
+      expect(state.diplomacyHands.papacy).not.toContain(201);
+      // Opponent drew one replacement from the deck.
+      expect(state.diplomacyHands.papacy).toHaveLength(1);
+    });
+
+    it('Protestant swap exchanges one card with the opponent', () => {
+      const state = deckState({
+        diplomacyHands: { papacy: [201], protestant: [205] }
+      });
+      const helpers = createMockHelpers();
+      executeEvent(state, 'protestant', 205,
+        { mode: 'swap', myCard: 205, theirCard: 201 }, helpers);
+      expect(state.diplomacyHands.protestant).toContain(201);
+      expect(state.diplomacyHands.papacy).toContain(205);
     });
   });
 
@@ -558,12 +593,41 @@ describe('Diplomacy Event Handlers (#201-219)', () => {
 
   // ── #215 Machiavelli ───────────────────────────────────────────
   describe('#215 Machiavelli', () => {
-    it('sets pending choice state', () => {
-      const state = eventState();
+    it('trailing-VP side plays a chosen invasion card, then reshuffles', () => {
+      const state = eventState({
+        vp: { papacy: 5, protestant: 8 },     // papacy trails → chooser
+        diplomacyDeck: [211, 203, 204],
+        diplomacyHands: { papacy: [215], protestant: [] },
+        diplomacyDiscard: [209],
+        diplomacyPlayedThisTurn: []
+      });
       const helpers = createMockHelpers();
-      executeEvent(state, 'france', 215, { targetCard: 211 }, helpers);
-      expect(state.pendingMachiavelliChoice.chooser).toBe('france');
-      expect(state.pendingMachiavelliChoice.targetCard).toBe(211);
+      executeEvent(state, 'papacy', 215,
+        { targetCard: 211, invasionData: { targetSpace: 'Vienna' } }, helpers);
+
+      // Chooser is the trailing side (papacy), and the invasion event resolved.
+      expect(state.pendingMachiavelliChoice.chooser).toBe('papacy');
+      expect(state.pendingMachiavelliChoice.played).toBe(true);
+      expect(state.eventLog.some(e => e.type === 'event_diplo_spanish_invasion'))
+        .toBe(true);
+      // Machiavelli (215) + the invasion card (211) are reshuffled back into deck,
+      // discard pile is emptied into the deck.
+      expect(state.diplomacyDeck).toContain(215);
+      expect(state.diplomacyDeck).toContain(211);
+      expect(state.diplomacyDiscard).toHaveLength(0);
+    });
+
+    it('does nothing for a non-invasion or ineligible target', () => {
+      const state = eventState({
+        vp: { papacy: 5, protestant: 8 },
+        diplomacyDeck: [204],            // 204 is not an Invasion card
+        diplomacyHands: { papacy: [215], protestant: [] },
+        diplomacyDiscard: [],
+        diplomacyPlayedThisTurn: []
+      });
+      const helpers = createMockHelpers();
+      executeEvent(state, 'papacy', 215, { targetCard: 204 }, helpers);
+      expect(state.pendingMachiavelliChoice.played).toBe(false);
     });
   });
 
