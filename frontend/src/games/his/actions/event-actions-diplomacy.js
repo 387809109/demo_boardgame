@@ -2,6 +2,7 @@
  * Here I Stand — Diplomacy Deck Event Card Handlers (#201-219)
  */
 import { areAllied } from '../state/war-helpers.js';
+import { rollDie } from '../state/rng.js';
 
 export const DIPLOMACY_EVENT_HANDLERS = {};
 
@@ -91,7 +92,7 @@ DIPLOMACY_EVENT_HANDLERS[203] = {
     const rolls = [];
     for (let i = 0; i < 4; i++) {
       rolls.push(
-        actionData[`die${i}`] ?? (Math.floor(Math.random() * 6) + 1)
+        actionData[`die${i}`] ?? (rollDie())
       );
     }
     const hits = rolls.filter(r => r >= 5).length;
@@ -495,7 +496,7 @@ DIPLOMACY_EVENT_HANDLERS[216] = {
 DIPLOMACY_EVENT_HANDLERS[217] = {
   execute(state, power, actionData, helpers) {
     const roll =
-      actionData.dieRoll ?? (Math.floor(Math.random() * 6) + 1);
+      actionData.dieRoll ?? (rollDie());
     const italianSpace = actionData.italianSpace;
     const spanishSpace = actionData.spanishSpace;
     if (italianSpace) {

@@ -5,6 +5,7 @@
 import { RULERS } from '../constants.js';
 import { areAllied } from '../state/war-helpers.js';
 import { rollDice } from './religious-actions.js';
+import { rollDie, nextRandom } from '../state/rng.js';
 import { getUnitsInSpace } from '../state/state-helpers.js';
 import { treacheryAssault } from './siege-actions.js';
 
@@ -85,7 +86,7 @@ EXTENDED_EVENT_HANDLERS[57] = {
       state.removedLeaders.push('philip_of_hesse');
     } else if (choice === 'discard' && state.hands?.protestant?.length > 0) {
       const idx = Math.floor(
-        Math.random() * state.hands.protestant.length
+        nextRandom() * state.hands.protestant.length
       );
       const discarded = state.hands.protestant.splice(idx, 1)[0];
       state.discard.push(discarded);
@@ -223,7 +224,7 @@ EXTENDED_EVENT_HANDLERS[62] = {
     const cranmer = debaters.find(d => d.id === 'cranmer');
     if (cranmer) cranmer.committed = true;
     const unrestRoll = actionData.unrestRoll ??
-      (Math.floor(Math.random() * 6) + 1);
+      (rollDie());
     let unrestCount = 0;
     if (unrestRoll >= 3 && unrestRoll <= 4) unrestCount = 1;
     else if (unrestRoll === 5) unrestCount = 2;
@@ -308,7 +309,7 @@ EXTENDED_EVENT_HANDLERS[66] = {
     const targetPower = actionData.targetPower;
     if (targetPower && state.hands?.[targetPower]?.length > 0) {
       const idx = Math.floor(
-        Math.random() * state.hands[targetPower].length
+        nextRandom() * state.hands[targetPower].length
       );
       const stolen = state.hands[targetPower].splice(idx, 1)[0];
       state.hands.ottoman = state.hands.ottoman || [];
@@ -357,9 +358,9 @@ EXTENDED_EVENT_HANDLERS[68] = {
       );
     } else if (mode === 'piracy') {
       const rolls = [
-        actionData.die1 ?? (Math.floor(Math.random() * 6) + 1),
-        actionData.die2 ?? (Math.floor(Math.random() * 6) + 1),
-        actionData.die3 ?? (Math.floor(Math.random() * 6) + 1)
+        actionData.die1 ?? (rollDie()),
+        actionData.die2 ?? (rollDie()),
+        actionData.die3 ?? (rollDie())
       ];
       const hits = rolls.filter(r => r >= 5).length;
       state.vp.ottoman = Math.max(
@@ -458,7 +459,7 @@ EXTENDED_EVENT_HANDLERS[71] = {
     for (let i = 0; i < 5; i++) {
       rolls.push(
         actionData[`die${i}`] ??
-        (Math.floor(Math.random() * 6) + 1)
+        (rollDie())
       );
     }
     const hits = rolls.filter(r => r >= 5).length;
@@ -589,7 +590,7 @@ EXTENDED_EVENT_HANDLERS[77] = {
     state.explorationCancelled = state.explorationCancelled || {};
     state.explorationCancelled[targetPower] = true;
     const roll = actionData.dieRoll ??
-      (Math.floor(Math.random() * 6) + 1);
+      (rollDie());
     let explorerRemoved = false;
     if (roll >= 4) explorerRemoved = true;
     helpers.logEvent(state, 'event_fountain_of_youth', {
@@ -661,7 +662,7 @@ EXTENDED_EVENT_HANDLERS[81] = {
   execute(state, power, actionData, helpers) {
     if (state.hands?.protestant?.length > 0) {
       const idx = Math.floor(
-        Math.random() * state.hands.protestant.length
+        nextRandom() * state.hands.protestant.length
       );
       const drawn = state.hands.protestant.splice(idx, 1)[0];
       const cp = actionData.drawnCardCp || 0;
@@ -768,7 +769,7 @@ EXTENDED_EVENT_HANDLERS[86] = {
     if (mode === 'raid') {
       if (state.hands?.ottoman?.length > 0) {
         const idx = Math.floor(
-          Math.random() * state.hands.ottoman.length
+          nextRandom() * state.hands.ottoman.length
         );
         const drawn = state.hands.ottoman.splice(idx, 1)[0];
         const cp = actionData.drawnCardCp || 0;
@@ -1074,7 +1075,7 @@ EXTENDED_EVENT_HANDLERS[95] = {
       const drawableCards = state.hands.papacy.filter(c => c !== 5 && c !== 6);
       const drawn = [];
       for (let i = 0; i < Math.min(2, drawableCards.length); i++) {
-        const idx = Math.floor(Math.random() * drawableCards.length);
+        const idx = Math.floor(nextRandom() * drawableCards.length);
         drawn.push(drawableCards.splice(idx, 1)[0]);
       }
       if (drawn.length === 1) {
@@ -1240,7 +1241,7 @@ EXTENDED_EVENT_HANDLERS[103] = {
     const targetLeader = actionData.targetLeader;
     if (!targetLeader) return;
     const roll = actionData.dieRoll ??
-      (Math.floor(Math.random() * 6) + 1);
+      (rollDie());
     const permanent = roll >= 4;
     for (const sp of Object.values(state.spaces)) {
       for (const stack of sp.units) {
@@ -1508,9 +1509,9 @@ EXTENDED_EVENT_HANDLERS[116] = {
   },
   execute(state, power, actionData, helpers) {
     const engRoll = actionData.engRoll ??
-      (Math.floor(Math.random() * 6) + 1);
+      (rollDie());
     const fraRoll = actionData.fraRoll ??
-      (Math.floor(Math.random() * 6) + 1);
+      (rollDie());
     let engUnits = 0;
     let fraUnits = 0;
     for (const sp of Object.values(state.spaces)) {

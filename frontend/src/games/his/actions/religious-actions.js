@@ -14,6 +14,7 @@ import {
   calcReformationDice, calcCounterReformationDice,
   recountProtestantSpaces, isHomeSpace, hasEnemyUnits
 } from '../state/state-helpers.js';
+import { rollDie } from '../state/rng.js';
 
 // ── Dice Utilities ────────────────────────────────────────────────
 
@@ -25,7 +26,7 @@ import {
 export function rollDice(n) {
   const results = [];
   for (let i = 0; i < Math.max(1, n); i++) {
-    results.push(Math.floor(Math.random() * 6) + 1);
+    results.push(rollDie());
   }
   return results;
 }

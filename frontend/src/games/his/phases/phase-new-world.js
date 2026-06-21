@@ -17,6 +17,7 @@ import {
   CONQUESTS
 } from '../constants.js';
 import { rollDice } from '../actions/religious-actions.js';
+import { randInt } from '../state/rng.js';
 import { getAvailableExplorers, getAvailableConquistadors } from '../actions/new-world-actions.js';
 
 /**
@@ -66,7 +67,7 @@ function resolveExplorations(state, helpers) {
     const pool = getAvailableExplorers(state, v.power);
     if (pool.length === 0) continue;
     // Random selection
-    const idx = Math.floor(Math.random() * pool.length);
+    const idx = randInt(pool.length);
     const explorer = pool[idx];
     assigned.push({ power: v.power, explorer });
   }
@@ -251,7 +252,7 @@ function resolveSingleConquest(state, power, helpers) {
   if (power === 'hapsburg') {
     const pool = getAvailableConquistadors(state);
     if (pool.length === 0) return;
-    const idx = Math.floor(Math.random() * pool.length);
+    const idx = randInt(pool.length);
     const conq = pool[idx];
     conquistadorId = conq.id;
     modifier = conq.conquest;

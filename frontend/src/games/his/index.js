@@ -7,6 +7,7 @@ import { GameEngine } from '../../game/engine.js';
 import config from './config.json';
 import { MAJOR_POWERS, VICTORY } from './constants.js';
 import { buildInitialState } from './state/state-init.js';
+import { setActiveRngState, restoreActiveRngState } from './state/rng.js';
 import {
   initBotDecks, placeBotExtraUnits, isBotPower, botPlayerId
 } from './ai/bot-controller.js';
@@ -251,7 +252,12 @@ export class HISGame extends GameEngine {
 
     // Run Turn 1: Luther's 95 Theses (interactive — waits for Protestant input)
     const helpers = this._getPhaseHelpers();
-    transitionPhase(state, PHASES.LUTHER_95, helpers);
+    const prevRng = setActiveRngState(state);
+    try {
+      transitionPhase(state, PHASES.LUTHER_95, helpers);
+    } finally {
+      restoreActiveRngState(prevRng);
+    }
 
     return state;
   }
@@ -648,6 +654,23 @@ export class HISGame extends GameEngine {
    */
   processMove(move, state) {
     const newState = JSON.parse(JSON.stringify(state));
+    // Scope the state-backed RNG to this move so every roll it makes advances
+    // newState.rngState — re-executing the same move from the same state yields
+    // the same dice (lockstep multiplayer). See state/rng.js.
+    const prevRng = setActiveRngState(newState);
+    try {
+      return this._processMoveBody(newState, move);
+    } finally {
+      restoreActiveRngState(prevRng);
+    }
+  }
+
+  /**
+   * Dispatch a move against the already-cloned `newState`. Wrapped by
+   * processMove (which owns the RNG scope and state clone).
+   * @private
+   */
+  _processMoveBody(newState, move) {
     const helpers = this._getPhaseHelpers();
     const { actionType, actionData = {}, playerId } = move;
     const power = this._resolveActingPower(

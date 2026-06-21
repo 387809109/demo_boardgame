@@ -19,6 +19,7 @@ import {
 } from '../constants.js';
 import { areAllied } from '../state/war-helpers.js';
 import { isHomeSpace } from '../state/state-helpers.js';
+import { rollDie, nextRandom } from '../state/rng.js';
 import { initiateDebate } from './debate-actions.js';
 import { EXTENDED_EVENT_HANDLERS } from './event-actions-extended.js';
 import { DIPLOMACY_EVENT_HANDLERS } from './event-actions-diplomacy.js';
@@ -150,7 +151,7 @@ EVENT_HANDLERS[4] = {
     }
 
     // Roll (actionData.dieRoll provided by caller or random)
-    const roll = (actionData.dieRoll ?? (Math.floor(Math.random() * 6) + 1)) + modifier;
+    const roll = (actionData.dieRoll ?? (rollDie())) + modifier;
 
     // Lookup result
     const result = CHATEAU_TABLE.find(r => roll >= r.minRoll && roll <= r.maxRoll);
@@ -412,7 +413,7 @@ EVENT_HANDLERS[3] = {
       state.henryMaritalStatus = newStatus;
 
       // Roll on pregnancy table
-      const roll = actionData.dieRoll ?? (Math.floor(Math.random() * 6) + 1);
+      const roll = actionData.dieRoll ?? (rollDie());
       const pregnancy = PREGNANCY_TABLE[roll];
       let childResult = pregnancy?.result || 'no_child';
 
@@ -1125,7 +1126,7 @@ EVENT_HANDLERS[38] = {
       const targetPower = actionData.targetPower;
       if (targetPower && state.hands?.[targetPower]?.length > 0) {
         const idx = Math.floor(
-          Math.random() * state.hands[targetPower].length
+          nextRandom() * state.hands[targetPower].length
         );
         const discarded = state.hands[targetPower].splice(idx, 1)[0];
         state.discard.push(discarded);
@@ -1427,9 +1428,9 @@ EVENT_HANDLERS[51] = {
 EVENT_HANDLERS[52] = {
   execute(state, power, actionData, helpers) {
     const die1 = actionData.die1
-      ?? (Math.floor(Math.random() * 6) + 1);
+      ?? (rollDie());
     const die2 = actionData.die2
-      ?? (Math.floor(Math.random() * 6) + 1);
+      ?? (rollDie());
     const total = die1 + die2;
     state.stPetersFund = (state.stPetersFund || 0) + total;
     helpers.logEvent(state, 'event_michelangelo', {

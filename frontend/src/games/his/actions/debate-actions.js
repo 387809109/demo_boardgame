@@ -9,6 +9,7 @@ import {
 } from '../constants.js';
 import { spendCp } from './cp-manager.js';
 import { rollDice } from './religious-actions.js';
+import { randInt } from '../state/rng.js';
 import {
   getAvailableDebaters, getDebaterDef,
   isValidReformationTarget, isValidCounterReformTarget,
@@ -378,7 +379,7 @@ function selectBestDebater(debaterStates) {
  */
 function selectRandomDebater(debaterStates) {
   if (debaterStates.length === 0) return null;
-  const idx = Math.floor(Math.random() * debaterStates.length);
+  const idx = randInt(debaterStates.length);
   return debaterStates[idx];
 }
 

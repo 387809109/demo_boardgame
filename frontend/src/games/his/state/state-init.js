@@ -12,6 +12,10 @@ import { CARDS } from '../data/cards.js';
 import { SCENARIO_1517 } from '../data/setup-1517.js';
 import { seedRng } from './rng.js';
 
+/** Monotonic counter so default (unseeded) games get distinct RNG seeds
+ *  without calling Math.random (which would disturb Math.random-mocking tests). */
+let _seedCounter = 0;
+
 /** Home card numbers per power (cards 1–7) */
 const HOME_CARDS = {
   ottoman: [1],
@@ -59,6 +63,17 @@ export function buildInitialState(players, options = {}) {
   // Seed the deck RNG for reproducible card draws when a seed is supplied
   // (default: Math.random, i.e. production behaviour is unchanged). See rng.js.
   seedRng(options.rngSeed);
+
+  // Seed the STATE-backed RNG (combat / reformation / debate / event rolls).
+  // Unlike the deck RNG this lives on the cloned/synced state, so re-executing
+  // the same move from the same state yields the same dice — the basis for
+  // lockstep multiplayer (see rng.js nextRandom). For multiplayer determinism
+  // both clients must start from the same seed: use options.rngSeed when given,
+  // otherwise a per-game value (varied for single-player). The default avoids
+  // Math.random so it can't disturb tests that mock Math.random for their rolls.
+  const rngSeed = (options.rngSeed != null)
+    ? (options.rngSeed >>> 0)
+    : ((Date.now() ^ Math.imul(_seedCounter++, 0x9e3779b1)) >>> 0);
 
   // Map players to powers (supports 3-6 players)
   const assignment = options.powerAssignment
@@ -129,6 +144,9 @@ export function buildInitialState(players, options = {}) {
     playerByPower,
     powersForPlayer,
     activePower: null,
+
+    // State-backed RNG seed for combat/reformation/debate/event rolls (rng.js)
+    rngState: rngSeed,
 
     // Map
     spaces,

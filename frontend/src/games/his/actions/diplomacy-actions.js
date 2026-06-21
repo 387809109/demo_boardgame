@@ -14,6 +14,7 @@ import {
   isMinorPower, getMinorAlly
 } from '../state/war-helpers.js';
 import { getUnitsInSpace, isHomeSpace } from '../state/state-helpers.js';
+import { randInt } from '../state/rng.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
 
@@ -424,7 +425,7 @@ export function executeNegotiate(state, power, actionData, helpers) {
       const giftable = getNegotiableCardsInHand(state, power);
 
       for (let i = 0; i < count && giftable.length > 0; i++) {
-        const pickIdx = Math.floor(Math.random() * giftable.length);
+        const pickIdx = randInt(giftable.length);
         const card = giftable.splice(pickIdx, 1)[0];
         const handIdx = giverHand.indexOf(card);
         if (handIdx !== -1) giverHand.splice(handIdx, 1);
@@ -510,7 +511,7 @@ export function executeRansom(state, power, actionData, helpers) {
   let cardDrawn = false;
   const ransomHand = state.hands?.[power] || [];
   if (ransomHand.length > 0) {
-    const pickIdx = Math.floor(Math.random() * ransomHand.length);
+    const pickIdx = randInt(ransomHand.length);
     const card = ransomHand.splice(pickIdx, 1)[0];
     if (state.hands[captor]) {
       state.hands[captor].push(card);

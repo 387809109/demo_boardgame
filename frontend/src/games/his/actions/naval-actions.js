@@ -9,6 +9,7 @@ import {
   ACTION_COSTS, NAVAL_COMBAT, IMPULSE_ORDER, MAJOR_POWERS, PIRACY_VP_TRACK
 } from '../constants.js';
 import { spendCp } from './cp-manager.js';
+import { randInt } from '../state/rng.js';
 import { getUnitsInSpace } from '../state/state-helpers.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
 import { SEA_ZONES, SEA_EDGES, PORTS_BY_SEA_ZONE } from '../data/map-data.js';
@@ -628,7 +629,7 @@ function removeOneSquadron(state, space, power) {
 function drawRandomCard(state, fromPower, toPower) {
   const hand = state.hands?.[fromPower];
   if (!Array.isArray(hand) || hand.length === 0) return null;
-  const idx = Math.floor(Math.random() * hand.length);
+  const idx = randInt(hand.length);
   const card = hand.splice(idx, 1)[0];
   state.hands[toPower] = state.hands[toPower] || [];
   state.hands[toPower].push(card);
