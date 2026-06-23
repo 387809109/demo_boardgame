@@ -164,8 +164,13 @@ decline_response（守方 bot W3）→ field_battle` 结算（ottoman 5R→3R）
 疑似「守方在攻方脉冲无法决策」的门控 bug——核 `bot-controller.decideAction:362`（`decideBattle/Interception` 同样要求
 `activePower===power`）证明引擎在守方/拦截方决策时**会把 `activePower` 设为决策方**；初次为空仅因我测试里把 `activePower`
 设成了攻方（测试构造错误），改对即正常渲染，**非 bug**。
-**仍待（同 `responsePanelModel` 接线、render bug 已统一修，低边际价值）**：**W4 禁卫军**（post-roll 条件触发，本次未自然出现）、
-**W7 脉冲中断**（跨脉冲，RESPONSE 卡如 Gout/Wartburg）。**至此 A1（人类侧战斗+响应窗口）实质完成**：5 响应窗 + 战斗（结算/退入工事）+
+**✅ W4/W7 已 live 走查收口（2026-06-23）**：先 verify-before-implement 确认两窗**早已确定性覆盖**——`ui-gating.test.js`
+`responsePanelModel` 的 W1–W7 穷举（label/hint + 仅响应方控件，含 W4/W7）+ `index.test.js` ~6 条 W4 禁卫军 + ~20 条
+W7 中断（Wartburg/Gout/Foul Weather/Halley）`processMove` 路由/结算，故**不补冗余单测**。唯一「仍待」是 live 人类侧驱动
+（其余 W1–W3/W5/W6 已 live、面板渲染与窗口无关），遂以 Playwright 单机局（人控 Ottoman）构造两窗实测：
+**W4** 渲染「禁卫军」+「#1 Janissaries」+「放弃响应」；**W7** 渲染「脉冲中断」+「#37 The Wartburg」+「放弃响应」；
+点击按钮分别 emit `PLAY_RESPONSE_CARD{cardNumber:37}` / `DECLINE_RESPONSE`（卡名取自 title，无 undefined）。
+⇒ **7 响应窗全部人类侧 live 走通**（叠加既有穷举确定性覆盖）。**原 A1（人类侧战斗+响应窗口）实质完成**：5 响应窗 + 战斗（结算/退入工事）+
 拦截面板均 live 走通，全程仅 1 个真 bug（卡名 undefined，已修）。
 
 本会话所有战斗均为 bot-vs-bot 自动结算；以下从未由人类侧驱动，且响应链历来易出 bug：
