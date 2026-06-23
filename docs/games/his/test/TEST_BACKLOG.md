@@ -51,8 +51,14 @@
 - ✅ **Papacy 宗教菜单逻辑（确定性核实，无 bug）**：`cpActionsFor('papacy',2,…)` 宗教组 = `[BUILD_ST_PETERS,BURN_BOOKS]`，
   FOUND_JESUIT 被正确门控（jesuit 未解锁）、CALL_DEBATE 因成本(3>2)排除。live 驱动 Papacy 因 reformation 弹窗反复
   拦截合成点击而退化（即 item 3），故宗教菜单改以 node 确定性核实（免弹窗干扰）。
-- ⏭️ **England 继承换君（Lady Jane Grey #59）**：需 `englandRulerChangedThisTurn` 的中局特定态，快速跳过到不了，
-  宜后续以 forceHands/构造态做 ui-gating 或 node 测，不强行 live。
+- ✅ **England 继承换君（Lady Jane Grey #59）已覆盖**（2026-06-23，`england-succession.test.js` +3，node/构造态）：
+  #59 仅在 `englandRulerChangedThisTurn` 为真时可打，中局窗口 live 难触及，故以构造的行动阶段态走**真实 move 管线**
+  （`applyStateUpdate` → `executeMove` → `validateMove` 门 → `processMove` 执行）钉死人类出牌路径：条件假时
+  `executeMove` 拒收（error 含 England、手牌不动、无 `pendingLadyJaneGrey`）；条件真时成功（`pendingLadyJaneGrey.giveTo`
+  含 protestant/papacy、#59 因 `removeAfterPlay` 进 `removedCards`、记 `event_lady_jane_grey`）。**verify-before-implement
+  决定不改 UI 门控**：「触发事件」按钮**有意不按卡预门控**——许多事件（如 #6 Leipzig）的 validator 需点击后选目标、
+  空 actionData 会被拒，预门控会**误隐藏**可打的卡；#59 依赖引擎门 + 既有拒收 toast（`_handleGameAction`）。
+  ⇒ **item 1 全部势力特有 UI 路径收口**。
 - 🐛✅ **item 3 — reformation/debate 结算弹窗自动消失**（`fix(his): auto-dismiss reformation/debate result modals`）：
   `_detectNewEvents` 对每条改革/辩论结果弹全屏 `ReligiousDisplay`（含 bot 整回合数十次），背景遮罩需手动「关闭」→
   bot 回合反复挡板并干扰操作。`ReligiousDisplay._show` 加自动隐藏定时器（`RESULT_AUTO_HIDE_MS=3.5s`，每条结果重置→
@@ -360,10 +366,18 @@ requestReconnect→host 发 `GAME_SNAPSHOT`→`_handleGameSnapshot` 整态恢复
   （部分事件卡已是此式，野战/突击/海战未做），转发携骰。点多、易漏。
 - **C host 权威态同步**：host 执行掷骰 move 后广播**结果 state**（非 move），客户端整态替换。改变中继模型、带宽大（HIS 态大）。
 
-### ⬜ 6. 移动端响应式与性能
+### 🟡 6. 移动端响应式与性能
 
-- 密集地图（149 空间）+ 多面板在小屏的可用性。
-- 每个动作触发的整图重渲染性能。
+- ✅ **每动作整图重渲染性能已优化**（2026-06-23，`perf(his): diff-based map updates`）：旧 `MapOverlay.update`
+  **每动作拆毁并重建全部单位栈**（1517 态 ~45 占用空间 → **~181 个 SVG 节点**），`MapRenderer._updateIndicators`
+  亦 `innerHTML=''` + 全 134 空间重扫。改为**按空间签名 diff**：`MapOverlay` 缓存每空间的栈节点 + units 签名，仅重建
+  签名变化的空间、保留未变节点、清空空间移除栈（`_renderUnitStack`→`_buildUnitStack` 返回节点由调用方插入/缓存）；
+  `_updateIndicators` 同款（缓存 siege/unrest 签名，抽 `_buildIndicator`）。微基准（fake-DOM，真浏览器增益更大）：
+  无变更更新 181→**0** 节点、单空间变更 181→**3**。输出与全重建一致。`map-render-diff.test.js` +10 钉死正确性 +
+  diff 保证（无变更=0 创建且节点身份保持；单变更只重建该空间；空/清除移除）。
+- ⬜ **移动端响应式布局仍待**：密集地图（149 空间）+ 多面板在小屏的可用性（`his-game-ui` 内联 flex 横排 map+sidebar
+  在窄屏需纵向堆叠/容器查询）。内联样式需改注入 `<style>` 或 matchMedia，宜配合 live 视口（Playwright resize）验收，
+  单列为后续一项。
 
 ### 🟢 7. 外交牌库子系统（diplomacy-deck subsystem）
 
