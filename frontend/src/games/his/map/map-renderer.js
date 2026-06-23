@@ -294,18 +294,50 @@ export class MapRenderer {
 
   /**
    * Render siege and unrest indicators on affected spaces.
+   *
+   * Diff-based: only spaces whose siege/unrest status changed are rebuilt.
+   * Indicators are rare (mostly a handful of besieged/unrest spaces), so the
+   * previous full innerHTML clear + 134-space rescan ran every action for no
+   * reason; now an action that touches no indicators does no DOM work here.
    */
   _updateIndicators(state) {
     if (!this._indicatorGroup) return;
-    this._indicatorGroup.innerHTML = '';
+    this._indicatorNodes = this._indicatorNodes || {};
 
+    const seen = new Set();
     for (const [name, sp] of Object.entries(state.spaces)) {
+      // Signature of this space's indicator state ('' = nothing to show).
+      const sig = `${sp.besieged ? 's' : ''}${sp.unrest ? 'u' : ''}`;
+      if (sig === '') continue;
+      seen.add(name);
+      if (this._indicatorNodes[name]?.sig === sig) continue; // unchanged
+
       const coord = SPACE_COORDINATES[name];
       if (!coord) continue;
+      if (this._indicatorNodes[name]) {
+        this._indicatorGroup.removeChild(this._indicatorNodes[name].node);
+      }
+      const node = this._buildIndicator(this._toViewX(coord.x), this._toViewY(coord.y), sp);
+      this._indicatorGroup.appendChild(node);
+      this._indicatorNodes[name] = { node, sig };
+    }
 
-      const cx = this._toViewX(coord.x);
-      const cy = this._toViewY(coord.y);
+    // Drop indicators for spaces that are no longer besieged/unrest.
+    for (const name of Object.keys(this._indicatorNodes)) {
+      if (!seen.has(name)) {
+        this._indicatorGroup.removeChild(this._indicatorNodes[name].node);
+        delete this._indicatorNodes[name];
+      }
+    }
+  }
 
+  /**
+   * Build (and return) the indicator <g> (siege ring/badge + unrest badge) for
+   * one space. Caller handles insertion/caching.
+   */
+  _buildIndicator(cx, cy, sp) {
+    const wrap = svgEl('g', { 'pointer-events': 'none' });
+    {
       // Siege indicator: crossed swords icon below space
       if (sp.besieged) {
         const siegeG = svgEl('g', { 'pointer-events': 'none' });
@@ -337,7 +369,7 @@ export class MapRenderer {
         txt.textContent = 'S';
         siegeG.appendChild(txt);
 
-        this._indicatorGroup.appendChild(siegeG);
+        wrap.appendChild(siegeG);
       }
 
       // Unrest indicator: orange exclamation
@@ -356,9 +388,11 @@ export class MapRenderer {
         });
         txt.textContent = '!';
         unrestG.appendChild(txt);
-        this._indicatorGroup.appendChild(unrestG);
+        wrap.appendChild(unrestG);
       }
     }
+
+    return wrap;
   }
 
   highlightSpaces(spaceNames, color = '#ffeb3b') {

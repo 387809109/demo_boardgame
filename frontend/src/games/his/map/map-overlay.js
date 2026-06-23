@@ -23,43 +23,98 @@ function svgEl(tag, attrs = {}) {
   return el;
 }
 
+/**
+ * Compact, render-relevant fingerprint of a space's unit stack. Two stacks with
+ * the same signature render identically, so the overlay can skip rebuilding
+ * unchanged spaces. Captures owner, every counter, leaders, and order (stacking
+ * offset depends on order). Units that render nothing are dropped — matching the
+ * skip in _buildUnitStack — so an all-zero stack yields ''.
+ * @param {Array} units
+ * @returns {string}
+ */
+function unitsSignature(units) {
+  const parts = [];
+  for (const u of units) {
+    const land = (u.regulars || 0) + (u.mercenaries || 0) + (u.cavalry || 0);
+    const naval = (u.squadrons || 0) + (u.corsairs || 0);
+    const leaders = u.leaders || [];
+    if (land === 0 && naval === 0 && leaders.length === 0) continue;
+    parts.push(
+      `${u.owner}:${u.regulars || 0}/${u.mercenaries || 0}/${u.cavalry || 0}` +
+      `/${u.squadrons || 0}/${u.corsairs || 0}/${leaders.join(',')}`
+    );
+  }
+  return parts.join('|');
+}
+
 export class MapOverlay {
   constructor(overlayGroup) {
     this._group = overlayGroup;
-    this._unitNodes = {};
+    this._unitNodes = {};  // spaceName -> stack <g> currently in the DOM
+    this._unitSigs = {};   // spaceName -> last-rendered unitsSignature
   }
 
   /**
-   * Update all overlay elements from game state
+   * Update overlay elements from game state.
+   *
+   * Diff-based: a single action usually changes one or two spaces, so only
+   * spaces whose unit signature changed are rebuilt; unchanged spaces keep their
+   * existing DOM nodes, and spaces that emptied out have their stack removed.
+   * (Previously every stack across all ~45 occupied spaces — ~180 SVG nodes —
+   * was torn down and recreated on every update.)
    * @param {Object} state - Game state with spaces
    */
   update(state) {
-    // Clear existing overlay
-    while (this._group.firstChild) {
-      this._group.removeChild(this._group.firstChild);
+    if (!state || !state.spaces) {
+      for (const name of Object.keys(this._unitNodes)) {
+        this._group.removeChild(this._unitNodes[name]);
+      }
+      this._unitNodes = {};
+      this._unitSigs = {};
+      return;
     }
-    this._unitNodes = {};
 
-    if (!state || !state.spaces) return;
+    const seen = new Set();
 
     for (const [spaceName, spaceState] of Object.entries(state.spaces)) {
       const coord = SPACE_COORDINATES[spaceName];
       if (!coord) continue;
 
-      const cx = coord.x * SCALE;
-      const cy = coord.y * SCALE;
+      const units = spaceState.units;
+      if (!units || units.length === 0) continue;
+      const sig = unitsSignature(units);
+      if (sig === '') continue; // nothing renderable — cleanup loop drops any old node
 
-      // Render units in this space
-      if (spaceState.units && spaceState.units.length > 0) {
-        this._renderUnitStack(cx, cy, spaceName, spaceState.units);
+      seen.add(spaceName);
+      if (this._unitSigs[spaceName] === sig && this._unitNodes[spaceName]) {
+        continue; // unchanged — keep the existing node
+      }
+
+      // Changed (or new): replace the old stack node with a freshly built one.
+      if (this._unitNodes[spaceName]) {
+        this._group.removeChild(this._unitNodes[spaceName]);
+      }
+      const node = this._buildUnitStack(coord.x * SCALE, coord.y * SCALE, spaceName, units);
+      this._group.appendChild(node);
+      this._unitNodes[spaceName] = node;
+      this._unitSigs[spaceName] = sig;
+    }
+
+    // Remove stacks for spaces that are no longer occupied / renderable.
+    for (const name of Object.keys(this._unitNodes)) {
+      if (!seen.has(name)) {
+        this._group.removeChild(this._unitNodes[name]);
+        delete this._unitNodes[name];
+        delete this._unitSigs[name];
       }
     }
   }
 
   /**
-   * Render a unit stack at a position
+   * Build (and return) the unit-stack <g> for a space. Caller handles
+   * insertion/caching.
    */
-  _renderUnitStack(cx, cy, spaceName, units) {
+  _buildUnitStack(cx, cy, spaceName, units) {
     const stackGroup = svgEl('g', {
       class: 'his-unit-stack',
       'data-space': spaceName,
@@ -210,7 +265,6 @@ export class MapOverlay {
       offsetY += 3;
     }
 
-    this._group.appendChild(stackGroup);
-    this._unitNodes[spaceName] = stackGroup;
+    return stackGroup;
   }
 }
