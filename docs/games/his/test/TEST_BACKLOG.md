@@ -366,7 +366,7 @@ requestReconnect→host 发 `GAME_SNAPSHOT`→`_handleGameSnapshot` 整态恢复
   （部分事件卡已是此式，野战/突击/海战未做），转发携骰。点多、易漏。
 - **C host 权威态同步**：host 执行掷骰 move 后广播**结果 state**（非 move），客户端整态替换。改变中继模型、带宽大（HIS 态大）。
 
-### 🟡 6. 移动端响应式与性能
+### ✅ 6. 移动端响应式与性能
 
 - ✅ **每动作整图重渲染性能已优化**（2026-06-23，`perf(his): diff-based map updates`）：旧 `MapOverlay.update`
   **每动作拆毁并重建全部单位栈**（1517 态 ~45 占用空间 → **~181 个 SVG 节点**），`MapRenderer._updateIndicators`
@@ -375,9 +375,13 @@ requestReconnect→host 发 `GAME_SNAPSHOT`→`_handleGameSnapshot` 整态恢复
   `_updateIndicators` 同款（缓存 siege/unrest 签名，抽 `_buildIndicator`）。微基准（fake-DOM，真浏览器增益更大）：
   无变更更新 181→**0** 节点、单空间变更 181→**3**。输出与全重建一致。`map-render-diff.test.js` +10 钉死正确性 +
   diff 保证（无变更=0 创建且节点身份保持；单变更只重建该空间；空/清除移除）。
-- ⬜ **移动端响应式布局仍待**：密集地图（149 空间）+ 多面板在小屏的可用性（`his-game-ui` 内联 flex 横排 map+sidebar
-  在窄屏需纵向堆叠/容器查询）。内联样式需改注入 `<style>` 或 matchMedia，宜配合 live 视口（Playwright resize）验收，
-  单列为后续一项。
+- ✅ **移动端响应式布局已实现**（2026-06-23，`feat(his): responsive layout`）：`HisUI._ensureResponsiveStyles()` 一次性
+  注入 `<style id="his-responsive-styles">`，把布局关键尺寸（map flex/min/max-height、sidebar min/max-width、game-ui
+  overflow）从内联移到类规则（`his-game-ui`/`his-main-area`/`his-map-container`/`his-sidebar`），使 `@media (max-width:820px)`
+  可覆写：窄屏 `his-main-area` 翻为 `flex-direction:column`（地图在上、侧栏满宽在下）、地图 `max-height:52vh`、侧栏
+  `width:100%;max-height:42vh`、`his-game-ui` 改 `overflow-y:auto` 整体可滚。**Live 验收（Playwright resize）**：
+  桌面 1440×900 = row（map 680 + sidebar 220 并排、`max-height:70vh` 不变）；移动 390×844 = column
+  （`flexDirection:column`、侧栏在地图下方满宽、`overflow-y:auto`、地图 240px/52vh）。build 绿。
 
 ### 🟢 7. 外交牌库子系统（diplomacy-deck subsystem）
 

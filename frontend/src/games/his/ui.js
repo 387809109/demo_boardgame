@@ -110,7 +110,37 @@ export class HisUI {
 
   // ── Main Render ──────────────────────────────────────────────
 
+  /**
+   * Inject the responsive layout stylesheet once. Layout-critical dimensions
+   * live here (not inline) so the `@media` query can override them: on narrow
+   * screens the map + sidebar stack vertically instead of sitting side by side,
+   * and the whole UI scrolls. Keyed to the classes the render path already sets
+   * (his-game-ui / his-main-area / his-map-container / his-sidebar).
+   * @private
+   */
+  _ensureResponsiveStyles() {
+    const ID = 'his-responsive-styles';
+    if (typeof document === 'undefined' || document.getElementById(ID)) return;
+    const style = document.createElement('style');
+    style.id = ID;
+    style.textContent = `
+      .his-game-ui { overflow: hidden; }
+      .his-map-container { flex: 1; min-height: 400px; max-height: 70vh; }
+      .his-sidebar { min-width: 220px; max-width: 280px; }
+      @media (max-width: 820px) {
+        .his-game-ui { overflow-y: auto; }
+        .his-main-area { flex-direction: column; }
+        .his-map-container { flex: none; min-height: 240px; max-height: 52vh; }
+        .his-sidebar {
+          min-width: 0; max-width: none; width: 100%; max-height: 42vh;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   render(state, playerId, onAction) {
+    this._ensureResponsiveStyles();
     this.state = state;
     this.playerId = playerId;
     this.onAction = onAction;
@@ -121,6 +151,8 @@ export class HisUI {
     // Root container
     this._container = document.createElement('div');
     this._container.className = 'his-game-ui';
+    // Note: `overflow` is set via the injected stylesheet (his-game-ui) so the
+    // responsive @media query can switch it to scroll on narrow screens.
     this._container.style.cssText = `
       width: 100%; height: 100%;
       display: flex;
@@ -128,7 +160,6 @@ export class HisUI {
       gap: 8px;
       padding: 8px;
       box-sizing: border-box;
-      overflow: hidden;
     `;
 
     // 1. Status bar
@@ -136,8 +167,10 @@ export class HisUI {
     this._statusBar.update(state);
     this._container.appendChild(statusEl);
 
-    // 2. Main area: map + sidebar
+    // 2. Main area: map + sidebar (stacks vertically on narrow screens — the
+    //    flex-direction flip lives in the his-main-area @media rule).
     const mainArea = document.createElement('div');
+    mainArea.className = 'his-main-area';
     mainArea.style.cssText = `
       display: flex;
       gap: 8px;
@@ -146,12 +179,11 @@ export class HisUI {
     `;
 
     // 2a. Map container
+    // flex / min-height / max-height come from the his-map-container stylesheet
+    // rule so the @media query can shrink the map on narrow screens.
     this._mapContainer = document.createElement('div');
     this._mapContainer.className = 'his-map-container';
     this._mapContainer.style.cssText = `
-      flex: 1;
-      min-height: 400px;
-      max-height: 70vh;
       position: relative;
       border-radius: 6px;
       overflow: hidden;
@@ -208,11 +240,12 @@ export class HisUI {
     mainArea.appendChild(this._mapContainer);
 
     // 2b. Sidebar with tabs
+    // min-width / max-width come from the his-sidebar stylesheet rule so the
+    // @media query can make the sidebar full-width (under the map) on mobile.
     const sidebar = document.createElement('div');
     sidebar.className = 'his-sidebar';
     sidebar.style.cssText = `
       display: flex; flex-direction: column; gap: 0;
-      min-width: 220px; max-width: 280px;
       overflow: hidden;
     `;
 
