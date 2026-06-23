@@ -272,7 +272,13 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
   该节点获 `his-space-selected` 类 + `.his-space-detail` 面板显示该空间名。
 - ✅ **桌面渲染**：`svg.his-map` 可见、`.his-space[data-name]` >100、`his-main-area` flex-direction=row。
 - ✅ **响应式回归**：390×844 下 `his-main-area`=column、侧栏在地图下方且近满宽（钉死 item 6 的响应式布局，防回归）。
-- ⬜ **HMR 重载后续局**：需浏览器，仍待办。
+- ✅ **HMR 重载后续局**（2026-06-23，`feat: offline reload-resume` + `reload-resume.spec.js`，2 绿）：
+  verify-before-implement 发现**单机局重载本不可续**——`loadAutoSave` 仅 import 从未调用（autosave 只写不读）。遂补
+  「单机重载续局」（在线 refresh-to-resume 的离线孪生，复用既有 autosave + `_loadFromLobby`）：`_init` 在线 resume 不触发
+  时调 `_resumeOfflineGameIfAvailable()`——扫 sessionStorage 的 `boardgame_autosave_*`、取最近一局弹「继续/返回大厅」→
+  「继续」走 `_loadFromLobby(save)` 整态恢复、「返回大厅」`clearAutoSave`；游戏结束 (`_showGameResult`) 清 autosave 防续完成局。
+  spec：起单机 HIS → 打 state 标记 + 强制 autosave → `page.reload()`（=Vite HMR 全量重载）→ 点「继续」→ 标记随整态复原、
+  `currentGame.config.gameType==='his'`、board 重挂；另一条点「返回大厅」→ 无对局且 autosave 已清。
 - **mid-`pending*` 存读档**：在战斗 / 辩论 / 改革进行中存档，再读档续局。✅ **引擎层已覆盖**
   （2026-06-18，`save-load.test.js` +2）：①全部 10 类待决状态（battle/response/interception/reformation/
   debate/navalCombat/navalMove/assault/gout/foulWeather）经 `exportSave→importSave` 深拷贝往返逐字段保真；

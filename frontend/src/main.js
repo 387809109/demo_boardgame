@@ -240,10 +240,65 @@ class App {
     });
 
     this._renderCommitBadge();
-    // Show lobby, then offer to resume an in-progress online game if a reload
-    // interrupted one (prompt renders over the lobby; declining stays here).
+    // Show lobby, then offer to resume an interrupted game after a reload (e.g.
+    // a Vite HMR full reload during dev, or a manual refresh). Online sessions
+    // resume via the reconnect context; failing that, an in-progress offline
+    // game resumes from its sessionStorage auto-save. Prompt renders over the
+    // lobby; declining stays here.
     this.showLobby();
-    this._resumeSessionIfAvailable();
+    if (!this._resumeSessionIfAvailable()) {
+      this._resumeOfflineGameIfAvailable();
+    }
+  }
+
+  /**
+   * Most recent in-progress offline auto-save (sessionStorage), or null.
+   * Auto-saves live in sessionStorage, so they only survive within the same tab
+   * — exactly the reload / HMR case, not a fresh visit.
+   * @private
+   * @returns {Object|null}
+   */
+  _loadLatestOfflineAutoSave() {
+    const PREFIX = 'boardgame_autosave_';
+    let best = null;
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (!key?.startsWith(PREFIX)) continue;
+      try {
+        const save = JSON.parse(sessionStorage.getItem(key));
+        if (save?.gameId && save?.state &&
+            (!best || (save.savedAt || 0) > (best.savedAt || 0))) {
+          best = save;
+        }
+      } catch (_) { /* skip corrupt entries */ }
+    }
+    return best;
+  }
+
+  /**
+   * After a reload, offer to resume an in-progress offline (single-player) game
+   * from its auto-save. Returns whether a prompt was shown.
+   * @private
+   * @returns {boolean}
+   */
+  _resumeOfflineGameIfAvailable() {
+    const save = this._loadLatestOfflineAutoSave();
+    if (!save || !hasGame(save.gameId)) return false;
+
+    const turn = save.metadata?.turn;
+    const detail = turn ? `（第 ${turn} 回合）` : '';
+    getModal().confirm(
+      '继续对局',
+      `检测到一局未完成的单机对局${detail}，是否继续？`,
+      { confirmText: '继续', cancelText: '返回大厅' }
+    ).then((resume) => {
+      if (resume) {
+        this._loadFromLobby(save);
+      } else {
+        clearAutoSave(save.gameId);
+      }
+    });
+    return true;
   }
 
   /**
@@ -1765,10 +1820,13 @@ class App {
     this._closeResultScreen(true);
     this._lastGameResult = result || null;
 
-    // The game is over: clear the in-progress marker so a later reload offers
-    // the lobby rather than trying to resume a finished game (no-op offline,
-    // where there is no reconnect context).
+    // The game is over: clear the in-progress markers so a later reload offers
+    // the lobby rather than trying to resume a finished game — the online
+    // reconnect context (no-op offline) and the offline auto-save.
     this._saveReconnectContext?.({ gameStarted: false });
+    if (this.currentGame?.mode === 'offline' && this._activeGameType) {
+      clearAutoSave(this._activeGameType);
+    }
 
     const isOnlineRound = this.currentGame?.mode === 'online'
       && !!this.currentRoom
