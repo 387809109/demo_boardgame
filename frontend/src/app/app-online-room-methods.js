@@ -518,7 +518,9 @@ export function registerAppOnlineRoomMethods(App, deps) {
         }
         // Store for display in GameBoard
         this._currentGameSettings = settings;
-        this._saveReconnectContext({ gameType: data.gameType });
+        // gameStarted marks an in-progress game so a page reload can offer to
+        // resume it (see _resumeSessionIfAvailable); cleared when the game ends.
+        this._saveReconnectContext({ gameType: data.gameType, gameStarted: true });
         // Use initialState from host if provided
         this._startGame(data.gameType, players, 'online', settings, data.initialState);
       });

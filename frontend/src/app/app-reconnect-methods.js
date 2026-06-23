@@ -42,6 +42,10 @@ export function registerAppReconnectMethods(App, deps) {
       }
 
       const self = this.currentRoom.players?.find(p => p.id === this.playerId);
+      // Preserve the in-progress flag across the many incidental re-saves during
+      // a game (player joins, settings syncs, …) so a reload can still resume;
+      // only GAME_STARTED / game-end override it explicitly.
+      const prior = this._loadReconnectContext();
       const context = {
         mode: this.mode,
         roomId: this.currentRoom.id,
@@ -50,6 +54,7 @@ export function registerAppReconnectMethods(App, deps) {
         gameType: this.currentRoom.gameType || 'unknown',
         maxPlayers: this.currentRoom.maxPlayers,
         nickname: self?.nickname || this.currentRoom.nickname || this.config.game.defaultNickname,
+        gameStarted: !!prior?.gameStarted,
         updatedAt: Date.now(),
         ...overrides
       };
@@ -307,6 +312,65 @@ export function registerAppReconnectMethods(App, deps) {
     },
 
     /**
+     * Inspect the saved reconnect context and return it only if it describes an
+     * in-progress game this client can resume after a full page reload (no live
+     * network exists yet at startup). Returns null otherwise.
+     *
+     * Resume currently covers local mode, which is what page reload reliably
+     * restores: playerId / sessionId survive in sessionStorage, so the saved
+     * context still matches this client. Cloud mode is skipped because auth (and
+     * thus the cloud playerId) is restored asynchronously after startup, so the
+     * context may not match yet; cloud refresh-resume is a follow-up.
+     *
+     * @private
+     * @returns {Object|null} a resumable reconnect context, or null
+     */
+    _resumableContext() {
+      const ctx = this._loadReconnectContext();
+      if (!ctx || !ctx.roomId || !ctx.gameStarted) return null;
+      // Resuming into a different identity would desync; require a match.
+      if (ctx.playerId && this.playerId && ctx.playerId !== this.playerId) {
+        return null;
+      }
+      if (ctx.mode === 'local') {
+        if (!ctx.serverUrl || !ctx.sessionId) return null;
+        return ctx;
+      }
+      // Cloud (and anything else) deferred — see method doc.
+      return null;
+    },
+
+    /**
+     * On startup, if a reload interrupted an in-progress online game, offer to
+     * reconnect and restore it instead of stranding the player in the lobby.
+     * Reuses the existing reconnect machinery (_retryReconnectFromContext →
+     * snapshot restore). Returns whether a resume prompt was shown.
+     *
+     * @private
+     * @returns {boolean}
+     */
+    _resumeSessionIfAvailable() {
+      const ctx = this._resumableContext();
+      if (!ctx) return false;
+
+      trackEvent('session_resume_offered', { mode: ctx.mode });
+      const modal = getModal();
+      modal.confirm(
+        '恢复对局',
+        '检测到一局进行中的对局，是否重新连接并恢复？',
+        { confirmText: '恢复对局', cancelText: '返回大厅' }
+      ).then((resume) => {
+        if (resume) {
+          trackEvent('session_resume_accepted', { mode: ctx.mode });
+          this._retryReconnectFromContext(ctx);
+        } else {
+          this._clearReconnectContext();
+        }
+      });
+      return true;
+    },
+
+    /**
      * Handle reconnect accepted signal
      * @private
      */
@@ -395,6 +459,8 @@ export function registerAppReconnectMethods(App, deps) {
       this._currentGameSettings = settings;
 
       this._startGame(gameType, players, 'online', settings, snapshotState);
+      // Keep the context marked in-progress so a subsequent reload also resumes.
+      this._saveReconnectContext({ gameType, gameStarted: true });
       trackEvent('reconnect_succeeded', {
         mode: this.mode
       });

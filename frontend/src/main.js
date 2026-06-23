@@ -240,8 +240,10 @@ class App {
     });
 
     this._renderCommitBadge();
-    // Show lobby
+    // Show lobby, then offer to resume an in-progress online game if a reload
+    // interrupted one (prompt renders over the lobby; declining stays here).
     this.showLobby();
+    this._resumeSessionIfAvailable();
   }
 
   /**
@@ -1762,6 +1764,11 @@ class App {
   _showGameResult(result) {
     this._closeResultScreen(true);
     this._lastGameResult = result || null;
+
+    // The game is over: clear the in-progress marker so a later reload offers
+    // the lobby rather than trying to resume a finished game (no-op offline,
+    // where there is no reconnect context).
+    this._saveReconnectContext?.({ gameStarted: false });
 
     const isOnlineRound = this.currentGame?.mode === 'online'
       && !!this.currentRoom

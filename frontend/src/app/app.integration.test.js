@@ -1025,4 +1025,125 @@ describe('App integration flows', () => {
     expect(showNotification).toHaveBeenCalledWith('连接失败: join failed', 'error');
     expect(app.currentRoom).toBeNull();
   });
+
+  // ── Refresh-to-resume (a page reload restores an in-progress game) ───
+  describe('refresh-to-resume', () => {
+    function saveResumeCtx(overrides = {}) {
+      saveSessionData('reconnectContext', {
+        mode: 'local',
+        roomId: 'room-1',
+        playerId: 'player-host',
+        sessionId: 'sess-local',
+        serverUrl: 'ws://localhost:7777',
+        gameType: 'uno',
+        maxPlayers: 4,
+        nickname: 'Host',
+        gameStarted: true,
+        ...overrides
+      });
+    }
+
+    it('marks the reconnect context in-progress when the game starts', async () => {
+      const app = new AppClass();
+      await app._connectAndCreateRoom('ws://localhost:7777', 'room-1', 'Host', 'uno', 3, true);
+
+      app.network.emitMessage('GAME_STARTED', {
+        gameType: 'uno',
+        initialState: { players: [{ id: 'player-host', isHost: true }], options: {} },
+        aiPlayers: []
+      });
+
+      expect(loadSessionData('reconnectContext')?.gameStarted).toBe(true);
+    });
+
+    it('preserves the in-progress flag across incidental mid-game re-saves', async () => {
+      const app = new AppClass();
+      await app._connectAndCreateRoom('ws://localhost:7777', 'room-1', 'Host', 'uno', 3, true);
+      app.network.emitMessage('GAME_STARTED', {
+        gameType: 'uno',
+        initialState: { players: [{ id: 'player-host', isHost: true }], options: {} },
+        aiPlayers: []
+      });
+
+      // A player joining mid-game re-saves the context without the flag; it must
+      // not be wiped (otherwise a later reload could not resume).
+      app.network.emitMessage('PLAYER_JOINED', {
+        players: [
+          { id: 'player-host', nickname: 'Host', isHost: true },
+          { id: 'player-2', nickname: 'Guest', isHost: false }
+        ],
+        nickname: 'Guest'
+      });
+
+      expect(loadSessionData('reconnectContext')?.gameStarted).toBe(true);
+    });
+
+    it('accepts an in-progress local context for this player', () => {
+      const app = new AppClass();
+      saveResumeCtx();
+      expect(app._resumableContext()).toMatchObject({
+        roomId: 'room-1',
+        gameStarted: true
+      });
+    });
+
+    it('rejects a context whose game is not in progress', () => {
+      const app = new AppClass();
+      saveResumeCtx({ gameStarted: false });
+      expect(app._resumableContext()).toBeNull();
+    });
+
+    it('rejects a context that belongs to a different player', () => {
+      const app = new AppClass();
+      saveResumeCtx({ playerId: 'someone-else' });
+      expect(app._resumableContext()).toBeNull();
+    });
+
+    it('rejects a local context missing sessionId or serverUrl', () => {
+      const app = new AppClass();
+      saveResumeCtx({ sessionId: undefined });
+      expect(app._resumableContext()).toBeNull();
+    });
+
+    it('defers cloud-mode resume', () => {
+      const app = new AppClass();
+      saveResumeCtx({ mode: 'cloud', serverUrl: undefined });
+      expect(app._resumableContext()).toBeNull();
+    });
+
+    it('shows no prompt and returns false without a resumable context', () => {
+      const app = new AppClass();
+      expect(app._resumeSessionIfAvailable()).toBe(false);
+    });
+
+    it('clears the context when the player declines to resume', async () => {
+      const app = new AppClass();
+      saveResumeCtx();
+
+      expect(app._resumeSessionIfAvailable()).toBe(true);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(loadSessionData('reconnectContext')).toBeNull();
+    });
+
+    it('reconnects from the saved context when the player accepts', async () => {
+      const confirmMock = vi.fn(() => Promise.resolve(true));
+      deps.getModal = vi.fn(() => ({ confirm: confirmMock }));
+      AppClass = buildAppClass(deps);
+      const app = new AppClass();
+      app._retryReconnectFromContext = vi.fn();
+      saveResumeCtx();
+
+      expect(app._resumeSessionIfAvailable()).toBe(true);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(confirmMock).toHaveBeenCalled();
+      expect(app._retryReconnectFromContext).toHaveBeenCalledWith(
+        expect.objectContaining({ roomId: 'room-1', gameStarted: true })
+      );
+      expect(trackEvent).toHaveBeenCalledWith('session_resume_accepted', { mode: 'local' });
+    });
+  });
 });

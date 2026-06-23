@@ -326,6 +326,16 @@ live 战斗同步证据。**联机 HIS（3 人真机）端到端可玩且 lockst
 **⚠️ 顺带发现（与 RNG 无关，UX 观察）**：**整页刷新 (reload) 不会自动重连**——刷新后落回大厅（`playerId` 经
 `sessionStorage` 保留但对局会话未持久化/未自动恢复）。重连特性仅对**活实例的瞬时 WS 断连**生效，非页面刷新。
 若要「刷新可续局」需额外持久化对局会话，属独立 UX 功能、非 bug。
+**✅ 已实现「刷新可续局」（2026-06-23，local 模式）**：复用既有重连机制——无需重写。三处接线：
+①`GAME_STARTED` 给重连上下文打 `gameStarted:true` 标记（`_saveReconnectContext` 改为**跨中途多次再存保留**该标记，
+仅开局/终局显式改写，避免 `PLAYER_JOINED` 等顺带再存把它抹掉）；②游戏结束 (`_showGameResult`) 置 `gameStarted:false`；
+③启动 (`_init`) 在 `showLobby()` 后调 `_resumeSessionIfAvailable()`——若存在「进行中、playerId 匹配、local 且
+有 serverUrl+sessionId」的上下文，弹确认框→`_retryReconnectFromContext(ctx)`（既有路径：重建 network+room→
+requestReconnect→host 发 `GAME_SNAPSHOT`→`_handleGameSnapshot` 整态恢复，`rngState` 随快照保留→lockstep 不破）；
+拒绝则清上下文留在大厅。`_startGame` 本就懒加载游戏 bundle，故刷新后 HIS bundle 未加载也能恢复。
+`app.integration.test.js` +10（标记/保留/各 reject 门/接受重连/拒绝清理）。**cloud 模式暂缓**（auth 异步恢复 playerId，
+启动时上下文未必匹配，`_resumableContext` 显式跳过 cloud——属后续）。**host 自身刷新仍受既有限制**（无他端供快照），
+与瞬时 WS 断连同源，非本功能引入。
 **仍待（可选）**：断连期间他端推进后重连「补齐」（本次因对局停在掉线方 protestant 而未驱动，但快照=host 当前态
 天然补齐，机制已证）；Cloud（Supabase）路径（需凭据）；联机 AI 对手（新功能，翻 `onlineSupportsAI` + 验 host 跑 bot 广播）。
 
