@@ -261,10 +261,18 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
 
 ### 🟡 3. 种子化 Playwright 集成回归 `.spec.js`
 
-仅覆盖 jsdom/node 验不到的部分，每条用 `rngSeed`+`forceHands` 钉死：
+**✅ Runner 已搭建（2026-06-23，`test(his): scripted Playwright e2e`）**：之前 CLAUDE.md 描述的 `e2e/` + runner
+**实际并不存在**（无 `@playwright/test`、无 config）。本次落地：装 `@playwright/test` + chromium/headless-shell；
+`frontend/playwright.config.js`（`testDir:./e2e`、chromium、`baseURL:5173`、`webServer` 自动起 `npm run dev`、CI reuse=false）；
+`e2e/utils.js`（`startHisGame` 经 `window.app._startGame` 程序化起单机局 + `rngSeed`，免走大厅流）；npm 脚本
+`test:e2e`/`:ui`/`:report`；`.gitignore` 加 PW 产物。vitest 不受影响（`include:src/**/*.test.js`，e2e 在 src 外且为 `.spec.js`）。
+首批 `e2e/games/his/his-board.spec.js`（3 绿）覆盖 jsdom 验不到的：
 
-- SVG `<polygon data-name>` 命中测试（真实指针事件）。**需浏览器，仍待办。**
-- HMR 重载后续局。**需浏览器，仍待办。**
+- ✅ **SVG `[data-name]` 命中测试（真实指针）**：找一个无单位陆地空间（避免单位 overlay 拦截），真实 `click()` →
+  该节点获 `his-space-selected` 类 + `.his-space-detail` 面板显示该空间名。
+- ✅ **桌面渲染**：`svg.his-map` 可见、`.his-space[data-name]` >100、`his-main-area` flex-direction=row。
+- ✅ **响应式回归**：390×844 下 `his-main-area`=column、侧栏在地图下方且近满宽（钉死 item 6 的响应式布局，防回归）。
+- ⬜ **HMR 重载后续局**：需浏览器，仍待办。
 - **mid-`pending*` 存读档**：在战斗 / 辩论 / 改革进行中存档，再读档续局。✅ **引擎层已覆盖**
   （2026-06-18，`save-load.test.js` +2）：①全部 10 类待决状态（battle/response/interception/reformation/
   debate/navalCombat/navalMove/assault/gout/foulWeather）经 `exportSave→importSave` 深拷贝往返逐字段保真；
