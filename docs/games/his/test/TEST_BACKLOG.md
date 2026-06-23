@@ -266,6 +266,9 @@ interception/reformation/debate 五类待决面板的 state→渲染契约全部
 `frontend/playwright.config.js`（`testDir:./e2e`、chromium、`baseURL:5173`、`webServer` 自动起 `npm run dev`、CI reuse=false）；
 `e2e/utils.js`（`startHisGame` 经 `window.app._startGame` 程序化起单机局 + `rngSeed`，免走大厅流）；npm 脚本
 `test:e2e`/`:ui`/`:report`；`.gitignore` 加 PW 产物。vitest 不受影响（`include:src/**/*.test.js`，e2e 在 src 外且为 `.spec.js`）。
+**CI 已接（`.github/workflows/frontend-ci.yml`，push/PR→main）**：`unit` job（`npm ci`→`build`→`npm test` vitest）+ `e2e` job
+（`npm ci`→`playwright install --with-deps chromium`→`test:e2e`，失败上传 html report 工件）；CI 下 reporter=`[github,html]`、
+`reuseExistingServer:false`（webServer 自起 dev）。范围仅 frontend（已知全绿集）；backend/api 的 jest 暂未纳入。
 首批 `e2e/games/his/his-board.spec.js`（3 绿）覆盖 jsdom 验不到的：
 
 - ✅ **SVG `[data-name]` 命中测试（真实指针）**：找一个无单位陆地空间（避免单位 overlay 拦截），真实 `click()` →
