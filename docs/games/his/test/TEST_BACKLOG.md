@@ -367,8 +367,15 @@ requestReconnect→host 发 `GAME_SNAPSHOT`→`_handleGameSnapshot` 整态恢复
 `app.integration.test.js` +10（标记/保留/各 reject 门/接受重连/拒绝清理）。**cloud 模式暂缓**（auth 异步恢复 playerId，
 启动时上下文未必匹配，`_resumableContext` 显式跳过 cloud——属后续）。**host 自身刷新仍受既有限制**（无他端供快照），
 与瞬时 WS 断连同源，非本功能引入。
-**仍待（可选）**：断连期间他端推进后重连「补齐」（本次因对局停在掉线方 protestant 而未驱动，但快照=host 当前态
-天然补齐，机制已证）；Cloud（Supabase）路径（需凭据）；联机 AI 对手（新功能，翻 `onlineSupportsAI` + 验 host 跑 bot 广播）。
+**✅ Cloud（Supabase）传输层已验（2026-06-25）**：凭据其实**早在** `frontend/.env`（真 URL `pzvwiuiyyymvmvszuths` + 208 字
+anon JWT；先前「需凭据」系未查 `.env` 的误判）。两 Playwright 标签 = 两独立 supabase client（仅 anon key、未登录）各
+`channel('room:…')` 均 SUBSCRIBED；**A `broadcast` 一条 `GAME_ACTION{actionType:'RESOLVE_BATTLE', rngState:-1078559346}`
+被 B 原样收到（`rngStateMatch:true`）** → Supabase Realtime 跨客户端中继 GAME_ACTION、种子随线保真，故云端 lockstep 同 LAN
+（引擎确定性与传输无关）。**⚠️ presence 在无头双标签 harness 下不确定**（后台节流 + 订阅后再 bind 致 channel 回 `joining`），
+不判其通过/失败。**⛔ 完整云端 UI 流程受阻**：该项目**要求邮箱确认**（gmail signUp `hasSession:false`，且触发 Supabase
+邮件限流），无法造已确认测试账号走「大厅→登录→建/入房」。`.env` 原未 gitignore（未 track，无泄漏）→ 已修 `5a95b66`。
+**仍待（可选）**：断连期间他端推进后重连「补齐」（机制已证，快照=host 当前态天然补齐）；**完整云端 UI 流程 + presence 房间管理**
+（需项目侧关邮箱确认或给一个已确认账号）；联机 AI 对手（新功能，翻 `onlineSupportsAI` + 验 host 跑 bot 广播）。
 
 - LAN（WebSocket）+ Cloud（Supabase）下 `GAME_ACTION` 的双客户端同步、中途重连。
 - 大体量 HIS 状态的同步正确性（大厅/网络测试为通用，未针对 HIS 验证）。
