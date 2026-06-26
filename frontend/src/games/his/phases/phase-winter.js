@@ -17,8 +17,13 @@
 import { CAPITALS, MAJOR_POWERS } from '../constants.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import { PORTS_BY_SEA_ZONE, SEA_EDGES, SEA_ZONES } from '../data/map-data.js';
-import { findNearestFortifiedSpace, isFortified } from '../state/state-helpers.js';
+import {
+  findNearestFortifiedSpace, isFortified, isTwoPlayer
+} from '../state/state-helpers.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
+
+/** Non-player powers whose units/leaders are removed at Winter in the 2P variant (§19). */
+const TWO_PLAYER_INVADER_POWERS = ['france', 'hapsburg', 'ottoman'];
 
 const SEA_ADJACENCY = (() => {
   const adj = {};
@@ -48,8 +53,19 @@ export function executeWinter(state, helpers) {
   // Step 4: Return land units to fortified spaces (with attrition)
   returnLandUnits(state, helpers);
 
-  // Step 5: Remove alliances (alliances last one turn)
-  state.alliances = [];
+  // Two-player variant (§19): remove all French/Hapsburg/Ottoman army leaders
+  // (they re-enter on a later invasion event).
+  if (isTwoPlayer(state)) {
+    removeInvaderArmyLeaders(state, helpers);
+  }
+
+  // Step 5: Remove alliances (alliances last one turn). In the two-player
+  // variant the post-Schmalkaldic-League Papacy–Hapsburg alliance is permanent.
+  state.alliances = isTwoPlayer(state) && state.schmalkaldicLeagueFormed
+    ? state.alliances.filter(
+        (a) => (a.a === 'papacy' && a.b === 'hapsburg') ||
+               (a.a === 'hapsburg' && a.b === 'papacy'))
+    : [];
 
   // Step 6: Add replacements
   addReplacements(state, helpers);
@@ -283,6 +299,12 @@ function returnLandUnits(state, helpers) {
       // Key spaces and post-Schmalkaldic electorates are also fortified (§15)
       if (isFortified(sp, state) && !sp.besieged && friendly.has(sp.controller)) continue;
 
+      // Two-player variant (§19): French/Hapsburg/Ottoman units return to
+      // fortified spaces as normal, but if winter would force them back to their
+      // capital they are removed from play instead.
+      const removeAtCapital = isTwoPlayer(state) &&
+        TWO_PLAYER_INVADER_POWERS.includes(power);
+
       const capitals = CAPITALS[power] || [];
 
       // Try to find nearest friendly fortified space
@@ -292,11 +314,18 @@ function returnLandUnits(state, helpers) {
       );
 
       if (nearest && capitals.includes(nearest)) {
-        // Return to capital — no attrition
-        moveUnitsToSpace(state, spaceName, nearest, stack, helpers);
+        if (removeAtCapital) {
+          eliminateStack(state, stack, helpers, spaceName);
+        } else {
+          // Return to capital — no attrition
+          moveUnitsToSpace(state, spaceName, nearest, stack, helpers);
+        }
       } else if (nearest) {
         // Return to nearest fortress — no attrition if path is friendly
         moveUnitsToSpace(state, spaceName, nearest, stack, helpers);
+      } else if (removeAtCapital) {
+        // No friendly non-capital fortress — invader is removed (§19).
+        eliminateStack(state, stack, helpers, spaceName);
       } else if (capitals.length > 0) {
         // No friendly fortified space — attrition: lose half (round up)
         const cap = capitals[0];
@@ -310,6 +339,32 @@ function returnLandUnits(state, helpers) {
         }
       }
     }
+  }
+}
+
+/**
+ * Two-player variant (§19): remove every French/Hapsburg/Ottoman *army* leader
+ * from the map (naval leaders are unaffected). Mutates stacks in place.
+ * @param {Object} state
+ * @param {Object} helpers
+ */
+function removeInvaderArmyLeaders(state, helpers) {
+  const removed = [];
+  for (const sp of Object.values(state.spaces)) {
+    for (const stack of sp.units || []) {
+      if (!TWO_PLAYER_INVADER_POWERS.includes(stack.owner)) continue;
+      if (!stack.leaders || stack.leaders.length === 0) continue;
+      stack.leaders = stack.leaders.filter((lid) => {
+        if (LEADER_BY_ID[lid]?.type === 'army') {
+          removed.push(lid);
+          return false;
+        }
+        return true;
+      });
+    }
+  }
+  if (removed.length > 0) {
+    helpers.logEvent(state, 'winter_invader_leaders_removed', { leaders: removed });
   }
 }
 

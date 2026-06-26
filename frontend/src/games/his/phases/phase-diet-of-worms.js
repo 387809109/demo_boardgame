@@ -24,7 +24,7 @@
 import { RELIGION } from '../constants.js';
 import { rollDice } from '../actions/religious-actions.js';
 import {
-  getAllAdjacentSpaces, recountProtestantSpaces
+  getAllAdjacentSpaces, recountProtestantSpaces, isTwoPlayer
 } from '../state/state-helpers.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
 
@@ -39,6 +39,22 @@ export function initDietOfWorms(state, helpers) {
     cards: {},       // { power: cardNumber }
     resolved: false
   };
+
+  // Two-player variant (§18): the Hapsburg has no hand — their Diet card is
+  // drawn from the top of the Main Deck and used for its CP only. (The §18
+  // "mandatory event becomes a 2 CP card" nuance is a Phase-2 refinement; here
+  // the drawn card's own CP is used and the card is discarded after use.)
+  if (isTwoPlayer(state)) {
+    const top = (state.deck || []).shift();
+    if (top != null) {
+      state.pendingDietOfWorms.cards.hapsburg = top;
+      state.discard.push(top);
+      helpers.logEvent(state, 'diet_card_drawn_hapsburg_2p', { cardNumber: top });
+    } else {
+      state.pendingDietOfWorms.cards.hapsburg = null;
+    }
+  }
+
   helpers.logEvent(state, 'diet_of_worms_start', {});
 }
 

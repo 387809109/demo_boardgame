@@ -9,7 +9,8 @@ import { spendCp } from './cp-manager.js';
 import {
   getAdjacentSpaces, getConnectionType,
   getUnitsInSpace, hasEnemyUnits,
-  getFormationCap, countLandUnits, isHomeSpace, isFortified
+  getFormationCap, countLandUnits, isHomeSpace, isFortified,
+  isReligiousZoneMoveBlocked, isInvaderMoveBlocked, isTwoPlayer
 } from '../state/state-helpers.js';
 import { canAttack, getAlliesOf } from '../state/war-helpers.js';
 import { SEA_EDGES, SEA_ZONES, PORTS_BY_SEA_ZONE } from '../data/map-data.js';
@@ -203,6 +204,15 @@ export function validateMoveFormation(state, power, actionData) {
   // Check adjacency
   const connType = getConnectionType(from, to);
   if (!connType) return { valid: false, error: `${from} and ${to} are not adjacent` };
+
+  // Two-player variant (§13): Papal/Protestant units confined to German/Italian;
+  // French/Hapsburg/Ottoman invaders limited to DE/IT + independent/own spaces.
+  if (isReligiousZoneMoveBlocked(state, power, to)) {
+    return { valid: false, error: 'Movement confined to German/Italian zones' };
+  }
+  if (isInvaderMoveBlocked(state, power, to)) {
+    return { valid: false, error: 'Invader confined to German/Italian, independent, or own spaces' };
+  }
 
   // Calculate cost
   const costKey = connType === 'pass' ? 'move_over_pass' : 'move_formation';
@@ -558,7 +568,16 @@ export function validateControlUnfortified(state, power, actionData) {
       isHomeSpace(space, 'protestant')
     );
 
-    if (!hasPowerInSpace && !protestantSpecial && !(hasPowerAdjacent && !hasEnemyAdjacent)) {
+    // Two-player variant (§12): Protestant may remove unrest from any space
+    // under Protestant religious influence, Papacy from any under Catholic
+    // influence — with no unit-in/adjacent requirement.
+    const twoPlayerReligiousRemoval = isTwoPlayer(state) && (
+      (power === 'protestant' && sp.religion === 'protestant') ||
+      (power === 'papacy' && sp.religion === 'catholic')
+    );
+
+    if (!hasPowerInSpace && !protestantSpecial && !twoPlayerReligiousRemoval &&
+        !(hasPowerAdjacent && !hasEnemyAdjacent)) {
       return {
         valid: false,
         error: 'Must occupy unrest space, qualify for Protestant special removal, or control adjacent space with no enemy adjacent'

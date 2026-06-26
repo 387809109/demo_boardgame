@@ -722,6 +722,21 @@ class App {
     const nickname = this.config.game.defaultNickname || '玩家1';
     const gameConfig = this._getGameConfig(gameType);
 
+    // HIS two-player variant: a single local hotseat seat controls both the
+    // Papacy and the Protestant (the other four powers are non-player, driven
+    // by the Diplomatic Deck). No bots; the engine cycles the two religious
+    // powers and the player acts for whichever side is active.
+    if (gameConfig.powers && settings.variant === 'two_player') {
+      const players = [{ id: this.playerId, nickname, isHost: true }];
+      const options = {
+        ...settings,
+        powerAssignment: [['papacy', 'protestant']]
+      };
+      delete options.selectedPower;
+      this._startGame(gameType, players, 'offline', options);
+      return;
+    }
+
     // Power-based games (HIS): human selects one power, rest are bot-controlled
     if (gameConfig.powers && settings.selectedPower) {
       const allPowers = Object.keys(gameConfig.powers);

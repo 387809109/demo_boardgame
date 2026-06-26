@@ -8,6 +8,7 @@
 import { IMPULSE_ORDER, MAJOR_POWERS, VICTORY } from '../constants.js';
 import { executeCardDraw } from './phase-card-draw.js';
 import { initDiplomacyPhase } from './phase-diplomacy.js';
+import { initDiplomacy2P, diplomacy2PNeedsInput } from './phase-diplomacy-2p.js';
 import { initSpringDeployment } from './phase-spring-deployment.js';
 import { initLuther95 } from './phase-luther95.js';
 import { initDietOfWorms } from './phase-diet-of-worms.js';
@@ -15,7 +16,9 @@ import { resolveNewWorld } from './phase-new-world.js';
 import { executeWinter } from './phase-winter.js';
 import { checkImmediateVictory } from '../state/victory-checks.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
-import { isHomeSpace, getAllVpTotals } from '../state/state-helpers.js';
+import {
+  isHomeSpace, getAllVpTotals, isTwoPlayer, getImpulseOrder
+} from '../state/state-helpers.js';
 
 // ── Phase Constants ────────────────────────────────────────────────
 
@@ -53,12 +56,38 @@ const PHASE_ORDER_NORMAL = [
   PHASES.VICTORY_DETERMINATION
 ];
 
+// Two-player variant (§7): the New World phase is deleted; the Diplomacy phase
+// is kept but driven by the Diplomatic Deck (see phase-diplomacy-2p.js).
+const PHASE_ORDER_2P_TURN_1 = [
+  PHASES.LUTHER_95,
+  PHASES.CARD_DRAW,
+  PHASES.DIPLOMACY,
+  PHASES.DIET_OF_WORMS,
+  PHASES.SPRING_DEPLOYMENT,
+  PHASES.ACTION,
+  PHASES.WINTER,
+  PHASES.VICTORY_DETERMINATION
+];
+
+const PHASE_ORDER_2P_NORMAL = [
+  PHASES.CARD_DRAW,
+  PHASES.DIPLOMACY,
+  PHASES.SPRING_DEPLOYMENT,
+  PHASES.ACTION,
+  PHASES.WINTER,
+  PHASES.VICTORY_DETERMINATION
+];
+
 /**
  * Get the ordered list of phases for a given turn.
  * @param {number} turn
+ * @param {boolean} [twoPlayer] - use the two-player sequence of play
  * @returns {string[]}
  */
-export function getPhaseOrder(turn) {
+export function getPhaseOrder(turn, twoPlayer = false) {
+  if (twoPlayer) {
+    return turn === 1 ? PHASE_ORDER_2P_TURN_1 : PHASE_ORDER_2P_NORMAL;
+  }
   return turn === 1 ? PHASE_ORDER_TURN_1 : PHASE_ORDER_NORMAL;
 }
 
@@ -68,7 +97,7 @@ export function getPhaseOrder(turn) {
  * @returns {string|null}
  */
 export function getNextPhase(state) {
-  const order = getPhaseOrder(state.turn);
+  const order = getPhaseOrder(state.turn, isTwoPlayer(state));
   const idx = order.indexOf(state.phase);
   if (idx >= 0 && idx < order.length - 1) {
     return order[idx + 1];
@@ -96,7 +125,7 @@ export function transitionPhase(state, toPhase, helpers) {
     case PHASES.ACTION:
       state.impulseIndex = 0;
       state.consecutivePasses = 0;
-      state.activePower = IMPULSE_ORDER[0];
+      state.activePower = getImpulseOrder(state)[0];
       break;
 
     case PHASES.WINTER:
@@ -105,7 +134,16 @@ export function transitionPhase(state, toPhase, helpers) {
       break;
 
     case PHASES.DIPLOMACY:
-      initDiplomacyPhase(state, helpers);
+      if (isTwoPlayer(state)) {
+        // Two-player: deal/play from the Diplomatic Deck. Turn 1 deals only
+        // (no play), so the phase self-advances when no input is needed.
+        initDiplomacy2P(state, helpers);
+        if (!diplomacy2PNeedsInput(state)) {
+          advancePhase(state, helpers);
+        }
+      } else {
+        initDiplomacyPhase(state, helpers);
+      }
       break;
 
     case PHASES.SPRING_DEPLOYMENT:
@@ -320,10 +358,13 @@ function resolveVictoryDetermination(state, helpers) {
     return;
   }
 
-  // 4. Domination victory: Turn 4+, gap >= 5 (if enabled)
+  // 4. Domination victory: Turn 4+, gap >= 5 (8 in the two-player variant) if enabled
   if (state.dominationVictoryEnabled !== false && state.turn >= VICTORY.dominationMinTurn) {
     const [, secondVp] = sorted[1];
-    if (topVp - secondVp >= VICTORY.dominationGap) {
+    const dominationGap = isTwoPlayer(state)
+      ? VICTORY.twoPlayerDominationGap
+      : VICTORY.dominationGap;
+    if (topVp - secondVp >= dominationGap) {
       state.status = 'ended';
       state.winner = topPower;
       state.winReason = 'domination_victory';
@@ -378,8 +419,9 @@ function advanceTurn(state, helpers) {
  * @param {Object} state
  */
 export function advanceImpulse(state) {
-  state.impulseIndex = (state.impulseIndex + 1) % IMPULSE_ORDER.length;
-  state.activePower = IMPULSE_ORDER[state.impulseIndex];
+  const order = getImpulseOrder(state);
+  state.impulseIndex = (state.impulseIndex + 1) % order.length;
+  state.activePower = order[state.impulseIndex];
   // Impulse-scoped interrupt restrictions (#32 Gout, #31 Foul Weather) expire
   // when the interrupted power's impulse ends.
   state.pendingGout = null;

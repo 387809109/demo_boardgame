@@ -15,7 +15,8 @@ import { getVisibleState } from './state/state-visible.js';
 import {
   getPowerForPlayer, getPowersForPlayer, playerControlsPower,
   canPass, isFortified, getAllVpTotals, getAllVpBreakdowns,
-  getUnitsInSpace
+  getUnitsInSpace, isTwoPlayer, getPassesToEnd,
+  canControlInvaderAction, playerCommandsPower
 } from './state/state-helpers.js';
 import {
   PHASES, transitionPhase, advancePhase, advanceImpulse
@@ -95,6 +96,10 @@ import {
   canActInSegment, markActed, allActedInSegment,
   advanceDiplomacySegment, isDiplomacyComplete
 } from './phases/phase-diplomacy.js';
+import {
+  diplomacy2PNeedsInput, getDiplomacy2PActor, applyDiplomacy2PPlay
+} from './phases/phase-diplomacy-2p.js';
+import { isInvasionCard } from './state/diplomacy-deck.js';
 import {
   validateSpringDeployment, executeSpringDeployment,
   isSpringDeploymentComplete, skipSpringDeployment
@@ -289,6 +294,11 @@ export class HISGame extends GameEngine {
       return 'protestant';
     }
 
+    // Two-player Diplomacy: the queued side (Papacy then Protestant) plays.
+    if (state.phase === PHASES.DIPLOMACY && isTwoPlayer(state)) {
+      return getDiplomacy2PActor(state) || 'papacy';
+    }
+
     // Simultaneous phases: use forPower from actionData, or primary power
     if (actionData?.forPower) {
       return actionData.forPower;
@@ -373,6 +383,29 @@ export class HISGame extends GameEngine {
 
     // Diplomacy phase actions
     if (state.phase === PHASES.DIPLOMACY) {
+      // Two-player variant: only PLAY_DIPLOMACY_CARD, by the queued side.
+      if (isTwoPlayer(state)) {
+        if (actionType !== ACTION_TYPES.PLAY_DIPLOMACY_CARD) {
+          return { valid: false, error: `Invalid action for diplomacy phase: ${actionType}` };
+        }
+        const actor = getDiplomacy2PActor(state);
+        if (!actor) return { valid: false, error: 'No diplomacy card to play now' };
+        if (!playerControlsPower(state, playerId, actor)) {
+          return { valid: false, error: 'You do not control this power' };
+        }
+        const card = actionData?.cardNumber;
+        if (!card || !(state.diplomacyHands?.[actor] || []).includes(card)) {
+          return { valid: false, error: 'Card not in your diplomatic hand' };
+        }
+        // Invasion cards place an army — require a valid landing space (§11/§13).
+        if (isInvasionCard(card)) {
+          const target = actionData?.targetSpace;
+          if (!target || !state.spaces?.[target]) {
+            return { valid: false, error: 'Invasion requires a target space' };
+          }
+        }
+        return { valid: true };
+      }
       if (!power || !playerControlsPower(state, playerId, power)) {
         return { valid: false, error: 'You do not control this power' };
       }
@@ -475,7 +508,9 @@ export class HISGame extends GameEngine {
           return { valid: false, error: 'No pending response window' };
         }
         const respPower = state.pendingResponse.respondingPower;
-        if (!playerControlsPower(state, playerId, respPower)) {
+        // §11 (two-player): the active side may also respond on behalf of an
+        // at-war invader it commands.
+        if (!playerCommandsPower(state, playerId, respPower)) {
           return { valid: false, error: 'Not your response window' };
         }
         if (actionType === ACTION_TYPES.PLAY_RESPONSE_CARD) {
@@ -596,9 +631,13 @@ export class HISGame extends GameEngine {
         if (!isInCpMode(state) && !isFreeAutumnAssault) {
           return { valid: false, error: 'Not in CP spending mode' };
         }
+        // §11 (two-player): a religious side may spend its CP on a limited set of
+        // actions on behalf of an at-war invader (tagged via actionData.forPower).
+        const cpPower = canControlInvaderAction(state, actPower, actionData?.forPower, actionType)
+          ? actionData.forPower : actPower;
         const handler = CP_ACTION_HANDLERS[actionType];
         if (handler) {
-          return handler.validate(state, actPower, actionData);
+          return handler.validate(state, cpPower, actionData);
         }
         return { valid: false, error: `Unknown CP action: ${actionType}` };
       }
@@ -679,7 +718,11 @@ export class HISGame extends GameEngine {
 
     // Diplomacy phase actions
     if (newState.phase === PHASES.DIPLOMACY) {
-      this._handleDiplomacyAction(newState, power, actionType, actionData, helpers);
+      if (isTwoPlayer(newState)) {
+        this._handleDiplomacy2PAction(newState, power, actionType, actionData, helpers);
+      } else {
+        this._handleDiplomacyAction(newState, power, actionType, actionData, helpers);
+      }
       newState.turnNumber++;
       return newState;
     }
@@ -807,9 +850,12 @@ export class HISGame extends GameEngine {
       default:
         // CP sub-actions
         if (isCpAction(actionType)) {
+          // §11 (two-player): route to an at-war invader when authorized.
+          const cpPower = canControlInvaderAction(newState, power, actionData?.forPower, actionType)
+            ? actionData.forPower : power;
           const handler = CP_ACTION_HANDLERS[actionType];
           if (handler) {
-            handler.execute(newState, power, actionData, helpers);
+            handler.execute(newState, cpPower, actionData, helpers);
           }
           this._checkVictory(newState, helpers);
           this._checkAutoEndImpulse(newState, helpers);
@@ -829,7 +875,7 @@ export class HISGame extends GameEngine {
     state.consecutivePasses++;
     helpers.logEvent(state, 'pass', { power });
 
-    if (state.consecutivePasses >= VICTORY.consecutivePassesToEnd) {
+    if (state.consecutivePasses >= getPassesToEnd(state)) {
       helpers.logEvent(state, 'action_phase_end', { turn: state.turn });
       advancePhase(state, helpers);
     } else {
@@ -1507,6 +1553,23 @@ export class HISGame extends GameEngine {
         // Diplomacy complete → advance to next phase
         advancePhase(state, helpers);
       }
+    }
+  }
+
+  /**
+   * Handle a two-player Diplomacy phase action (§9): the queued side plays one
+   * card from the Diplomatic Deck. When both sides have played, advance.
+   * @private
+   */
+  _handleDiplomacy2PAction(state, power, actionType, actionData, helpers) {
+    if (actionType !== ACTION_TYPES.PLAY_DIPLOMACY_CARD) return;
+
+    const actor = getDiplomacy2PActor(state);
+    if (!actor) return;
+    const side = power || actor;
+    const result = applyDiplomacy2PPlay(state, side, actionData, helpers);
+    if (result.done) {
+      advancePhase(state, helpers);
     }
   }
 

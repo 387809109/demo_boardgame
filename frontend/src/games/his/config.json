@@ -31,6 +31,17 @@
       ],
       "group": "basic"
     },
+    "variant": {
+      "type": "select",
+      "label": "游戏模式",
+      "description": "标准为 3–6 人局；两人局（教廷 vs 新教，同屏热座）由外交牌库驱动其余四大势力",
+      "default": "standard",
+      "options": [
+        { "value": "standard", "label": "标准（3–6 人）" },
+        { "value": "two_player", "label": "两人局（教廷 vs 新教 · 热座）" }
+      ],
+      "group": "basic"
+    },
     "dominationVictoryEnabled": {
       "type": "boolean",
       "label": "统治胜利",

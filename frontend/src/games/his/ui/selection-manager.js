@@ -115,7 +115,12 @@ const SELECTION_FLOWS = {
   // New World
   EXPLORE: [],
   COLONIZE: [],
-  CONQUER: []
+  CONQUER: [],
+
+  // Two-player variant: pick where an invasion army lands.
+  INVASION_TARGET: [
+    { type: 'space', key: 'targetSpace', prompt: '选择入侵部队登陆的空间' }
+  ]
 };
 
 // ── Valid Target Computations ─────────────────────────────────────
@@ -203,6 +208,9 @@ function _getValidSpaces(state, power, actionType, stepKey, collected) {
 
     case 'ASSAULT':
       return _validAssaultSpaces(state, power);
+
+    case 'INVASION_TARGET':
+      return null; // Any land space (the player chooses the landing site)
 
     case 'NAVAL_MOVE':
       return null; // Any port or sea zone

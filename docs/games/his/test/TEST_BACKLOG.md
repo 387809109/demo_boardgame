@@ -420,7 +420,7 @@ channel harness 伪影）→ host 开局（`onStartGame`，注意需先 `_ensure
   桌面 1440×900 = row（map 680 + sidebar 220 并排、`max-height:70vh` 不变）；移动 390×844 = column
   （`flexDirection:column`、侧栏在地图下方满宽、`overflow-y:auto`、地图 240px/52vh）。build 绿。
 
-### 🟢 7. 外交牌库子系统（diplomacy-deck subsystem）
+### ✅ 7. 外交牌库子系统（diplomacy-deck subsystem）+ 两人局变体 Phase 1
 
 > 由 P1「整卡 no-op 审计」升级而来（2026-06-20）。
 
@@ -447,9 +447,35 @@ channel harness 伪影）→ host 开局（`onStartGame`，注意需先 `_ensure
 - **测试**：`state/diplomacy-deck.test.js` +26（牌池/init/SL 加入/发打弃换/重洗/回合清理/trailing-VP），
   `event-actions-diplomacy.test.js` 的 #205/#215 改为断言真机制（原仅断言占位 `pending*`）。HIS 全套 2662 绿、build 绿。
 
-**仍待（=两人局变体本身，单独大排期）**：把子系统接入两人局回合流程（外交段发牌：每方抽 1、T2+ 各打 1，见
-`his_ref/img/_vmod_docs/sequence_twoplayer.html`）、两人阵营分组、打外交卡的 UI 流程 + bot 决策、联机隐藏手牌遮蔽
-（`getVisibleState`）。子系统已就绪，待两人局 setup 调 `initDiplomacyDeck` 即可消费。
+**✅ 两人局变体 Phase 1 已建（2026-06-26，religious-core MVP · 同屏热座）**：从 `his_ref/Scenarios.pdf` pp.37–40
+提取权威规则（见 `docs/games/his/TWO_PLAYER_PLAN.md`），全部以 `state.variant==='two_player'` 门控，标准 3–6 人局零改动。
+
+- **Setup**：`data/setup-1517-2p.js`（`buildTwoPlayerScenario`）——49 张主牌库移除、DE/IT 外仅留 1 正规军、海军仅
+  Marseille/Genoa/Naples/Venice/Rome、Prague 哈布斯堡 + Brunn/Breslau 天主教、Buda/Belgrade 奥斯曼、开局仅 Andrea Doria。
+- **回合流程**：删除新世界段；冲动序仅 教廷→新教（`getImpulseOrder`）；行动段连续 2 次 pass 结束（`getPassesToEnd`）。
+- **外交段**：`phases/phase-diplomacy-2p.js` 消费子系统——每回合各抽 1，T2+ 教廷→新教各打 1（`PLAY_DIPLOMACY_CARD`）；
+  沃尔姆斯议会的哈布斯堡牌从牌库顶抽（§18）。
+- **限制**：§13 移动 / §12 去动荡按宗教势力门控（`isReligiousZoneMoveBlocked`）；§10 教廷春季部署限 DE/IT。
+- **胜利**：统治胜利 8 VP 差（`VICTORY.twoPlayerDominationGap`，T4+）。
+- **大厅/UI**：`config.json` 增 `variant` 选项 + `_startOfflineGame` 热座分支（单座控双势力）；
+  action-panel 外交打牌面板 + status-bar「两人局」指示。**实机已验证**整条 教廷→新教 打牌闭环。
+- **MVP 边界**：外交牌库**仅结构性接入**——打出的外交卡记日志 + 进弃牌堆，其**效果**（入侵建军，经 `DIPLOMACY_EVENT_HANDLERS`）
+  延后到 **Phase 2**（宗教斗争本体完全可玩）。
+- **测试**：`src/games/his/two-player.test.js`（+15）、`e2e/games/his/two-player.spec.js`；HIS 全套 3515 绿、build 绿。
+
+**✅ Phase 2 军事/入侵系统（军事核心）已建（2026-06-26）**：入侵卡（#202/#206/#211/#213/#214/#216）打出即**派发**
+`DIPLOMACY_EVENT_HANDLERS`（设战争 + 在玩家选定 `targetSpace` 放置入侵军；`pendingCardDraw` 抽给操控方）。
+§11 代控：宗教方可操控「与其对手交战」的列强（`controllableInvaders`/`canControlInvaderAction`/`invaderController`/
+`playerCommandsPower`），允许动作（移动/突击/控制/海军 + 代打战斗/响应卡，**不含建造**）经 `actionData.forPower` 走 CP 管线。
+§13 入侵移动限 DE/IT + 独立/己控（`isInvaderMoveBlocked`）。SL 转换（`event-actions.js` #13）：教-新/哈-新 开战、教-哈 结盟
+（冬季永久保留）。§19 冬季：被迫返都的 FR/HA/OT 单位移除 + 全部 FR/HA/OT 陆军将领移除。2P setup 改为**开局无战争**
+（列强仅由入侵卡/SL 激活）。UI：`INVASION_TARGET` 登陆选择 + `forPower` 代理按钮 + 状态栏 At-War 读出。
+**测试**：`src/games/his/two-player-military.test.js`（+9）、`e2e/games/his/two-player.spec.js`（入侵流）；HIS 全套 3524 绿、
+build 绿、e2e 7 绿、实机走通（入侵打牌→落地→代理移动）。
+
+**仍待（Phase 2b/后续）**：非入侵外交卡效果（仍 log-only no-op）+ 各自目标 UI；Remove-At-War（教皇敕令绝罚 / 求和，外交段）；
+§11 Landsknechts/Swiss 战斗卡排除；`getVisibleState` 联机对手外交手牌遮蔽。Phase 3 英格兰自动化（§21.3 + 6 张修改卡）；
+Phase 4 联机 2 人 / vs-AI。
 
 ---
 

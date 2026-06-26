@@ -348,8 +348,11 @@ export class GameSettingsModal {
       ).join('');
       const aiCount = powerEntries.length - 1;
 
+      // Two-player hotseat (HIS variant) controls both religious powers itself,
+      // so the single-power selector is hidden when that variant is active.
+      const hidePower = this.settings?.variant === 'two_player';
       return `
-        <div style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);">
+        <div class="power-select-section" style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);${hidePower ? ' display: none;' : ''}">
           <label style="display: block; margin-bottom: var(--spacing-2); font-weight: var(--font-medium);">
             选择控制的势力
           </label>
@@ -487,7 +490,10 @@ export class GameSettingsModal {
       let aiCount = 0;
       if (this.mode === 'offline') {
         const powerSelect = this.element.querySelector('.power-select');
-        if (powerSelect) {
+        if (settings.variant === 'two_player') {
+          // Two-player hotseat: no single power, no AI (handled in _startOfflineGame).
+          delete settings.selectedPower;
+        } else if (powerSelect) {
           // Power-based game: human picks one power, rest are AI
           settings.selectedPower = powerSelect.value;
           aiCount = Object.keys(this.gameConfig.powers).length - 1;
@@ -549,6 +555,15 @@ export class GameSettingsModal {
           this.settings[key] = target.checked;
         } else if (schema.type === 'select') {
           this.settings[key] = target.value;
+        }
+
+        // HIS: the two-player variant controls both powers itself, so toggle
+        // the single-power selector when the variant changes.
+        if (key === 'variant') {
+          const section = this.element.querySelector('.power-select-section');
+          if (section) {
+            section.style.display = target.value === 'two_player' ? 'none' : '';
+          }
         }
       });
     });

@@ -494,8 +494,8 @@ export class HisUI {
         }
         if (this.onAction) this.onAction(action);
       },
-      (actionType) => {
-        this._startSelectionFlow(actionType);
+      (actionType, opts) => {
+        this._startSelectionFlow(actionType, opts);
       }
     );
     container.appendChild(panelEl);
@@ -509,15 +509,33 @@ export class HisUI {
 
   // ── Selection Flow Integration ─────────────────────────────
 
-  _startSelectionFlow(actionType) {
+  /**
+   * Start a target-selection flow.
+   * @param {string} actionType - selection flow key (e.g. MOVE_FORMATION)
+   * @param {Object} [opts]
+   * @param {string} [opts.forPower] - run the flow for this power (§11 invader
+   *   control) and tag the emitted action with `forPower`
+   * @param {string} [opts.emitAs] - emit under a different action type
+   * @param {Object} [opts.baseData] - extra actionData merged into the result
+   */
+  _startSelectionFlow(actionType, opts = {}) {
+    const { forPower, emitAs, baseData } = opts;
     this._selectionManager.startFlow(
       actionType,
       this.state,
-      this._playerPower,
+      forPower || this._playerPower,
       // onComplete — emit the final action to the game engine
       (action) => {
         this._updateSelectionUI();
-        if (this.onAction) this.onAction(action);
+        const merged = {
+          actionType: emitAs || action.actionType,
+          actionData: {
+            ...(baseData || {}),
+            ...(action.actionData || {}),
+            ...(forPower ? { forPower } : {})
+          }
+        };
+        if (this.onAction) this.onAction(merged);
       },
       // onUpdate — refresh the prompt bar and highlights
       () => {

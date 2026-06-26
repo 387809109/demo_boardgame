@@ -5,7 +5,7 @@
  */
 
 import {
-  MAJOR_POWERS, IMPULSE_ORDER, RULERS,
+  MAJOR_POWERS, IMPULSE_ORDER, TWO_PLAYER_IMPULSE_ORDER, VICTORY, RULERS,
   KEY_VP_TRACK, PROTESTANT_CARD_DRAW, PROTESTANT_SPACES_TRACK,
   PIRACY_VP_TRACK,
   CARD_TYPE, FORMATION, DEBATERS, RELIGION,
@@ -17,6 +17,7 @@ import {
 } from '../data/map-data.js';
 import { ARMY_LEADERS } from '../data/leaders.js';
 import { getReformerDiceBonus } from './reformer-helpers.js';
+import { areAtWar } from './war-helpers.js';
 
 /**
  * Get the power assigned to a player.
@@ -303,13 +304,162 @@ export function canPass(state, power) {
 }
 
 /**
+ * Whether this state is running the two-player variant.
+ * @param {Object} state
+ * @returns {boolean}
+ */
+export function isTwoPlayer(state) {
+  return state?.variant === 'two_player';
+}
+
+/**
+ * Impulse / turn order for the current variant. The two-player variant cycles
+ * only Papacy and Protestant; the standard game cycles all six powers.
+ * @param {Object} state
+ * @returns {string[]}
+ */
+export function getImpulseOrder(state) {
+  return isTwoPlayer(state) ? TWO_PLAYER_IMPULSE_ORDER : IMPULSE_ORDER;
+}
+
+/** Major powers that are non-player (deck-driven) in the two-player variant. */
+export const TWO_PLAYER_NONPLAYER_POWERS = ['ottoman', 'hapsburg', 'england', 'france'];
+
+/** §11 action types a religious side may take on behalf of an at-war invader. */
+export const INVADER_ACTION_TYPES = new Set([
+  'MOVE_FORMATION', 'NAVAL_MOVE', 'ASSAULT', 'CONTROL_UNFORTIFIED'
+]);
+
+/**
+ * The opposing religious side in the two-player variant.
+ * @param {string} side - 'papacy' | 'protestant'
+ * @returns {string|null}
+ */
+export function twoPlayerOpponent(side) {
+  if (side === 'papacy') return 'protestant';
+  if (side === 'protestant') return 'papacy';
+  return null;
+}
+
+/**
+ * §11: the non-player major powers a religious side may command this impulse —
+ * those currently at war with that side's OPPONENT. Empty outside the 2P variant.
+ * @param {Object} state
+ * @param {string} side - 'papacy' | 'protestant'
+ * @returns {string[]}
+ */
+export function controllableInvaders(state, side) {
+  if (!isTwoPlayer(state)) return [];
+  const opp = twoPlayerOpponent(side);
+  if (!opp) return [];
+  return TWO_PLAYER_NONPLAYER_POWERS.filter((p) => areAtWar(state, p, opp));
+}
+
+/**
+ * Whether `side` may take `actionType` on behalf of `forPower` this impulse
+ * (§11): `forPower` must be a non-player power at war with `side`'s opponent,
+ * and the action must be in the permitted list (no unit construction).
+ * @param {Object} state
+ * @param {string} side - the acting religious side
+ * @param {string} forPower - the invader being commanded
+ * @param {string} actionType
+ * @returns {boolean}
+ */
+export function canControlInvaderAction(state, side, forPower, actionType) {
+  if (!forPower || forPower === side) return false;
+  if (!INVADER_ACTION_TYPES.has(actionType)) return false;
+  return controllableInvaders(state, side).includes(forPower);
+}
+
+/**
+ * The religious side that commands a given non-player power in the two-player
+ * variant (§11) — the side whose opponent the power is at war with — or null.
+ * @param {Object} state
+ * @param {string} power
+ * @returns {string|null}
+ */
+export function invaderController(state, power) {
+  if (!isTwoPlayer(state)) return null;
+  if (!TWO_PLAYER_NONPLAYER_POWERS.includes(power)) return null;
+  for (const side of ['papacy', 'protestant']) {
+    if (controllableInvaders(state, side).includes(power)) return side;
+  }
+  return null;
+}
+
+/**
+ * Whether a player may act for `power` — directly (their own power) or, in the
+ * two-player variant, as the religious side commanding an at-war invader (§11).
+ * @param {Object} state
+ * @param {string} playerId
+ * @param {string} power
+ * @returns {boolean}
+ */
+export function playerCommandsPower(state, playerId, power) {
+  if (playerControlsPower(state, playerId, power)) return true;
+  const controller = invaderController(state, power);
+  return !!controller && playerControlsPower(state, playerId, controller);
+}
+
+/**
+ * Two-player variant §13: Papal & Protestant units may never move/intercept/
+ * retreat/avoid-battle into spaces outside the German or Italian language zones.
+ * Returns true when a move of `power` into `spaceName` is blocked by this rule.
+ * No-op (false) outside the two-player variant and for the other powers.
+ * @param {Object} state
+ * @param {string} power
+ * @param {string} spaceName
+ * @returns {boolean}
+ */
+export function isReligiousZoneMoveBlocked(state, power, spaceName) {
+  if (!isTwoPlayer(state)) return false;
+  if (power !== 'papacy' && power !== 'protestant') return false;
+  const zone = SPACE_BY_NAME[spaceName]?.languageZone;
+  return zone !== 'german' && zone !== 'italian';
+}
+
+/**
+ * Two-player variant §13: French/Hapsburg/Ottoman units may move only within the
+ * German/Italian zones or to spaces that are independent or under their own
+ * control. Returns true when a move of `power` into `spaceName` is blocked by
+ * this rule. No-op (false) outside the 2P variant and for the religious powers
+ * (which use `isReligiousZoneMoveBlocked`).
+ * @param {Object} state
+ * @param {string} power
+ * @param {string} spaceName
+ * @returns {boolean}
+ */
+export function isInvaderMoveBlocked(state, power, spaceName) {
+  if (!isTwoPlayer(state)) return false;
+  if (!TWO_PLAYER_NONPLAYER_POWERS.includes(power)) return false;
+  const zone = SPACE_BY_NAME[spaceName]?.languageZone;
+  if (zone === 'german' || zone === 'italian') return false;
+  const controller = state.spaces?.[spaceName]?.controller;
+  // Outside DE/IT, only independent or own-controlled spaces are reachable.
+  return controller !== power && controller !== 'independent';
+}
+
+/**
+ * Consecutive passes that end the Action phase (= number of acting powers): 2
+ * in the two-player variant, 6 in the standard game.
+ * @param {Object} state
+ * @returns {number}
+ */
+export function getPassesToEnd(state) {
+  return isTwoPlayer(state)
+    ? VICTORY.twoPlayerConsecutivePassesToEnd
+    : VICTORY.consecutivePassesToEnd;
+}
+
+/**
  * Get the next power in impulse order after the current one.
  * @param {Object} state
  * @returns {string} Next power
  */
 export function getNextImpulsePower(state) {
-  const nextIndex = (state.impulseIndex + 1) % IMPULSE_ORDER.length;
-  return IMPULSE_ORDER[nextIndex];
+  const order = getImpulseOrder(state);
+  const nextIndex = (state.impulseIndex + 1) % order.length;
+  return order[nextIndex];
 }
 
 /**

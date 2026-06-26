@@ -7,8 +7,11 @@
 
 import { CAPITALS, IMPULSE_ORDER, MAJOR_POWERS } from '../constants.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
-import { LAND_ADJACENCY, PORTS_BY_SEA_ZONE } from '../data/map-data.js';
-import { getUnitsInSpace, countLandUnits, getFormationCap } from '../state/state-helpers.js';
+import { LAND_ADJACENCY, PORTS_BY_SEA_ZONE, SPACE_BY_NAME } from '../data/map-data.js';
+import {
+  getUnitsInSpace, countLandUnits, getFormationCap,
+  isTwoPlayer, getImpulseOrder
+} from '../state/state-helpers.js';
 import { getAlliesOf } from '../state/war-helpers.js';
 
 function getFriendlyPowers(state, power) {
@@ -132,7 +135,7 @@ function canTraceSpringDeploymentPath(state, power, from, to, options) {
 export function initSpringDeployment(state, helpers) {
   state.springDeploymentDone = {};
   state.impulseIndex = 0;
-  state.activePower = IMPULSE_ORDER[0];
+  state.activePower = getImpulseOrder(state)[0];
   state.enhancedSpringDeployment = null;
   helpers.logEvent(state, 'spring_deployment_start', {});
 }
@@ -186,6 +189,15 @@ export function validateSpringDeployment(state, power, actionData) {
   if (!toSp) return { valid: false, error: `Space "${to}" not found` };
   if (!friendlyPowers.has(toSp.controller)) {
     return { valid: false, error: 'Destination not friendly-controlled' };
+  }
+
+  // Two-player variant (§10): Papal spring deployment may never enter a space
+  // outside the German or Italian language zones.
+  if (isTwoPlayer(state)) {
+    const zone = SPACE_BY_NAME[to]?.languageZone;
+    if (zone !== 'german' && zone !== 'italian') {
+      return { valid: false, error: 'Spring deployment confined to German/Italian zones' };
+    }
   }
 
   // No unrest at destination
@@ -297,7 +309,7 @@ export function executeSpringDeployment(state, power, actionData, helpers) {
  * @returns {boolean}
  */
 export function isSpringDeploymentComplete(state) {
-  for (const power of IMPULSE_ORDER) {
+  for (const power of getImpulseOrder(state)) {
     if (!state.springDeploymentDone || !state.springDeploymentDone[power]) {
       return false;
     }

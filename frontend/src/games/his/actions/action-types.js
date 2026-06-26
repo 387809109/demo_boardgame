@@ -48,7 +48,9 @@ export const DIPLOMACY_ACTIONS = {
   NEGOTIATE: 'NEGOTIATE',
   RANSOM_LEADER: 'RANSOM_LEADER',
   REMOVE_EXCOMMUNICATION: 'REMOVE_EXCOMMUNICATION',
-  SPRING_DEPLOY: 'SPRING_DEPLOY'
+  SPRING_DEPLOY: 'SPRING_DEPLOY',
+  // Two-player variant: play a card from the Diplomatic Deck (§9).
+  PLAY_DIPLOMACY_CARD: 'PLAY_DIPLOMACY_CARD'
 };
 
 // ── Excommunication Actions ───────────────────────────────────────

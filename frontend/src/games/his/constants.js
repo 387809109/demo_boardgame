@@ -22,6 +22,13 @@ export const IMPULSE_ORDER = [
 ];
 
 /**
+ * Impulse order for the two-player variant — only the Papacy and Protestant
+ * take impulses (the other four powers are non-player). See
+ * `state-helpers.getImpulseOrder` for the variant-aware accessor.
+ */
+export const TWO_PLAYER_IMPULSE_ORDER = ['papacy', 'protestant'];
+
+/**
  * Default power assignments for 3-6 player games.
  * Each entry maps player count → array of power groups (one group per player).
  * Based on official HIS 500th Anniversary recommended combinations.
@@ -412,7 +419,11 @@ export const VICTORY = {
   dominationMinTurn: 4,
   dominationGap: 5,
   maxTurns: 9,
-  consecutivePassesToEnd: 6
+  consecutivePassesToEnd: 6,
+  // Two-player variant (Scenario Book §19): domination needs an 8-VP lead, and
+  // the Action phase ends after both players pass consecutively (2, not 6).
+  twoPlayerDominationGap: 8,
+  twoPlayerConsecutivePassesToEnd: 2
 };
 
 // ── Debaters ───────────────────────────────────────────────────────

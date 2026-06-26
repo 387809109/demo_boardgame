@@ -55,9 +55,36 @@ export class StatusBar {
     const phase = this._badge(phaseLabel, '#78909c');
     this._el.appendChild(phase);
 
+    // Two-player variant indicator (hotseat: Papacy vs Protestant) + a compact
+    // At-War / Ally readout for the non-player powers (invasions / Schmalkaldic).
+    if (state.variant === 'two_player') {
+      this._el.appendChild(this._badge('两人局', '#8d6e63', true));
+
+      const SHORT = {
+        ottoman: '奥', hapsburg: '哈', england: '英',
+        france: '法', papacy: '教', protestant: '新'
+      };
+      const nonPlayer = new Set(['ottoman', 'hapsburg', 'england', 'france']);
+      // Only show relations between major powers that involve a non-player power.
+      const showable = (a, b) =>
+        SHORT[a] && SHORT[b] && (nonPlayer.has(a) || nonPlayer.has(b));
+      for (const w of state.wars || []) {
+        if (!showable(w.a, w.b)) continue;
+        this._el.appendChild(this._badge(`⚔${SHORT[w.a]}-${SHORT[w.b]}`, '#b71c1c', true));
+      }
+      for (const a of state.alliances || []) {
+        if (!showable(a.a, a.b)) continue;
+        this._el.appendChild(this._badge(`🤝${SHORT[a.a]}-${SHORT[a.b]}`, '#1b5e20', true));
+      }
+    }
+
     // Active power — derive from the per-phase turn model (segment-based phases
-    // leave state.activePower stale; see getActivePower).
-    const activePower = getActivePower(state);
+    // leave state.activePower stale; see getActivePower). In the two-player
+    // Diplomacy phase the acting side is the head of the play queue.
+    let activePower = getActivePower(state);
+    if (!activePower && state.variant === 'two_player') {
+      activePower = state.diplomacy2P?.pendingPlayers?.[0] || null;
+    }
     if (activePower) {
       const color = POWER_COLORS[activePower] || '#666';
       const label = POWER_LABELS[activePower] || activePower;

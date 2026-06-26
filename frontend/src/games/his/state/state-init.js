@@ -10,6 +10,8 @@ import {
 import { LAND_SPACES, SEA_ZONES } from '../data/map-data.js';
 import { CARDS } from '../data/cards.js';
 import { SCENARIO_1517 } from '../data/setup-1517.js';
+import { buildTwoPlayerScenario } from '../data/setup-1517-2p.js';
+import { initDiplomacyDeck } from './diplomacy-deck.js';
 import { seedRng } from './rng.js';
 
 /** Monotonic counter so default (unseeded) games get distinct RNG seeds
@@ -58,7 +60,8 @@ const INITIAL_RULERS = {
  * @returns {Object} Complete initial game state
  */
 export function buildInitialState(players, options = {}) {
-  const scenario = SCENARIO_1517;
+  const twoPlayer = options.variant === 'two_player';
+  const scenario = twoPlayer ? buildTwoPlayerScenario() : SCENARIO_1517;
 
   // Seed the deck RNG for reproducible card draws when a seed is supplied
   // (default: Math.random, i.e. production behaviour is unchanged). See rng.js.
@@ -133,10 +136,11 @@ export function buildInitialState(players, options = {}) {
     bonusVp[power] = 0;
   }
 
-  return {
+  const state = {
     // Core
     turn: 1,
     phase: 'card_draw',
+    variant: twoPlayer ? 'two_player' : 'standard',
     turnNumber: 1,
     status: 'playing',
     players: playerList,
@@ -271,6 +275,16 @@ export function buildInitialState(players, options = {}) {
     // Meta
     eventLog: []
   };
+
+  // Two-player variant: stand up the separate Diplomatic Deck (the four
+  // non-player powers are driven through it). The base deck above already
+  // excludes 'diplomacy'/'diplomacy_sl' cards from the Main Deck. Hands start
+  // empty — the Diplomacy phase deals one card to each side every turn (§9).
+  if (twoPlayer) {
+    initDiplomacyDeck(state);
+  }
+
+  return state;
 }
 
 /**

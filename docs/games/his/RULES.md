@@ -1318,3 +1318,45 @@ Four locations: **Metz, Milan, Florence, Tunis**.
 - For complete Protestant Spaces Track dual VP values (0–50), see `RELIGIOUS_STRUGGLE.md`.
 - For exact 1517 setup: see `SCENARIO_1517_SETUP.md`.
 - The Chinese rulebook (`RULEBOOK_SECTION_NORMALIZED_ZH.md`) is the primary authoritative reference; consult it for any rule detail not covered here.
+
+---
+
+## 27. Two-Player Variant (Papacy vs. Protestant)
+
+Authoritative rules + phased roadmap: **`TWO_PLAYER_PLAN.md`** (extracted from
+`his_ref/Scenarios.pdf` pp. 37–40). The variant is fully additive and gated on
+`state.variant === 'two_player'`; standard 3–6p play is unchanged.
+
+**Phase 1 (implemented — religious-core MVP, offline hotseat):**
+- Setup: `data/setup-1517-2p.js` (`buildTwoPlayerScenario`) — 49-card Main-Deck
+  removal, single-regular stacks outside German/Italian, naval only in
+  Marseille/Genoa/Naples/Venice/Rome, Hapsburg Prague + Catholic Brunn/Breslau,
+  Ottoman Buda/Belgrade, Andrea Doria the only starting leader.
+- Sequence of play: New World phase deleted; impulse order = Papacy → Protestant
+  (`getImpulseOrder`); Action ends after 2 consecutive passes (`getPassesToEnd`).
+- Diplomacy phase: `phases/phase-diplomacy-2p.js` over the `state/diplomacy-deck.js`
+  subsystem — each side draws 1/turn; from Turn 2, Papacy then Protestant play 1
+  (`PLAY_DIPLOMACY_CARD`). Hapsburg's Diet of Worms card is drawn from the deck top.
+- Restrictions: §13 movement and §12 unrest-removal gated for the religious powers
+  (`isReligiousZoneMoveBlocked`); §10 Papal spring deployment confined to DE/IT.
+- Victory: 8-VP domination gap (`VICTORY.twoPlayerDominationGap`), Turn 4+.
+- Tests: `src/games/his/two-player.test.js`, `e2e/games/his/two-player.spec.js`.
+
+**Phase 2 (implemented — military core):**
+
+- Invasion cards (#202/#206/#211/#213/#214/#216) dispatch their `DIPLOMACY_EVENT_HANDLERS`
+  on play — set the war + place the army at a chosen `targetSpace` (drain `pendingCardDraw`
+  to the controlling player). Setup starts with **no wars** (powers activate only via an
+  invasion card / SL).
+- §11 control: a religious side commands a non-player power at war with its opponent
+  (`controllableInvaders`/`canControlInvaderAction`); permitted actions (move/assault/control/
+  naval + combat/response on behalf, no construction) route via `actionData.forPower` through
+  the CP pipeline; `playerCommandsPower` extends the response gate.
+- §13 invader movement limited to DE/IT + independent/own spaces (`isInvaderMoveBlocked`).
+- SL transitions (`event-actions.js` #13): Papacy/Protestant + Hapsburg/Protestant at war,
+  Papacy/Hapsburg allied (permanent through Winter).
+- §19 Winter: FR/HA/OT units forced to capital are removed; all their army leaders removed.
+- UI: `INVASION_TARGET` landing-space selection, `forPower` invader action buttons, At-War
+  status readout. Tests: `src/games/his/two-player-military.test.js`.
+- **Phase 2b boundary:** non-invasion diplomatic-card effects remain log-only no-ops;
+  Remove-At-War (Papal Bull / sue-for-peace) and the Landsknechts/Swiss §11 exclusion deferred.

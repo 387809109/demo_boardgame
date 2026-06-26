@@ -14,6 +14,9 @@ import {
   reformationPanelModel, debatePanelModel
 } from './ui-gating.js';
 import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
+import { CARD_BY_NUMBER } from '../data/cards.js';
+import { isInvasionCard } from '../state/diplomacy-deck.js';
+import { controllableInvaders } from '../state/state-helpers.js';
 
 // ── Action Presentation ─────────────────────────────────────────
 // Which actions exist per group (and their per-power cost gate) is owned by
@@ -99,6 +102,14 @@ export class ActionPanel {
     }
 
     const phase = state.phase;
+
+    // Two-player Diplomacy (§9): the active side's play panel is shown directly
+    // (its actor gating is internal), bypassing the standard segment-based
+    // isActionPanelActive gate. In hotseat the local seat controls both sides.
+    if (phase === 'diplomacy' && state.variant === 'two_player') {
+      this._renderDiplomacy2PPanel(state);
+      return;
+    }
 
     // Whether this power has controls right now (vs. waiting on opponents).
     if (!isActionPanelActive(state, playerPower)) {
@@ -228,6 +239,9 @@ export class ActionPanel {
     this._renderCpGroup('宗教', groups.religious, power);
     this._renderCpGroup('新世界', groups.newWorld, power);
 
+    // Two-player §11: act on behalf of an at-war invader.
+    this._renderInvaderActions(state, power);
+
     // End impulse
     const endRow = document.createElement('div');
     endRow.style.cssText = 'display:flex;gap:6px;margin-top:8px;';
@@ -235,6 +249,37 @@ export class ActionPanel {
       this._emit({ type: 'END_IMPULSE' });
     }, 'secondary'));
     this._el.appendChild(endRow);
+  }
+
+  /**
+   * Two-player variant §11: buttons to take the permitted actions on behalf of
+   * an at-war invader the active religious side commands. Each starts the normal
+   * map selection flow but tagged with `forPower`. No-op (renders nothing)
+   * outside the variant or when no invader is commandable.
+   * @private
+   */
+  _renderInvaderActions(state, power) {
+    const invaders = controllableInvaders(state, power);
+    if (invaders.length === 0) return;
+
+    const INVADER_ACTIONS = [
+      { key: 'MOVE_FORMATION', label: '⚔ 移动' },
+      { key: 'ASSAULT', label: '🛡 突击' },
+      { key: 'CONTROL_UNFORTIFIED', label: '🚩 控制' },
+      { key: 'NAVAL_MOVE', label: '⚓ 海军' }
+    ];
+    for (const invader of invaders) {
+      this._el.appendChild(this._groupLabel(
+        `代理 ${POWER_LABELS[invader] || invader} 行动 (§11)`
+      ));
+      const grid = this._actionGrid();
+      for (const a of INVADER_ACTIONS) {
+        grid.appendChild(this._actionButton(a.label, () => {
+          this._select(a.key, { forPower: invader });
+        }));
+      }
+      this._el.appendChild(grid);
+    }
   }
 
   // ── Diplomacy Phase ─────────────────────────────────────────
@@ -269,6 +314,50 @@ export class ActionPanel {
       this._emit({ type: 'PASS' });
     }, 'secondary'));
     this._el.appendChild(passRow);
+  }
+
+  /**
+   * Two-player Diplomacy phase (§9): the queued side (Papacy then Protestant)
+   * plays one card from its Diplomatic hand. Turn 1 deals only (no play), so the
+   * phase self-advances and this panel is shown only when a play is pending.
+   * @private
+   */
+  _renderDiplomacy2PPanel(state) {
+    this._el.appendChild(this._sectionHeader('外交牌阶段'));
+
+    const actor = state.diplomacy2P?.pendingPlayers?.[0];
+    if (!actor) {
+      this._el.appendChild(this._infoText('本回合外交牌已打出，正在结算…'));
+      return;
+    }
+
+    const sideName = POWER_LABELS[actor] || actor;
+    this._el.appendChild(this._infoText(`轮到 ${sideName} 打出 1 张外交牌`));
+
+    const hand = state.diplomacyHands?.[actor] || [];
+    if (hand.length === 0) {
+      this._el.appendChild(this._infoText('该势力暂无外交牌'));
+      return;
+    }
+
+    const grid = this._actionGrid();
+    for (const cardNumber of hand) {
+      const card = CARD_BY_NUMBER[cardNumber];
+      const invasion = isInvasionCard(cardNumber);
+      const label = (card ? `#${cardNumber} ${card.title}` : `#${cardNumber}`) +
+        (invasion ? ' ⚔' : '');
+      grid.appendChild(this._actionButton(label, () => {
+        if (invasion) {
+          // Pick where the invasion army lands, then play the card.
+          this._select('INVASION_TARGET', {
+            emitAs: 'PLAY_DIPLOMACY_CARD', baseData: { cardNumber }
+          });
+        } else {
+          this._emit({ type: 'PLAY_DIPLOMACY_CARD', data: { cardNumber } });
+        }
+      }, 'primary'));
+    }
+    this._el.appendChild(grid);
   }
 
   // ── Spring Deployment ───────────────────────────────────────
@@ -487,9 +576,9 @@ export class ActionPanel {
     if (this._onAction) this._onAction(move);
   }
 
-  /** Start a selection flow for the given action type */
-  _select(actionType) {
-    if (this._startSelection) this._startSelection(actionType);
+  /** Start a selection flow for the given action type (opts: { forPower, emitAs, baseData }) */
+  _select(actionType, opts) {
+    if (this._startSelection) this._startSelection(actionType, opts);
   }
 
   _sectionHeader(text) {

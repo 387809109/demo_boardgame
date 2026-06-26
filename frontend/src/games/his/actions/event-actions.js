@@ -17,8 +17,8 @@ import {
   RULERS, CHATEAU_TABLE, CHATEAU_MODIFIERS,
   MARITAL_STATUS, PREGNANCY_TABLE
 } from '../constants.js';
-import { areAllied } from '../state/war-helpers.js';
-import { isHomeSpace } from '../state/state-helpers.js';
+import { areAllied, addWar, removeWar, addAlliance } from '../state/war-helpers.js';
+import { isHomeSpace, isTwoPlayer } from '../state/state-helpers.js';
 import { rollDie, nextRandom } from '../state/rng.js';
 import { initiateDebate } from './debate-actions.js';
 import { EXTENDED_EVENT_HANDLERS } from './event-actions-extended.js';
@@ -553,6 +553,17 @@ EVENT_HANDLERS[13] = {
     // No-op unless the two-player diplomacy-deck subsystem is active — the 3–6
     // player game does not use the diplomacy deck (see state/diplomacy-deck.js).
     addSchmalkaldicDiplomacyCards(state);
+
+    // Two-player variant: after the League forms, Papacy & Protestant are at
+    // war, Hapsburg & Protestant are at war, and Papacy & Hapsburg are allied
+    // for the rest of the game (the only standing alliance in the variant).
+    if (isTwoPlayer(state)) {
+      addWar(state, 'papacy', 'protestant');
+      addWar(state, 'hapsburg', 'protestant');
+      removeWar(state, 'papacy', 'hapsburg');
+      addAlliance(state, 'papacy', 'hapsburg');
+    }
+
     helpers.logEvent(state, 'event_schmalkaldic_league', {
       power, turn: state.turn, spacesTransferred: transferred
     });

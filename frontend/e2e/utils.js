@@ -28,6 +28,31 @@ export async function startHisGame(page, options = { rngSeed: 12345 }) {
   await page.waitForSelector('.his-map svg, svg.his-map', { timeout: 20_000 });
 }
 
+/**
+ * Load the app and start a two-player (hotseat) HIS game — one local seat
+ * controls both Papacy and Protestant; the other four powers are non-player.
+ * Waits for the board to mount.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {{ rngSeed?: number }} [options]
+ */
+export async function startHisTwoPlayerGame(page, options = { rngSeed: 12345 }) {
+  await page.goto('/');
+  await page.waitForFunction(() => !!window.app);
+  await page.evaluate((opts) => {
+    // Use the app's own player id so UI-dispatched moves (which use
+    // window.app.playerId) are accepted — matches the real lobby start path.
+    const players = [{ id: window.app.playerId, nickname: 'Host', isHost: true }];
+    window.app._startGame('his', players, 'offline', {
+      ...opts,
+      variant: 'two_player',
+      powerAssignment: [['papacy', 'protestant']]
+    });
+  }, options);
+  await page.waitForSelector('.his-game-ui', { timeout: 20_000 });
+  await page.waitForSelector('.his-map svg, svg.his-map', { timeout: 20_000 });
+}
+
 /** Name of the first land space on the rendered map that currently has no units. */
 export async function firstEmptyLandSpace(page) {
   return page.evaluate(() => {
