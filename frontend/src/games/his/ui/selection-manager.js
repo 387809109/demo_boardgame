@@ -120,6 +120,12 @@ const SELECTION_FLOWS = {
   // Two-player variant: pick where an invasion army lands.
   INVASION_TARGET: [
     { type: 'space', key: 'targetSpace', prompt: '选择入侵部队登陆的空间' }
+  ],
+
+  // Two-player variant: sue for peace — pick 2 Papal units to remove (§9).
+  SUE_FOR_PEACE_2P: [
+    { type: 'space', key: 'unit1', prompt: '选择移除的第一支教廷部队' },
+    { type: 'space', key: 'unit2', prompt: '选择移除的第二支教廷部队' }
   ]
 };
 
@@ -211,6 +217,9 @@ function _getValidSpaces(state, power, actionType, stepKey, collected) {
 
     case 'INVASION_TARGET':
       return null; // Any land space (the player chooses the landing site)
+
+    case 'SUE_FOR_PEACE_2P':
+      return _spacesWithOwnUnits(state, power); // spaces holding Papal units
 
     case 'NAVAL_MOVE':
       return null; // Any port or sea zone

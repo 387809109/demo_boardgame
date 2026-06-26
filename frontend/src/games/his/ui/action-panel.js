@@ -17,6 +17,7 @@ import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import { isInvasionCard } from '../state/diplomacy-deck.js';
 import { controllableInvaders } from '../state/state-helpers.js';
+import { papalBullTargets, sueForPeaceTargets } from '../phases/phase-diplomacy-2p.js';
 
 // ── Action Presentation ─────────────────────────────────────────
 // Which actions exist per group (and their per-power cost gate) is owned by
@@ -282,6 +283,47 @@ export class ActionPanel {
     }
   }
 
+  /**
+   * Two-player Remove-At-War step (§9): the Papacy may end an invasion war with
+   * Papal Bull (excommunicate France/Hapsburg) or by suing for peace, then click
+   * Done to proceed to the card deal.
+   * @private
+   */
+  _renderRemoveAtWarPanel(state) {
+    this._el.appendChild(this._sectionHeader('结束战争 (§9)'));
+
+    const bullTargets = papalBullTargets(state);
+    const sueTargets = sueForPeaceTargets(state);
+
+    if (bullTargets.length === 0 && sueTargets.length === 0) {
+      this._el.appendChild(this._infoText('当前无可结束的战争'));
+    } else {
+      const grid = this._actionGrid();
+      for (const t of bullTargets) {
+        grid.appendChild(this._actionButton(
+          `教皇敕令 → ${POWER_LABELS[t] || t}`, () => {
+            this._emit({ type: 'PAPAL_BULL', data: { targetPower: t, benefit: 'draw' } });
+          }, 'event'));
+      }
+      for (const t of sueTargets) {
+        grid.appendChild(this._actionButton(
+          `求和 → ${POWER_LABELS[t] || t}`, () => {
+            this._select('SUE_FOR_PEACE_2P', {
+              emitAs: 'SUE_FOR_PEACE_2P', baseData: { targetPower: t }
+            });
+          }));
+      }
+      this._el.appendChild(grid);
+    }
+
+    const doneRow = document.createElement('div');
+    doneRow.style.cssText = 'margin-top:8px;';
+    doneRow.appendChild(this._actionButton('完成 (进入抽牌/出牌)', () => {
+      this._emit({ type: 'END_REMOVE_WAR' });
+    }, 'primary'));
+    this._el.appendChild(doneRow);
+  }
+
   // ── Diplomacy Phase ─────────────────────────────────────────
 
   _renderDiplomacyPanel(state, power) {
@@ -323,6 +365,12 @@ export class ActionPanel {
    * @private
    */
   _renderDiplomacy2PPanel(state) {
+    // Remove-At-War step (§9, Papacy only) precedes the card plays.
+    if (state.diplomacy2P?.stage === 'remove_war') {
+      this._renderRemoveAtWarPanel(state);
+      return;
+    }
+
     this._el.appendChild(this._sectionHeader('外交牌阶段'));
 
     const actor = state.diplomacy2P?.pendingPlayers?.[0];

@@ -95,4 +95,40 @@ test.describe('HIS two-player variant', () => {
     });
     await expect(page.locator('.his-action-panel')).toContainText('代理');
   });
+
+  test('Phase 2b: Remove-At-War — Papal Bull ends an invasion war', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await startHisTwoPlayerGame(page);
+
+    // Force a Turn-2 Diplomacy phase in the Remove-At-War step with a
+    // France-Papacy invasion war.
+    await page.evaluate(() => {
+      const s = window.app.currentGame.state;
+      s.turn = 2; s.phase = 'diplomacy'; s.activePower = null;
+      s.cpRemaining = 0; s.activeCardNumber = null;
+      s.wars.push({ a: 'papacy', b: 'france' });
+      s.papalBullUsedThisTurn = false;
+      s.diplomacy2P = { stage: 'remove_war', pendingPlayers: [] };
+      window.app.currentGame.emit('stateUpdated', s);
+    });
+
+    // The Papal Bull button appears for the France war.
+    await expect(page.locator('.his-action-panel')).toContainText('教皇敕令');
+    await expect(page.locator('.his-status-bar')).toContainText('⚔');
+
+    // Play Papal Bull through the real pipeline → the war ends.
+    const result = await page.evaluate(() => {
+      const g = window.app.currentGame;
+      const r = g.executeMove({
+        actionType: 'PAPAL_BULL', playerId: window.app.playerId,
+        actionData: { targetPower: 'france', benefit: 'draw' }
+      });
+      const atWar = g.state.wars.some((w) =>
+        (w.a === 'papacy' && w.b === 'france') || (w.a === 'france' && w.b === 'papacy'));
+      return { success: r.success, atWar, excommunicated: !!g.state.excommunicatedRulers.france };
+    });
+    expect(result.success).toBe(true);
+    expect(result.atWar).toBe(false);
+    expect(result.excommunicated).toBe(true);
+  });
 });

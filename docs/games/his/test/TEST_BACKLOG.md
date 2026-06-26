@@ -473,7 +473,14 @@ channel harness 伪影）→ host 开局（`onStartGame`，注意需先 `_ensure
 **测试**：`src/games/his/two-player-military.test.js`（+9）、`e2e/games/his/two-player.spec.js`（入侵流）；HIS 全套 3524 绿、
 build 绿、e2e 7 绿、实机走通（入侵打牌→落地→代理移动）。
 
-**仍待（Phase 2b/后续）**：非入侵外交卡效果（仍 log-only no-op）+ 各自目标 UI；Remove-At-War（教皇敕令绝罚 / 求和，外交段）；
+**✅ Phase 2b — Remove-At-War（§9）已建（2026-06-26）**：外交段开牌前新增 `remove_war` 阶段（先结束战争→再发牌）。
+教廷可**教皇敕令**（对法/哈、其君主未被绝罚：绝罚君主 + 结束战争 + 本回合用掉 + 抽 1 张主牌库牌）或**求和**
+（除新教外任一战争：结束战争 + 新教 +1 War-Winner VP + 教廷自移 2 个单位）。`papalBullTargets`/`sueForPeaceTargets` 门控目标；
+动作 `PAPAL_BULL`/`SUE_FOR_PEACE_2P`/`END_REMOVE_WAR`；UI `_renderRemoveAtWarPanel` + `SUE_FOR_PEACE_2P` 选单位流程。
+复用 `war-helpers`/`excommunicatedRulers`/`bonusVp`。**测试**：`two-player-removewar.test.js`（+7）+ e2e；全套 3531 绿、
+build 绿、实机走通（点「教皇敕令→法兰西」→战争消除 + 君主绝罚 + 状态栏战旗清除）。
+
+**仍待（Phase 2b-cards/后续）**：非入侵外交卡效果（仍 log-only no-op）+ 各自目标 UI；教皇敕令「改夺空间」收益 + 求和夺回空间；
 §11 Landsknechts/Swiss 战斗卡排除；`getVisibleState` 联机对手外交手牌遮蔽。Phase 3 英格兰自动化（§21.3 + 6 张修改卡）；
 Phase 4 联机 2 人 / vs-AI。
 

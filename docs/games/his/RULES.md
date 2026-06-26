@@ -1358,5 +1358,16 @@ Authoritative rules + phased roadmap: **`TWO_PLAYER_PLAN.md`** (extracted from
 - §19 Winter: FR/HA/OT units forced to capital are removed; all their army leaders removed.
 - UI: `INVASION_TARGET` landing-space selection, `forPower` invader action buttons, At-War
   status readout. Tests: `src/games/his/two-player-military.test.js`.
-- **Phase 2b boundary:** non-invasion diplomatic-card effects remain log-only no-ops;
-  Remove-At-War (Papal Bull / sue-for-peace) and the Landsknechts/Swiss §11 exclusion deferred.
+
+**Phase 2b (implemented — Remove-At-War, §9):**
+
+- A `remove_war` stage precedes the card deal in `phases/phase-diplomacy-2p.js`. The Papacy may:
+  **Papal Bull** (`applyPapalBull` — vs France/Hapsburg, ruler not yet excommunicated:
+  excommunicate, end war, spend the Bull, draw a card) or **sue for peace** (`applySueForPeace2P`
+  — any war except Protestant: end war, +1 War-Winner VP to Protestant, remove 2 Papal units).
+- `papalBullTargets`/`sueForPeaceTargets` gate the targets; actions `PAPAL_BULL`/
+  `SUE_FOR_PEACE_2P`/`END_REMOVE_WAR`; UI `_renderRemoveAtWarPanel` + `SUE_FOR_PEACE_2P` unit
+  flow. Tests: `src/games/his/two-player-removewar.test.js`.
+- **Deferred (2b-cards):** non-invasion diplomatic-card effects remain log-only no-ops; the
+  Papal-Bull regain-space benefit, sue-for-peace reclaim, and the §11 Landsknechts/Swiss
+  exclusion.

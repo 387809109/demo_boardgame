@@ -124,11 +124,23 @@ isInvaderMoveBlocked`, `phases/phase-diplomacy-2p.js` (dispatch + `pendingCardDr
 `forPower` invader buttons. Tests: `src/games/his/two-player-military.test.js` (9),
 `e2e/games/his/two-player.spec.js` (invasion flow).
 
-**Deferred to Phase 2b:** the bespoke non-invasion diplomatic-card effects (#201/#203/#204/#205/
-#207/#208/#209/#210/#212/#215/#217/#218/#219 + their target UIs) — still log-only no-ops;
-Remove-At-War (Papal Bull excommunicate / sue for peace, Diplomacy phase); the §11
-Landsknechts/Swiss combat-card exclusion; `getVisibleState` opponent diplomacy-hand masking
-(online 2p only).
+### Phase 2b — Remove-At-War ✅ *(shipped)*
+The Papacy can now end an invasion war at the **start of the Diplomacy phase** (§9): a new
+`remove_war` stage precedes the card deal. **Papal Bull** (vs France/Hapsburg, ruler not yet
+excommunicated) excommunicates the ruler, ends the war, spends the Bull for the turn, and draws
+an extra Main-Deck card; **sue for peace** (any war except Protestant post-SL) ends the war,
+awards the Protestant 1 War-Winner VP, and removes 2 Papal units of the Papacy's choice. Code:
+`phases/phase-diplomacy-2p.js` (`papalBullTargets`/`sueForPeaceTargets`/`applyPapalBull`/
+`applySueForPeace2P` + the stage machine, reusing `war-helpers`, `excommunicatedRulers`,
+`bonusVp`); action types `PAPAL_BULL`/`SUE_FOR_PEACE_2P`/`END_REMOVE_WAR` wired in `index.js`; UI
+`_renderRemoveAtWarPanel` + the `SUE_FOR_PEACE_2P` unit-selection flow. Tests:
+`src/games/his/two-player-removewar.test.js` (7) + e2e + live-verified.
+
+**Deferred to Phase 2b-cards (a later pass):** the bespoke non-invasion diplomatic-card effects
+(#201/#203/#204/#205/#207/#208/#209/#210/#212/#215/#217/#218/#219 + their target UIs) — still
+log-only no-ops; the Papal Bull "regain a space instead of draw" benefit + sue-for-peace
+space-reclaim; the §11 Landsknechts/Swiss combat-card exclusion; `getVisibleState` opponent
+diplomacy-hand masking (online 2p only).
 
 ### Phase 3 — England automation & modified cards
 Henry's wives schedule, succession, Mary-I impulse procedure (§21.3); the 6 modified cards.

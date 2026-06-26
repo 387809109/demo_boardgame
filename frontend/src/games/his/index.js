@@ -97,7 +97,8 @@ import {
   advanceDiplomacySegment, isDiplomacyComplete
 } from './phases/phase-diplomacy.js';
 import {
-  diplomacy2PNeedsInput, getDiplomacy2PActor, applyDiplomacy2PPlay
+  diplomacy2PNeedsInput, getDiplomacy2PActor, applyDiplomacy2PPlay,
+  applyRemoveAtWarAction, papalBullTargets, sueForPeaceTargets
 } from './phases/phase-diplomacy-2p.js';
 import { isInvasionCard } from './state/diplomacy-deck.js';
 import {
@@ -383,8 +384,31 @@ export class HISGame extends GameEngine {
 
     // Diplomacy phase actions
     if (state.phase === PHASES.DIPLOMACY) {
-      // Two-player variant: only PLAY_DIPLOMACY_CARD, by the queued side.
       if (isTwoPlayer(state)) {
+        // Remove-At-War step (§9, Papacy only) precedes the card plays.
+        if (state.diplomacy2P?.stage === 'remove_war') {
+          if (!playerControlsPower(state, playerId, 'papacy')) {
+            return { valid: false, error: 'Only the Papacy acts in Remove-At-War' };
+          }
+          if (actionType === ACTION_TYPES.PAPAL_BULL) {
+            if (!papalBullTargets(state).includes(actionData?.targetPower)) {
+              return { valid: false, error: 'Invalid Papal Bull target' };
+            }
+            return { valid: true };
+          }
+          if (actionType === ACTION_TYPES.SUE_FOR_PEACE_2P) {
+            if (!sueForPeaceTargets(state).includes(actionData?.targetPower)) {
+              return { valid: false, error: 'Invalid sue-for-peace target' };
+            }
+            return { valid: true };
+          }
+          if (actionType === ACTION_TYPES.END_REMOVE_WAR) {
+            return { valid: true };
+          }
+          return { valid: false, error: `Invalid action for Remove-At-War: ${actionType}` };
+        }
+
+        // Play stage: the queued side plays one diplomatic card.
         if (actionType !== ACTION_TYPES.PLAY_DIPLOMACY_CARD) {
           return { valid: false, error: `Invalid action for diplomacy phase: ${actionType}` };
         }
@@ -1562,8 +1586,21 @@ export class HISGame extends GameEngine {
    * @private
    */
   _handleDiplomacy2PAction(state, power, actionType, actionData, helpers) {
-    if (actionType !== ACTION_TYPES.PLAY_DIPLOMACY_CARD) return;
+    // Remove-At-War step (§9): Papal Bull / sue for peace / done, then deal.
+    if (state.diplomacy2P?.stage === 'remove_war') {
+      const kind =
+        actionType === ACTION_TYPES.PAPAL_BULL ? 'papal_bull' :
+        actionType === ACTION_TYPES.SUE_FOR_PEACE_2P ? 'sue_for_peace' :
+        actionType === ACTION_TYPES.END_REMOVE_WAR ? 'done' : null;
+      if (!kind) return;
+      const result = applyRemoveAtWarAction(state, kind, actionData, helpers);
+      if (result.done) {
+        advancePhase(state, helpers);
+      }
+      return;
+    }
 
+    if (actionType !== ACTION_TYPES.PLAY_DIPLOMACY_CARD) return;
     const actor = getDiplomacy2PActor(state);
     if (!actor) return;
     const side = power || actor;

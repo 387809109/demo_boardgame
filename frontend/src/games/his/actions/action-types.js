@@ -50,7 +50,11 @@ export const DIPLOMACY_ACTIONS = {
   REMOVE_EXCOMMUNICATION: 'REMOVE_EXCOMMUNICATION',
   SPRING_DEPLOY: 'SPRING_DEPLOY',
   // Two-player variant: play a card from the Diplomatic Deck (§9).
-  PLAY_DIPLOMACY_CARD: 'PLAY_DIPLOMACY_CARD'
+  PLAY_DIPLOMACY_CARD: 'PLAY_DIPLOMACY_CARD',
+  // Two-player variant Remove-At-War step (§9, Papacy only).
+  PAPAL_BULL: 'PAPAL_BULL',
+  SUE_FOR_PEACE_2P: 'SUE_FOR_PEACE_2P',
+  END_REMOVE_WAR: 'END_REMOVE_WAR'
 };
 
 // ── Excommunication Actions ───────────────────────────────────────
