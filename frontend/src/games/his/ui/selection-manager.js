@@ -126,6 +126,37 @@ const SELECTION_FLOWS = {
   SUE_FOR_PEACE_2P: [
     { type: 'space', key: 'unit1', prompt: '选择移除的第一支教廷部队' },
     { type: 'space', key: 'unit2', prompt: '选择移除的第二支教廷部队' }
+  ],
+
+  // Two-player variant: Papal Bull — regain one Papal home space the enemy holds.
+  PAPAL_BULL_REGAIN: [
+    { type: 'space', key: 'regainSpace', prompt: '选择收复的教廷本土空间 (敌方控制)' }
+  ],
+
+  // Two-player diplomatic-card inputs (Phase 2b-cards). Each emits as
+  // PLAY_DIPLOMACY_CARD with a cardNumber in baseData; the engine's
+  // normalizeDiplomacyActionData bridges these flat keys into handler shape.
+  DIPLO_PLAGUE: [ // #209 — remove up to 3 units (repeat a space to stack removals)
+    { type: 'space', key: 'r0', prompt: '瘟疫：选择第 1 个移除部队的空间' },
+    { type: 'space', key: 'r1', prompt: '瘟疫：选择第 2 个移除部队的空间' },
+    { type: 'space', key: 'r2', prompt: '瘟疫：选择第 3 个移除部队的空间' }
+  ],
+  DIPLO_SHIPBUILD: [ // #210 — build up to 2 squadrons in own ports
+    { type: 'space', key: 'p0', prompt: '造船：选择建造舰队的港口 (1/2)' },
+    { type: 'space', key: 'p1', prompt: '造船：选择建造舰队的港口 (2/2)' }
+  ],
+  DIPLO_SIEGE_VIENNA: [ // #218 — remove up to 2 Hapsburg units near Vienna
+    { type: 'space', key: 'r0', prompt: '维也纳之围：选择移除的哈布斯堡部队 (1/2)' },
+    { type: 'space', key: 'r1', prompt: '维也纳之围：选择移除的哈布斯堡部队 (2/2)' }
+  ],
+  DIPLO_PLACE_HAPSBURG: [ // #207 refused — place 3 Hapsburg regulars
+    { type: 'space', key: 'space', prompt: '亨利离婚被拒：选择部署 3 哈布斯堡正规军的空间' }
+  ],
+  DIPLO_VENICE: [ // #212 reinforce — place Venetian units
+    { type: 'space', key: 'targetSpace', prompt: '威尼斯同盟：选择增援的空间' }
+  ],
+  DIPLO_SECRET_CIRCLE: [ // #217 — flip one Italian space to Protestant
+    { type: 'space', key: 'italianSpace', prompt: '秘密新教圈：选择翻转的意大利语区空间' }
   ]
 };
 
@@ -221,6 +252,35 @@ function _getValidSpaces(state, power, actionType, stepKey, collected) {
     case 'SUE_FOR_PEACE_2P':
       return _spacesWithOwnUnits(state, power); // spaces holding Papal units
 
+    case 'PAPAL_BULL_REGAIN':
+      // Papal home spaces currently held by an enemy (the excommunicated ruler).
+      return LAND_SPACES
+        .filter((sp) => isHomeSpace(sp.name, 'papacy') &&
+          state.spaces[sp.name]?.controller &&
+          state.spaces[sp.name].controller !== 'papacy')
+        .map((sp) => sp.name);
+
+    case 'DIPLO_PLAGUE':
+      return _spacesWithAnyUnits(state);
+
+    case 'DIPLO_SHIPBUILD':
+      return _validBuildSpaces(state, power, true);
+
+    case 'DIPLO_SIEGE_VIENNA':
+      return _spacesWithOwnerUnits(state, 'hapsburg');
+
+    case 'DIPLO_PLACE_HAPSBURG':
+      return null; // any land space — the handler places Hapsburg regulars there
+
+    case 'DIPLO_VENICE':
+      return Object.prototype.hasOwnProperty.call(state.spaces, 'Venice')
+        ? ['Venice'] : null;
+
+    case 'DIPLO_SECRET_CIRCLE':
+      return Object.entries(state.spaces)
+        .filter(([, sp]) => sp.languageZone === 'italian' && sp.religion === 'catholic')
+        .map(([name]) => name);
+
     case 'NAVAL_MOVE':
       return null; // Any port or sea zone
 
@@ -263,6 +323,30 @@ function _spacesWithOwnUnits(state, power) {
       ((u.regulars || 0) + (u.mercenaries || 0) + (u.cavalry || 0) > 0 ||
         (u.leaders && u.leaders.length > 0)));
     if (hasOwn) result.push(name);
+  }
+  return result;
+}
+
+/** All spaces holding any units (for #209 Plague target selection). */
+function _spacesWithAnyUnits(state) {
+  const result = [];
+  for (const [name, sp] of Object.entries(state.spaces)) {
+    const total = (sp.units || []).reduce((n, u) =>
+      n + (u.regulars || 0) + (u.mercenaries || 0) + (u.cavalry || 0) +
+      (u.squadrons || 0) + (u.corsairs || 0), 0);
+    if (total > 0) result.push(name);
+  }
+  return result;
+}
+
+/** All spaces holding units owned by a specific power (e.g. #218 Hapsburg). */
+function _spacesWithOwnerUnits(state, owner) {
+  const result = [];
+  for (const [name, sp] of Object.entries(state.spaces)) {
+    const has = (sp.units || []).some((u) => u.owner === owner &&
+      ((u.regulars || 0) + (u.mercenaries || 0) + (u.cavalry || 0) +
+        (u.squadrons || 0) + (u.corsairs || 0)) > 0);
+    if (has) result.push(name);
   }
   return result;
 }

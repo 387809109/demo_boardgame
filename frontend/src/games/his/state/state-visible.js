@@ -35,5 +35,18 @@ export function getVisibleState(state, playerId) {
   // Hide discard pile order (keep as count for now)
   clone.discard = clone.discard.length;
 
+  // Two-player variant: mask the opponent side's secret Diplomatic hand (and the
+  // deck order) the same way. Only present when the diplomacy-deck subsystem is
+  // active (the 2P variant); in hotseat the local seat controls both sides, so
+  // `myPowers` covers both and nothing is hidden.
+  if (clone.diplomacyHands) {
+    for (const side of ['papacy', 'protestant']) {
+      if (!myPowers.has(side) && Array.isArray(clone.diplomacyHands[side])) {
+        clone.diplomacyHands[side] = clone.diplomacyHands[side].length;
+      }
+    }
+    if (Array.isArray(clone.diplomacyDeck)) clone.diplomacyDeck = clone.diplomacyDeck.length;
+  }
+
   return clone;
 }

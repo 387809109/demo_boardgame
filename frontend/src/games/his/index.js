@@ -16,7 +16,8 @@ import {
   getPowerForPlayer, getPowersForPlayer, playerControlsPower,
   canPass, isFortified, getAllVpTotals, getAllVpBreakdowns,
   getUnitsInSpace, isTwoPlayer, getPassesToEnd,
-  canControlInvaderAction, playerCommandsPower
+  canControlInvaderAction, playerCommandsPower,
+  TWO_PLAYER_NONPLAYER_POWERS
 } from './state/state-helpers.js';
 import {
   PHASES, transitionPhase, advancePhase, advanceImpulse
@@ -545,6 +546,17 @@ export class HISGame extends GameEngine {
           }
           if (!state.hands[respPower]?.includes(cardNumber)) {
             return { valid: false, error: 'Card not in hand' };
+          }
+          // §11 (two-player): when a religious side acts on behalf of an at-war
+          // invader (a non-player power), it may not play Landsknechts (#33) or
+          // Swiss Mercenaries (#36) — those mercenaries are off-limits.
+          if (isTwoPlayer(state) &&
+              TWO_PLAYER_NONPLAYER_POWERS.includes(respPower) &&
+              (cardNumber === 33 || cardNumber === 36)) {
+            return {
+              valid: false,
+              error: '§11: cannot play Landsknechts/Swiss Mercenaries on behalf of an invader'
+            };
           }
         }
         return { valid: true };

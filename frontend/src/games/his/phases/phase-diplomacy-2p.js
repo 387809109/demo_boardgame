@@ -115,6 +115,103 @@ export function applySueForPeace2P(state, actionData, helpers) {
   });
 }
 
+/** Selection-flow keys used by the multi-target diplomacy-card input flows. */
+const DIPLO_REMOVAL_KEYS = ['r0', 'r1', 'r2'];
+const DIPLO_PLACE_KEYS = ['p0', 'p1'];
+
+/**
+ * Owner whose unit a board-removal card (#209 Plague / #218 Siege) should hit in
+ * a space: prefer the acting side's opponent or a non-player power, else any
+ * present stack.
+ * @param {Object} state
+ * @param {string} spaceName
+ * @param {string} side
+ * @returns {string}
+ */
+function pickDiplomacyRemoveOwner(state, spaceName, side) {
+  const units = state.spaces?.[spaceName]?.units || [];
+  const count = (u) =>
+    (u.regulars || 0) + (u.mercenaries || 0) + (u.cavalry || 0) +
+    (u.squadrons || 0) + (u.corsairs || 0);
+  const enemy = units.find((u) => u.owner !== side && count(u) > 0);
+  if (enemy) return enemy.owner;
+  const any = units.find((u) => count(u) > 0) || units[0];
+  return any?.owner || side;
+}
+
+/**
+ * Bridge UI-gathered actionData into each diplomatic handler's expected shape.
+ * The map-selection flows collect flat keys (r0/r1/p0/space/targetSpace); the
+ * `DIPLOMACY_EVENT_HANDLERS` consume structured arrays (removals/placements) or
+ * nested objects (Machiavelli's invasionData). Direct actionData (online / AI /
+ * tests) that already carries the structured shape passes through untouched.
+ * @param {Object} state
+ * @param {string} side - acting side ('papacy' | 'protestant')
+ * @param {number} cardNumber
+ * @param {Object} raw - actionData as emitted by the UI / move
+ * @returns {Object} normalized actionData for the handler
+ */
+export function normalizeDiplomacyActionData(state, side, cardNumber, raw = {}) {
+  switch (cardNumber) {
+    case 204: // Diplomatic Marriage — default to activating for the acting side.
+      return {
+        action: 'activate',
+        allyPower: side === 'papacy' ? 'papacy' : 'france',
+        ...raw
+      };
+    case 207: // Henry Divorce — "refused" places 3 Hapsburg regulars at one space.
+      if (raw.choice === 'refused' && raw.space && !raw.placements) {
+        return { ...raw, placements: [{ space: raw.space, count: 3 }] };
+      }
+      return raw;
+    case 209: { // Plague — up to 3 board removals.
+      if (raw.removals) return raw;
+      const removals = DIPLO_REMOVAL_KEYS
+        .map((k) => raw[k]).filter(Boolean)
+        .map((space) => ({ space, owner: pickDiplomacyRemoveOwner(state, space, side) }));
+      return { ...raw, removals };
+    }
+    case 210: { // Shipbuilding — up to 2 squadrons for the acting side.
+      if (raw.placements) return raw;
+      const placements = DIPLO_PLACE_KEYS
+        .map((k) => raw[k]).filter(Boolean)
+        .map((space) => ({ space, owner: side }));
+      return { ...raw, placements };
+    }
+    case 215: // Machiavelli — landing space for the chosen invasion card.
+      if (raw.targetSpace && !raw.invasionData) {
+        return { ...raw, invasionData: { targetSpace: raw.targetSpace } };
+      }
+      return raw;
+    case 218: { // Siege of Vienna — up to 2 Hapsburg removals.
+      if (raw.removals) return raw;
+      const removals = DIPLO_REMOVAL_KEYS.slice(0, 2)
+        .map((k) => raw[k]).filter(Boolean)
+        .map((space) => ({ space, owner: 'hapsburg' }));
+      return { ...raw, removals };
+    }
+    default:
+      return raw;
+  }
+}
+
+/**
+ * Clear the informational `pending*` markers some diplomatic handlers set but
+ * which have no consumer in the two-player loop (#205/#219 pressure, #207
+ * granted debate-call, #208 St. Peter's flag, #215 result), so they don't
+ * accumulate across turns or leak into save state. `diplomacyForcedPlay` (a real
+ * #205 constraint consumed by `playDiplomacyCard`) and `pendingCardDraw` (drained
+ * by `resolvePendingCardDraws`) are deliberately left intact.
+ * @param {Object} state
+ */
+function clearInformationalDiplomacyMarkers(state) {
+  delete state.pendingDiplomaticPressure;
+  delete state.pendingDebateCall;
+  delete state.pendingStPetersContribution;
+  delete state.pendingHandReveal;
+  delete state.pendingMachiavelliChoice;
+}
+
 /**
  * Drain `state.pendingCardDraw` accumulated by a diplomacy event by dealing
  * Main-Deck cards. In the two-player variant only the Papacy and Protestant are
@@ -263,10 +360,14 @@ export function applyRemoveAtWarAction(state, kind, actionData, helpers) {
  * card from hand to played-this-turn (deck subsystem), and logs it. When the
  * last queued player has played, finalizes the turn (played → discard).
  *
- * Phase 2 (military core): Invasion cards now dispatch their real effect
- * (`DIPLOMACY_EVENT_HANDLERS` — set the war + place the army at
- * `actionData.targetSpace`). The bespoke non-invasion cards remain log-only
- * no-ops until Phase 2b.
+ * Phase 2 (military core) dispatched only Invasion cards. Phase 2b-cards now
+ * dispatches **every** diplomatic card's `DIPLOMACY_EVENT_HANDLERS` effect:
+ * invasions set the war + place the army; the bespoke non-invasion cards run
+ * their real handler (minor-power activation, board removals/placements,
+ * religion flips, deck manipulation for #205/#215). `normalizeDiplomacyActionData`
+ * bridges the UI's flat selection-flow keys into each handler's shape; the few
+ * informational `pending*` markers a handler may set are then cleared (no
+ * consumer in the 2P loop — see `clearInformationalDiplomacyMarkers`).
  *
  * @param {Object} state
  * @param {string} side - acting side ('papacy' | 'protestant')
@@ -283,24 +384,34 @@ export function applyDiplomacy2PPlay(state, side, played, helpers) {
   if (queue[0] !== side) {
     return { ok: false, done: false, error: 'Not your diplomacy play' };
   }
+  // §9: a #205 forced-play constraint binds the targeted side to one card.
+  const forced = state.diplomacyForcedPlay;
+  if (forced?.side === side && forced.card != null &&
+      cardNumber !== forced.card &&
+      (state.diplomacyHands?.[side] || []).includes(forced.card)) {
+    return { ok: false, done: false, error: 'You must play the card dictated by Diplomatic Pressure' };
+  }
   if (!playDiplomacyCard(state, side, cardNumber)) {
     return { ok: false, done: false, error: 'Card not in your diplomatic hand' };
   }
 
   const card = CARD_BY_NUMBER[cardNumber];
   const invasion = isInvasionCard(cardNumber);
+  const handler = DIPLOMACY_EVENT_HANDLERS[cardNumber];
 
-  if (invasion && DIPLOMACY_EVENT_HANDLERS[cardNumber]) {
-    DIPLOMACY_EVENT_HANDLERS[cardNumber].execute(state, side, actionData, helpers);
+  let dispatched = false;
+  if (handler) {
+    const data = normalizeDiplomacyActionData(state, side, cardNumber, actionData);
+    handler.execute(state, side, data, helpers);
     resolvePendingCardDraws(state, helpers);
+    clearInformationalDiplomacyMarkers(state);
+    dispatched = true;
   }
 
   helpers.logEvent(state, 'diplomacy_2p_play', {
     side, cardNumber, title: card?.title,
-    invasion,
-    targetSpace: actionData.targetSpace,
-    // Non-invasion card effects remain deferred to Phase 2b.
-    effectDeferred: !invasion
+    invasion, dispatched,
+    targetSpace: actionData.targetSpace
   });
 
   queue.shift();

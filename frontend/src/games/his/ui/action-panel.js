@@ -13,11 +13,12 @@ import {
   responsePanelModel, battlePanelModel, interceptionPanelModel,
   reformationPanelModel, debatePanelModel
 } from './ui-gating.js';
-import { POWER_COLORS, POWER_LABELS } from './his-theme.js';
+import { POWER_COLORS, POWER_LABELS, ALL_LABELS } from './his-theme.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import { isInvasionCard } from '../state/diplomacy-deck.js';
 import { controllableInvaders } from '../state/state-helpers.js';
 import { papalBullTargets, sueForPeaceTargets } from '../phases/phase-diplomacy-2p.js';
+import { MINOR_POWERS } from '../constants.js';
 
 // ── Action Presentation ─────────────────────────────────────────
 // Which actions exist per group (and their per-power cost gate) is owned by
@@ -300,9 +301,16 @@ export class ActionPanel {
     } else {
       const grid = this._actionGrid();
       for (const t of bullTargets) {
+        // §9 benefit: draw an extra Main-Deck card, or regain a Papal home space.
         grid.appendChild(this._actionButton(
-          `教皇敕令 → ${POWER_LABELS[t] || t}`, () => {
+          `教皇敕令(抽牌) → ${POWER_LABELS[t] || t}`, () => {
             this._emit({ type: 'PAPAL_BULL', data: { targetPower: t, benefit: 'draw' } });
+          }, 'event'));
+        grid.appendChild(this._actionButton(
+          `教皇敕令(收复) → ${POWER_LABELS[t] || t}`, () => {
+            this._select('PAPAL_BULL_REGAIN', {
+              emitAs: 'PAPAL_BULL', baseData: { targetPower: t, benefit: 'regain' }
+            });
           }, 'event'));
       }
       for (const t of sueTargets) {
@@ -382,10 +390,23 @@ export class ActionPanel {
     const sideName = POWER_LABELS[actor] || actor;
     this._el.appendChild(this._infoText(`轮到 ${sideName} 打出 1 张外交牌`));
 
-    const hand = state.diplomacyHands?.[actor] || [];
+    let hand = state.diplomacyHands?.[actor];
+    if (!Array.isArray(hand)) {
+      // Online 2p: the opponent's hand is masked (a count). The local player
+      // does not control this actor, so there is nothing to play here.
+      this._el.appendChild(this._infoText('对方外交手牌不可见'));
+      return;
+    }
     if (hand.length === 0) {
       this._el.appendChild(this._infoText('该势力暂无外交牌'));
       return;
+    }
+
+    // §9: a #205 Diplomatic Pressure forced-play binds this side to one card.
+    const forced = state.diplomacyForcedPlay;
+    if (forced?.side === actor && forced.card != null && hand.includes(forced.card)) {
+      hand = [forced.card];
+      this._el.appendChild(this._infoText('外交压力：必须打出指定的外交牌'));
     }
 
     const grid = this._actionGrid();
@@ -395,17 +416,160 @@ export class ActionPanel {
       const label = (card ? `#${cardNumber} ${card.title}` : `#${cardNumber}`) +
         (invasion ? ' ⚔' : '');
       grid.appendChild(this._actionButton(label, () => {
-        if (invasion) {
-          // Pick where the invasion army lands, then play the card.
-          this._select('INVASION_TARGET', {
-            emitAs: 'PLAY_DIPLOMACY_CARD', baseData: { cardNumber }
-          });
-        } else {
-          this._emit({ type: 'PLAY_DIPLOMACY_CARD', data: { cardNumber } });
-        }
+        this._renderDiploCardInput(state, actor, cardNumber);
       }, 'primary'));
     }
     this._el.appendChild(grid);
+  }
+
+  /**
+   * Two-player Phase 2b-cards: gather a diplomatic card's input, then emit
+   * PLAY_DIPLOMACY_CARD. Invasions pick a landing space; minor-power / mode /
+   * choice cards render inline buttons; board-effect cards start a map
+   * selection flow. The engine's `normalizeDiplomacyActionData` reshapes the
+   * collected fields for each handler.
+   * @private
+   */
+  _renderDiploCardInput(state, side, cardNumber) {
+    if (isInvasionCard(cardNumber)) {
+      this._select('INVASION_TARGET', {
+        emitAs: 'PLAY_DIPLOMACY_CARD', baseData: { cardNumber }
+      });
+      return;
+    }
+    // Emit the card directly with extra actionData.
+    const emit = (data) =>
+      this._emit({ type: 'PLAY_DIPLOMACY_CARD', data: { cardNumber, ...data } });
+    // Start a map selection flow that emits PLAY_DIPLOMACY_CARD on completion.
+    const flow = (flowKey, extra) => this._select(flowKey, {
+      emitAs: 'PLAY_DIPLOMACY_CARD', baseData: { cardNumber, ...(extra || {}) }
+    });
+
+    switch (cardNumber) {
+      case 201: // Andrea Doria — activate Genoa (reinforce there if already allied)
+        emit({ targetSpace: 'Genoa' });
+        return;
+      case 203: // Corsair Raid — auto dice, no input
+      case 208: // Knights of St. John — draw + St. Peter's, no input
+        emit({});
+        return;
+      case 204: // Diplomatic Marriage — pick a minor power to activate
+        this._renderDiploChoices(state, side, cardNumber, '外交联姻：激活小势力',
+          MINOR_POWERS.map((m) => ({
+            label: ALL_LABELS[m] || m,
+            onClick: () => emit({ minorPower: m, action: 'activate' })
+          })));
+        return;
+      case 205: // Diplomatic Pressure — Papacy dictates / Protestant discards|swaps
+        this._render205Input(state, side, emit);
+        return;
+      case 207: // Henry Divorce — Papacy grants or refuses
+        this._renderDiploChoices(state, side, cardNumber, '亨利请求离婚', [
+          { label: '批准 (granted)', onClick: () => emit({ choice: 'granted' }) },
+          { label: '拒绝 (部署哈布斯堡)', onClick: () => flow('DIPLO_PLACE_HAPSBURG', { choice: 'refused' }) }
+        ]);
+        return;
+      case 209: // Plague — remove up to 3 units
+        flow('DIPLO_PLAGUE');
+        return;
+      case 210: // Shipbuilding — build up to 2 squadrons
+        flow('DIPLO_SHIPBUILD');
+        return;
+      case 212: // Venetian Alliance — activate / deactivate / reinforce
+        this._renderDiploChoices(state, side, cardNumber, '威尼斯同盟', [
+          { label: '激活 (教廷盟友)', onClick: () => emit({ mode: 'activate' }) },
+          { label: '停用', onClick: () => emit({ mode: 'deactivate' }) },
+          { label: '增援', onClick: () => flow('DIPLO_VENICE', { mode: 'reinforce' }) }
+        ]);
+        return;
+      case 215: // Machiavelli — replay a chosen Invasion card
+        this._render215Input(state, side, flow);
+        return;
+      case 217: // Secret Protestant Circle — flip an Italian space
+        flow('DIPLO_SECRET_CIRCLE');
+        return;
+      case 218: // Siege of Vienna — remove up to 2 Hapsburg units
+        flow('DIPLO_SIEGE_VIENNA');
+        return;
+      default:
+        emit({});
+    }
+  }
+
+  /**
+   * Render an inline sub-panel of choice buttons for a diplomatic card, with a
+   * back button to reselect. Replaces the panel content in place.
+   * @private
+   */
+  _renderDiploChoices(state, side, cardNumber, title, choices) {
+    this._el.innerHTML = '';
+    const card = CARD_BY_NUMBER[cardNumber];
+    this._el.appendChild(this._sectionHeader(
+      `${title} (#${cardNumber}${card ? ' ' + card.title : ''})`
+    ));
+    if (choices.length === 0) {
+      this._el.appendChild(this._infoText('当前无可用选项'));
+    }
+    const grid = this._actionGrid();
+    for (const c of choices) {
+      grid.appendChild(this._actionButton(c.label, c.onClick, 'primary'));
+    }
+    this._el.appendChild(grid);
+    this._el.appendChild(this._backToDiplomacyBtn(state));
+  }
+
+  /** #205 Diplomatic Pressure input. @private */
+  _render205Input(state, side, emit) {
+    if (side === 'papacy') {
+      // Dictate which card the Protestant must play this turn.
+      const oppHand = state.diplomacyHands?.protestant;
+      if (!Array.isArray(oppHand) || oppHand.length === 0) {
+        this._renderDiploChoices(state, side, 205, '外交压力', [
+          { label: '查看并指定 (对手无手牌)', onClick: () => emit({}) }
+        ]);
+        return;
+      }
+      this._renderDiploChoices(state, side, 205, '外交压力：指定新教必出的牌',
+        oppHand.map((c) => ({
+          label: `#${c} ${CARD_BY_NUMBER[c]?.title || ''}`,
+          onClick: () => emit({ targetCard: c })
+        })));
+      return;
+    }
+    // Protestant: force-discard or swap.
+    this._renderDiploChoices(state, side, 205, '外交压力', [
+      { label: '强制对手弃牌并补牌', onClick: () => emit({ mode: 'force_discard' }) },
+      { label: '与对手交换手牌', onClick: () => emit({ mode: 'swap' }) }
+    ]);
+  }
+
+  /** #215 Machiavelli input — pick an eligible Invasion card to replay. @private */
+  _render215Input(state, side, flow) {
+    const deck = Array.isArray(state.diplomacyDeck) ? state.diplomacyDeck : [];
+    const discard = Array.isArray(state.diplomacyDiscard) ? state.diplomacyDiscard : [];
+    const played = state.diplomacyPlayedThisTurn || [];
+    const eligible = [...new Set([...deck, ...discard])]
+      .filter((c) => isInvasionCard(c) && !played.includes(c));
+    if (eligible.length === 0) {
+      this._renderDiploChoices(state, side, 215, '马基雅维利 (无可用入侵牌)', []);
+      return;
+    }
+    this._renderDiploChoices(state, side, 215, '马基雅维利：选择重演的入侵牌',
+      eligible.map((c) => ({
+        label: `#${c} ${CARD_BY_NUMBER[c]?.title || ''} ⚔`,
+        onClick: () => flow('INVASION_TARGET', { targetCard: c })
+      })));
+  }
+
+  /** Back button that re-renders the diplomatic-card hand list. @private */
+  _backToDiplomacyBtn(state) {
+    const row = document.createElement('div');
+    row.style.cssText = 'margin-top:8px;';
+    row.appendChild(this._actionButton('← 返回选牌', () => {
+      this._el.innerHTML = '';
+      this._renderDiplomacy2PPanel(state);
+    }, 'secondary'));
+    return row;
   }
 
   // ── Spring Deployment ───────────────────────────────────────

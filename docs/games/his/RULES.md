@@ -1368,6 +1368,23 @@ Authoritative rules + phased roadmap: **`TWO_PLAYER_PLAN.md`** (extracted from
 - `papalBullTargets`/`sueForPeaceTargets` gate the targets; actions `PAPAL_BULL`/
   `SUE_FOR_PEACE_2P`/`END_REMOVE_WAR`; UI `_renderRemoveAtWarPanel` + `SUE_FOR_PEACE_2P` unit
   flow. Tests: `src/games/his/two-player-removewar.test.js`.
-- **Deferred (2b-cards):** non-invasion diplomatic-card effects remain log-only no-ops; the
-  Papal-Bull regain-space benefit, sue-for-peace reclaim, and the §11 Landsknechts/Swiss
-  exclusion.
+
+**Phase 2b-cards (implemented — non-invasion card dispatch):**
+
+- Every diplomatic card now dispatches its `DIPLOMACY_EVENT_HANDLERS` effect in the 2P play-loop
+  (Phase 2 dispatched only Invasions). `normalizeDiplomacyActionData` (in
+  `phases/phase-diplomacy-2p.js`) bridges the UI's flat selection-flow keys (r0/r1/p0/space/
+  targetSpace) into each handler's shape; `clearInformationalDiplomacyMarkers` clears the
+  no-consumer `pending*` markers a handler may set.
+- Per-card **input UI** (`ui/action-panel.js` `_renderDiploCardInput`): inline choice buttons
+  (minor power / mode / granted-vs-refused / force-discard-vs-swap / Machiavelli target) and the
+  `DIPLO_PLAGUE`/`DIPLO_SHIPBUILD`/`DIPLO_SIEGE_VIENNA`/`DIPLO_PLACE_HAPSBURG`/`DIPLO_VENICE`/
+  `DIPLO_SECRET_CIRCLE` map flows (`ui/selection-manager.js`).
+- **#205 forced-play** enforced (Papacy binds the Protestant to one card); **Papal Bull
+  regain-space** benefit via the `PAPAL_BULL_REGAIN` flow; **§11 Landsknechts/Swiss (#33/#36)
+  exclusion** when responding on behalf of an invader (`index.js` response gate); `getVisibleState`
+  **opponent diplomacy-hand masking** (online 2p). Tests: `src/games/his/two-player-cards.test.js`.
+- **Residual (documented):** #207-granted live debate, #208 St. Peter's CP, and #203 Corsair
+  enemy-discard remain at handler-default fidelity (informational markers); sue-for-peace reclaim
+  and #217's optional Spanish-zone flip are supported via direct `actionData` but not surfaced as
+  extra UI steps.

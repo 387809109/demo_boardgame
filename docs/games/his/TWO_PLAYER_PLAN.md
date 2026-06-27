@@ -136,11 +136,34 @@ awards the Protestant 1 War-Winner VP, and removes 2 Papal units of the Papacy's
 `_renderRemoveAtWarPanel` + the `SUE_FOR_PEACE_2P` unit-selection flow. Tests:
 `src/games/his/two-player-removewar.test.js` (7) + e2e + live-verified.
 
-**Deferred to Phase 2b-cards (a later pass):** the bespoke non-invasion diplomatic-card effects
-(#201/#203/#204/#205/#207/#208/#209/#210/#212/#215/#217/#218/#219 + their target UIs) — still
-log-only no-ops; the Papal Bull "regain a space instead of draw" benefit + sue-for-peace
-space-reclaim; the §11 Landsknechts/Swiss combat-card exclusion; `getVisibleState` opponent
-diplomacy-hand masking (online 2p only).
+### Phase 2b-cards — Non-invasion diplomatic-card dispatch ✅ *(shipped)*
+Every diplomatic card now dispatches its `DIPLOMACY_EVENT_HANDLERS` effect in the 2P play-loop
+(Phase 2 dispatched only Invasions): minor-power activation (#201/#204/#212), board removals /
+placements (#209/#210/#218), religion flips (#217), Henry's divorce (#207), Knights / Corsair
+(#208/#203), and the deck-meta cards #205 Diplomatic Pressure + #215 Machiavelli (which run on the
+real `diplomacy-deck` subsystem). A per-card **input UI** gathers each card's actionData — inline
+choice buttons (minor power / mode / granted-vs-refused / force-discard-vs-swap / Machiavelli
+target) and map-selection flows (`DIPLO_PLAGUE`/`DIPLO_SHIPBUILD`/`DIPLO_SIEGE_VIENNA`/
+`DIPLO_PLACE_HAPSBURG`/`DIPLO_VENICE`/`DIPLO_SECRET_CIRCLE`) — and `normalizeDiplomacyActionData`
+bridges the flat collected keys (r0/r1/p0/space/targetSpace) into each handler's shape. Also
+shipped: **#205 forced-play** enforcement (the Papacy can bind the Protestant to one card),
+**Papal Bull "regain a home space"** benefit (the `PAPAL_BULL_REGAIN` flow), the **§11
+Landsknechts/Swiss (#33/#36) exclusion** when responding on behalf of an invader, and
+`getVisibleState` **opponent diplomacy-hand masking** (online 2p). Key code:
+`phases/phase-diplomacy-2p.js` (`normalizeDiplomacyActionData`, `clearInformationalDiplomacyMarkers`,
+forced-play guard), `ui/action-panel.js` (`_renderDiploCardInput` + choice/card-pick sub-panels),
+`ui/selection-manager.js` (the new flows), `index.js` (§11 response gate),
+`state/state-visible.js`. Tests: `src/games/his/two-player-cards.test.js` (16) + e2e panel
+click-through; full suite 3547 green, build clean.
+
+**Residual (documented, low-frequency):** a few cross-subsystem fidelity gaps remain at the
+handlers' default behavior rather than full sub-flows — #207 *granted* draws a card but does not
+trigger a live theological debate, #208 draws a card but does not spend its CP on St. Peter's, and
+#203 Corsair Raid logs its hits without an enemy-discard sub-step (these set informational
+`pending*` markers that the 2P loop clears). Sue-for-peace **space-reclaim** and #217's optional
+**Spanish-zone** second flip are supported via direct `actionData` (online / AI / tests) but not yet
+surfaced as extra UI steps. Bridging these would require wiring the diplomacy phase into the
+debate / St. Peter's subsystems — deferred.
 
 ### Phase 3 — England automation & modified cards
 Henry's wives schedule, succession, Mary-I impulse procedure (§21.3); the 6 modified cards.

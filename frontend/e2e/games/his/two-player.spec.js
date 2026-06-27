@@ -96,6 +96,35 @@ test.describe('HIS two-player variant', () => {
     await expect(page.locator('.his-action-panel')).toContainText('代理');
   });
 
+  test('Phase 2b-cards: a non-invasion card plays through the panel UI', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await startHisTwoPlayerGame(page);
+
+    // Force a Turn-2 Diplomacy play stage with Diplomatic Marriage (#204) queued
+    // for the Papacy.
+    await page.evaluate(() => {
+      const s = window.app.currentGame.state;
+      s.turn = 2; s.phase = 'diplomacy'; s.activePower = null;
+      s.cpRemaining = 0; s.activeCardNumber = null;
+      s.diplomacyHands.papacy = [204];
+      s.diplomacyHands.protestant = [201];
+      s.diplomacy2P = { stage: 'play', pendingPlayers: ['papacy', 'protestant'] };
+      window.app.currentGame.emit('stateUpdated', s);
+    });
+
+    // Click the card → its inline choices appear → pick a minor power to activate.
+    await page.locator('.his-action-panel button', { hasText: 'Diplomatic Marriage' }).click();
+    await expect(page.locator('.his-action-panel')).toContainText('激活小势力');
+    await page.locator('.his-action-panel button', { hasText: '热那亚' }).click(); // Genoa
+
+    // The engine dispatched #204 — Genoa is now an active minor ally.
+    const genoa = await page.evaluate(() => window.app.currentGame.state.minorPowers?.genoa);
+    expect(genoa).toMatchObject({ active: true });
+    // The Papacy's play is done; the queue advanced to the Protestant.
+    expect(await page.evaluate(() =>
+      window.app.currentGame.state.diplomacy2P.pendingPlayers)).toEqual(['protestant']);
+  });
+
   test('Phase 2b: Remove-At-War — Papal Bull ends an invasion war', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await startHisTwoPlayerGame(page);
