@@ -21,6 +21,7 @@ import {
   findNearestFortifiedSpace, isFortified, isTwoPlayer
 } from '../state/state-helpers.js';
 import { LEADER_BY_ID } from '../data/leaders.js';
+import { forceEnglandSuccession2P } from './england-succession-2p.js';
 
 /** Non-player powers whose units/leaders are removed at Winter in the 2P variant (§19). */
 const TWO_PLAYER_INVADER_POWERS = ['france', 'hapsburg', 'ottoman'];
@@ -78,6 +79,11 @@ export function executeWinter(state, helpers) {
 
   // Step 9: Trigger overdue mandatory events
   triggerOverdueMandatoryEvents(state, helpers);
+
+  // Step 9b: Two-player variant — force the §21.3 England succession (Edward VI
+  // Winter T7, Mary I Winter T8) if it has not already been played. No-op
+  // outside the variant.
+  forceEnglandSuccession2P(state, helpers);
 
   // Return excommunicated reformers
   if (state.excommunicatedReformers.length > 0) {

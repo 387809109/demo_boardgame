@@ -22,6 +22,7 @@ import {
 import {
   PHASES, transitionPhase, advancePhase, advanceImpulse
 } from './phases/phase-manager.js';
+import { maybeMaryIImpulse2P } from './phases/england-succession-2p.js';
 import { CARD_BY_NUMBER } from './data/cards.js';
 import {
   ACTION_TYPES, isCpAction, isSubAction
@@ -915,6 +916,9 @@ export class HISGame extends GameEngine {
       helpers.logEvent(state, 'action_phase_end', { turn: state.turn });
       advancePhase(state, helpers);
     } else {
+      // §21.3 (two-player): the Mary-I check runs after each Protestant impulse,
+      // before the following Papal impulse. No-op outside the variant.
+      maybeMaryIImpulse2P(state, power, helpers);
       advanceImpulse(state);
     }
   }
@@ -1132,6 +1136,9 @@ export class HISGame extends GameEngine {
 
   _handleEndImpulse(state, power, helpers) {
     endCpSpending(state);
+    // §21.3 (two-player): the Mary-I check runs after each Protestant impulse,
+    // before the following Papal impulse. No-op outside the variant.
+    maybeMaryIImpulse2P(state, power, helpers);
     advanceImpulse(state);
   }
 

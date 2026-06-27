@@ -9,6 +9,7 @@ import { CARDS } from '../data/cards.js';
 import { getCardDrawCount, isCardInPlay } from '../state/state-helpers.js';
 import { rollDice } from '../actions/religious-actions.js';
 import { rng } from '../state/rng.js';
+import { scheduleEnglandSuccession2P } from './england-succession-2p.js';
 
 /** Home card numbers per power */
 const HOME_CARDS = {
@@ -32,6 +33,10 @@ const HOME_CARD_SET = new Set(Object.values(HOME_CARDS).flat());
 export function executeCardDraw(state, helpers) {
   // 1. Add turn-gated cards that are now available
   addTurnGatedCards(state);
+
+  // 1b. Two-player variant: run the §21.3 England succession schedule (marriage,
+  //     reformers, Edward VI entering the deck). No-op outside the variant.
+  scheduleEnglandSuccession2P(state, helpers);
 
   // 2. Merge discard pile back into deck
   state.deck.push(...state.discard);

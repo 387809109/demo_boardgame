@@ -1388,3 +1388,20 @@ Authoritative rules + phased roadmap: **`TWO_PLAYER_PLAN.md`** (extracted from
   enemy-discard remain at handler-default fidelity (informational markers); sue-for-peace reclaim
   and #217's optional Spanish-zone flip are supported via direct `actionData` but not surfaced as
   extra UI steps.
+
+**Phase 3 (implemented — England automation §21.3, succession + Mary I):**
+
+- England is non-player; its Reformation unfolds automatically via `phases/england-succession-2p.js`
+  (all `isTwoPlayer`-gated). `scheduleEnglandSuccession2P` (Card Draw): **T4** Anne Boleyn marriage
+  (advances `henryMaritalStatus` → opens the conditional English debaters), **T5** Cranmer/Latimer/
+  Coverdale enter the Protestant pool, **T6** Edward VI (#19) enters the Main Deck.
+- `forceEnglandSuccession2P` (Winter Step 9): **T7** Edward VI if Henry still rules → England
+  Protestant; **T8** Mary I if Edward still rules → England Catholic (reuses `EVENT_HANDLERS[19/21]`
+  + `replaceRuler`, consumes the card).
+- `maybeMaryIImpulse2P` (hooked into `index.js` `_handleEndImpulse` + `_handlePass`): after each
+  Protestant impulse, under Mary I (and not all-English-Catholic), the Papacy rolls d6 → 1–4 continue
+  to the Papal impulse; 5–6 draw a Main-Deck card + set up an English-zone counter-reformation
+  (`pendingReformation`, resolved by the existing reformation panel). Tests:
+  `src/games/his/two-player-england.test.js`.
+- **Deferred (Phase 3-C):** the 6 modified cards (Dissolution / Charles Bourbon / City State Rebels /
+  Sack of Rome; SL + Papal Bull done); the Mary-I 3+ CP debate step is logged but not run.

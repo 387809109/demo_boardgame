@@ -165,8 +165,24 @@ trigger a live theological debate, #208 draws a card but does not spend its CP o
 surfaced as extra UI steps. Bridging these would require wiring the diplomacy phase into the
 debate / St. Peter's subsystems — deferred.
 
-### Phase 3 — England automation & modified cards
-Henry's wives schedule, succession, Mary-I impulse procedure (§21.3); the 6 modified cards.
+### Phase 3 — England automation (§21.3): succession + Mary-I ✅ *(shipped)*
+England is a non-player power, so its Reformation trajectory unfolds automatically. New module
+`phases/england-succession-2p.js` (all `isTwoPlayer`-gated):
+- `scheduleEnglandSuccession2P` (called from `phase-card-draw.js`): **T4** Henry marries Anne Boleyn
+  (advances `henryMaritalStatus`, which opens the conditional English debaters); **T5** Cranmer /
+  Latimer / Coverdale enter the Protestant debater pool; **T6** Edward VI (#19) enters the Main Deck.
+- `forceEnglandSuccession2P` (called from `phase-winter.js` Step 9): **Winter T7** fires Edward VI
+  (#19) if Henry still rules → England Protestant; **Winter T8** fires Mary I (#21) if Edward still
+  rules → England Catholic. Reuses `EVENT_HANDLERS[19/21]` + `replaceRuler`; consumes the card.
+- `maybeMaryIImpulse2P` (hooked into `index.js` `_handleEndImpulse` + `_handlePass`, fires after each
+  **Protestant** impulse): under Mary I (and not already all-Catholic) the Papacy rolls d6 → 1–4
+  continue to the Papal impulse; 5–6 draw a Main-Deck card and set up an English-zone
+  counter-reformation (`pendingReformation`, mirroring `_isMaryIHijack`). The d6 is injectable for
+  tests. Tests: `src/games/his/two-player-england.test.js` (13).
+
+**Deferred — Phase 3-C (6 modified cards):** Dissolution of the Monasteries, Charles Bourbon, City
+State Rebels, Sack of Rome (Schmalkaldic League + Papal Bull already handled). Plus the Mary-I 3+ CP
+*debate* step is logged but not run (matches the existing `_isMaryIHijack` Burn-Books-only behavior).
 
 ### Phase 4 — Modes
 Online 2-player (transport lockstep already verified; assignment `[[protestant],[papacy]]`)
