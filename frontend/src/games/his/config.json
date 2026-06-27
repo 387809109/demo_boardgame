@@ -34,7 +34,7 @@
     "variant": {
       "type": "select",
       "label": "游戏模式",
-      "description": "标准为 3–6 人局；两人局（教廷 vs 新教，同屏热座）由外交牌库驱动其余四大势力",
+      "description": "标准为 3–6 人局；两人局（教廷 vs 新教）由外交牌库驱动其余四大势力。单机为同屏热座；联机请在创建房间时选择「2 — 两人局」",
       "default": "standard",
       "options": [
         { "value": "standard", "label": "标准（3–6 人）" },

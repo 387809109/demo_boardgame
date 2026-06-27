@@ -201,9 +201,26 @@ path (no central §2.2 control-change gate exists, so the combat-capture path is
 #71 rebellion *effect* is log-only in the current engine (pre-existing, not 2P-specific); the Mary-I
 3+ CP *debate* step is logged but not run (matches `_isMaryIHijack`).
 
-### Phase 4 — Modes
-Online 2-player (transport lockstep already verified; assignment `[[protestant],[papacy]]`)
-and offline-vs-AI (a new 2P automa — the largest AI effort).
+### Phase 4a — Online 2-player ✅ *(shipped)*
+Two humans play the variant remotely (one Papacy, one Protestant), reusing the verified online
+transport + lockstep relay and the per-player `getVisibleState` masking (already wired at
+`app-online-room-methods.js`; Phase 2b-cards added diplomacy-hand masking). Changes:
+- **Engine** (`state/state-init.js` `twoPlayerAssignment`): a 2-player power-assignment default
+  (none in `DEFAULT_POWER_ASSIGNMENTS`) — 1 seat → `[['papacy','protestant']]` (hotseat), 2 seats →
+  `[['protestant'],['papacy']]` (seat order).
+- **Lobby** (`app/app-online-room-methods.js`): the create-room modal offers a **"2 — 两人局（教廷 vs
+  新教）"** player-count option for games with a `two_player` variant; the host-start derives
+  `settings.variant = 'two_player'` from `maxPlayers === 2` so it builds the variant initial state and
+  broadcasts it. The joiner receives the variant via the broadcast `initialState`.
+- **Config** (`config.json`): variant description notes online is via the 2-player room.
+
+Tests: `src/games/his/two-player-online.test.js` (5: assignment default + per-player diplomacy-hand
+masking); verified live in-browser (bundled engine assignment/masking + the create-room option gate).
+Full suite 3573 green, build clean. **Final live step (reusable):** a full two-client lockstep run
+over a backend uses the standard-HIS two-client harness (the transport is unchanged).
+
+### Phase 4b — Offline vs-AI *(deferred)*
+A new 2P automa (the largest AI effort) so one human can play vs the computer.
 
 ## 3. Reused existing assets
 - `frontend/src/games/his/state/diplomacy-deck.js` — the full deck subsystem (init/shuffle/

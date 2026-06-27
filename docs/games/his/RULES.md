@@ -1416,3 +1416,13 @@ Authoritative rules + phased roadmap: **`TWO_PLAYER_PLAN.md`** (extracted from
 - **Residual:** #13 lock enforced only on `CONTROL_UNFORTIFIED` (no central §2.2 control gate, so the
   combat-capture path is unguarded); base #71 rebellion effect is log-only (pre-existing); Mary-I
   3+ CP debate step logged but not run.
+
+**Phase 4a (implemented — online 2-player):**
+
+- Two humans play remotely (one Papacy, one Protestant), reusing the verified online transport +
+  lockstep relay and per-player `getVisibleState` masking. Engine: `state-init.js`
+  `twoPlayerAssignment` defaults a 2-player game to `[['protestant'],['papacy']]` (1 seat → hotseat
+  `[['papacy','protestant']]`). Lobby: the create-room modal offers "2 — 两人局" for games with a
+  `two_player` variant, and the host-start derives `variant='two_player'` from `maxPlayers === 2`.
+  Tests: `src/games/his/two-player-online.test.js`. **Deferred:** Phase 4b (offline vs-AI 2P automa);
+  a host side-pick UI (MVP = seat order).

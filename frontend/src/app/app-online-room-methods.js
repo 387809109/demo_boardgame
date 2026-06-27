@@ -38,6 +38,10 @@ export function registerAppOnlineRoomMethods(App, deps) {
       const minP = gameConfig.minPlayers || 2;
       const maxP = gameConfig.maxPlayers || 10;
       const hasRoleSetup = !!gameConfig.defaultRoleCounts;
+      // Games with a "two_player" variant (e.g. HIS) can host a 2-player room
+      // below their normal minimum; selecting "2" implies the variant.
+      const supportsTwoPlayer = !!gameConfig.settingsSchema?.variant?.options
+        ?.some((o) => o.value === 'two_player');
 
       // For role-setup games, compute maxPlayers from roleCounts sum
       let roleTotal = 0;
@@ -60,7 +64,11 @@ export function registerAppOnlineRoomMethods(App, deps) {
                 return `<option value="${n}" ${n === defaultMaxPlayers ? 'selected' : ''}>${n} 人</option>`;
               }
             ).join('');
-            return `<select class="input max-players-select">${playerOptions}</select>`;
+            // Offer the two-player variant as a dedicated count option (below minP).
+            const twoPlayerOption = supportsTwoPlayer
+              ? '<option value="2">2 — 两人局（教廷 vs 新教）</option>'
+              : '';
+            return `<select class="input max-players-select">${twoPlayerOption}${playerOptions}</select>`;
           })();
 
       const isCloud = this.mode === 'cloud';
@@ -751,7 +759,16 @@ export function registerAppOnlineRoomMethods(App, deps) {
             // Combine human players and AI players
             const allPlayers = [...humanPlayers, ...aiPlayers];
             // Get settings from WaitingRoom (includes any edits made)
-            const settings = this.currentView.getGameSettings();
+            const settings = { ...this.currentView.getGameSettings() };
+            // Two-player variant: a 2-player room (below the game's normal minimum)
+            // implies the variant — derive it from the room size so the host builds
+            // the variant initial state (Papacy vs Protestant, one human each).
+            const roomConfig = this.currentRoom.gameConfig || {};
+            const supportsTwoPlayer = !!roomConfig.settingsSchema?.variant?.options
+              ?.some((o) => o.value === 'two_player');
+            if (supportsTwoPlayer && this.currentRoom.maxPlayers === 2) {
+              settings.variant = 'two_player';
+            }
 
             // Create temporary game to generate initial state
             const tempGame = createGame(gameType, 'online');

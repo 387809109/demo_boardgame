@@ -43,6 +43,19 @@ function clampBotEventRandomness(value) {
   return n;
 }
 
+/**
+ * Default power assignment for the two-player variant when none is supplied.
+ * One seat (offline hotseat) controls both sides; two seats (online) take one
+ * side each in seat order — player 0 = Protestant, player 1 = Papacy.
+ * @param {number} seatCount
+ * @returns {Array<string[]>|null} assignment, or null to fall through to defaults
+ */
+function twoPlayerAssignment(seatCount) {
+  if (seatCount <= 1) return [['papacy', 'protestant']];
+  if (seatCount === 2) return [['protestant'], ['papacy']];
+  return null;
+}
+
 /** Initial ruler IDs per power (1517 scenario) */
 const INITIAL_RULERS = {
   ottoman: 'suleiman',
@@ -78,8 +91,12 @@ export function buildInitialState(players, options = {}) {
     ? (options.rngSeed >>> 0)
     : ((Date.now() ^ Math.imul(_seedCounter++, 0x9e3779b1)) >>> 0);
 
-  // Map players to powers (supports 3-6 players)
+  // Map players to powers. The two-player variant (Papacy vs Protestant) has no
+  // entry in DEFAULT_POWER_ASSIGNMENTS (which covers 3-6 players), so default it
+  // by seat count: one hotseat seat controls both sides; two online seats take
+  // one side each (seat order — player 0 = Protestant, player 1 = Papacy).
   const assignment = options.powerAssignment
+    || (twoPlayer ? twoPlayerAssignment(players.length) : null)
     || DEFAULT_POWER_ASSIGNMENTS[players.length]
     || DEFAULT_POWER_ASSIGNMENTS[6];
   const powerByPlayer = {};

@@ -510,7 +510,15 @@ d6 可注入便于测试。**测试**：`two-player-england.test.js`（+13，含
 （全-bot 3 种子回归不变）。**残留**：#13 锁仅在 `CONTROL_UNFORTIFIED` 路径生效（无中心 §2.2 控制门，战斗夺取路径未守）；
 卡 #71 基础叛乱效果仍 log-only（既有缺口）；玛丽一世 3+ CP 辩论步骤仅记录未执行。
 
-**仍待（后续）**：Phase 4 联机 2 人 / vs-AI。
+**✅ Phase 4a — 联机两人局已建（2026-06-27）**：两名玩家可远程对战（一方教廷、一方新教），复用已验证的联机传输 +
+lockstep 中继与每玩家 `getVisibleState` 遮蔽。引擎 `state-init.js` `twoPlayerAssignment` 为两人局补默认分配
+（1 座 → 热座 `[['papacy','protestant']]`；2 座 → `[['protestant'],['papacy']]`，按座位序）。大厅 `app-online-room-methods.js`
+创建房间弹窗为含 `two_player` 变体的游戏提供「2 — 两人局」人数选项；房主开局时由 `maxPlayers === 2` 推导
+`settings.variant='two_player'` 构建并广播变体初始状态（加入方经广播 initialState 获知变体）。`config.json` 描述更新。
+**测试**：`two-player-online.test.js`（+5：分配默认 + 每玩家外交手牌遮蔽）；实机浏览器验证（打包引擎分配/遮蔽 + 建房选项门控）；
+全套 3573 绿、build 绿。**最后实机步骤（可复用）**：完整双客户端 lockstep 走通沿用标准 HIS 双客户端流程（传输未变）。
+
+**仍待（后续）**：Phase 4b 单机 vs-AI（两人局 automa）。
 
 ---
 
