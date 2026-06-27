@@ -501,8 +501,16 @@ T8 触发玛丽一世（爱德华仍在位）→ 英格兰天主教化（复用 
 d6 可注入便于测试。**测试**：`two-player-england.test.js`（+13，含 `_handleEndImpulse` 接线测试）；全套 3560 绿、build 绿、
 4 e2e 绿（标准 3-6p 全-bot 终局回归不变）。**残留**：玛丽一世 3+ CP 的辩论步骤仅记录未执行（与现有 `_isMaryIHijack` 一致）。
 
-**仍待（后续）**：Phase 3-C 6 张修改卡（Dissolution / Charles Bourbon / City State Rebels / Sack of Rome；SL + 教皇敕令已完成）；
-Phase 4 联机 2 人 / vs-AI。
+**✅ Phase 3-C — 6 张修改卡已建（2026-06-27）**：每张为 `isTwoPlayer` 门控的增量改动（Scenarios.pdf "Modified Cards"）。
+**#5 教皇敕令** validate 在 2P 拒绝标准事件（只允许 §9 Remove-At-War）；**#13 SL** 记录 `state.lockedHapsburgControl`
+（SL 成立时哈控的 Rome/Ravenna），`validateControlUnfortified` 阻止重新控制锁定空间；**#63 Dissolution** 新教从教廷手牌
+随机移除 1 张入弃牌堆，再做 3 次英语区宗改尝试（不抽英格兰牌）；**#70 Charles Bourbon** 部署限德/意语区；
+**#71 City State Rebels** SL 后对哈控选侯领目标记 `hapsburgElectorate`；**#95 Sack of Rome** 法/哈（非玩家）劫掠者
+不得收教廷牌（两张都弃）。**测试**：`two-player-modified-cards.test.js`（+8）；全套 3568 绿、build 绿、4 e2e 绿
+（全-bot 3 种子回归不变）。**残留**：#13 锁仅在 `CONTROL_UNFORTIFIED` 路径生效（无中心 §2.2 控制门，战斗夺取路径未守）；
+卡 #71 基础叛乱效果仍 log-only（既有缺口）；玛丽一世 3+ CP 辩论步骤仅记录未执行。
+
+**仍待（后续）**：Phase 4 联机 2 人 / vs-AI。
 
 ---
 

@@ -176,6 +176,15 @@ EVENT_HANDLERS[5] = {
     if (power !== 'papacy') {
       return { valid: false, error: 'Only Papacy can play Papal Bull' };
     }
+    // Two-player variant (modified card): Papal Bull may only excommunicate a
+    // ruler during the Diplomacy Phase (§9 Remove-At-War, a separate path) — its
+    // standard event (excommunicate a reformer / place unrest) is disabled.
+    if (isTwoPlayer(state)) {
+      return {
+        valid: false,
+        error: '2P: Papal Bull may only be used in the Diplomacy-Phase Remove-At-War step (§9)'
+      };
+    }
     const mode = actionData?.mode;
     if (mode === 'reformer') {
       return validateExcommunicateReformer(state, power, actionData);
@@ -562,6 +571,11 @@ EVENT_HANDLERS[13] = {
       addWar(state, 'hapsburg', 'protestant');
       removeWar(state, 'papacy', 'hapsburg');
       addAlliance(state, 'papacy', 'hapsburg');
+      // Modified card (§21.6): if Rome or Ravenna are Hapsburg-controlled when the
+      // League forms, they remain Hapsburg-controlled for the rest of the game.
+      state.lockedHapsburgControl = ['Rome', 'Ravenna'].filter(
+        (n) => state.spaces[n]?.controller === 'hapsburg'
+      );
     }
 
     helpers.logEvent(state, 'event_schmalkaldic_league', {

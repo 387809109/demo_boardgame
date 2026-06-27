@@ -553,6 +553,13 @@ export function validateControlUnfortified(state, power, actionData) {
   if (!space) return { valid: false, error: 'Missing space' };
   const sp = state.spaces[space];
   if (!sp) return { valid: false, error: `Space "${space}" not found` };
+  // Two-player Schmalkaldic-League modified card: Rome/Ravenna stay Hapsburg-
+  // controlled for the rest of the game once locked at the League's formation
+  // (checked before the fortification gate — a locked space can never be taken).
+  if (isTwoPlayer(state) && state.lockedHapsburgControl?.includes(space) &&
+      power !== 'hapsburg') {
+    return { valid: false, error: '§21.6: this space is permanently Hapsburg-controlled' };
+  }
   if (isFortified(sp, state)) return { valid: false, error: 'Space is fortified' };
 
   const friendlyPowers = getFriendlyPowers(state, power);

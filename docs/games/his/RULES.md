@@ -1403,5 +1403,16 @@ Authoritative rules + phased roadmap: **`TWO_PLAYER_PLAN.md`** (extracted from
   to the Papal impulse; 5–6 draw a Main-Deck card + set up an English-zone counter-reformation
   (`pendingReformation`, resolved by the existing reformation panel). Tests:
   `src/games/his/two-player-england.test.js`.
-- **Deferred (Phase 3-C):** the 6 modified cards (Dissolution / Charles Bourbon / City State Rebels /
-  Sack of Rome; SL + Papal Bull done); the Mary-I 3+ CP debate step is logged but not run.
+**Phase 3-C (implemented — the 6 modified cards):**
+
+- Each is an `isTwoPlayer`-gated delta on the existing handler (Scenarios.pdf "Modified Cards"):
+  **#5 Papal Bull** — `validate` blocks the standard event in 2P (only §9 Remove-At-War); **#13
+  Schmalkaldic League** — records `state.lockedHapsburgControl` (Rome/Ravenna), `validateControlUnfortified`
+  blocks reclaiming a locked space; **#63 Dissolution** — Protestant removes a random Papal-hand card
+  to the discard, then 3 English-zone Reformation attempts; **#70 Charles Bourbon** — placement
+  restricted to the German/Italian zones; **#71 City State Rebels** — logs a `hapsburgElectorate`
+  target after SL; **#95 Sack of Rome** — a French/Hapsburg (non-player) sacker receives no Papal card
+  (both drawn cards discarded). Tests: `src/games/his/two-player-modified-cards.test.js`.
+- **Residual:** #13 lock enforced only on `CONTROL_UNFORTIFIED` (no central §2.2 control gate, so the
+  combat-capture path is unguarded); base #71 rebellion effect is log-only (pre-existing); Mary-I
+  3+ CP debate step logged but not run.

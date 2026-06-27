@@ -180,9 +180,26 @@ England is a non-player power, so its Reformation trajectory unfolds automatical
   counter-reformation (`pendingReformation`, mirroring `_isMaryIHijack`). The d6 is injectable for
   tests. Tests: `src/games/his/two-player-england.test.js` (13).
 
-**Deferred — Phase 3-C (6 modified cards):** Dissolution of the Monasteries, Charles Bourbon, City
-State Rebels, Sack of Rome (Schmalkaldic League + Papal Bull already handled). Plus the Mary-I 3+ CP
-*debate* step is logged but not run (matches the existing `_isMaryIHijack` Burn-Books-only behavior).
+### Phase 3-C — The 6 modified cards ✅ *(shipped)*
+Each is an `isTwoPlayer`-gated delta on the existing handler (Scenarios.pdf "Modified Cards", p. 40):
+- **Papal Bull (#5)** — `EVENT_HANDLERS[5].validate` rejects the standard event in 2P (only the §9
+  Remove-At-War use is allowed).
+- **Schmalkaldic League (#13)** — records `state.lockedHapsburgControl` (Rome/Ravenna if
+  Hapsburg-held at SL); `validateControlUnfortified` blocks re-controlling a locked space.
+- **Dissolution (#63)** — 2P: the Protestant removes one random card from the Papal hand to the
+  discard, then the 3 English-zone Reformation attempts (no English card draw).
+- **Charles Bourbon (#70)** — 2P `validate` + execute guard restrict placement to the German/Italian
+  zones.
+- **City State Rebels (#71)** — 2P logs a `hapsburgElectorate` target after SL (widened eligibility).
+- **Sack of Rome (#95)** — 2P: a French/Hapsburg (non-player) sacker receives no Papal card — both
+  drawn cards are discarded. (Added an `attackerDice`/`defenderDice` injection seam for tests.)
+
+Tests: `src/games/his/two-player-modified-cards.test.js` (8).
+
+**Residual (documented):** the #13 Rome/Ravenna lock is enforced only on the `CONTROL_UNFORTIFIED`
+path (no central §2.2 control-change gate exists, so the combat-capture path is unguarded); the base
+#71 rebellion *effect* is log-only in the current engine (pre-existing, not 2P-specific); the Mary-I
+3+ CP *debate* step is logged but not run (matches `_isMaryIHijack`).
 
 ### Phase 4 — Modes
 Online 2-player (transport lockstep already verified; assignment `[[protestant],[papacy]]`)

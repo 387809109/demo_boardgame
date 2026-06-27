@@ -6,7 +6,10 @@ import { RULERS } from '../constants.js';
 import { areAllied } from '../state/war-helpers.js';
 import { rollDice } from './religious-actions.js';
 import { rollDie, nextRandom } from '../state/rng.js';
-import { getUnitsInSpace } from '../state/state-helpers.js';
+import {
+  getUnitsInSpace, isTwoPlayer, TWO_PLAYER_NONPLAYER_POWERS
+} from '../state/state-helpers.js';
+import { SPACE_BY_NAME } from '../data/map-data.js';
 import { treacheryAssault } from './siege-actions.js';
 
 export const EXTENDED_EVENT_HANDLERS = {};
@@ -239,9 +242,25 @@ EXTENDED_EVENT_HANDLERS[62] = {
 // #63 Dissolution of Monasteries
 EXTENDED_EVENT_HANDLERS[63] = {
   execute(state, power, actionData, helpers) {
-    state.pendingCardDraw = state.pendingCardDraw || {};
-    state.pendingCardDraw.england =
-      (state.pendingCardDraw.england || 0) + 2;
+    if (isTwoPlayer(state)) {
+      // Modified card: the Protestant draws one card at random from the Papal
+      // hand and discards it (not the standard "English player draws 2"), then
+      // makes the 3 English-zone Reformation attempts.
+      const drawable = (state.hands.papacy || []).filter((c) => c !== 5 && c !== 6);
+      if (drawable.length > 0) {
+        const pick = drawable[Math.floor(nextRandom() * drawable.length)];
+        const idx = state.hands.papacy.indexOf(pick);
+        if (idx >= 0) {
+          state.hands.papacy.splice(idx, 1);
+          state.discard.push(pick);
+        }
+        helpers.logEvent(state, 'event_dissolution_2p_discard', { discarded: pick });
+      }
+    } else {
+      state.pendingCardDraw = state.pendingCardDraw || {};
+      state.pendingCardDraw.england =
+        (state.pendingCardDraw.england || 0) + 2;
+    }
     state.pendingReformation = {
       attemptsRemaining: 3,
       zones: 'english',
@@ -417,11 +436,28 @@ EXTENDED_EVENT_HANDLERS[69] = {
 
 // #70 Charles Bourbon
 EXTENDED_EVENT_HANDLERS[70] = {
+  validate(state, power, actionData) {
+    // Modified card (2P): the Renegade leader + mercenaries must be placed in a
+    // German- or Italian-language space.
+    if (isTwoPlayer(state)) {
+      const target = actionData?.targetSpace;
+      const zone = target && SPACE_BY_NAME[target]?.languageZone;
+      if (zone !== 'german' && zone !== 'italian') {
+        return { valid: false, error: '2P: Charles Bourbon may only deploy in the German/Italian zones' };
+      }
+    }
+    return { valid: true };
+  },
   execute(state, power, actionData, helpers) {
     const targetSpace = actionData.targetSpace;
     if (!targetSpace) return;
     const sp = state.spaces[targetSpace];
     if (!sp) return;
+    // §21 (2P): guard placement to the German/Italian zones (mirrors validate).
+    if (isTwoPlayer(state)) {
+      const zone = SPACE_BY_NAME[targetSpace]?.languageZone;
+      if (zone !== 'german' && zone !== 'italian') return;
+    }
     let stack = sp.units.find(u => u.owner === power);
     if (!stack) {
       stack = {
@@ -455,6 +491,11 @@ EXTENDED_EVENT_HANDLERS[71] = {
     if (!targetSpace) return;
     const sp = state.spaces[targetSpace];
     if (!sp) return;
+    // Modified card (2P): after the Schmalkaldic League, this event may also be
+    // played against a Hapsburg-controlled electorate. (The base rebellion effect
+    // is log-only in the current engine — this records the widened eligibility.)
+    const hapsburgElectorate = isTwoPlayer(state) && state.schmalkaldicLeagueFormed &&
+      !!SPACE_BY_NAME[targetSpace]?.isElectorate && sp.controller === 'hapsburg';
     const rolls = [];
     for (let i = 0; i < 5; i++) {
       rolls.push(
@@ -465,7 +506,7 @@ EXTENDED_EVENT_HANDLERS[71] = {
     const hits = rolls.filter(r => r >= 5).length;
     helpers.logEvent(
       state, 'event_city_state_rebels',
-      { power, targetSpace, rolls, hits }
+      { power, targetSpace, rolls, hits, hapsburgElectorate }
     );
   }
 };
@@ -1025,15 +1066,15 @@ EXTENDED_EVENT_HANDLERS[95] = {
     if (!attackerStack) return;
     const attackerPower = attackerStack.owner;
 
-    // Attacker dice: 1 per unit
+    // Attacker dice: 1 per unit (injectable via actionData for deterministic tests)
     const attackerUnits = attackerStack.regulars + attackerStack.mercenaries +
       (attackerStack.cavalry || 0);
-    const attackerDice = rollDice(attackerUnits);
+    const attackerDice = actionData.attackerDice ?? rollDice(attackerUnits);
     const attackerHits = attackerDice.filter(d => d >= 5).length;
 
     // Defender: 1 per Papal regular + 1 defender die (minimum 1 die)
     const defenderDiceCount = Math.max(1, papalStack.regulars + 1);
-    const defenderDice = rollDice(defenderDiceCount);
+    const defenderDice = actionData.defenderDice ?? rollDice(defenderDiceCount);
     const defenderHits = defenderDice.filter(d => d >= 5).length;
 
     // Determine winner (tie = defender wins)
@@ -1078,7 +1119,18 @@ EXTENDED_EVENT_HANDLERS[95] = {
         const idx = Math.floor(nextRandom() * drawableCards.length);
         drawn.push(drawableCards.splice(idx, 1)[0]);
       }
-      if (drawn.length === 1) {
+      const nonPlayerSacker = isTwoPlayer(state) &&
+        TWO_PLAYER_NONPLAYER_POWERS.includes(attackerPower);
+      if (nonPlayerSacker) {
+        // Modified card (2P): French/Hapsburg (non-player) mercenaries cannot
+        // receive a card from the Papal hand — discard all drawn cards instead.
+        for (const c of drawn) {
+          const ci = state.hands.papacy.indexOf(c);
+          if (ci >= 0) state.hands.papacy.splice(ci, 1);
+          state.discard.push(c);
+        }
+        result.cardsDiscarded = [...drawn];
+      } else if (drawn.length === 1) {
         // Only 1 drawable card: sacker keeps it
         const cardIdx = state.hands.papacy.indexOf(drawn[0]);
         if (cardIdx >= 0) state.hands.papacy.splice(cardIdx, 1);
