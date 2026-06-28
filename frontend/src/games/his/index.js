@@ -1665,7 +1665,13 @@ export class HISGame extends GameEngine {
       return { ended: false };
     }
 
-    const vpTotals = this._calculateVpTotals(state);
+    let vpTotals = this._calculateVpTotals(state);
+    // Two-player variant: only the Papacy and Protestant can win (the four
+    // non-player powers may hold VP-bearing spaces — e.g. an invader the bot
+    // commanded under §11 — but never contend for victory).
+    if (isTwoPlayer(state)) {
+      vpTotals = { papacy: vpTotals.papacy || 0, protestant: vpTotals.protestant || 0 };
+    }
     const sorted = Object.entries(vpTotals).sort((a, b) => b[1] - a[1]);
     const highest = sorted[0];
 

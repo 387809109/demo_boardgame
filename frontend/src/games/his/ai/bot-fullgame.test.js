@@ -76,11 +76,17 @@ function playSeededGame(seed, cap = 50000, factory = makeAllBotGame) {
   };
   Math.random = mulberry32(seed);
 
+  // Count successful §11 invader-command actions (a religious side moving a
+  // non-player power's army). Always 0 in the 3–6p games (no such forPower).
+  let invaderActs = 0;
+  const NON_PLAYER = new Set(['france', 'hapsburg', 'ottoman', 'england']);
+
   let game, iters = 0;
   try {
     game = factory(seed);
     const kick = () => scheduleBotAction(game, (move) => {
       const r = game.executeMove(move);
+      if (r.success && NON_PLAYER.has(move.actionData?.forPower)) invaderActs++;
       if (r.success) kick();
       return r;
     });
@@ -98,7 +104,7 @@ function playSeededGame(seed, cap = 50000, factory = makeAllBotGame) {
   const st = game.getState();
   return {
     ended: st.status !== 'playing', iters, status: st.status,
-    turn: st.turn, chainBroken, stuck, game
+    turn: st.turn, chainBroken, stuck, invaderActs, game
   };
 }
 
@@ -146,18 +152,16 @@ describe('HIS two-player variant — full-bot run to completion (Phase 4b)', () 
   for (const seed of [12345, 2026, 777]) {
     it(`seed ${seed}: clean 2P full-game run (ended, no stuck/broken)`, () => {
       const r = playSeededGame(seed, 50000, makeTwoPlayerBotGame);
-      if (!r.ended || r.chainBroken || r.stuck > 8) {
+      if (!r.ended || r.chainBroken || r.stuck) {
         console.error(`[2p fullgame seed=${seed}] status=${r.status} turn=${r.turn} ` +
           `iters=${r.iters} chainBroken=${r.chainBroken} stuck=${r.stuck}`);
       }
-      // MVP guarantee: the bot plays a complete, legal 2P game — it reaches a
-      // terminal status with no broken chain. (Every executed move is valid; the
-      // MVP bot reuses the 3–6p tactics, so the fallback chain corrects the
-      // occasional illegal proposal — a small, bounded `stuck` count. Driving it
-      // to zero is the deferred strong-AI tuning.)
+      // The bot plays a complete, clean 2P game: a terminal status with no broken
+      // chain and no stuck primary action (every proposal is legal — matching the
+      // 3–6p full-bot bar).
       expect(r.ended).toBe(true);
       expect(r.chainBroken).toBe(0);
-      expect(r.stuck).toBeLessThanOrEqual(8);
+      expect(r.stuck).toBe(0);
       // The variant ran several turns (the Diplomatic Deck phase begins T1).
       expect(r.turn).toBeGreaterThanOrEqual(3);
 
@@ -169,4 +173,13 @@ describe('HIS two-player variant — full-bot run to completion (Phase 4b)', () 
       expect(['papacy', 'protestant']).toContain(result.winnerPower);
     }, 30000);
   }
+
+  it('§11 invader command is exercised (the bot moves at-war invaders)', () => {
+    // Across the seeds, the bot plays invasion cards and then commands the
+    // activated non-player armies (forPower) to advance on the opponent — not
+    // leaving them idle. Aggregated to avoid per-seed deck-draw flakiness.
+    const total = [12345, 2026, 777]
+      .reduce((n, seed) => n + playSeededGame(seed, 50000, makeTwoPlayerBotGame).invaderActs, 0);
+    expect(total).toBeGreaterThan(0);
+  }, 30000);
 });

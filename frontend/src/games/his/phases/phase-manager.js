@@ -342,8 +342,13 @@ function resolveVictoryDetermination(state, helpers) {
     return;
   }
 
-  // 2. Calculate VP totals (track VP + bonus VP)
-  const vpTotals = getAllVpTotals(state);
+  // 2. Calculate VP totals (track VP + bonus VP). Two-player variant: only the
+  //    Papacy and Protestant contend — the four non-player powers never win,
+  //    even if they hold VP-bearing spaces (e.g. a §11-commanded invader).
+  let vpTotals = getAllVpTotals(state);
+  if (isTwoPlayer(state)) {
+    vpTotals = { papacy: vpTotals.papacy || 0, protestant: vpTotals.protestant || 0 };
+  }
   const sorted = Object.entries(vpTotals).sort((a, b) => b[1] - a[1]);
   const [topPower, topVp] = sorted[0];
 

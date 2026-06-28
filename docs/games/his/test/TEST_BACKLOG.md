@@ -528,6 +528,15 @@ lockstep 中继与每玩家 `getVisibleState` 遮蔽。引擎 `state-init.js` `t
 build 绿；实机浏览器验证（vs-AI 座位正确 + 教廷 bot 自动打出一张外交牌）。**MVP 边界**：bot 复用 3–6p 战术，回退链仍纠正少量有界
 非法提案（`stuck`→0 属延后的强 AI 调优）；变体专属策略（外交牌评估、结束战争时机、§11 入侵者代理、求和）延后。
 
+**✅ 强 AI 调优 v1 已建（2026-06-28）**：bot 现在 (1) 干净对局 `stuck === 0`——`findControlTarget` 不再提议夺取盟友控制空间
+（后 SL 教-哈同盟，3-6p 同样修正），全 bot 两人局测试从 `stuck ≤ 8` 收紧为 **`stuck === 0`**；(2) **§11 代理入侵者**——
+`decideInvaderCommand`（`bot-goals.js` `dispatchGoalAction` 顶部、按脉冲限次）驱动 `controllableInvaders` 向对手推进/突击，复用
+`executeAdvance`/`executeLandBattle(state, invader, cp)`，经 `isInvaderMoveBlocked` 过滤、限 `INVADER_ACTION_TYPES`、打
+`forPower` 走 §11 CP 管线（全 bot 两人局测断言入侵者确实行动，3 seed 共 64 次；实机浏览器验证 `MOVE_FORMATION forPower:france`）。
+顺带修两处潜伏 2P bug：#70 Charles Bourbon 在 2P 走 CP（`bot-event-criteria.js`）；**非玩家势力不再获胜**——2P 胜负限教廷/新教
+（`victory-checks.js` 军事即胜 + `phase-manager.js` 标准/统治 + `index.js checkGameEnd`）。全套 3577 绿、build 绿。
+**延后**：更优入侵登陆点（已回退，扰动 bot 轨迹引出无关潜伏问题）、外交牌选择、求和、行为卡优先级重调。
+
 **两人局变体功能完成**（规则 + 联机 + 单机 vs-AI 全部就绪）。
 
 ---

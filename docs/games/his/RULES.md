@@ -1437,6 +1437,12 @@ Authoritative rules + phased roadmap: **`TWO_PLAYER_PLAN.md`** (extracted from
   (`phase-card-draw.js`); §13: `dispatchGoalAction` skips out-of-zone bot moves (`bot-goals.js`); #5
   Papal Bull is routed as CP (`bot-card-play.js`). Offline seating: a "两人局对手" selector
   (`game-settings-modal.js`) → `_startOfflineGame` builds `[[humanSide]]` + `botPowers:[otherSide]`.
-  Tests: `ai/bot-fullgame.test.js` (all-bot 2P run-to-completion, 3 seeds). **MVP boundary:** the bot
-  reuses 3–6p tactics, so the fallback chain corrects a small bounded number of illegal proposals;
-  variant-specific strategy (and `stuck`→0 tuning) is deferred.
+  Tests: `ai/bot-fullgame.test.js` (all-bot 2P run-to-completion, 3 seeds).
+- **Strong-AI tuning v1:** the bot now plays cleanly (`stuck === 0` — `findControlTarget` no longer
+  proposes taking an ally-controlled space) and **commands its at-war invaders** under §11
+  (`decideInvaderCommand` in `bot-goals.js`: advance/assault the opponent with `forPower`-tagged moves,
+  filtered by `isInvaderMoveBlocked`). This surfaced + fixed two latent 2P bugs: #70 now routes as CP
+  (`bot-event-criteria.js`), and **2P victory is restricted to the Papacy/Protestant** — non-player
+  powers never win even if a §11-commanded invader holds key spaces (`state/victory-checks.js` +
+  `phase-manager.js` + `index.js checkGameEnd`). Deferred: smarter invasion landing, diplomacy-card
+  selection, sue-for-peace, behavior-card retuning.

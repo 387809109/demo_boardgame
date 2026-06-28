@@ -31,7 +31,8 @@ import {
   countKeysForPower, getActiveRuler,
   isValidReformationTarget, isValidCounterReformTarget,
   calcReformationDice, calcCounterReformationDice,
-  getAvailableDebaters, getFormationCap, isReligiousZoneMoveBlocked
+  getAvailableDebaters, getFormationCap, isReligiousZoneMoveBlocked,
+  controllableInvaders, isInvaderMoveBlocked, INVADER_ACTION_TYPES, isTwoPlayer
 } from '../state/state-helpers.js';
 import { areAtWar, canAttack, getAlliesOf } from '../state/war-helpers.js';
 import { hasLineOfCommunicationForControl } from '../actions/military-actions.js';
@@ -1168,6 +1169,15 @@ export function dispatchGoalAction(state, power) {
   // Execution counts for this impulse (reset by controller between impulses)
   const counts = state.botGoalCounts?.[power] || {};
 
+  // Two-player §11: command an at-war invader (advance on / assault the opponent)
+  // before the side's own goals, so the invasion cards the bot plays actually
+  // threaten the enemy. Capped per impulse so the religious side still acts.
+  const INVADER_GOAL = '__invader__';
+  if (isTwoPlayer(state) && (counts[INVADER_GOAL] || 0) < 1) {
+    const inv = decideInvaderCommand(state, power, cp);
+    if (inv) return { ...inv.action, goalId: INVADER_GOAL, cpCost: inv.cpCost };
+  }
+
   // Papacy defensive override: when Protestant reformation is runaway,
   // promote BURN/DEBATE ahead of naval/mercenary goals so they are not
   // crowded out by early-slot CP consumers on low-CP cards.
@@ -1218,6 +1228,37 @@ export function dispatchGoalAction(state, power) {
     actionType: ACTION_TYPES.END_IMPULSE,
     actionData: { grantCpToken: true }
   };
+}
+
+/**
+ * Two-player §11: pick an action commanding an at-war invader (a non-player
+ * French/Hapsburg/Ottoman army at war with the religious side's opponent) to
+ * relieve/assault or march toward that opponent. Reuses the power-parameterized
+ * movement goals for the invader power, restricts to the §11-permitted action
+ * set, respects §13 invader movement, and tags the action with `forPower` so the
+ * engine validates/charges CP via the §11 path. Returns null in 3–6p or when no
+ * invader can usefully act.
+ * @param {Object} state
+ * @param {string} side - the religious bot power ('papacy' | 'protestant')
+ * @param {number} cp
+ * @returns {{ action: Object, cpCost: number }|null}
+ */
+function decideInvaderCommand(state, side, cp) {
+  for (const invader of controllableInvaders(state, side)) {
+    for (const executor of [executeLandBattle, executeAdvance]) {
+      const result = executor(state, invader, cp);
+      if (!result?.action) continue;
+      const a = result.action;
+      if (!INVADER_ACTION_TYPES.has(a.actionType)) continue;
+      const dest = a.actionData?.to ?? a.actionData?.space;
+      if (dest && isInvaderMoveBlocked(state, invader, dest)) continue;
+      return {
+        action: { ...a, actionData: { ...a.actionData, forPower: invader } },
+        cpCost: result.cpCost
+      };
+    }
+  }
+  return null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1763,7 +1804,9 @@ function findControlTarget(state, power) {
   const friendlyPowers = new Set([power, ...getAlliesOf(state, power)]);
 
   for (const [name, sp] of Object.entries(state.spaces)) {
-    if (sp.controller === power) continue;
+    // Skip spaces we (or an ally) already control — the engine rejects taking
+    // control of a friendly-controlled space (e.g. Papacy↔Hapsburg post-SL).
+    if (friendlyPowers.has(sp.controller)) continue;
     if (isFortified(sp)) continue;
     // Must have our unit present
     const stack = getUnitsInSpace(state, name, power);

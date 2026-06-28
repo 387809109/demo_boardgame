@@ -15,7 +15,7 @@
 
 import { areAtWar, areAllied, getWarsOf, getAlliesOf } from '../state/war-helpers.js';
 import {
-  getActiveRuler, isHomeSpace, getUnitsInSpace, countLandUnits
+  getActiveRuler, isHomeSpace, getUnitsInSpace, countLandUnits, isTwoPlayer
 } from '../state/state-helpers.js';
 import { isBotPower } from './bot-controller.js';
 
@@ -502,13 +502,15 @@ export const EVENT_CRITERIA = {
     },
     treaty: null
   },
-  // 70: Charles Bourbon — at war with France or any
+  // 70: Charles Bourbon — at war with France or any. In 2P the bot doesn't
+  // supply a deploy target and the card is restricted to the German/Italian
+  // zones (§21), so it plays the card for CP instead of the event.
   70: {
     title: 'Charles Bourbon',
     shouldPlay: (s, p) =>
-      atWarWith(s, p, 'france') || isAtWarWithAny(s, p),
+      !isTwoPlayer(s) && (atWarWith(s, p, 'france') || isAtWarWithAny(s, p)),
     score: (s, p) =>
-      (atWarWith(s, p, 'france') || isAtWarWithAny(s, p)) ? 0.9 : 0,
+      (!isTwoPlayer(s) && (atWarWith(s, p, 'france') || isAtWarWithAny(s, p))) ? 0.9 : 0,
     treaty: null
   },
   // 71: City State Rebels — has captured key

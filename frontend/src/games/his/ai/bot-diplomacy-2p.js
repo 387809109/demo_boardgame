@@ -14,21 +14,67 @@ import { getDiplomacy2PActor, papalBullTargets } from '../phases/phase-diplomacy
 
 /**
  * Pick a landing space for an Invasion diplomatic card: any German/Italian-zone
- * land space (where the variant's fighting happens). The engine only requires
- * the space to exist; any DE/IT space is a legal, sensible target.
+ * land space (where the variant's fighting happens). The engine only requires the
+ * space to exist; any DE/IT space is legal, and the §11 invader-command goal then
+ * advances the activated army toward the opponent from there. (A smarter
+ * land-near-the-front heuristic is deferred — it perturbs the bot's trajectory
+ * enough to surface unrelated latent quirks for marginal engagement gain.)
  * @param {Object} state
  * @returns {string|undefined}
  */
 function pickInvasionTarget(state) {
-  let fallback;
   for (const [name, sp] of Object.entries(state.spaces || {})) {
-    if (sp.languageZone === 'german' || sp.languageZone === 'italian') {
-      // Prefer a space the bot's opponent religiously holds (a real contest);
-      // otherwise keep the first DE/IT space as a fallback.
-      fallback = fallback || name;
-    }
+    if (sp.languageZone === 'german' || sp.languageZone === 'italian') return name;
   }
-  return fallback;
+  return undefined;
+}
+
+/**
+ * Which religious side an Invasion card benefits — i.e. whose opponent the
+ * activated invader goes to war with. French (#202/#206) and Ottoman (#216)
+ * invasions attack the Papacy → help the Protestant; the post-SL Austrian/
+ * Imperial invasions (#213/#214) are commanded by the Papacy against the
+ * Protestant; the Spanish invasion (#211) flips with the Schmalkaldic League.
+ * @param {Object} state
+ * @param {number} cardNumber
+ * @returns {string|null} 'papacy' | 'protestant' | null (not classified)
+ */
+function invasionBeneficiary(state, cardNumber) {
+  if (cardNumber === 202 || cardNumber === 206 || cardNumber === 216) return 'protestant';
+  if (cardNumber === 213 || cardNumber === 214) return 'papacy';
+  if (cardNumber === 211) return state.schmalkaldicLeague ? 'papacy' : 'protestant';
+  return null;
+}
+
+/**
+ * Score a diplomatic card for `side` (higher is better to play). §9 forces a play
+ * each turn, so the bot picks its best card: a self-beneficial Invasion (activates
+ * an invader against the opponent, which the §11 command then uses) outranks a
+ * neutral non-invasion, which outranks an Invasion that would help the opponent.
+ * @param {Object} state
+ * @param {string} side
+ * @param {number} cardNumber
+ * @returns {number}
+ */
+function scoreDiplomacyCard(state, side, cardNumber) {
+  if (isInvasionCard(cardNumber)) {
+    const ben = invasionBeneficiary(state, cardNumber);
+    if (ben === side) return 2;
+    if (ben && ben !== side) return -2;
+    return 1; // unclassified invasion — treat as mildly useful
+  }
+  return 1; // most non-invasion cards aid the side that plays them
+}
+
+/** Pick the highest-scoring card in hand (ties keep hand order, for determinism). */
+function bestDiplomacyCard(state, side, hand) {
+  let best = hand[0];
+  let bestScore = scoreDiplomacyCard(state, side, best);
+  for (let i = 1; i < hand.length; i++) {
+    const sc = scoreDiplomacyCard(state, side, hand[i]);
+    if (sc > bestScore) { best = hand[i]; bestScore = sc; }
+  }
+  return best;
 }
 
 /**
@@ -62,11 +108,12 @@ export function decideDiplomacy2P(state, power) {
   const hand = state.diplomacyHands?.[power];
   if (!Array.isArray(hand) || hand.length === 0) return null;
 
-  // §9: you must always play a card. Honor a #205 forced-play constraint.
+  // §9: you must always play a card. Honor a #205 forced-play constraint; else
+  // play the card that most benefits this side (see scoreDiplomacyCard).
   const forced = state.diplomacyForcedPlay;
   const cardNumber = (forced?.side === power && forced.card != null && hand.includes(forced.card))
     ? forced.card
-    : hand[0];
+    : bestDiplomacyCard(state, power, hand);
 
   const actionData = { cardNumber };
   if (isInvasionCard(cardNumber)) {

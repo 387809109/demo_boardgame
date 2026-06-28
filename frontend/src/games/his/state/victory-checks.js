@@ -71,8 +71,14 @@ export function checkImmediateVictory(state) {
       unrestCounts[sp.controller] = (unrestCounts[sp.controller] || 0) + 1;
     }
   }
+  // Two-player variant: the four non-player powers never win — only the Papacy
+  // (among the two players) can take a key-based military auto-win. (An invader
+  // the bot commands under §11 may hold many keys but must not "win".)
+  const twoPlayer = state.variant === 'two_player';
+  const TWO_PLAYER_NON_PLAYER = ['ottoman', 'hapsburg', 'england', 'france'];
   for (const power of MAJOR_POWERS) {
     if (power === 'protestant') continue; // Protestant doesn't have key auto-win
+    if (twoPlayer && TWO_PLAYER_NON_PLAYER.includes(power)) continue;
     const track = KEY_VP_TRACK[power];
     if (!track) continue;
     const effectiveKeys = keyCounts[power] - (unrestCounts[power] || 0);

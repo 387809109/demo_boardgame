@@ -246,10 +246,34 @@ Tests: `ai/bot-fullgame.test.js` adds an all-bot 2P run-to-completion (3 seeds: 
 winner ∈ {Papacy, Protestant}). Full suite 3576 green, build clean; live-verified in-browser (correct
 vs-AI seating + the Papacy bot autonomously playing a diplomacy card).
 
-**MVP boundary / deferred:** the bot reuses the 3–6p tactics, so the fallback chain still corrects a
-small, bounded number of illegal proposals per game (driving `stuck` to 0 is the deferred strong-AI
-tuning). Also deferred: variant-specific strategy (diplomacy-deck evaluation, remove-at-war timing,
-§11 invader command, sue-for-peace), and a host side-pick beyond the seat-order/selector default.
+### Phase 4b strong-AI tuning v1 ✅ *(shipped)*
+Hardened the offline-vs-AI bot beyond the MVP:
+- **`stuck` → 0**: `findControlTarget` (`ai/bot-goals.js`) skipped only `controller === power`, not
+  *ally*-controlled spaces — post-SL the bot proposed taking a Papacy↔Hapsburg space (engine rejects
+  "friendly-controlled"). Now filters the full `friendlyPowers` set (correct in 3–6p too). The full-bot
+  2P test is tightened from `stuck ≤ 8` to **`stuck === 0`** (the 3–6p bar).
+- **§11 invader command**: the bot now *uses* the invaders its invasion cards activate. A new
+  `decideInvaderCommand` (hooked at the top of `dispatchGoalAction`, capped per impulse) drives each
+  `controllableInvaders` power to relieve/assault or advance on the opponent — reusing
+  `executeAdvance`/`executeLandBattle(state, invader, cp)`, filtered by `isInvaderMoveBlocked`,
+  restricted to `INVADER_ACTION_TYPES`, and tagged `forPower` through the §11 CP pipeline. The all-bot
+  2P regression now asserts invaders actually act (64 commanded moves across the seeds); live-verified
+  in-browser (`MOVE_FORMATION forPower: france`).
+- **Surfaced + fixed two latent 2P bugs**: the bot played **Charles Bourbon (#70)** as an event with no
+  (DE/IT) target → now routes it as CP in 2P (`bot-event-criteria.js`); and **non-player powers could
+  "win"** once §11 invaders captured key spaces — 2P victory is now restricted to the Papacy/Protestant
+  in both immediate-win paths (`state/victory-checks.js` military auto-win + `phase-manager.js`
+  standard/domination, and `index.js checkGameEnd`).
+- **Diplomacy-card selection**: `decideDiplomacy2P` no longer plays `hand[0]` blindly — `scoreDiplomacyCard`
+  ranks the hand so the bot plays a self-beneficial Invasion (one whose activated invader, via §11,
+  attacks the *opponent* — `invasionBeneficiary` classifies #202/#206/#216 → Protestant, #213/#214 →
+  Papacy, #211 by the Schmalkaldic League) over a neutral non-invasion, and avoids playing an Invasion
+  that would help the opponent. Still honors the #205 forced-play. Tests: `ai/bot-diplomacy-2p.test.js`.
+
+**Deferred:** smarter invasion *landing* (reverted — perturbs the bot's trajectory enough to surface
+unrelated latent quirks for marginal engagement gain); remove-at-war timing nuance / sue-for-peace use;
+behavior-card priority retuning for the 2P board; a host side-pick beyond
+the seat-order/selector default.
 
 ## 3. Reused existing assets
 - `frontend/src/games/his/state/diplomacy-deck.js` — the full deck subsystem (init/shuffle/
