@@ -1169,6 +1169,18 @@ export function dispatchGoalAction(state, power) {
   // Execution counts for this impulse (reset by controller between impulses)
   const counts = state.botGoalCounts?.[power] || {};
 
+  // Two-player: the Protestant's road to victory is the reformation — its only
+  // VP track is the Protestant-Spaces track, while the Papacy also banks key +
+  // St. Peter's VP. Left to the generic priorities the Protestant under-reforms
+  // (~25 of 50 spaces) and loses the VP race, so in 2P it prioritizes publishing
+  // treatises. Capped per impulse so its other goals still run.
+  const RELIG_GOAL = '__relig2p__';
+  if (isTwoPlayer(state) && power === 'protestant' &&
+      (counts[RELIG_GOAL] || 0) < 2 && (state.protestantSpaces || 0) < 32) {
+    const pub = executePublish(state, power, cp);
+    if (pub) return { ...pub.action, goalId: RELIG_GOAL, cpCost: pub.cpCost };
+  }
+
   // Two-player §11: command an at-war invader (advance on / assault the opponent)
   // before the side's own goals, so the invasion cards the bot plays actually
   // threaten the enemy. Capped per impulse so the religious side still acts.

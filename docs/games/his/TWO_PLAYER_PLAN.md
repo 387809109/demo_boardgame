@@ -270,10 +270,22 @@ Hardened the offline-vs-AI bot beyond the MVP:
   Papacy, #211 by the Schmalkaldic League) over a neutral non-invasion, and avoids playing an Invasion
   that would help the opponent. Still honors the #205 forced-play. Tests: `ai/bot-diplomacy-2p.test.js`.
 
+### Phase 4b strong-AI tuning v2 — matchup balance (measurement-driven) ✅ *(shipped)*
+A new **analytics harness** (`ai/bot-2p-analytics.test.js`) runs a 12-seed all-bot 2P sweep and reports
+the win split / VP / reformation profile (and asserts every game ends, `stuck === 0`, and neither side
+sweeps — a robustness + balance regression guard). The baseline exposed a **19–0 Papacy walkover**: the
+Protestant's only VP track is the Protestant-Spaces track, while the Papacy also banks key + St. Peter's
+VP, and the Protestant under-reformed (~25 of 50 spaces). Fix: a 2P-gated, Protestant-only **publish
+priority** in `dispatchGoalAction` — publish treatises (the Protestant's reformation = VP) ahead of the
+generic goals, capped 2/impulse and **only while `protestantSpaces < 32`** (the threshold tuned against
+the harness so it neither under- nor over-reforms). Result: **~even** (12-seed 6–6 / 20-seed 10–10, avg
+VP ≈ 10.4 vs 10.7). All `isTwoPlayer` + Protestant gated; the 3–6p bot is untouched.
+
 **Deferred:** smarter invasion *landing* (reverted — perturbs the bot's trajectory enough to surface
-unrelated latent quirks for marginal engagement gain); remove-at-war timing nuance / sue-for-peace use;
-behavior-card priority retuning for the 2P board; a host side-pick beyond
-the seat-order/selector default.
+unrelated latent quirks for marginal engagement gain); remove-at-war timing nuance / sue-for-peace
+(measured **moot** — the Papacy doesn't struggle); §11 invader-vs-keys (the publish lever balanced the
+matchup without it); deeper behavior-card retuning; a host side-pick beyond the seat-order/selector
+default.
 
 ## 3. Reused existing assets
 - `frontend/src/games/his/state/diplomacy-deck.js` — the full deck subsystem (init/shuffle/

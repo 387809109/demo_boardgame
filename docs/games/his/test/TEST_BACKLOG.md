@@ -537,7 +537,15 @@ build 绿；实机浏览器验证（vs-AI 座位正确 + 教廷 bot 自动打出
 （`victory-checks.js` 军事即胜 + `phase-manager.js` 标准/统治 + `index.js checkGameEnd`）。全套 3577 绿、build 绿。
 **延后**：更优入侵登陆点（已回退，扰动 bot 轨迹引出无关潜伏问题）、外交牌选择、求和、行为卡优先级重调。
 
-**两人局变体功能完成**（规则 + 联机 + 单机 vs-AI 全部就绪）。
+**✅ 强 AI 调优 v2 — 对局平衡（数据驱动，2026-06-29）**：新增 `ai/bot-2p-analytics.test.js`（12 seed 全 bot 两人局 sweep
+→ 胜负/VP/改革画像；断言全部 ended + `stuck=0` + 任一方不得通杀）。基线暴露 **19-0 教廷碾压**（新教唯一 VP 轨道是新教空间轨道，
+教廷另有 key + 圣彼得 VP；新教改革不足 ~25/50）。两条原计划杠杆（教廷求和、入侵者打 key）实测**无用**（教廷本就压制）。真正修复：
+2P 限定、仅新教的**出版优先**（`dispatchGoalAction` 顶部、§11 入侵步之前，`publish_treatise`=新教改革→VP，限 2/脉冲、
+仅当 `state.protestantSpaces < 32`，阈值据 harness 调出——31→13-7 教廷、33→6-14 新教、32→**10-10**/20seed、6-6/12seed，
+均 VP ~10.4/10.7；胜负计数噪声大[T9 回合上限按微弱 VP 差判]，故按 VP 均衡而非噪声胜负计数调参）。isTwoPlayer+新教 门控 →
+3-6p bot 不受影响。全套 3584 绿、build 绿。（另：早先做过 12-seed 6 人全 bot sweep——干净、1 次可恢复 stuck，3-6p HISBOT 已成熟。）
+
+**两人局变体功能完成**（规则 + 联机 + 单机 vs-AI 全部就绪；AI 自对弈已平衡）。
 
 ---
 
