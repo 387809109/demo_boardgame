@@ -518,7 +518,17 @@ lockstep 中继与每玩家 `getVisibleState` 遮蔽。引擎 `state-init.js` `t
 **测试**：`two-player-online.test.js`（+5：分配默认 + 每玩家外交手牌遮蔽）；实机浏览器验证（打包引擎分配/遮蔽 + 建房选项门控）；
 全套 3573 绿、build 绿。**最后实机步骤（可复用）**：完整双客户端 lockstep 走通沿用标准 HIS 双客户端流程（传输未变）。
 
-**仍待（后续）**：Phase 4b 单机 vs-AI（两人局 automa）。
+**✅ Phase 4b — 单机 vs-AI（MVP）已建（2026-06-28）**：单人对战电脑（人执教廷或新教）。单机为单一本地实例：一个人类席位 +
+对方作为 **bot power**（`botPowers`），由 HISBOT 循环驱动（非第二名玩家——那是联机模式 4a）。新增 `ai/bot-diplomacy-2p.js`
+（`decideDiplomacy2P`）+ `bot-controller.js` 2P 分支（`getNextActingBotPower`→`getDiplomacy2PActor`；`decideBotAction` 出外交牌 /
+执行结束战争）。§6.2：非玩家势力不再发牌（`phase-card-draw.js`，同时修掉一处「非玩家被拉入无人驾驶的雇佣兵响应窗」死锁）；
+§13：`dispatchGoalAction` 跳过宗教势力出区移动/控制（`bot-goals.js` 集中卡点，把非法提案降约 10×）；#5 教皇敕令在 2P 走 CP
+（`bot-card-play.js`）。单机座位：设置弹窗「两人局对手」选择器 → `_startOfflineGame` 构建 `[[humanSide]]` + `botPowers:[otherSide]`。
+**测试**：`ai/bot-fullgame.test.js` 新增全 bot 两人局跑通（3 seed：ended、0 chain-broken、winner ∈ 教廷/新教）；全套 3576 绿、
+build 绿；实机浏览器验证（vs-AI 座位正确 + 教廷 bot 自动打出一张外交牌）。**MVP 边界**：bot 复用 3–6p 战术，回退链仍纠正少量有界
+非法提案（`stuck`→0 属延后的强 AI 调优）；变体专属策略（外交牌评估、结束战争时机、§11 入侵者代理、求和）延后。
+
+**两人局变体功能完成**（规则 + 联机 + 单机 vs-AI 全部就绪）。
 
 ---
 

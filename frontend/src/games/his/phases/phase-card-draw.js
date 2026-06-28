@@ -6,7 +6,7 @@
 
 import { MAJOR_POWERS, NEW_WORLD_RICHES_TABLE, RICHES_RESULTS } from '../constants.js';
 import { CARDS } from '../data/cards.js';
-import { getCardDrawCount, isCardInPlay } from '../state/state-helpers.js';
+import { getCardDrawCount, isCardInPlay, isTwoPlayer } from '../state/state-helpers.js';
 import { rollDice } from '../actions/religious-actions.js';
 import { rng } from '../state/rng.js';
 import { scheduleEnglandSuccession2P } from './england-succession-2p.js';
@@ -45,8 +45,15 @@ export function executeCardDraw(state, helpers) {
   // 3. Shuffle deck
   shuffleDeck(state.deck);
 
+  // Two-player variant (§6.2): only the Papacy and Protestant are dealt cards —
+  // the four non-player powers hold no hand (they act only via the Diplomatic
+  // Deck / At-War status, never by playing Main-Deck cards).
+  const skipNonPlayer = (power) =>
+    isTwoPlayer(state) && power !== 'papacy' && power !== 'protestant';
+
   // 4. Deal cards to each power (in impulse order)
   for (const power of MAJOR_POWERS) {
+    if (skipNonPlayer(power)) continue;
     const drawCount = getCardDrawCount(state, power);
     const dealt = state.deck.splice(0, drawCount);
     state.hands[power].push(...dealt);
@@ -54,6 +61,7 @@ export function executeCardDraw(state, helpers) {
 
   // 5. Add home cards to each power's hand
   for (const power of MAJOR_POWERS) {
+    if (skipNonPlayer(power)) { state.homeCardPlayed[power] = false; continue; }
     for (const cardNum of HOME_CARDS[power]) {
       if (!state.hands[power].includes(cardNum)) {
         state.hands[power].push(cardNum);

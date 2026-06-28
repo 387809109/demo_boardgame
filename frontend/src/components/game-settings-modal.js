@@ -348,11 +348,25 @@ export class GameSettingsModal {
       ).join('');
       const aiCount = powerEntries.length - 1;
 
-      // Two-player hotseat (HIS variant) controls both religious powers itself,
-      // so the single-power selector is hidden when that variant is active.
-      const hidePower = this.settings?.variant === 'two_player';
+      // Two-player variant: the single-power selector is hidden and replaced by
+      // an opponent selector (hotseat, or vs-AI as either side).
+      const is2p = this.settings?.variant === 'two_player';
+      const twoPlayerOption = this.gameConfig.settingsSchema?.variant?.options
+        ?.some((o) => o.value === 'two_player');
+      const twoPlayerSection = twoPlayerOption ? `
+        <div class="two-player-mode-section" style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);${is2p ? '' : ' display: none;'}">
+          <label style="display: block; margin-bottom: var(--spacing-2); font-weight: var(--font-medium);">
+            两人局对手
+          </label>
+          <select class="two-player-mode input" style="width: 100%;">
+            <option value="hotseat">同屏热座（你控制教廷与新教双方）</option>
+            <option value="ai_papacy">对战 AI · 你执教廷</option>
+            <option value="ai_protestant">对战 AI · 你执新教</option>
+          </select>
+        </div>
+      ` : '';
       return `
-        <div class="power-select-section" style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);${hidePower ? ' display: none;' : ''}">
+        <div class="power-select-section" style="margin-top: var(--spacing-4); padding-top: var(--spacing-4); border-top: 1px solid var(--border-light);${is2p ? ' display: none;' : ''}">
           <label style="display: block; margin-bottom: var(--spacing-2); font-weight: var(--font-medium);">
             选择控制的势力
           </label>
@@ -363,6 +377,7 @@ export class GameSettingsModal {
             其余 ${aiCount} 个势力由 AI (BOT) 控制
           </p>
         </div>
+        ${twoPlayerSection}
       `;
     }
 
@@ -491,8 +506,15 @@ export class GameSettingsModal {
       if (this.mode === 'offline') {
         const powerSelect = this.element.querySelector('.power-select');
         if (settings.variant === 'two_player') {
-          // Two-player hotseat: no single power, no AI (handled in _startOfflineGame).
-          delete settings.selectedPower;
+          // Two-player: hotseat controls both sides, or vs-AI as the chosen side.
+          const tpMode = this.element.querySelector('.two-player-mode')?.value || 'hotseat';
+          if (tpMode === 'ai_papacy') {
+            settings.selectedPower = 'papacy'; aiCount = 1;
+          } else if (tpMode === 'ai_protestant') {
+            settings.selectedPower = 'protestant'; aiCount = 1;
+          } else {
+            delete settings.selectedPower; // hotseat
+          }
         } else if (powerSelect) {
           // Power-based game: human picks one power, rest are AI
           settings.selectedPower = powerSelect.value;
@@ -557,13 +579,14 @@ export class GameSettingsModal {
           this.settings[key] = target.value;
         }
 
-        // HIS: the two-player variant controls both powers itself, so toggle
-        // the single-power selector when the variant changes.
+        // HIS: toggle the single-power selector vs. the two-player opponent
+        // selector when the variant changes.
         if (key === 'variant') {
+          const is2p = target.value === 'two_player';
           const section = this.element.querySelector('.power-select-section');
-          if (section) {
-            section.style.display = target.value === 'two_player' ? 'none' : '';
-          }
+          if (section) section.style.display = is2p ? 'none' : '';
+          const tpSection = this.element.querySelector('.two-player-mode-section');
+          if (tpSection) tpSection.style.display = is2p ? '' : 'none';
         }
       });
     });

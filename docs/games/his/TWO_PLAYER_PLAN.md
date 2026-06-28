@@ -219,8 +219,37 @@ masking); verified live in-browser (bundled engine assignment/masking + the crea
 Full suite 3573 green, build clean. **Final live step (reusable):** a full two-client lockstep run
 over a backend uses the standard-HIS two-client harness (the transport is unchanged).
 
-### Phase 4b — Offline vs-AI *(deferred)*
-A new 2P automa (the largest AI effort) so one human can play vs the computer.
+### Phase 4b — Offline vs-AI (MVP) ✅ *(shipped)*
+One human plays the computer as Papacy or Protestant. The offline model is a single local game
+instance: **one human seat** plus the opposing side as a **bot power** (`botPowers`), driven by the
+existing HISBOT loop — not a second player row (that's the online mode, 4a). The 3–6p bot already
+covers the Action/religious phases; the new work was the 2P Diplomacy phase + emergent 2P-correctness
+fixes surfaced by an all-bot run-to-completion.
+
+- **Bot 2P-Diplomacy** (`ai/bot-diplomacy-2p.js` `decideDiplomacy2P` + `bot-controller.js`):
+  `getNextActingBotPower` now returns the `getDiplomacy2PActor` for the 2P diplomacy phase, and
+  `decideBotAction` plays a diplomatic card (Invasion → a DE/IT landing space; others via the engine
+  normalizer; honors #205 forced-play) or runs Remove-At-War (Papal Bull vs France/Hapsburg, else
+  END_REMOVE_WAR).
+- **2P card-draw (§6.2) fix** (`phases/phase-card-draw.js`): non-player powers are no longer dealt
+  Main-Deck cards or home cards — they hold no hand (this also fixed a latent stall where a non-player
+  power was pulled into a mercenary response window no one could drive).
+- **§13 bot move filter** (`ai/bot-goals.js`): `dispatchGoalAction` skips a goal whose
+  move/control target is outside the German/Italian zones for a religious power (centralized chokepoint
+  — cut the bot's illegal proposals ~10×). #5 Papal Bull is routed as CP, never as its (2P-disabled)
+  event (`ai/bot-card-play.js`).
+- **Offline seating** (`main.js` `_startOfflineGame` + `components/game-settings-modal.js`): a
+  "两人局对手" selector — 热座 (hotseat) / 对战 AI·你执教廷 / 对战 AI·你执新教 — maps to
+  `powerAssignment: [[humanSide]]` + `botPowers: [otherSide]`; the offline bot loop auto-kicks.
+
+Tests: `ai/bot-fullgame.test.js` adds an all-bot 2P run-to-completion (3 seeds: ended, 0 chain-broken,
+winner ∈ {Papacy, Protestant}). Full suite 3576 green, build clean; live-verified in-browser (correct
+vs-AI seating + the Papacy bot autonomously playing a diplomacy card).
+
+**MVP boundary / deferred:** the bot reuses the 3–6p tactics, so the fallback chain still corrects a
+small, bounded number of illegal proposals per game (driving `stuck` to 0 is the deferred strong-AI
+tuning). Also deferred: variant-specific strategy (diplomacy-deck evaluation, remove-at-war timing,
+§11 invader command, sue-for-peace), and a host side-pick beyond the seat-order/selector default.
 
 ## 3. Reused existing assets
 - `frontend/src/games/his/state/diplomacy-deck.js` — the full deck subsystem (init/shuffle/

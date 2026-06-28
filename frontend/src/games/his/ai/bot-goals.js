@@ -31,7 +31,7 @@ import {
   countKeysForPower, getActiveRuler,
   isValidReformationTarget, isValidCounterReformTarget,
   calcReformationDice, calcCounterReformationDice,
-  getAvailableDebaters, getFormationCap
+  getAvailableDebaters, getFormationCap, isReligiousZoneMoveBlocked
 } from '../state/state-helpers.js';
 import { areAtWar, canAttack, getAlliesOf } from '../state/war-helpers.js';
 import { hasLineOfCommunicationForControl } from '../actions/military-actions.js';
@@ -478,6 +478,9 @@ export function executeAdvance(state, power, cp) {
           (!destSp.controller || !canAttack(state, power, destSp.controller))) continue;
       // Skip spaces with units of a power we're not at war with
       if (hasEnemyUnitsNotAtWar(state, dest, power)) continue;
+      // Two-player §13: religious powers may move only within the German/Italian
+      // zones (no-op in the standard game).
+      if (isReligiousZoneMoveBlocked(state, power, dest)) continue;
       // Anti-oscillation: don't immediately reverse the last MOVE_FORMATION
       if (isReverseOfLastMove(state, power, cand.space, dest)) continue;
       // Check actual movement cost (pass = 2 CP)
@@ -1197,6 +1200,11 @@ export function dispatchGoalAction(state, power) {
     // Try executing the goal
     const result = executor(state, power, cp);
     if (result) {
+      // Two-player §13: a religious power may not move/control outside the
+      // German/Italian zones. Skip such a goal action (try the next goal) rather
+      // than emit an illegal move the engine would reject. No-op in 3–6p.
+      const dest = result.action?.actionData?.to ?? result.action?.actionData?.space;
+      if (dest && isReligiousZoneMoveBlocked(state, power, dest)) continue;
       return {
         ...result.action,
         goalId: type,
@@ -1405,6 +1413,9 @@ function tryAdvanceWithMinUnits(state, power, cp, targetType, minUnits, cost) {
           (!destSp.controller || !canAttack(state, power, destSp.controller))) continue;
       // Skip spaces with units of a power we're not at war with
       if (hasEnemyUnitsNotAtWar(state, dest, power)) continue;
+      // Two-player §13: religious powers may move only within the German/Italian
+      // zones (no-op in the standard game).
+      if (isReligiousZoneMoveBlocked(state, power, dest)) continue;
       // Anti-oscillation: don't immediately reverse the last MOVE_FORMATION
       if (isReverseOfLastMove(state, power, cand.space, dest)) continue;
       // Check pass cost

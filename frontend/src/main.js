@@ -722,17 +722,25 @@ class App {
     const nickname = this.config.game.defaultNickname || '玩家1';
     const gameConfig = this._getGameConfig(gameType);
 
-    // HIS two-player variant: a single local hotseat seat controls both the
-    // Papacy and the Protestant (the other four powers are non-player, driven
-    // by the Diplomatic Deck). No bots; the engine cycles the two religious
-    // powers and the player acts for whichever side is active.
+    // HIS two-player variant. Two modes (the four other powers are non-player,
+    // driven by the Diplomatic Deck):
+    //   • hotseat (no selectedPower) — one local seat controls both sides.
+    //   • vs-AI (selectedPower = papacy|protestant) — the human plays that side,
+    //     a bot plays the other. The offline bot loop auto-kicks in _startGameNow.
     if (gameConfig.powers && settings.variant === 'two_player') {
       const players = [{ id: this.playerId, nickname, isHost: true }];
-      const options = {
-        ...settings,
-        powerAssignment: [['papacy', 'protestant']]
-      };
+      const humanSide = settings.selectedPower === 'papacy' || settings.selectedPower === 'protestant'
+        ? settings.selectedPower
+        : null;
+      const options = { ...settings };
       delete options.selectedPower;
+      if (humanSide) {
+        const botSide = humanSide === 'papacy' ? 'protestant' : 'papacy';
+        options.powerAssignment = [[humanSide]];
+        options.botPowers = [botSide];
+      } else {
+        options.powerAssignment = [['papacy', 'protestant']];
+      }
       this._startGame(gameType, players, 'offline', options);
       return;
     }

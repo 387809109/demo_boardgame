@@ -41,12 +41,27 @@ function makeAllBotGame(seed) {
   return game;
 }
 
+/** Two-player variant, both sides bot-driven (Papacy + Protestant). */
+function makeTwoPlayerBotGame(seed) {
+  const game = new HISGame('offline');
+  game.start({
+    players: [{ id: 'observer', nickname: 'Obs', isHost: true }],
+    gameType: 'his',
+    options: {
+      variant: 'two_player', powerAssignment: [[]],
+      botPowers: ['papacy', 'protestant'],
+      rngSeed: seed, dominationVictoryEnabled: false
+    }
+  });
+  return game;
+}
+
 /**
  * Run one seeded all-bot game to completion. Returns
  * { ended, iters, status, turn, chainBroken, stuck }. Suppresses the bots'
  * verbose decision logging while still capturing [BOT STUCK]/[BOT CHAIN BROKEN].
  */
-function playSeededGame(seed, cap = 50000) {
+function playSeededGame(seed, cap = 50000, factory = makeAllBotGame) {
   const orig = { log: console.log, warn: console.warn, error: console.error, random: Math.random };
   let chainBroken = 0;
   let stuck = 0;
@@ -63,7 +78,7 @@ function playSeededGame(seed, cap = 50000) {
 
   let game, iters = 0;
   try {
-    game = makeAllBotGame(seed);
+    game = factory(seed);
     const kick = () => scheduleBotAction(game, (move) => {
       const r = game.executeMove(move);
       if (r.success) kick();
@@ -119,5 +134,39 @@ describe('HIS full-bot game runs to completion (P2.4)', () => {
       expect(ALL_POWERS).toContain(result.winnerPower);
       expect(result.rankings).toHaveLength(ALL_POWERS.length);
     }, 30000); // a full game is ~1300 bot actions; generous under parallel load
+  }
+});
+
+describe('HIS two-player variant — full-bot run to completion (Phase 4b)', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  // Both sides (Papacy + Protestant) are bot-driven through the full 2P flow:
+  // Diplomatic Deck + Remove-At-War, action/religious, England automation, winter.
+  for (const seed of [12345, 2026, 777]) {
+    it(`seed ${seed}: clean 2P full-game run (ended, no stuck/broken)`, () => {
+      const r = playSeededGame(seed, 50000, makeTwoPlayerBotGame);
+      if (!r.ended || r.chainBroken || r.stuck > 8) {
+        console.error(`[2p fullgame seed=${seed}] status=${r.status} turn=${r.turn} ` +
+          `iters=${r.iters} chainBroken=${r.chainBroken} stuck=${r.stuck}`);
+      }
+      // MVP guarantee: the bot plays a complete, legal 2P game — it reaches a
+      // terminal status with no broken chain. (Every executed move is valid; the
+      // MVP bot reuses the 3–6p tactics, so the fallback chain corrects the
+      // occasional illegal proposal — a small, bounded `stuck` count. Driving it
+      // to zero is the deferred strong-AI tuning.)
+      expect(r.ended).toBe(true);
+      expect(r.chainBroken).toBe(0);
+      expect(r.stuck).toBeLessThanOrEqual(8);
+      // The variant ran several turns (the Diplomatic Deck phase begins T1).
+      expect(r.turn).toBeGreaterThanOrEqual(3);
+
+      const state = r.game.getState();
+      expect(state.variant).toBe('two_player');
+      // A winner is produced; in the 2P variant it is one of the two players.
+      const result = r.game.checkGameEnd(state);
+      expect(result.ended).toBe(true);
+      expect(['papacy', 'protestant']).toContain(result.winnerPower);
+    }, 30000);
   }
 });

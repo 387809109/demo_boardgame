@@ -15,7 +15,7 @@ import { ACTION_TYPES } from '../actions/action-types.js';
 import { CAPITALS, RULERS, MARITAL_STATUS } from '../constants.js';
 import { getActiveBehaviorCard } from './behavior-cards.js';
 import { areAtWar, canAttack, getWarsOf } from '../state/war-helpers.js';
-import { getActiveRuler, countLandUnits, getUnitsInSpace, getAllVpTotals, isHomeSpace } from '../state/state-helpers.js';
+import { getActiveRuler, countLandUnits, getUnitsInSpace, getAllVpTotals, isHomeSpace, isTwoPlayer } from '../state/state-helpers.js';
 import { hasLineOfCommunicationForControl } from '../actions/military-actions.js';
 import {
   shouldPlayEvent, satisfiesTreaty, shouldPlayResponse,
@@ -376,6 +376,11 @@ function calculateChateauModifier(state) {
  */
 function evaluatePapacyHome(state) {
   const turn = state.turn || 1;
+
+  // Two-player variant: Papal Bull may only excommunicate a ruler during the
+  // Diplomacy Phase (§9, the PAPAL_BULL action) — its standard event is disabled.
+  // Returning null routes the home card as CP instead.
+  if (isTwoPlayer(state)) return null;
 
   // Turn 2+: check for ruler excommunication grounds
   if (turn >= 2) {

@@ -1426,3 +1426,17 @@ Authoritative rules + phased roadmap: **`TWO_PLAYER_PLAN.md`** (extracted from
   `two_player` variant, and the host-start derives `variant='two_player'` from `maxPlayers === 2`.
   Tests: `src/games/his/two-player-online.test.js`. **Deferred:** Phase 4b (offline vs-AI 2P automa);
   a host side-pick UI (MVP = seat order).
+
+**Phase 4b (implemented — offline vs-AI, MVP):**
+
+- One human plays the computer as Papacy or Protestant. Offline is a single local instance: one human
+  seat + the other side as a **bot power** (`botPowers`), driven by the HISBOT loop (not a second
+  player — that is the online mode). New `ai/bot-diplomacy-2p.js` (`decideDiplomacy2P`) + a 2P branch
+  in `bot-controller.js` (`getNextActingBotPower` → `getDiplomacy2PActor`; `decideBotAction` plays a
+  diplomatic card / runs Remove-At-War). §6.2: non-player powers are no longer dealt cards
+  (`phase-card-draw.js`); §13: `dispatchGoalAction` skips out-of-zone bot moves (`bot-goals.js`); #5
+  Papal Bull is routed as CP (`bot-card-play.js`). Offline seating: a "两人局对手" selector
+  (`game-settings-modal.js`) → `_startOfflineGame` builds `[[humanSide]]` + `botPowers:[otherSide]`.
+  Tests: `ai/bot-fullgame.test.js` (all-bot 2P run-to-completion, 3 seeds). **MVP boundary:** the bot
+  reuses 3–6p tactics, so the fallback chain corrects a small bounded number of illegal proposals;
+  variant-specific strategy (and `stuck`→0 tuning) is deferred.

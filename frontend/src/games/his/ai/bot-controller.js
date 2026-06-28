@@ -13,9 +13,11 @@ import { PHASES } from '../phases/phase-manager.js';
 import { ACTION_TYPES } from '../actions/action-types.js';
 import {
   getPowerForPlayer, getPowersForPlayer,
-  isValidReformationTarget, isValidCounterReformTarget
+  isValidReformationTarget, isValidCounterReformTarget, isTwoPlayer
 } from '../state/state-helpers.js';
 import { canActInSegment } from '../phases/phase-diplomacy.js';
+import { getDiplomacy2PActor } from '../phases/phase-diplomacy-2p.js';
+import { decideDiplomacy2P } from './bot-diplomacy-2p.js';
 import {
   BEHAVIOR_CARDS, CARD_BY_ID, BOT_EXTRA_UNITS,
   initBotDeck, revealBehaviorCard, getActiveBehaviorCard
@@ -158,7 +160,9 @@ export function decideBotAction(state, power) {
       return null; // Card draw is automatic
 
     case PHASES.DIPLOMACY:
-      return decideDiplomacy(state, power);
+      return isTwoPlayer(state)
+        ? decideDiplomacy2P(state, power)
+        : decideDiplomacy(state, power);
 
     case PHASES.DIET_OF_WORMS:
       return decideDietOfWorms(state, power);
@@ -798,6 +802,13 @@ function getNextActingBotPower(state) {
   if (state.activePower && isBotPower(state, state.activePower) &&
       (state.phase === PHASES.ACTION || state.phase === PHASES.SPRING_DEPLOYMENT)) {
     return state.activePower;
+  }
+
+  // Two-player Diplomacy phase (§9): the actor is the Remove-At-War Papacy or
+  // the head of the play queue (getDiplomacy2PActor), not a standard segment.
+  if (state.phase === PHASES.DIPLOMACY && isTwoPlayer(state)) {
+    const actor = getDiplomacy2PActor(state);
+    return actor && isBotPower(state, actor) ? actor : null;
   }
 
   // Simultaneous phases (diplomacy, diet)
