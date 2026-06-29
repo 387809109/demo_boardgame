@@ -1176,7 +1176,7 @@ export function dispatchGoalAction(state, power) {
   // treatises. Capped per impulse so its other goals still run.
   const RELIG_GOAL = '__relig2p__';
   if (isTwoPlayer(state) && power === 'protestant' &&
-      (counts[RELIG_GOAL] || 0) < 2 && (state.protestantSpaces || 0) < 32) {
+      (counts[RELIG_GOAL] || 0) < 2 && (state.protestantSpaces || 0) < 34) {
     const pub = executePublish(state, power, cp);
     if (pub) return { ...pub.action, goalId: RELIG_GOAL, cpCost: pub.cpCost };
   }

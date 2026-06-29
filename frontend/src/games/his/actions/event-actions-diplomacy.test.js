@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { EVENT_HANDLERS, executeEvent } from './event-actions.js';
 import { createTestState, createMockHelpers } from '../test-helpers.js';
+import { CARD_BY_NUMBER } from '../data/cards.js';
 
 function eventState(overrides = {}) {
   return createTestState({
@@ -71,6 +72,18 @@ describe('Diplomacy Event Handlers (#201-219)', () => {
         e => e.type === 'event_diplo_corsair_raid');
       expect(log.data.hits).toBe(2);
     });
+
+    it('two-player: the diplomacy opponent discards a card per hit', () => {
+      const state = eventState();
+      state.hands.protestant = [33, 34, 35];
+      state.discard = [];
+      const helpers = createMockHelpers();
+      // Papacy plays it → Protestant is the enemy; 2 hits → 2 discards.
+      executeEvent(state, 'papacy', 203,
+        { die0: 5, die1: 6, die2: 1, die3: 1 }, helpers);
+      expect(state.hands.protestant).toHaveLength(1);
+      expect(state.discard).toHaveLength(2);
+    });
   });
 
   // ── #206 French Invasion ────────────────────────────────────────
@@ -101,13 +114,17 @@ describe('Diplomacy Event Handlers (#201-219)', () => {
       expect(stack.regulars).toBeGreaterThanOrEqual(3);
     });
 
-    it('granted: sets up debate and card draw', () => {
+    it('granted: draws a card and resolves a debate synchronously (no pending state)', () => {
       const state = eventState();
       const helpers = createMockHelpers();
       executeEvent(state, 'papacy', 207,
         { choice: 'granted' }, helpers);
       expect(state.pendingCardDraw.papacy).toBe(1);
-      expect(state.pendingDebateCall.caller).toBe('papacy');
+      // The theological debate is resolved in-handler — nothing is left pending
+      // (so it can never strand the diplomacy phase), and the dead marker is gone.
+      expect(state.pendingDebate).toBeFalsy();
+      expect(state.pendingReformation).toBeFalsy();
+      expect(state.pendingDebateCall).toBeUndefined();
     });
   });
 
@@ -398,12 +415,16 @@ describe('Diplomacy Event Handlers (#201-219)', () => {
 
   // ── #208 Knights of St. John ───────────────────────────────────
   describe('#208 Knights of St. John', () => {
-    it('sets card draw and St. Peters flag', () => {
+    it('draws a card and spends its CP on St. Peters', () => {
       const state = eventState();
+      state.deck = [33]; // a known Main-Deck card
+      state.stPetersProgress = 0;
+      state.stPetersVp = 0;
       const helpers = createMockHelpers();
       executeEvent(state, 'papacy', 208, {}, helpers);
-      expect(state.pendingCardDraw.papacy).toBe(1);
-      expect(state.pendingStPetersContribution).toBe(true);
+      // The card is drawn to hand and its CP funds St. Peter's construction.
+      expect(state.hands.papacy).toContain(33);
+      expect(state.stPetersProgress).toBe(CARD_BY_NUMBER[33].cp);
     });
   });
 

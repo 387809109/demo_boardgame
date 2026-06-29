@@ -15,6 +15,7 @@ import {
   applyDiplomacy2PPlay, normalizeDiplomacyActionData, applyPapalBull
 } from './phases/phase-diplomacy-2p.js';
 import { getVisibleState } from './state/state-visible.js';
+import { CARD_BY_NUMBER } from './data/cards.js';
 
 const PLAYERS = [{ id: 'p1', nickname: 'Host', isHost: true }];
 const OPTS = {
@@ -125,11 +126,27 @@ describe('Non-invasion card dispatch in the 2P play-loop', () => {
     expect(st.spaces.Genoa.religion).toBe('protestant');
   });
 
-  it('clears informational pending markers after dispatch', () => {
+  it('#208 Knights of St. John funds St. Peter\'s with the drawn card CP', () => {
     const st = make2pState();
-    queuePlay(st, 'papacy', [208]); // Knights of St. John sets pendingStPetersContribution
+    st.deck = [33];
+    st.stPetersProgress = 0;
+    st.stPetersVp = 0;
+    queuePlay(st, 'papacy', [208]);
     applyDiplomacy2PPlay(st, 'papacy', { cardNumber: 208 }, helpers);
-    expect(st.pendingStPetersContribution).toBeUndefined();
+    expect(st.hands.papacy).toContain(33);
+    expect(st.stPetersProgress).toBe(CARD_BY_NUMBER[33].cp);
+    expect(st.pendingStPetersContribution).toBeUndefined(); // dead marker gone
+  });
+
+  it('#207 granted resolves its debate within dispatch — no pending state leaks', () => {
+    const st = make2pState();
+    queuePlay(st, 'papacy', [207]);
+    const r = applyDiplomacy2PPlay(st, 'papacy', { cardNumber: 207, choice: 'granted' }, helpers);
+    expect(r.ok).toBe(true);
+    // A leaked pendingDebate/pendingReformation would strand the 2P phase.
+    expect(st.pendingDebate).toBeFalsy();
+    expect(st.pendingReformation).toBeFalsy();
+    expect(st.pendingDebateCall).toBeUndefined();
   });
 });
 

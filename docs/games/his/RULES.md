@@ -1384,10 +1384,12 @@ Authoritative rules + phased roadmap: **`TWO_PLAYER_PLAN.md`** (extracted from
   regain-space** benefit via the `PAPAL_BULL_REGAIN` flow; **§11 Landsknechts/Swiss (#33/#36)
   exclusion** when responding on behalf of an invader (`index.js` response gate); `getVisibleState`
   **opponent diplomacy-hand masking** (online 2p). Tests: `src/games/his/two-player-cards.test.js`.
-- **Residual (documented):** #207-granted live debate, #208 St. Peter's CP, and #203 Corsair
-  enemy-discard remain at handler-default fidelity (informational markers); sue-for-peace reclaim
-  and #217's optional Spanish-zone flip are supported via direct `actionData` but not surfaced as
-  extra UI steps.
+- **Fidelity residual — now closed:** #208 Knights of St. John draws a card and spends its CP on
+  St. Peter's; #203 Corsair Raid makes the diplomacy opponent discard a card per hit (squadron once
+  out of cards); #207-granted runs a real theological debate, resolved **synchronously**
+  (`debate-actions.js runDebateToCompletion` — initiate → resolve → auto-flip, leaving no pending
+  state so the diplomacy phase can't strand). Still deferred: #219 force-discard/hand-reveal,
+  sue-for-peace reclaim, #217's optional Spanish-zone flip (supported via `actionData`, no UI step).
 
 **Phase 3 (implemented — England automation §21.3, succession + Mary I):**
 

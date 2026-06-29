@@ -2,12 +2,15 @@
  * Here I Stand — Diplomacy Deck Event Card Handlers (#201-219)
  */
 import { areAllied } from '../state/war-helpers.js';
-import { rollDie } from '../state/rng.js';
+import { rollDie, randInt } from '../state/rng.js';
 import {
   DIPLOMACY_SIDES, ensureDiplomacyDeck, diplomacyOpponent, isInvasionCard,
   trailingDiplomacySide, discardDiplomacyCard, drawDiplomacyCard,
   swapDiplomacyCards, removeFromDiplomacyPiles, shuffleDiplomacyDeck
 } from '../state/diplomacy-deck.js';
+import { CARD_BY_NUMBER } from '../data/cards.js';
+import { ST_PETERS } from '../constants.js';
+import { runDebateToCompletion } from './debate-actions.js';
 
 export const DIPLOMACY_EVENT_HANDLERS = {};
 
@@ -101,11 +104,56 @@ DIPLOMACY_EVENT_HANDLERS[203] = {
       );
     }
     const hits = rolls.filter(r => r >= 5).length;
+
+    // Each hit forces the enemy to discard a random Main-Deck card; once the
+    // enemy is out of cards, each further hit removes one of its squadrons.
+    // Two-player only — the enemy is the diplomacy opponent.
+    const enemy = DIPLOMACY_SIDES.includes(power) ? diplomacyOpponent(power) : null;
+    let discarded = 0;
+    let squadronsRemoved = 0;
+    if (enemy) {
+      const hand = state.hands?.[enemy] || [];
+      state.discard = state.discard || [];
+      for (let h = 0; h < hits; h++) {
+        if (hand.length > 0) {
+          state.discard.push(hand.splice(randInt(hand.length), 1)[0]);
+          discarded++;
+        } else if (removeOneSquadron(state, enemy)) {
+          squadronsRemoved++;
+        }
+      }
+    }
     helpers.logEvent(
-      state, 'event_diplo_corsair_raid', { power, rolls, hits }
+      state, 'event_diplo_corsair_raid',
+      { power, rolls, hits, discarded, squadronsRemoved }
     );
   }
 };
+
+/** Remove one squadron belonging to `owner` from any space. @returns {boolean} */
+function removeOneSquadron(state, owner) {
+  for (const sp of Object.values(state.spaces || {})) {
+    const stack = (sp.units || []).find((u) => u.owner === owner && u.squadrons > 0);
+    if (stack) { stack.squadrons--; return true; }
+  }
+  return false;
+}
+
+/** Language zone with the most Protestant spaces (for #207's debate), or null. */
+function mostProtestantZone(state) {
+  const counts = {};
+  for (const sp of Object.values(state.spaces || {})) {
+    if (sp.religion === 'protestant' && sp.languageZone) {
+      counts[sp.languageZone] = (counts[sp.languageZone] || 0) + 1;
+    }
+  }
+  let best = null;
+  let bestN = 0;
+  for (const [zone, n] of Object.entries(counts)) {
+    if (n > bestN) { best = zone; bestN = n; }
+  }
+  return best;
+}
 
 /**
  * #204 Diplomatic Marriage (Diplomacy)
@@ -234,7 +282,10 @@ DIPLOMACY_EVENT_HANDLERS[207] = {
       state.pendingCardDraw = state.pendingCardDraw || {};
       state.pendingCardDraw.papacy =
         (state.pendingCardDraw.papacy || 0) + 1;
-      state.pendingDebateCall = { caller: 'papacy', zones: 'all' };
+      // The Papacy calls a theological debate in the most-Protestant zone,
+      // resolved synchronously (the diplomacy phase can't host an interactive
+      // debate). No-op if no debate can be held.
+      runDebateToCompletion(state, 'papacy', mostProtestantZone(state), helpers);
     } else {
       // Add 3 Hapsburg regulars
       const placements = actionData.placements || [];
@@ -264,12 +315,22 @@ DIPLOMACY_EVENT_HANDLERS[207] = {
  */
 DIPLOMACY_EVENT_HANDLERS[208] = {
   execute(state, power, actionData, helpers) {
-    state.pendingCardDraw = state.pendingCardDraw || {};
-    state.pendingCardDraw[power] =
-      (state.pendingCardDraw[power] || 0) + 1;
-    // CP of drawn card goes to St. Peter's (resolved when card is drawn)
-    state.pendingStPetersContribution = true;
-    helpers.logEvent(state, 'event_diplo_knights', { power });
+    // Draw a Main-Deck card; its CP value is immediately spent on St. Peter's
+    // construction (the Papacy's track, regardless of who plays the card).
+    const drawn = (state.deck && state.deck.length > 0) ? state.deck.shift() : null;
+    let stPetersCp = 0;
+    if (drawn != null) {
+      state.hands[power] = state.hands[power] || [];
+      state.hands[power].push(drawn);
+      stPetersCp = CARD_BY_NUMBER[drawn]?.cp || 0;
+      state.stPetersProgress = (state.stPetersProgress || 0) + stPetersCp;
+      const newVp = Math.min(
+        Math.floor(state.stPetersProgress / ST_PETERS.cpPerVp),
+        ST_PETERS.maxVp
+      );
+      if (newVp > (state.stPetersVp || 0)) state.stPetersVp = newVp;
+    }
+    helpers.logEvent(state, 'event_diplo_knights', { power, drawn, stPetersCp });
   }
 };
 

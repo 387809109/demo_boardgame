@@ -156,14 +156,17 @@ forced-play guard), `ui/action-panel.js` (`_renderDiploCardInput` + choice/card-
 `state/state-visible.js`. Tests: `src/games/his/two-player-cards.test.js` (16) + e2e panel
 click-through; full suite 3547 green, build clean.
 
-**Residual (documented, low-frequency):** a few cross-subsystem fidelity gaps remain at the
-handlers' default behavior rather than full sub-flows — #207 *granted* draws a card but does not
-trigger a live theological debate, #208 draws a card but does not spend its CP on St. Peter's, and
-#203 Corsair Raid logs its hits without an enemy-discard sub-step (these set informational
-`pending*` markers that the 2P loop clears). Sue-for-peace **space-reclaim** and #217's optional
-**Spanish-zone** second flip are supported via direct `actionData` (online / AI / tests) but not yet
-surfaced as extra UI steps. Bridging these would require wiring the diplomacy phase into the
-debate / St. Peter's subsystems — deferred.
+**Fidelity residual — closed (2026-06-29):** the three cross-subsystem effects now run for real:
+**#208** draws a card and spends its CP on St. Peter's (`stPetersProgress`/`stPetersVp`); **#203**
+makes the diplomacy opponent discard a card per hit (a squadron once out of cards); **#207 granted**
+runs a real theological debate via `debate-actions.js runDebateToCompletion` — a **synchronous**
+initiate → resolve → auto-flip that leaves no pending state (the 2P diplomacy phase can't host an
+interactive debate). Tests in `event-actions-diplomacy.test.js` + `two-player-cards.test.js`. The new
+Papacy counter-reform / St. Peter's strength nudged the bot matchup, so the v2 publish threshold was
+re-centered 32 → 34 (back to ~even: 20-seed 11–9, VP ≈ 11.1 vs 11.0). Still deferred: #219
+force-discard / hand-reveal; sue-for-peace **space-reclaim** and #217's optional **Spanish-zone**
+flip (supported via `actionData`, no UI step); the Mary-I 3+CP debate (now unblockable via
+`runDebateToCompletion`).
 
 ### Phase 3 — England automation (§21.3): succession + Mary-I ✅ *(shipped)*
 England is a non-player power, so its Reformation trajectory unfolds automatically. New module
@@ -277,7 +280,8 @@ sweeps — a robustness + balance regression guard). The baseline exposed a **19
 Protestant's only VP track is the Protestant-Spaces track, while the Papacy also banks key + St. Peter's
 VP, and the Protestant under-reformed (~25 of 50 spaces). Fix: a 2P-gated, Protestant-only **publish
 priority** in `dispatchGoalAction` — publish treatises (the Protestant's reformation = VP) ahead of the
-generic goals, capped 2/impulse and **only while `protestantSpaces < 32`** (the threshold tuned against
+generic goals, capped 2/impulse and **only while `protestantSpaces < 34`** (32 originally; raised to 34
+when the 2b-cards fidelity work added Papacy counter-reform/St.-Peter's strength — the threshold tuned against
 the harness so it neither under- nor over-reforms). Result: **~even** (12-seed 6–6 / 20-seed 10–10, avg
 VP ≈ 10.4 vs 10.7). All `isTwoPlayer` + Protestant gated; the 3–6p bot is untouched.
 

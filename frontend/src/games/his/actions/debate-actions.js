@@ -356,6 +356,51 @@ export function resolveDebateFlip(state, power, actionData, helpers) {
   return { flipped: targetSpace, religion: newReligion };
 }
 
+// ── Synchronous resolution (for card handlers) ──────────────────
+
+/**
+ * Run a theological debate to completion synchronously, leaving NO pending
+ * state. Initiates the debate, resolves the dice rounds, then drains any
+ * resulting debate-win auto-flip by flipping valid in-zone targets. Safe to call
+ * from a card handler mid-phase (e.g. #207 Henry granted, where the diplomacy
+ * phase cannot resolve an interactive `pendingDebate`). No-op returning false if
+ * the debate cannot be initiated (a side has no available debater in the zone).
+ * @param {Object} state
+ * @param {string} power - the initiating power
+ * @param {string} zone - language zone to debate in
+ * @param {Object} helpers
+ * @returns {boolean} whether a debate ran
+ */
+export function runDebateToCompletion(state, power, zone, helpers) {
+  if (!zone || !initiateDebate(state, power, zone, helpers)) return false;
+
+  // roll → resolve, across up to 2 rounds (guarded against any loop).
+  let guard = 0;
+  while (state.pendingDebate && guard++ < 6) {
+    resolveDebateStep(state, power, {}, helpers);
+  }
+  state.pendingDebate = null; // safety
+
+  // Drain a debate-win counter-/reformation auto-flip by picking valid targets.
+  guard = 0;
+  while (state.pendingReformation?.source === 'debate' &&
+         state.pendingReformation.attemptsLeft > 0 && guard++ < 20) {
+    const pend = state.pendingReformation;
+    let target = null;
+    for (const [name, sp] of Object.entries(state.spaces)) {
+      if (pend.zone && sp.languageZone !== pend.zone) continue;
+      const ok = pend.type === 'reformation'
+        ? isValidReformationTarget(state, name)
+        : isValidCounterReformTarget(state, name);
+      if (ok) { target = name; break; }
+    }
+    if (!target) break;
+    resolveDebateFlip(state, power, { targetSpace: target }, helpers);
+  }
+  if (state.pendingReformation?.source === 'debate') state.pendingReformation = null;
+  return true;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────
 
 /**

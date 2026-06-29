@@ -545,6 +545,13 @@ build 绿；实机浏览器验证（vs-AI 座位正确 + 教廷 bot 自动打出
 均 VP ~10.4/10.7；胜负计数噪声大[T9 回合上限按微弱 VP 差判]，故按 VP 均衡而非噪声胜负计数调参）。isTwoPlayer+新教 门控 →
 3-6p bot 不受影响。全套 3584 绿、build 绿。（另：早先做过 12-seed 6 人全 bot sweep——干净、1 次可恢复 stuck，3-6p HISBOT 已成熟。）
 
+**✅ 2b-cards 保真残留补全（2026-06-29）**：三张跨子系统外交卡效果从"信息性 marker"补成真实效果——**#208** 抽 1 张主牌库牌
+并把其 CP 计入圣彼得（`stPetersProgress`/`stPetersVp`）；**#203** 每命中令外交对手弃 1 张主牌库牌（牌尽则移 1 舰队）；
+**#207 批准** 真正召开神学辩论，经 `debate-actions.js runDebateToCompletion` **同步**结算（initiate→resolve→自动翻转，不留
+pending，免外交段被卡）。测试更新 `event-actions-diplomacy.test.js` + `two-player-cards.test.js`。新增的教廷反改革/圣彼得强度
+令对局略偏教廷，故 v2 出版阈值 32→**34** 复衡（20seed 11-9、VP≈11.1/11.0）。全套 3586 绿、build 绿。延后：#219 强制弃牌/亮牌、
+求和夺回空间、#217 西班牙区第二翻转 UI；玛丽一世 3+CP 辩论（现可经 `runDebateToCompletion` 解锁）。
+
 **两人局变体功能完成**（规则 + 联机 + 单机 vs-AI 全部就绪；AI 自对弈已平衡）。
 
 ---
