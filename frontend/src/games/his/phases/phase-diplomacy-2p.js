@@ -23,6 +23,7 @@ import { CARD_BY_NUMBER } from '../data/cards.js';
 import { DIPLOMACY_EVENT_HANDLERS } from '../actions/event-actions-diplomacy.js';
 import { areAtWar, removeWar, getWarsOf } from '../state/war-helpers.js';
 import { isRulerExcommunicated } from '../actions/excommunication-actions.js';
+import { isHomeSpace } from '../state/state-helpers.js';
 
 /** Non-player majors the Papacy may end an invasion war with (§9). */
 const SUE_FOR_PEACE_POWERS = ['ottoman', 'hapsburg', 'england', 'france'];
@@ -88,7 +89,12 @@ export function applyPapalBull(state, actionData, helpers) {
  * @param {Object} helpers
  */
 export function applySueForPeace2P(state, actionData, helpers) {
-  const { targetPower, reclaimSpaces = [] } = actionData || {};
+  const { targetPower } = actionData || {};
+  // Only Papal home spaces the target actually controls may be reclaimed
+  // (each costs the Protestant 1 War-Winner VP, per §9).
+  const reclaimSpaces = (actionData?.reclaimSpaces || []).filter(
+    (s) => state.spaces[s]?.controller === targetPower && isHomeSpace(s, 'papacy')
+  );
   // Accept either an explicit removeUnits array or unit1/unit2 space keys from
   // the selection flow.
   const removeUnits = actionData?.removeUnits?.length

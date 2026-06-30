@@ -1392,9 +1392,11 @@ Authoritative rules + phased roadmap: **`TWO_PLAYER_PLAN.md`** (extracted from
   Italian (always) + Spanish (roll 4-6) Catholic space to flip. #219 Spanish Inquisition: the Papacy
   discards the Protestant's strongest diplomatic card (Invasion-first), the Protestant draws a
   replacement and is forced to play the other (`diplomacyForcedPlay`); Protestant-path logs a
-  (mechanically-nil) Main-hand reveal. Still deferred (low value): sue-for-peace **reclaim** UI
-  (engine honors `reclaimSpaces` via `actionData`); #219's full online hand-reveal unmask; the Mary-I
-  3+CP debate (now unblockable via `runDebateToCompletion`).
+  (mechanically-nil) Main-hand reveal. **Sue-for-peace reclaim UI** done — a toggle sub-panel
+  (`action-panel.js _renderSueForPeaceReclaim`) lets the Papacy reclaim Papal home spaces the sued
+  power controls (each +1 VP to the Protestant) before the unit-removal flow; `applySueForPeace2P`
+  filters `reclaimSpaces` to valid targets. Still deferred (negligible): #219's full online hand-reveal
+  unmask; the Mary-I 3+CP debate (now unblockable via `runDebateToCompletion`).
 
 **Phase 3 (implemented — England automation §21.3, succession + Mary I):**
 

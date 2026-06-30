@@ -16,6 +16,7 @@ import {
 } from './phases/phase-diplomacy-2p.js';
 import { areAtWar } from './state/war-helpers.js';
 import { isRulerExcommunicated } from './actions/excommunication-actions.js';
+import { isHomeSpace } from './state/state-helpers.js';
 
 const PLAYERS = [{ id: 'p1', nickname: 'Host', isHost: true }];
 const OPTS = {
@@ -83,6 +84,25 @@ describe('Sue-for-peace effect', () => {
     expect(areAtWar(st, 'papacy', 'hapsburg')).toBe(false);
     expect(st.bonusVp.protestant).toBe(1);
     expect(total(before('Rome'))).toBe(beforeTotal - 2);
+  });
+
+  it('reclaims only valid Papal home spaces the target controls (+1 VP each)', () => {
+    const st = make2pState();
+    st.wars.push({ a: 'papacy', b: 'hapsburg' });
+    const papalHome = Object.keys(st.spaces).find(
+      (n) => isHomeSpace(n, 'papacy') && n !== 'Rome'
+    );
+    st.spaces[papalHome].controller = 'hapsburg';     // valid reclaim target
+    st.spaces.Paris = st.spaces.Paris || { controller: 'hapsburg', units: [], languageZone: 'french' };
+    st.spaces.Paris.controller = 'hapsburg';          // NOT a Papal home → filtered
+
+    applySueForPeace2P(st, {
+      targetPower: 'hapsburg', reclaimSpaces: [papalHome, 'Paris'], removeUnits: []
+    }, helpers);
+
+    expect(st.spaces[papalHome].controller).toBe('papacy'); // reclaimed
+    expect(st.spaces.Paris.controller).toBe('hapsburg');    // not reclaimed (not Papal home)
+    expect(st.bonusVp.protestant).toBe(2);                  // 1 base + 1 valid reclaim
   });
 });
 

@@ -166,9 +166,12 @@ Papacy counter-reform / St. Peter's strength nudged the bot matchup, so the v2 p
 re-centered 32 → 34 (back to ~even: 20-seed 11–9, VP ≈ 11.1 vs 11.0). **#217** (auto-pick a valid
 Italian + Spanish Catholic space to flip on roll 4-6) and **#219** (Papacy discards the Protestant's
 strongest diplomatic card + forces the other play; Protestant logs a Main-hand reveal) are now also
-real — balance held (12-seed 6–6). Still deferred (low value): sue-for-peace **space-reclaim** UI
-(engine honors `reclaimSpaces` via `actionData`); #219's full online hand-reveal unmask; the Mary-I
-3+CP debate (unblockable via `runDebateToCompletion`).
+real — balance held (12-seed 6–6). **Sue-for-peace reclaim UI** is now also done: a toggle sub-panel
+in `_renderRemoveAtWarPanel` lets the Papacy pick which reclaimable Papal home spaces (those the sued
+power controls) to regain before the unit-removal flow, threading `reclaimSpaces` through `baseData`;
+`applySueForPeace2P` is hardened to only reclaim valid Papal-home-spaces the target controls. Still
+deferred (negligible value): #219's full online hand-reveal unmask; the Mary-I 3+CP debate
+(unblockable via `runDebateToCompletion`).
 
 ### Phase 3 — England automation (§21.3): succession + Mary-I ✅ *(shipped)*
 England is a non-player power, so its Reformation trajectory unfolds automatically. New module

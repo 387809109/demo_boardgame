@@ -16,7 +16,7 @@ import {
 import { POWER_COLORS, POWER_LABELS, ALL_LABELS } from './his-theme.js';
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import { isInvasionCard } from '../state/diplomacy-deck.js';
-import { controllableInvaders } from '../state/state-helpers.js';
+import { controllableInvaders, isHomeSpace } from '../state/state-helpers.js';
 import { papalBullTargets, sueForPeaceTargets } from '../phases/phase-diplomacy-2p.js';
 import { MINOR_POWERS } from '../constants.js';
 
@@ -316,9 +316,7 @@ export class ActionPanel {
       for (const t of sueTargets) {
         grid.appendChild(this._actionButton(
           `求和 → ${POWER_LABELS[t] || t}`, () => {
-            this._select('SUE_FOR_PEACE_2P', {
-              emitAs: 'SUE_FOR_PEACE_2P', baseData: { targetPower: t }
-            });
+            this._beginSueForPeace(state, t);
           }));
       }
       this._el.appendChild(grid);
@@ -330,6 +328,68 @@ export class ActionPanel {
       this._emit({ type: 'END_REMOVE_WAR' });
     }, 'primary'));
     this._el.appendChild(doneRow);
+  }
+
+  /** Papal home spaces the sued power controls (reclaimable when suing, §9). */
+  _reclaimableSpaces(state, targetPower) {
+    const result = [];
+    for (const [name, sp] of Object.entries(state.spaces || {})) {
+      if (sp.controller === targetPower && isHomeSpace(name, 'papacy')) result.push(name);
+    }
+    return result;
+  }
+
+  /**
+   * Begin sue-for-peace (§9): if the sued power holds reclaimable Papal home
+   * spaces, let the Papacy toggle which to reclaim (each costs the Protestant
+   * 1 VP) before the unit-removal flow; otherwise go straight to it.
+   * @private
+   */
+  _beginSueForPeace(state, targetPower) {
+    if (this._reclaimableSpaces(state, targetPower).length === 0) {
+      this._select('SUE_FOR_PEACE_2P', {
+        emitAs: 'SUE_FOR_PEACE_2P', baseData: { targetPower }
+      });
+      return;
+    }
+    this._sueReclaim = new Set();
+    this._renderSueForPeaceReclaim(state, targetPower);
+  }
+
+  /** Reclaim-space toggle sub-panel for sue-for-peace. @private */
+  _renderSueForPeaceReclaim(state, targetPower) {
+    this._el.innerHTML = '';
+    this._el.appendChild(this._sectionHeader(
+      `求和 → ${POWER_LABELS[targetPower] || targetPower}：收复本土空间`
+    ));
+    this._el.appendChild(this._infoText(
+      '选择收复的教廷本土空间（每个让新教 +1 VP），然后继续移除单位'
+    ));
+    const grid = this._actionGrid();
+    for (const name of this._reclaimableSpaces(state, targetPower)) {
+      const on = this._sueReclaim.has(name);
+      grid.appendChild(this._actionButton(`${on ? '✓ ' : ''}${name}`, () => {
+        if (on) this._sueReclaim.delete(name); else this._sueReclaim.add(name);
+        this._renderSueForPeaceReclaim(state, targetPower);
+      }, on ? 'primary' : 'default'));
+    }
+    this._el.appendChild(grid);
+
+    const row = document.createElement('div');
+    row.style.cssText = 'margin-top:8px;display:flex;gap:6px;';
+    row.appendChild(this._actionButton('继续 (移除单位)', () => {
+      const reclaimSpaces = [...this._sueReclaim];
+      this._sueReclaim = null;
+      this._select('SUE_FOR_PEACE_2P', {
+        emitAs: 'SUE_FOR_PEACE_2P', baseData: { targetPower, reclaimSpaces }
+      });
+    }, 'primary'));
+    row.appendChild(this._actionButton('← 返回', () => {
+      this._sueReclaim = null;
+      this._el.innerHTML = '';
+      this._renderRemoveAtWarPanel(state);
+    }, 'secondary'));
+    this._el.appendChild(row);
   }
 
   // ── Diplomacy Phase ─────────────────────────────────────────
