@@ -163,10 +163,12 @@ runs a real theological debate via `debate-actions.js runDebateToCompletion` —
 initiate → resolve → auto-flip that leaves no pending state (the 2P diplomacy phase can't host an
 interactive debate). Tests in `event-actions-diplomacy.test.js` + `two-player-cards.test.js`. The new
 Papacy counter-reform / St. Peter's strength nudged the bot matchup, so the v2 publish threshold was
-re-centered 32 → 34 (back to ~even: 20-seed 11–9, VP ≈ 11.1 vs 11.0). Still deferred: #219
-force-discard / hand-reveal; sue-for-peace **space-reclaim** and #217's optional **Spanish-zone**
-flip (supported via `actionData`, no UI step); the Mary-I 3+CP debate (now unblockable via
-`runDebateToCompletion`).
+re-centered 32 → 34 (back to ~even: 20-seed 11–9, VP ≈ 11.1 vs 11.0). **#217** (auto-pick a valid
+Italian + Spanish Catholic space to flip on roll 4-6) and **#219** (Papacy discards the Protestant's
+strongest diplomatic card + forces the other play; Protestant logs a Main-hand reveal) are now also
+real — balance held (12-seed 6–6). Still deferred (low value): sue-for-peace **space-reclaim** UI
+(engine honors `reclaimSpaces` via `actionData`); #219's full online hand-reveal unmask; the Mary-I
+3+CP debate (unblockable via `runDebateToCompletion`).
 
 ### Phase 3 — England automation (§21.3): succession + Mary-I ✅ *(shipped)*
 England is a non-player power, so its Reformation trajectory unfolds automatically. New module

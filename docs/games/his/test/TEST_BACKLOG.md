@@ -549,8 +549,14 @@ build 绿；实机浏览器验证（vs-AI 座位正确 + 教廷 bot 自动打出
 并把其 CP 计入圣彼得（`stPetersProgress`/`stPetersVp`）；**#203** 每命中令外交对手弃 1 张主牌库牌（牌尽则移 1 舰队）；
 **#207 批准** 真正召开神学辩论，经 `debate-actions.js runDebateToCompletion` **同步**结算（initiate→resolve→自动翻转，不留
 pending，免外交段被卡）。测试更新 `event-actions-diplomacy.test.js` + `two-player-cards.test.js`。新增的教廷反改革/圣彼得强度
-令对局略偏教廷，故 v2 出版阈值 32→**34** 复衡（20seed 11-9、VP≈11.1/11.0）。全套 3586 绿、build 绿。延后：#219 强制弃牌/亮牌、
-求和夺回空间、#217 西班牙区第二翻转 UI；玛丽一世 3+CP 辩论（现可经 `runDebateToCompletion` 解锁）。
+令对局略偏教廷，故 v2 出版阈值 32→**34** 复衡（20seed 11-9、VP≈11.1/11.0）。全套 3586 绿、build 绿。
+
+**✅ 剩余 2b-cards 补全（2026-06-29）**：**#217** 秘密新教圈——handler 在未提供空间时自动选有效意大利（必翻）+ 西班牙（roll≥4）天主教空间
+并翻转 + `recountProtestantSpaces`（此前 UI 仅选意大利，4-6 的西班牙翻转从不发生；bot 也能用了）；**#219** 西班牙宗教裁判所——
+教廷弃掉新教最强外交牌（优先入侵）、新教补抽 1 张并被迫打出"另一张"（`diplomacyForcedPlay`，复用 #205 机制），新教方记录主牌库亮牌
+（信息性）。删除死 marker。测试 `event-actions-diplomacy.test.js`（#217/#219）+ `two-player-cards.test.js`（#219 派发）。平衡未变
+（12seed 6-6）。全套 3588 绿、build 绿。**仍延后（低价值）**：求和夺回空间 UI（引擎经 `actionData` 已支持）、#219 联机亮牌解遮蔽、
+玛丽一世 3+CP 辩论（可经 `runDebateToCompletion` 解锁）。
 
 **两人局变体功能完成**（规则 + 联机 + 单机 vs-AI 全部就绪；AI 自对弈已平衡）。
 

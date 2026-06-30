@@ -212,6 +212,21 @@ describe('Diplomacy Event Handlers (#201-219)', () => {
       expect(state.spaces['Genoa'].religion).toBe('protestant');
       expect(state.spaces['Barcelona'].religion).toBe('protestant');
     });
+
+    it('roll 4+ auto-picks an Italian + a Spanish space when none supplied', () => {
+      const state = eventState();
+      state.spaces['Barcelona'] = {
+        controller: 'hapsburg', units: [],
+        languageZone: 'spanish', religion: 'catholic'
+      };
+      const helpers = createMockHelpers();
+      // No italianSpace/spanishSpace given (as the bot / Italian-only UI play it).
+      executeEvent(state, 'protestant', 217, { dieRoll: 5 }, helpers);
+      const protIn = (zone) => Object.values(state.spaces)
+        .some(sp => sp.languageZone === zone && sp.religion === 'protestant');
+      expect(protIn('italian')).toBe(true);
+      expect(protIn('spanish')).toBe(true);
+    });
   });
 
   // ── #201 Andrea Doria — already-controlled Genoa adds units ─────
@@ -693,19 +708,28 @@ describe('Diplomacy Event Handlers (#201-219)', () => {
 
   // ── #219 Spanish Inquisition ───────────────────────────────────
   describe('#219 Spanish Inquisition', () => {
-    it('Papacy path: sets force discard pressure', () => {
-      const state = eventState();
+    it('Papacy discards a Protestant diplomatic card and forces the other play', () => {
+      const state = eventState({
+        diplomacyDeck: [203, 204],
+        diplomacyHands: { papacy: [219], protestant: [206, 201] }, // 206 = Invasion
+        diplomacyDiscard: [],
+        diplomacyForcedPlay: null
+      });
       const helpers = createMockHelpers();
       executeEvent(state, 'papacy', 219, {}, helpers);
-      expect(state.pendingDiplomaticPressure.reviewer).toBe('papacy');
-      expect(state.pendingDiplomaticPressure.action).toBe('force_discard');
+      // The Invasion (206) is discarded; the Protestant must play the other (201).
+      expect(state.diplomacyDiscard).toContain(206);
+      expect(state.diplomacyForcedPlay).toEqual({ side: 'protestant', card: 201 });
+      expect(state.pendingDiplomaticPressure).toBeUndefined(); // dead marker gone
     });
 
-    it('non-Papacy path: sets hand reveal', () => {
+    it('Protestant path: reveals the Main-Deck hand (informational, no markers)', () => {
       const state = eventState();
       const helpers = createMockHelpers();
       executeEvent(state, 'protestant', 219, {}, helpers);
-      expect(state.pendingHandReveal.power).toBe('protestant');
+      const log = state.eventLog.find(e => e.type === 'event_diplo_spanish_inquisition');
+      expect(log.data.power).toBe('protestant');
+      expect(state.pendingHandReveal).toBeUndefined();
     });
   });
 

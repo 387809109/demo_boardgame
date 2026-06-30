@@ -148,6 +148,21 @@ describe('Non-invasion card dispatch in the 2P play-loop', () => {
     expect(st.pendingReformation).toBeFalsy();
     expect(st.pendingDebateCall).toBeUndefined();
   });
+
+  it('#219 Spanish Inquisition discards a Protestant card + forces a play via dispatch', () => {
+    const st = make2pState();
+    st.turn = 2;
+    st.diplomacyHands = { papacy: [219], protestant: [206, 201] }; // 206 = Invasion
+    st.diplomacyDeck = [203, 204];
+    st.diplomacyDiscard = [];
+    // Papacy plays first, Protestant still queued (so the turn doesn't end and
+    // clear the forced-play the Inquisition imposes on the Protestant).
+    st.diplomacy2P = { stage: 'play', pendingPlayers: ['papacy', 'protestant'] };
+    const r = applyDiplomacy2PPlay(st, 'papacy', { cardNumber: 219 }, helpers);
+    expect(r.ok).toBe(true);
+    expect(st.diplomacyDiscard).toContain(206);
+    expect(st.diplomacyForcedPlay).toEqual({ side: 'protestant', card: 201 });
+  });
 });
 
 describe('#205 Diplomatic Pressure forced-play constraint (§9)', () => {

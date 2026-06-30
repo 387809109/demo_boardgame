@@ -11,6 +11,7 @@ import {
 import { CARD_BY_NUMBER } from '../data/cards.js';
 import { ST_PETERS } from '../constants.js';
 import { runDebateToCompletion } from './debate-actions.js';
+import { recountProtestantSpaces } from '../state/state-helpers.js';
 
 export const DIPLOMACY_EVENT_HANDLERS = {};
 
@@ -137,6 +138,14 @@ function removeOneSquadron(state, owner) {
     if (stack) { stack.squadrons--; return true; }
   }
   return false;
+}
+
+/** First Catholic space in a language zone (for #217 auto-flip), or undefined. */
+function pickCatholicInZone(state, zone) {
+  for (const [name, sp] of Object.entries(state.spaces || {})) {
+    if (sp.languageZone === zone && sp.religion === 'catholic') return name;
+  }
+  return undefined;
 }
 
 /** Language zone with the most Protestant spaces (for #207's debate), or null. */
@@ -633,20 +642,24 @@ DIPLOMACY_EVENT_HANDLERS[217] = {
   execute(state, power, actionData, helpers) {
     const roll =
       actionData.dieRoll ?? (rollDie());
-    const italianSpace = actionData.italianSpace;
-    const spanishSpace = actionData.spanishSpace;
+    // Card text: always flip one Italian-zone space; on a 4-6, ALSO flip a
+    // Spanish-zone space. Auto-pick a valid Catholic target when the caller
+    // (the bot, or the Italian-only UI) didn't supply one.
+    const italianSpace = actionData.italianSpace
+      || pickCatholicInZone(state, 'italian');
+    const spanishSpace = roll >= 4
+      ? (actionData.spanishSpace || pickCatholicInZone(state, 'spanish'))
+      : null;
+    let flipped = 0;
     if (italianSpace) {
       const sp = state.spaces[italianSpace];
-      if (sp && sp.languageZone === 'italian') {
-        sp.religion = 'protestant';
-      }
+      if (sp && sp.languageZone === 'italian') { sp.religion = 'protestant'; flipped++; }
     }
-    if (roll >= 4 && spanishSpace) {
+    if (spanishSpace) {
       const sp = state.spaces[spanishSpace];
-      if (sp && sp.languageZone === 'spanish') {
-        sp.religion = 'protestant';
-      }
+      if (sp && sp.languageZone === 'spanish') { sp.religion = 'protestant'; flipped++; }
     }
+    if (flipped > 0) recountProtestantSpaces(state);
     helpers.logEvent(
       state, 'event_diplo_secret_circle',
       { power, roll, italianSpace, spanishSpace }
@@ -687,16 +700,31 @@ DIPLOMACY_EVENT_HANDLERS[218] = {
 DIPLOMACY_EVENT_HANDLERS[219] = {
   execute(state, power, actionData, helpers) {
     if (power === 'papacy') {
-      state.pendingDiplomaticPressure = {
-        reviewer: 'papacy',
-        targetPower: 'protestant',
-        action: 'force_discard'
-      };
+      // Papacy inspects the Protestant's Diplomatic hand and discards the card
+      // most useful to it (prefer an Invasion); the Protestant draws a
+      // replacement and must play a remaining card this turn.
+      const hand = state.diplomacyHands?.protestant || [];
+      const toDiscard = hand.find((c) => isInvasionCard(c)) ?? hand[0] ?? null;
+      let forced = null;
+      if (toDiscard != null) {
+        discardDiplomacyCard(state, 'protestant', toDiscard);
+        forced = (state.diplomacyHands.protestant || [])[0] ?? null; // "the other"
+        drawDiplomacyCard(state, 'protestant'); // replacement to keep hand size
+        if (forced != null) {
+          state.diplomacyForcedPlay = { side: 'protestant', card: forced };
+        }
+      }
+      helpers.logEvent(
+        state, 'event_diplo_spanish_inquisition',
+        { power, discarded: toDiscard, forced }
+      );
     } else {
-      state.pendingHandReveal = { power: 'protestant' };
+      // Protestant reveals its Main-Deck hand (informational — no mechanical
+      // effect; a full online unmask is out of scope).
+      helpers.logEvent(
+        state, 'event_diplo_spanish_inquisition',
+        { power, revealedHand: [...(state.hands?.protestant || [])] }
+      );
     }
-    helpers.logEvent(
-      state, 'event_diplo_spanish_inquisition', { power }
-    );
   }
 };

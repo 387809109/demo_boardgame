@@ -1388,8 +1388,13 @@ Authoritative rules + phased roadmap: **`TWO_PLAYER_PLAN.md`** (extracted from
   St. Peter's; #203 Corsair Raid makes the diplomacy opponent discard a card per hit (squadron once
   out of cards); #207-granted runs a real theological debate, resolved **synchronously**
   (`debate-actions.js runDebateToCompletion` — initiate → resolve → auto-flip, leaving no pending
-  state so the diplomacy phase can't strand). Still deferred: #219 force-discard/hand-reveal,
-  sue-for-peace reclaim, #217's optional Spanish-zone flip (supported via `actionData`, no UI step).
+  state so the diplomacy phase can't strand). #217 Secret Protestant Circle auto-picks a valid
+  Italian (always) + Spanish (roll 4-6) Catholic space to flip. #219 Spanish Inquisition: the Papacy
+  discards the Protestant's strongest diplomatic card (Invasion-first), the Protestant draws a
+  replacement and is forced to play the other (`diplomacyForcedPlay`); Protestant-path logs a
+  (mechanically-nil) Main-hand reveal. Still deferred (low value): sue-for-peace **reclaim** UI
+  (engine honors `reclaimSpaces` via `actionData`); #219's full online hand-reveal unmask; the Mary-I
+  3+CP debate (now unblockable via `runDebateToCompletion`).
 
 **Phase 3 (implemented — England automation §21.3, succession + Mary I):**
 
